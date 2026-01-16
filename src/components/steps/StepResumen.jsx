@@ -21,7 +21,12 @@ export default function StepResumen({ data, onBack }) {
       const pdfRaw = generatePDF(data, calculations)
 
       const payload = {
-        agente: 'Agente Demo',
+        agente: {
+          nombre: data.agenteNombre,
+          apellido: data.agenteApellido,
+          email: data.agenteEmail,
+          telefono: data.agenteTelefono
+        },
         fecha: new Date().toISOString().split('T')[0],
         propiedad: { direccion: data.direccion, comuna: data.comuna, tipo: data.tipoPropiedad },
         arrendatario: {
