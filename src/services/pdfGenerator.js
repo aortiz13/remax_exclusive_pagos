@@ -53,7 +53,40 @@ export const generatePDF = (data, calculations) => {
 
     y += 15
 
-    // --- Section 2: Propietario ---
+    // --- Section 2: Arrendatario ---
+    doc.setFontSize(12)
+    doc.setTextColor(0, 61, 165)
+    doc.setFont(undefined, 'bold')
+    doc.text('DATOS DEL ARRENDATARIO', 20, y)
+    y += 8
+
+    doc.setFontSize(10)
+    doc.setTextColor(0, 0, 0)
+
+    // Row 1: Name & Rut
+    doc.setFont(undefined, 'normal')
+    doc.text(`Nombre:`, 20, y)
+    doc.setFont(undefined, 'bold')
+    doc.text(`${data.arrendatarioNombre} ${data.arrendatarioApellido}`, 40, y)
+
+    doc.setFont(undefined, 'normal')
+    doc.text(`RUT:`, 120, y)
+    doc.setFont(undefined, 'bold')
+    doc.text(`${data.arrendatarioRut}`, 130, y)
+    y += 6
+
+    // Row 2: Email & Phone
+    doc.setFont(undefined, 'normal')
+    doc.text(`Email:`, 20, y)
+    doc.text(`${data.arrendatarioEmail || '-'}`, 40, y)
+
+    doc.text(`Tel:`, 120, y)
+    doc.text(`${data.arrendatarioTelefono || '-'}`, 130, y)
+    y += 6
+
+    y += 10
+
+    // --- Section 3: Propietario ---
     doc.setFontSize(12)
     doc.setTextColor(0, 61, 165)
     doc.setFont(undefined, 'bold')

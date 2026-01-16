@@ -24,6 +24,13 @@ export default function StepResumen({ data, onBack }) {
         agente: 'Agente Demo',
         fecha: new Date().toISOString().split('T')[0],
         propiedad: { direccion: data.direccion, comuna: data.comuna, tipo: data.tipoPropiedad },
+        arrendatario: {
+          nombre: data.arrendatarioNombre,
+          apellido: data.arrendatarioApellido,
+          rut: data.arrendatarioRut,
+          email: data.arrendatarioEmail,
+          telefono: data.arrendatarioTelefono
+        },
         dueño: { nombre: data.dueñoNombre, rut: data.dueñoRut, banco: data.bancoNombre },
         financiero: { total_cancelar: calculations.totalCancelar, total_recibir: calculations.totalRecibir },
         pdf_base64: pdfRaw // Send raw base64
