@@ -65,7 +65,7 @@ export default function StepAgente({ data, onUpdate, onNext }) {
                                 className="pl-8"
                                 value={data.agenteTelefono || ''}
                                 onChange={(e) => onUpdate('agenteTelefono', e.target.value)}
-                                placeholder="+56 9 1234 5678"
+                                placeholder="56 9 1234 5678"
                             />
                         </div>
                     </div>

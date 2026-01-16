@@ -87,7 +87,7 @@ export default function StepDueñoBanco({ data, onUpdate, onNext, onBack }) {
                                     type="tel"
                                     value={data.dueñoTelefono}
                                     onChange={(e) => onUpdate('dueñoTelefono', e.target.value)}
-                                    placeholder="+56 9 ..."
+                                    placeholder="56 9 ..."
                                 />
                             </div>
                         </div>

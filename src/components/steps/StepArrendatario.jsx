@@ -61,7 +61,7 @@ export default function StepArrendatario({ data, onUpdate, onNext, onBack }) {
                                     value={data.arrendatarioTelefono}
                                     onChange={(e) => onUpdate('arrendatarioTelefono', e.target.value)}
                                     required
-                                    placeholder="+56 9 ..."
+                                    placeholder="56 9 ..."
                                 />
                             </div>
                             <div className="space-y-2 md:col-span-2">
