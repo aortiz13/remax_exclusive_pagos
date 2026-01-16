@@ -1,6 +1,6 @@
 import React from 'react'
 import { Card, CardContent, Button, Input, Label, Separator } from '@/components/ui'
-import { User, CreditCard, Building, Wallet } from 'lucide-react'
+import { User, CreditCard, Building, Wallet, UserPlus } from 'lucide-react'
 
 const BANKS = [
     'Banco de Chile',
@@ -27,8 +27,9 @@ const ACCOUNT_TYPES = [
 
 export default function StepDueñoBanco({ data, onUpdate, onNext, onBack }) {
     const isOwnerComplete = data.dueñoNombre && data.dueñoRut && data.dueñoEmail
+    const isTenantComplete = data.arrendatarioNombre && data.arrendatarioApellido && data.arrendatarioEmail && data.arrendatarioTelefono && data.arrendatarioRut
     const isBankComplete = data.bancoNombre && data.bancoTipoCuenta && data.bancoNroCuenta && data.bancoRutTitular
-    const isComplete = isOwnerComplete && isBankComplete
+    const isComplete = isOwnerComplete && isTenantComplete && isBankComplete
 
     const handleSubmit = (e) => {
         e.preventDefault()
@@ -93,11 +94,69 @@ export default function StepDueñoBanco({ data, onUpdate, onNext, onBack }) {
                         </div>
                     </div>
 
+                    {/* Tenant Section */}
+                    <div className="space-y-4">
+                        <div className="flex items-center gap-2 pb-2 border-b">
+                            <UserPlus className="w-5 h-5 text-primary" />
+                            <h2 className="text-lg font-semibold text-foreground">Datos del Arrendatario <span className="text-sm font-normal text-muted-foreground">(Receptor del Voucher)</span></h2>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label>Nombre</Label>
+                                <Input
+                                    value={data.arrendatarioNombre}
+                                    onChange={(e) => onUpdate('arrendatarioNombre', e.target.value)}
+                                    required
+                                    placeholder="Nombre"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Apellido</Label>
+                                <Input
+                                    value={data.arrendatarioApellido}
+                                    onChange={(e) => onUpdate('arrendatarioApellido', e.target.value)}
+                                    required
+                                    placeholder="Apellido"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>RUT</Label>
+                                <Input
+                                    value={data.arrendatarioRut}
+                                    onChange={(e) => handleRutChange('arrendatarioRut', e.target.value)}
+                                    placeholder="12.345.678-9"
+                                    required
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Teléfono</Label>
+                                <Input
+                                    type="tel"
+                                    value={data.arrendatarioTelefono}
+                                    onChange={(e) => onUpdate('arrendatarioTelefono', e.target.value)}
+                                    required
+                                    placeholder="+56 9 ..."
+                                />
+                            </div>
+                            <div className="space-y-2 md:col-span-2">
+                                <Label>Email</Label>
+                                <Input
+                                    type="email"
+                                    value={data.arrendatarioEmail}
+                                    onChange={(e) => onUpdate('arrendatarioEmail', e.target.value)}
+                                    required
+                                    placeholder="nombre@ejemplo.com"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
                     {/* Bank Section */}
                     <div className="space-y-4">
                         <div className="flex items-center gap-2 pb-2 border-b">
                             <Building className="w-5 h-5 text-primary" />
-                            <h2 className="text-lg font-semibold text-foreground">Datos Bancarios</h2>
+                            <h2 className="text-lg font-semibold text-foreground">Datos Bancarios <span className="text-sm font-normal text-muted-foreground">(Propietario)</span></h2>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

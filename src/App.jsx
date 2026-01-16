@@ -39,6 +39,12 @@ function App() {
     dueñoRut: '',
     dueñoEmail: '',
     dueñoTelefono: '',
+    // Arrendatario
+    arrendatarioNombre: '',
+    arrendatarioApellido: '',
+    arrendatarioEmail: '',
+    arrendatarioTelefono: '',
+    arrendatarioRut: '',
     // Banco
     bancoNombre: '',
     bancoTipoCuenta: '',
