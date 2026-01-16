@@ -5,8 +5,9 @@ export default function Stepper({ currentStep }) {
         { id: 1, label: 'Agente' },
         { id: 2, label: 'Propiedad' },
         { id: 3, label: 'Dueño / Banco' },
-        { id: 4, label: 'Cálculos' },
-        { id: 5, label: 'Resumen' },
+        { id: 4, label: 'Arrendatario' },
+        { id: 5, label: 'Cálculos' },
+        { id: 6, label: 'Resumen' },
     ]
 
     return (

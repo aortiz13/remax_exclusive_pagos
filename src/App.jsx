@@ -4,6 +4,7 @@ import Stepper from './components/layout/Stepper'
 import StepAgente from './components/steps/StepAgente'
 import StepPropiedad from './components/steps/StepPropiedad'
 import StepDueñoBanco from './components/steps/StepDueñoBanco'
+import StepArrendatario from './components/steps/StepArrendatario'
 import StepCalculos from './components/steps/StepCalculos'
 import StepResumen from './components/steps/StepResumen'
 
@@ -63,8 +64,8 @@ function App() {
     honorariosAdmin: '',
   })
 
-  // 5 Steps total now
-  const nextStep = () => setCurrentStep(prev => Math.min(prev + 1, 5))
+  // 6 Steps total now
+  const nextStep = () => setCurrentStep(prev => Math.min(prev + 1, 6))
   const prevStep = () => setCurrentStep(prev => Math.max(prev - 1, 1))
 
   const handleUpdate = (field, value) => {
@@ -102,7 +103,7 @@ function App() {
             />
           )}
           {currentStep === 4 && (
-            <StepCalculos
+            <StepArrendatario
               data={formData}
               onUpdate={handleUpdate}
               onNext={nextStep}
@@ -110,6 +111,14 @@ function App() {
             />
           )}
           {currentStep === 5 && (
+            <StepCalculos
+              data={formData}
+              onUpdate={handleUpdate}
+              onNext={nextStep}
+              onBack={prevStep}
+            />
+          )}
+          {currentStep === 6 && (
             <StepResumen
               data={formData}
               onBack={prevStep}
