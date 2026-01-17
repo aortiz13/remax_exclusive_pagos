@@ -3,8 +3,9 @@ import { useAuth } from '../context/AuthContext'
 import { supabase } from '../services/supabase'
 import { Button, Card, CardContent, CardHeader, CardTitle, CardDescription, Badge, Input, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, Separator, AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui'
 import { useNavigate } from 'react-router-dom'
-import { PlusCircle, FileText, Trash2, Play, Search, MapPin, User, Calendar, MoreVertical, Building2 } from 'lucide-react'
+import { PlusCircle, FileText, Trash2, Play, Search, MapPin, User, Calendar, MoreVertical, Building2, HelpCircle } from 'lucide-react'
 import { toast } from 'sonner'
+import { useDashboardTour } from '../hooks/useDashboardTour'
 
 export default function Dashboard() {
     const { user } = useAuth()
@@ -13,6 +14,11 @@ export default function Dashboard() {
     const [searchTerm, setSearchTerm] = useState('')
     const [requestToDelete, setRequestToDelete] = useState(null)
     const navigate = useNavigate()
+    const { startTour } = useDashboardTour()
+
+    useEffect(() => {
+        startTour()
+    }, [startTour])
 
     useEffect(() => {
         if (user) {
@@ -91,12 +97,16 @@ export default function Dashboard() {
 
                 {/* Header Section */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div>
+                    <div id="tour-welcome">
                         <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Panel de Control</h1>
                         <p className="text-slate-500 mt-1">Gestiona tus solicitudes de contrato y seguimiento.</p>
                     </div>
                     <div className="flex items-center gap-2">
-                        <Button onClick={() => navigate('/new-request')} size="lg" className="shadow-lg shadow-primary/20">
+                        <Button variant="outline" onClick={() => startTour(true)} className="hidden sm:flex" title="Iniciar guía">
+                            <HelpCircle className="mr-2 h-4 w-4" />
+                            Guía
+                        </Button>
+                        <Button id="tour-new-request" onClick={() => navigate('/new-request')} size="lg" className="shadow-lg shadow-primary/20">
                             <PlusCircle className="mr-2 h-5 w-5" />
                             Nueva Solicitud
                         </Button>
@@ -104,7 +114,7 @@ export default function Dashboard() {
                 </div>
 
                 {/* Search and Filter Bar */}
-                <div className="bg-white dark:bg-slate-900 rounded-lg border shadow-sm p-4 flex items-center gap-4">
+                <div id="tour-search" className="bg-white dark:bg-slate-900 rounded-lg border shadow-sm p-4 flex items-center gap-4">
                     <div className="relative flex-1 max-w-md">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                         <Input
@@ -143,7 +153,7 @@ export default function Dashboard() {
                         )}
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div id="tour-requests-list" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {filteredRequests.map((request) => (
                             <Card
                                 key={request.id}
