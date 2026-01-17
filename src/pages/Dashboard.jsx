@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../services/supabase'
-import { Button, Card, CardContent, CardHeader, CardTitle, CardDescription, Badge, Input, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, Separator } from '@/components/ui'
+import { Button, Card, CardContent, CardHeader, CardTitle, CardDescription, Badge, Input, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, Separator, AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui'
 import { useNavigate } from 'react-router-dom'
 import { PlusCircle, FileText, Trash2, Play, Search, MapPin, User, Calendar, MoreVertical, Building2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -11,6 +11,7 @@ export default function Dashboard() {
     const [requests, setRequests] = useState([])
     const [loading, setLoading] = useState(true)
     const [searchTerm, setSearchTerm] = useState('')
+    const [requestToDelete, setRequestToDelete] = useState(null)
     const navigate = useNavigate()
 
     useEffect(() => {
@@ -36,22 +37,28 @@ export default function Dashboard() {
         }
     }
 
-    const deleteRequest = async (id, e) => {
+    const handleDeleteClick = (id, e) => {
         e?.stopPropagation()
-        if (!confirm('¿Estás seguro de que quieres eliminar esta solicitud?')) return
+        setRequestToDelete(id)
+    }
+
+    const confirmDelete = async () => {
+        if (!requestToDelete) return
 
         try {
             const { error } = await supabase
                 .from('requests')
                 .delete()
-                .eq('id', id)
+                .eq('id', requestToDelete)
 
             if (error) throw error
-            setRequests(prev => prev.filter(r => r.id !== id))
+            setRequests(prev => prev.filter(r => r.id !== requestToDelete))
             toast.success('Solicitud eliminada')
         } catch (error) {
             console.error('Error deleting request:', error)
             toast.error('Error al eliminar la solicitud')
+        } finally {
+            setRequestToDelete(null)
         }
     }
 
@@ -152,7 +159,7 @@ export default function Dashboard() {
                                             {request.status === 'submitted' ? 'Enviada' : 'Borrador'}
                                         </Badge>
                                         <div className="relative z-10">
-                                            <Button variant="ghost" size="icon" className="h-8 w-8 -mr-2 text-slate-400 hover:text-slate-600" onClick={(e) => deleteRequest(request.id, e)}>
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 -mr-2 text-slate-400 hover:text-red-500" onClick={(e) => handleDeleteClick(request.id, e)}>
                                                 <Trash2 className="h-4 w-4" />
                                             </Button>
                                         </div>
@@ -200,6 +207,22 @@ export default function Dashboard() {
                         ))}
                     </div>
                 )}
+                <AlertDialog open={!!requestToDelete} onOpenChange={(open) => !open && setRequestToDelete(null)}>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>¿Estás completamente seguro?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                Esta acción no se puede deshacer. Esto eliminará permanentemente la solicitud y todos los datos asociados.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction onClick={confirmDelete} className="bg-red-600 hover:bg-red-700 focus:ring-red-600">
+                                Eliminar
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
             </div>
         </div>
     )
