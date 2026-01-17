@@ -1,5 +1,5 @@
 
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import Header from './components/layout/Header'
 import Login from './pages/Login'
@@ -11,9 +11,18 @@ import { Toaster } from 'sonner'
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
-  const { user, loading } = useAuth()
+  const { user, profile, loading } = useAuth()
+  const location = useLocation()
+
   if (loading) return <div className="h-screen flex items-center justify-center">Cargando...</div>
   if (!user) return <Navigate to="/login" replace />
+
+  // Force profile completion
+  const isProfileComplete = profile?.first_name && profile?.last_name && profile?.phone
+  if (!isProfileComplete && location.pathname !== '/profile') {
+    return <Navigate to="/profile" replace state={{ message: 'Por favor completa tu perfil para continuar.' }} />
+  }
+
   return children
 }
 

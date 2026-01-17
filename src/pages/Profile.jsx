@@ -5,6 +5,8 @@ import { useAuth } from '../context/AuthContext'
 import { supabase } from '../services/supabase'
 import { Button, Input, Label, Card, CardHeader, CardTitle, CardContent, CardFooter, CardDescription, Avatar, AvatarFallback, AvatarImage } from '@/components/ui'
 
+import { useNavigate, useLocation } from 'react-router-dom'
+
 export default function Profile() {
     const { user, profile, refreshProfile } = useAuth()
     const [loading, setLoading] = useState(false)
@@ -12,6 +14,15 @@ export default function Profile() {
     const [lastName, setLastName] = useState('')
     const [phone, setPhone] = useState('')
     const [avatarUrl, setAvatarUrl] = useState('')
+    const location = useLocation()
+
+    useEffect(() => {
+        if (location.state?.message) {
+            toast.warning(location.state.message)
+            // Clear state to avoid showing it on refresh? 
+            // Better not to mess with history state directly without navigation
+        }
+    }, [location])
 
     useEffect(() => {
         if (profile) {
