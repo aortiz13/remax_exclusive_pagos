@@ -6,6 +6,8 @@ import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Profile from './pages/Profile'
 import RequestForm from './pages/RequestForm'
+import NewRequestSelection from './pages/NewRequestSelection'
+import ContractForm from './pages/ContractForm'
 import AdminInvites from './pages/AdminInvites'
 import { Toaster } from 'sonner'
 
@@ -63,7 +65,19 @@ function App() {
 
             <Route path="/new-request" element={
               <ProtectedRoute>
+                <NewRequestSelection />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/request/payment/new" element={
+              <ProtectedRoute>
                 <RequestForm />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/request/contract/new" element={
+              <ProtectedRoute>
+                <ContractForm />
               </ProtectedRoute>
             } />
 
