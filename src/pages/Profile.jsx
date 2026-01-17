@@ -1,10 +1,8 @@
-
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../services/supabase'
-import { Button, Input, Label, Card, CardHeader, CardTitle, CardContent, CardFooter, CardDescription, Avatar, AvatarFallback, AvatarImage } from '@/components/ui'
-
+import { Button, Input, Label, Card, CardHeader, CardTitle, CardContent, CardFooter, CardDescription } from '@/components/ui'
 import { useNavigate, useLocation } from 'react-router-dom'
 
 export default function Profile() {
@@ -13,14 +11,12 @@ export default function Profile() {
     const [firstName, setFirstName] = useState('')
     const [lastName, setLastName] = useState('')
     const [phone, setPhone] = useState('')
-    const [avatarUrl, setAvatarUrl] = useState('')
     const location = useLocation()
+    const navigate = useNavigate()
 
     useEffect(() => {
         if (location.state?.message) {
             toast.warning(location.state.message)
-            // Clear state to avoid showing it on refresh? 
-            // Better not to mess with history state directly without navigation
         }
     }, [location])
 
@@ -29,7 +25,6 @@ export default function Profile() {
             setFirstName(profile.first_name || '')
             setLastName(profile.last_name || '')
             setPhone(profile.phone || '')
-            setAvatarUrl(profile.avatar_url || '')
         }
     }, [profile])
 
@@ -43,7 +38,6 @@ export default function Profile() {
                 first_name: firstName,
                 last_name: lastName,
                 phone,
-                avatar_url: avatarUrl,
                 updated_at: new Date(),
             }
 
@@ -53,6 +47,11 @@ export default function Profile() {
 
             await refreshProfile()
             toast.success('Perfil actualizado correctamente')
+
+            // Redirect to dashboard if profile is complete
+            if (firstName && lastName && phone) {
+                navigate('/dashboard')
+            }
         } catch (error) {
             console.error(error)
             toast.error('Error al actualizar perfil')
@@ -67,27 +66,11 @@ export default function Profile() {
                 <CardHeader>
                     <CardTitle>Mi Perfil</CardTitle>
                     <CardDescription>
-                        Gestiona tu información personal. Estos datos se usarán para autocompletar tus solicitudes.
+                        Completa tu información personal para continuar. Estos datos se usarán para autocompletar tus solicitudes.
                     </CardDescription>
                 </CardHeader>
                 <form onSubmit={updateProfile}>
                     <CardContent className="space-y-6">
-                        <div className="flex items-center space-x-4">
-                            <Avatar className="h-20 w-20">
-                                <AvatarImage src={avatarUrl} alt="Avatar" />
-                                <AvatarFallback>{firstName?.charAt(0)}{lastName?.charAt(0)}</AvatarFallback>
-                            </Avatar>
-                            <div className="space-y-2 flex-1">
-                                <Label htmlFor="avatar">URL de Avatar</Label>
-                                <Input
-                                    id="avatar"
-                                    placeholder="https://example.com/photo.jpg"
-                                    value={avatarUrl}
-                                    onChange={(e) => setAvatarUrl(e.target.value)}
-                                />
-                            </div>
-                        </div>
-
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label htmlFor="firstName">Nombre</Label>
@@ -95,6 +78,7 @@ export default function Profile() {
                                     id="firstName"
                                     value={firstName}
                                     onChange={(e) => setFirstName(e.target.value)}
+                                    required
                                 />
                             </div>
                             <div className="space-y-2">
@@ -103,6 +87,7 @@ export default function Profile() {
                                     id="lastName"
                                     value={lastName}
                                     onChange={(e) => setLastName(e.target.value)}
+                                    required
                                 />
                             </div>
                         </div>
@@ -124,12 +109,13 @@ export default function Profile() {
                                 placeholder="+56 9 1234 5678"
                                 value={phone}
                                 onChange={(e) => setPhone(e.target.value)}
+                                required
                             />
                         </div>
                     </CardContent>
                     <CardFooter>
-                        <Button type="submit" disabled={loading}>
-                            {loading ? 'Guardando...' : 'Guardar Cambios'}
+                        <Button type="submit" disabled={loading} className="w-full sm:w-auto">
+                            {loading ? 'Guardando...' : 'Guardar y Continuar'}
                         </Button>
                     </CardFooter>
                 </form>
