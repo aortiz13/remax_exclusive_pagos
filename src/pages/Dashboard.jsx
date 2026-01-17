@@ -1,5 +1,6 @@
 
 import { useEffect, useState } from 'react'
+import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../services/supabase'
 import { Button, Card, CardContent, CardHeader, CardTitle, CardDescription, Badge } from '@/components/ui'
@@ -47,7 +48,7 @@ export default function Dashboard() {
             setRequests(prev => prev.filter(r => r.id !== id))
         } catch (error) {
             console.error('Error deleting request:', error)
-            alert('Error al eliminar la solicitud')
+            toast.error('Error al eliminar la solicitud')
         }
     }
 

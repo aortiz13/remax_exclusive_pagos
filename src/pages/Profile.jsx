@@ -1,5 +1,6 @@
 
 import { useEffect, useState } from 'react'
+import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../services/supabase'
 import { Button, Input, Label, Card, CardHeader, CardTitle, CardContent, CardFooter, CardDescription, Avatar, AvatarFallback, AvatarImage } from '@/components/ui'
@@ -40,10 +41,10 @@ export default function Profile() {
             if (error) throw error
 
             await refreshProfile()
-            alert('Perfil actualizado correctamente')
+            toast.success('Perfil actualizado correctamente')
         } catch (error) {
             console.error(error)
-            alert('Error al actualizar perfil')
+            toast.error('Error al actualizar perfil')
         } finally {
             setLoading(false)
         }

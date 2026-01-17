@@ -7,7 +7,7 @@ import Dashboard from './pages/Dashboard'
 import Profile from './pages/Profile'
 import RequestForm from './pages/RequestForm'
 import AdminInvites from './pages/AdminInvites'
-
+import { Toaster } from 'sonner'
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -26,6 +26,7 @@ const Layout = ({ children }) => {
         {children}
       </main>
 
+      <Toaster />
     </div>
   )
 }

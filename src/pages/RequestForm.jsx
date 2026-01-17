@@ -1,5 +1,6 @@
 
 import { useState, useEffect } from 'react'
+import { toast } from 'sonner'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../services/supabase'
 import { useAuth } from '../context/AuthContext'
@@ -129,10 +130,10 @@ export default function RequestForm() {
             }
 
             if (error) throw error
-            alert('Borrador guardado exitosamente')
+            toast.success('Borrador guardado exitosamente')
         } catch (error) {
             console.error('Error saving draft:', error)
-            alert('Error al guardar el borrador')
+            toast.error('Error al guardar el borrador')
         }
     }
 

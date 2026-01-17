@@ -1,5 +1,6 @@
 
 import { useState } from 'react'
+import { toast } from 'sonner'
 import { supabase } from '../services/supabase'
 import { Button, Input, Label, Card, CardHeader, CardTitle, CardContent, CardFooter, CardDescription } from '@/components/ui'
 import { useAuth } from '../context/AuthContext'
@@ -29,14 +30,14 @@ export default function AdminInvites() {
 
             if (error) throw error
 
-            alert('Invitación enviada correctamente')
+            toast.success('Invitación enviada correctamente')
             setEmail('')
             setFirstName('')
             setLastName('')
 
         } catch (error) {
             console.error('Error sending invite:', error)
-            alert('Error al enviar invitación: ' + error.message)
+            toast.error('Error al enviar invitación: ' + error.message)
         } finally {
             setLoading(false)
         }

@@ -1,5 +1,6 @@
 
 import { useState } from 'react'
+import { toast } from 'sonner'
 import { supabase } from '../services/supabase'
 import { Button, Input, Label, Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui'
 import { CardDescription } from '@/components/ui' // CardDescription is not exported in index.jsx? checking...
@@ -31,7 +32,7 @@ export default function Login() {
                     }
                 })
                 if (error) throw error
-                alert('Registro exitoso! Por favor verifica tu correo si es necesario o inicia sesión.')
+                toast.success('Registro exitoso! Por favor verifica tu correo si es necesario o inicia sesión.')
                 setIsSignUp(false)
             } else {
                 const { error } = await supabase.auth.signInWithPassword({
@@ -42,7 +43,7 @@ export default function Login() {
                 navigate('/dashboard')
             }
         } catch (error) {
-            alert(error.message)
+            toast.error(error.message)
         } finally {
             setLoading(false)
         }
