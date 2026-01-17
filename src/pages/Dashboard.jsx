@@ -1,16 +1,16 @@
-
 import { useEffect, useState } from 'react'
-import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../services/supabase'
-import { Button, Card, CardContent, CardHeader, CardTitle, CardDescription, Badge } from '@/components/ui'
+import { Button, Card, CardContent, CardHeader, CardTitle, CardDescription, Badge, Input, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, Separator } from '@/components/ui'
 import { useNavigate } from 'react-router-dom'
-import { PlusCircle, FileText, Trash2, Play } from 'lucide-react'
+import { PlusCircle, FileText, Trash2, Play, Search, MapPin, User, Calendar, MoreVertical, Building2 } from 'lucide-react'
+import { toast } from 'sonner'
 
 export default function Dashboard() {
     const { user } = useAuth()
     const [requests, setRequests] = useState([])
     const [loading, setLoading] = useState(true)
+    const [searchTerm, setSearchTerm] = useState('')
     const navigate = useNavigate()
 
     useEffect(() => {
@@ -30,12 +30,14 @@ export default function Dashboard() {
             setRequests(data)
         } catch (error) {
             console.error('Error loading requests:', error)
+            toast.error('Error al cargar solicitudes')
         } finally {
             setLoading(false)
         }
     }
 
-    const deleteRequest = async (id) => {
+    const deleteRequest = async (id, e) => {
+        e?.stopPropagation()
         if (!confirm('¿Estás seguro de que quieres eliminar esta solicitud?')) return
 
         try {
@@ -46,6 +48,7 @@ export default function Dashboard() {
 
             if (error) throw error
             setRequests(prev => prev.filter(r => r.id !== id))
+            toast.success('Solicitud eliminada')
         } catch (error) {
             console.error('Error deleting request:', error)
             toast.error('Error al eliminar la solicitud')
@@ -60,77 +63,144 @@ export default function Dashboard() {
         return new Date(dateString).toLocaleDateString('es-CL', {
             day: 'numeric',
             month: 'short',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
+            year: 'numeric'
         })
     }
 
-    return (
-        <div className="container max-w-5xl mx-auto px-4 py-8">
-            <div className="flex justify-between items-center mb-8">
-                <div>
-                    <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Mis Solicitudes</h1>
-                    <p className="text-slate-500 mt-1">Administra tus solicitudes de pago</p>
-                </div>
-                <Button onClick={() => navigate('/new-request')}>
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    Nueva Solicitud
-                </Button>
-            </div>
+    const getProgress = (step) => {
+        return Math.min((step / 5) * 100, 100)
+    }
 
-            {loading ? (
-                <div className="text-center py-8">Cargando...</div>
-            ) : requests.length === 0 ? (
-                <Card className="text-center py-12">
-                    <CardContent>
-                        <div className="flex justify-center mb-4">
-                            <FileText className="h-12 w-12 text-slate-300" />
-                        </div>
-                        <h3 className="text-lg font-medium text-slate-900 mb-2">No tienes solicitudes</h3>
-                        <p className="text-slate-500 mb-4">Comienza creando una nueva solicitud de pago.</p>
-                        <Button onClick={() => navigate('/new-request')} variant="outline">
-                            Crear Primera Solicitud
+    const filteredRequests = requests.filter(request => {
+        const searchLower = searchTerm.toLowerCase()
+        const address = request.data?.direccion?.toLowerCase() || ''
+        const client = (request.data?.arrendatarioNombre || request.data?.dueñoNombre || '').toLowerCase()
+        return address.includes(searchLower) || client.includes(searchLower)
+    })
+
+    return (
+        <div className="min-h-[calc(100vh-80px)] bg-slate-50/50 dark:bg-slate-950/50">
+            <div className="container max-w-6xl mx-auto px-4 py-8 space-y-8">
+
+                {/* Header Section */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Panel de Control</h1>
+                        <p className="text-slate-500 mt-1">Gestiona tus solicitudes de contrato y seguimiento.</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <Button onClick={() => navigate('/new-request')} size="lg" className="shadow-lg shadow-primary/20">
+                            <PlusCircle className="mr-2 h-5 w-5" />
+                            Nueva Solicitud
                         </Button>
-                    </CardContent>
-                </Card>
-            ) : (
-                <div className="grid gap-4">
-                    {requests.map((request) => (
-                        <Card key={request.id} className="hover:shadow-md transition-shadow">
-                            <CardContent className="p-6 flex items-center justify-between">
-                                <div className="space-y-1">
-                                    <div className="flex items-center gap-2">
-                                        <span className="font-semibold text-lg">
-                                            {request.data?.agenteNombre ? `Solicitud de ${request.data.agenteNombre}` : 'Borrador sin nombre'}
-                                        </span>
-                                        <Badge variant={request.status === 'submitted' ? 'default' : 'secondary'}>
+                    </div>
+                </div>
+
+                {/* Search and Filter Bar */}
+                <div className="bg-white dark:bg-slate-900 rounded-lg border shadow-sm p-4 flex items-center gap-4">
+                    <div className="relative flex-1 max-w-md">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                        <Input
+                            placeholder="Buscar por dirección, cliente..."
+                            className="pl-9 bg-slate-50 border-0 focus-visible:ring-1 focus-visible:bg-white transition-colors"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                    </div>
+                    {/* Placeholder for future filters */}
+                    <div className="hidden sm:flex items-center text-sm text-slate-500">
+                        {filteredRequests.length} {filteredRequests.length === 1 ? 'solicitud' : 'solicitudes'}
+                    </div>
+                </div>
+
+                {/* Content Grid */}
+                {loading ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {[1, 2, 3].map(i => (
+                            <div key={i} className="h-48 rounded-xl bg-slate-200 animate-pulse" />
+                        ))}
+                    </div>
+                ) : filteredRequests.length === 0 ? (
+                    <div className="text-center py-20 bg-white dark:bg-slate-900 rounded-xl border border-dashed border-slate-300">
+                        <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <Search className="h-8 w-8 text-slate-400" />
+                        </div>
+                        <h3 className="text-lg font-medium text-slate-900 mb-1">No se encontraron solicitudes</h3>
+                        <p className="text-slate-500 mb-4 max-w-sm mx-auto">
+                            {searchTerm ? 'Intenta con otros términos de búsqueda.' : 'Comienza creando tu primera solicitud de contrato.'}
+                        </p>
+                        {!searchTerm && (
+                            <Button onClick={() => navigate('/new-request')} variant="outline">
+                                Crear Solicitud
+                            </Button>
+                        )}
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {filteredRequests.map((request) => (
+                            <Card
+                                key={request.id}
+                                className="group hover:shadow-lg transition-all duration-300 border-slate-200 dark:border-slate-800 cursor-pointer overflow-hidden relative"
+                                onClick={() => resumeRequest(request.id)}
+                            >
+                                {/* Status Indicator Color Line */}
+                                <div className={`absolute top-0 left-0 w-1 h-full ${request.status === 'submitted' ? 'bg-green-500' : 'bg-amber-400'}`} />
+
+                                <CardHeader className="pb-3 pl-6">
+                                    <div className="flex justify-between items-start">
+                                        <Badge variant={request.status === 'submitted' ? 'default' : 'secondary'} className={request.status === 'submitted' ? 'bg-green-100 text-green-700 hover:bg-green-100 border-green-200' : 'bg-amber-100 text-amber-700 hover:bg-amber-100 border-amber-200'}>
                                             {request.status === 'submitted' ? 'Enviada' : 'Borrador'}
                                         </Badge>
+                                        <div className="relative z-10">
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 -mr-2 text-slate-400 hover:text-slate-600" onClick={(e) => deleteRequest(request.id, e)}>
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        </div>
                                     </div>
-                                    <p className="text-sm text-slate-500">
-                                        Última actualización: {formatDate(request.updated_at)} • Paso {request.step}/5
-                                    </p>
-                                    <p className="text-sm text-slate-600 truncate max-w-md">
-                                        {request.data?.direccion || 'Dirección no especificada'}
-                                    </p>
-                                </div>
-                                <div className="flex items-center gap-2">
+                                    <CardTitle className="text-lg font-bold line-clamp-1 mt-2 flex items-center gap-2" title={request.data?.direccion}>
+                                        <Building2 className="h-4 w-4 text-slate-400 shrink-0" />
+                                        {request.data?.direccion || 'Nueva Propiedad'}
+                                    </CardTitle>
+                                    <CardDescription className="line-clamp-1">
+                                        {request.data?.comuna || 'Ubicación pendiente'}
+                                    </CardDescription>
+                                </CardHeader>
+
+                                <CardContent className="pl-6 pb-6 pt-0 space-y-4">
+                                    <Separator />
+                                    <div className="space-y-2 text-sm text-slate-600 dark:text-slate-400">
+                                        <div className="flex items-center gap-2">
+                                            <User className="h-4 w-4 text-slate-400" />
+                                            <span className="truncate">
+                                                {request.data?.arrendatarioNombre || request.data?.dueñoNombre || 'Cliente sin asignar'}
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <Calendar className="h-4 w-4 text-slate-400" />
+                                            <span>Actualizado: {formatDate(request.updated_at)}</span>
+                                        </div>
+                                    </div>
+
                                     {request.status === 'draft' && (
-                                        <Button variant="outline" size="sm" onClick={() => resumeRequest(request.id)}>
-                                            <Play className="mr-2 h-3 w-3" />
-                                            Retomar
-                                        </Button>
+                                        <div className="space-y-1.5 pt-2">
+                                            <div className="flex justify-between text-xs font-medium text-slate-500">
+                                                <span>Progreso</span>
+                                                <span>{Math.round(getProgress(request.step))}%</span>
+                                            </div>
+                                            <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                                                <div
+                                                    className="h-full bg-primary transition-all duration-500 ease-out"
+                                                    style={{ width: `${getProgress(request.step)}%` }}
+                                                />
+                                            </div>
+                                        </div>
                                     )}
-                                    <Button variant="ghost" size="icon" onClick={() => deleteRequest(request.id)} className="text-destructive hover:text-destructive hover:bg-destructive/10">
-                                        <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    ))}
-                </div>
-            )}
+                                </CardContent>
+                            </Card>
+                        ))}
+                    </div>
+                )}
+            </div>
         </div>
     )
 }
