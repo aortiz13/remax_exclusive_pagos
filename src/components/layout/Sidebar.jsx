@@ -25,7 +25,7 @@ export default function Sidebar() {
         navigate('/login')
     }
 
-    const menuItems = [
+    const topMenuItems = [
         {
             title: 'Mis Solicitudes',
             icon: LayoutDashboard,
@@ -36,6 +36,9 @@ export default function Sidebar() {
             icon: PlusCircle,
             path: '/new-request',
         },
+    ]
+
+    const bottomMenuItems = [
         {
             title: 'Mi Perfil',
             icon: User,
@@ -44,7 +47,7 @@ export default function Sidebar() {
     ]
 
     if (profile?.role === 'admin') {
-        menuItems.push({
+        bottomMenuItems.push({
             title: 'Administración',
             icon: Settings,
             path: '/admin/invites',
@@ -58,9 +61,9 @@ export default function Sidebar() {
                 isCollapsed ? "w-20" : "w-64"
             )}
         >
-            {/* Logo area */}
-            <div className="p-6 h-[73px] flex items-center justify-between border-b border-slate-50 dark:border-slate-900 overflow-hidden">
-                {!isCollapsed && (
+            {/* Logo area with Collapse Toggle */}
+            <div className="p-6 h-[73px] flex items-center justify-between border-b border-slate-50 dark:border-slate-900 overflow-hidden relative">
+                {!isCollapsed ? (
                     <div className="flex items-center gap-3 animate-in fade-in zoom-in-95 duration-500">
                         <div className="bg-primary/5 p-1.5 rounded-lg flex items-center justify-center">
                             <img
@@ -73,8 +76,7 @@ export default function Sidebar() {
                             Exclusive
                         </span>
                     </div>
-                )}
-                {isCollapsed && (
+                ) : (
                     <div className="bg-primary/5 p-1.5 rounded-lg mx-auto">
                         <img
                             src="https://res.cloudinary.com/dhzmkxbek/image/upload/v1765974550/ChatGPT_Image_11_dic_2025_03_45_43_p.m._oajwry.png"
@@ -83,43 +85,40 @@ export default function Sidebar() {
                         />
                     </div>
                 )}
+
+                {/* Collapse Toggle - Top Position */}
+                {!isCollapsed && (
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-slate-400 hover:text-primary transition-colors hover:bg-primary/5 rounded-lg"
+                        onClick={() => setIsCollapsed(true)}
+                    >
+                        <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                )}
+                {isCollapsed && (
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="absolute -right-3 top-1/2 -translate-y-1/2 h-6 w-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-full shadow-sm z-50 hover:text-primary transition-all scale-0 group-hover:scale-100 opacity-0 group-hover:opacity-100"
+                        onClick={() => setIsCollapsed(false)}
+                    >
+                        <ChevronRight className="h-3 w-3" />
+                    </Button>
+                )}
             </div>
 
-            {/* User Profile Summary */}
-            {!isCollapsed && (
-                <div className="px-6 py-6 animate-in fade-in slide-in-from-top-2 duration-500">
-                    <div className="flex items-center gap-3 p-3 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 group transition-all duration-300 cursor-default">
-                        <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center overflow-hidden shrink-0 ring-2 ring-white dark:ring-slate-800 transition-all shadow-sm">
-                            {profile?.avatar_url ? (
-                                <img src={profile.avatar_url} alt="Profile" className="h-full w-full object-cover" />
-                            ) : (
-                                <span className="font-bold text-primary">
-                                    {profile?.first_name?.[0] || '?'}
-                                </span>
-                            )}
-                        </div>
-                        <div className="min-w-0 overflow-hidden">
-                            <p className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate">
-                                {profile?.first_name} {profile?.last_name}
-                            </p>
-                            <p className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold truncate leading-tight mt-0.5">
-                                {profile?.role === 'admin' ? 'Administrador' : 'Agente'}
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Navigation items */}
-            <nav className="flex-1 px-4 space-y-1.5 mt-2">
-                {menuItems.map((item) => {
+            {/* Navigation items - TOP */}
+            <nav className="flex-1 px-4 space-y-1.5 mt-6">
+                {topMenuItems.map((item) => {
                     const isActive = location.pathname === item.path
                     return (
                         <Button
                             key={item.path}
                             variant="ghost"
                             className={cn(
-                                "w-full justify-start gap-3 h-11 px-3 transition-all rounded-xl border border-transparent",
+                                "w-full justify-start gap-3 h-11 px-3 transition-all rounded-xl border border-transparent group",
                                 isActive
                                     ? "bg-primary text-white hover:bg-primary/90 shadow-md shadow-primary/20 border-primary"
                                     : "text-slate-600 dark:text-slate-400 hover:text-primary hover:bg-primary/5",
@@ -127,7 +126,7 @@ export default function Sidebar() {
                             )}
                             onClick={() => navigate(item.path)}
                         >
-                            <item.icon className={cn("h-5 w-5 shrink-0", isActive ? "text-white" : "")} />
+                            <item.icon className={cn("h-5 w-5 shrink-0 transition-transform group-hover:scale-110", isActive ? "text-white" : "")} />
                             {!isCollapsed && (
                                 <span className="font-medium animate-in slide-in-from-left-2 duration-300">
                                     {item.title}
@@ -138,28 +137,87 @@ export default function Sidebar() {
                 })}
             </nav>
 
-            {/* Bottom section */}
-            <div className="p-4 border-t border-slate-100 dark:border-slate-900 space-y-2 bg-slate-50/10 dark:bg-slate-950/20">
-                <Button
-                    variant="ghost"
-                    className={cn(
-                        "w-full justify-start gap-3 h-11 px-3 text-slate-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-xl transition-colors",
-                        isCollapsed && "justify-center px-0"
-                    )}
-                    onClick={handleSignOut}
-                >
-                    <LogOut className="h-5 w-5 shrink-0" />
-                    {!isCollapsed && <span className="font-medium">Cerrar Sesión</span>}
-                </Button>
+            {/* User Profile Summary & Bottom Navigation */}
+            <div className="p-4 border-t border-slate-100 dark:border-slate-900 space-y-4 bg-slate-50/10 dark:bg-slate-950/20">
 
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    className="w-full h-8 flex items-center justify-center text-slate-300 hover:text-slate-500 dark:hover:text-slate-400"
-                    onClick={() => setIsCollapsed(!isCollapsed)}
-                >
-                    {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-                </Button>
+                {/* Profile Card Refined */}
+                {!isCollapsed && (
+                    <div className="px-2 mb-2">
+                        <div className="flex items-center gap-3 p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm">
+                            <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center overflow-hidden shrink-0 ring-2 ring-white dark:ring-slate-800 shadow-sm">
+                                {profile?.avatar_url ? (
+                                    <img src={profile.avatar_url} alt="Profile" className="h-full w-full object-cover" />
+                                ) : (
+                                    <span className="font-bold text-primary text-sm uppercase">
+                                        {profile?.first_name?.[0] || '?'}
+                                    </span>
+                                )}
+                            </div>
+                            <div className="min-w-0 overflow-hidden">
+                                <p className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">
+                                    {profile?.first_name} {profile?.last_name}
+                                </p>
+                                <p className="text-[10px] text-slate-500 uppercase tracking-tighter font-semibold truncate">
+                                    {profile?.role === 'admin' ? 'Administrador' : 'Agente'}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Bottom Menu Items */}
+                <nav className="space-y-1">
+                    {bottomMenuItems.map((item) => {
+                        const isActive = location.pathname === item.path
+                        return (
+                            <Button
+                                key={item.path}
+                                variant="ghost"
+                                className={cn(
+                                    "w-full justify-start gap-3 h-10 px-3 transition-all rounded-xl border border-transparent group",
+                                    isActive
+                                        ? "bg-slate-100 dark:bg-slate-800 text-primary border-slate-200 dark:border-slate-700"
+                                        : "text-slate-500 dark:text-slate-400 hover:text-primary hover:bg-primary/5",
+                                    isCollapsed && "justify-center px-0 h-10"
+                                )}
+                                onClick={() => navigate(item.path)}
+                            >
+                                <item.icon className={cn("h-4 w-4 shrink-0 transition-transform group-hover:scale-110", isActive ? "text-primary" : "")} />
+                                {!isCollapsed && (
+                                    <span className="text-sm font-medium animate-in slide-in-from-left-2 duration-300">
+                                        {item.title}
+                                    </span>
+                                )}
+                            </Button>
+                        )
+                    })}
+                </nav>
+
+                <div className="pt-2 border-t border-slate-100 dark:border-slate-900">
+                    <Button
+                        variant="ghost"
+                        className={cn(
+                            "w-full justify-start gap-3 h-10 px-3 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-xl transition-colors",
+                            isCollapsed && "justify-center px-0"
+                        )}
+                        onClick={handleSignOut}
+                    >
+                        <LogOut className="h-4 w-4 shrink-0" />
+                        {!isCollapsed && <span className="text-sm font-medium">Cerrar Sesión</span>}
+                    </Button>
+                </div>
+
+                {/* Improved Collapse Toggle for Collapsed State */}
+                {isCollapsed && (
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="w-full h-8 flex items-center justify-center text-slate-300 hover:text-primary mt-2"
+                        onClick={() => setIsCollapsed(false)}
+                    >
+                        <ChevronRight className="h-4 w-4" />
+                    </Button>
+                )}
             </div>
         </aside>
     )
