@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
 import { supabase } from '../services/supabase'
-import { Button, Input, Label, Card, CardHeader, CardTitle, CardContent, CardFooter, CardDescription, Alert, AlertDescription, Badge } from '@/components/ui'
+import { Button, Input, Label, Card, CardHeader, CardTitle, CardContent, CardFooter, CardDescription, Alert, AlertDescription, Badge, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui'
 import { useAuth } from '../context/AuthContext'
 import { Navigate } from 'react-router-dom'
 import { Trash2, Shield, User, Loader2 } from 'lucide-react'
@@ -12,6 +12,7 @@ export default function AdminInvites() {
     const [email, setEmail] = useState('')
     const [firstName, setFirstName] = useState('')
     const [lastName, setLastName] = useState('')
+    const [role, setRole] = useState('agent')
 
     // Users list state
     const [users, setUsers] = useState([])
@@ -55,7 +56,7 @@ export default function AdminInvites() {
 
         try {
             const { data, error } = await supabase.functions.invoke('invite-agent', {
-                body: { email, firstName, lastName }
+                body: { email, firstName, lastName, role }
             })
 
             if (error) throw error
@@ -64,6 +65,7 @@ export default function AdminInvites() {
             setEmail('')
             setFirstName('')
             setLastName('')
+            setRole('agent')
             fetchUsers() // Refresh list just in case (though invited users might not appear until they accept/login first time, depending on flow. For now, profile is created on login usually, unless invite script inserts it. The invite script uses inviteUserByEmail but doesn't insert profile directly usually unless meta data is handled by trigger. Assuming standard flow.)
 
         } catch (error) {
@@ -130,112 +132,125 @@ export default function AdminInvites() {
                                     />
                                 </div>
                             </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="email">Correo Electrónico</Label>
-                                <Input
-                                    id="email"
-                                    type="email"
-                                    required
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    placeholder="agente@remax-exclusive.cl"
-                                />
-                            </div>
-                        </CardContent>
-                        <CardFooter>
-                            <Button type="submit" className="w-full" disabled={loading}>
-                                {loading ? 'Enviando...' : 'Enviar Invitación'}
-                            </Button>
-                        </CardFooter>
-                    </form>
-                </Card>
-
-                {/* Instructions / Info */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Administración</CardTitle>
-                        <CardDescription>
-                            Gestiona el acceso y los usuarios de la plataforma.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4 text-sm text-muted-foreground">
-                        <p>
-                            Los usuarios invitados recibirán un correo electrónico con un enlace para establecer su contraseña e ingresar a la aplicación.
-                        </p>
-                        <Alert>
-                            <AlertDescription>
-                                Si eliminas un usuario, perderá acceso inmediatamente y todos sus datos de perfil serán borrados.
-                            </AlertDescription>
-                        </Alert>
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="email">Correo Electrónico</Label>
+                            <Input
+                                id="email"
+                                type="email"
+                                required
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                placeholder="agente@remax-exclusive.cl"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="role">Rol</Label>
+                            <Select value={role} onValueChange={setRole}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Selecciona un rol" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="agent">Agente</SelectItem>
+                                    <SelectItem value="admin">Administrador</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
                     </CardContent>
-                </Card>
-            </div>
+                    <CardFooter>
+                        <Button type="submit" className="w-full" disabled={loading}>
+                            {loading ? 'Enviando...' : 'Enviar Invitación'}
+                        </Button>
+                    </CardFooter>
+                </form>
+            </Card>
 
-
-            {/* Users List Section */}
+            {/* Instructions / Info */}
             <Card>
                 <CardHeader>
-                    <CardTitle>Usuarios Registrados</CardTitle>
+                    <CardTitle>Administración</CardTitle>
                     <CardDescription>
-                        Lista de todos los agentes y administradores registrados.
+                        Gestiona el acceso y los usuarios de la plataforma.
                     </CardDescription>
                 </CardHeader>
-                <CardContent>
-                    {usersLoading ? (
-                        <div className="text-center py-8 text-muted-foreground">Cargando usuarios...</div>
-                    ) : users.length === 0 ? (
-                        <div className="text-center py-8 text-muted-foreground">No hay usuarios registrados aun.</div>
-                    ) : (
-                        <div className="space-y-4">
-                            {users.map((u) => (
-                                <div key={u.id} className="flex items-center justify-between p-4 border rounded-lg bg-card hover:bg-accent/5 transition-colors">
-                                    <div className="flex items-center gap-4">
-                                        <div className="h-10 w-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center overflow-hidden">
-                                            {u.avatar_url ? (
-                                                <img src={u.avatar_url} alt={u.first_name} className="h-full w-full object-cover" />
-                                            ) : (
-                                                <span className="text-lg font-bold text-slate-500">
-                                                    {(u.first_name?.[0] || u.email?.[0] || '?').toUpperCase()}
-                                                </span>
-                                            )}
-                                        </div>
-                                        <div>
-                                            <p className="font-medium text-foreground">
-                                                {u.first_name} {u.last_name || ''}
-                                                {u.id === profile?.id && <span className="ml-2 text-xs text-muted-foreground">(Tú)</span>}
-                                            </p>
-                                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                                <span>{u.email}</span>
-                                                {u.role === 'admin' && (
-                                                    <Badge variant="secondary" className="h-5 px-1.5 text-[10px]">
-                                                        Admin
-                                                    </Badge>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {u.id !== profile?.id && (
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20"
-                                            onClick={() => handleDeleteUser(u.id)}
-                                            disabled={deleteLoading === u.id}
-                                        >
-                                            {deleteLoading === u.id ? (
-                                                <Loader2 className="h-4 w-4 animate-spin" />
-                                            ) : (
-                                                <Trash2 className="h-4 w-4" />
-                                            )}
-                                        </Button>
-                                    )}
-                                </div>
-                            ))}
-                        </div>
-                    )}
+                <CardContent className="space-y-4 text-sm text-muted-foreground">
+                    <p>
+                        Los usuarios invitados recibirán un correo electrónico con un enlace para establecer su contraseña e ingresar a la aplicación.
+                    </p>
+                    <Alert>
+                        <AlertDescription>
+                            Si eliminas un usuario, perderá acceso inmediatamente y todos sus datos de perfil serán borrados.
+                        </AlertDescription>
+                    </Alert>
                 </CardContent>
             </Card>
         </div>
+
+
+            {/* Users List Section */ }
+    <Card>
+        <CardHeader>
+            <CardTitle>Usuarios Registrados</CardTitle>
+            <CardDescription>
+                Lista de todos los agentes y administradores registrados.
+            </CardDescription>
+        </CardHeader>
+        <CardContent>
+            {usersLoading ? (
+                <div className="text-center py-8 text-muted-foreground">Cargando usuarios...</div>
+            ) : users.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">No hay usuarios registrados aun.</div>
+            ) : (
+                <div className="space-y-4">
+                    {users.map((u) => (
+                        <div key={u.id} className="flex items-center justify-between p-4 border rounded-lg bg-card hover:bg-accent/5 transition-colors">
+                            <div className="flex items-center gap-4">
+                                <div className="h-10 w-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center overflow-hidden">
+                                    {u.avatar_url ? (
+                                        <img src={u.avatar_url} alt={u.first_name} className="h-full w-full object-cover" />
+                                    ) : (
+                                        <span className="text-lg font-bold text-slate-500">
+                                            {(u.first_name?.[0] || u.email?.[0] || '?').toUpperCase()}
+                                        </span>
+                                    )}
+                                </div>
+                                <div>
+                                    <p className="font-medium text-foreground">
+                                        {u.first_name} {u.last_name || ''}
+                                        {u.id === profile?.id && <span className="ml-2 text-xs text-muted-foreground">(Tú)</span>}
+                                    </p>
+                                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                        <span>{u.email}</span>
+                                        {u.role === 'admin' && (
+                                            <Badge variant="secondary" className="h-5 px-1.5 text-[10px]">
+                                                Admin
+                                            </Badge>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {u.id !== profile?.id && (
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20"
+                                    onClick={() => handleDeleteUser(u.id)}
+                                    disabled={deleteLoading === u.id}
+                                >
+                                    {deleteLoading === u.id ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                        <Trash2 className="h-4 w-4" />
+                                    )}
+                                </Button>
+                            )}
+                        </div>
+                    ))}
+                </div>
+            )}
+        </CardContent>
+    </Card>
+        </div >
     )
 }
