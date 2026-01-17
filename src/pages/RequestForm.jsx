@@ -151,66 +151,73 @@ export default function RequestForm() {
     if (loading) return <div className="p-8 text-center">Cargando solicitud...</div>
 
     return (
-        <div className="w-full">
-            <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-semibold">
-                    {id ? 'Editando Solicitud' : 'Nueva Solicitud'}
-                </h2>
-                <Button variant="outline" onClick={saveDraft}>
-                    <Save className="mr-2 h-4 w-4" />
-                    Guardar Borrador
-                </Button>
+        <div className="flex flex-col lg:flex-row min-h-[calc(100vh-80px)]">
+            {/* Sidebar / Topbar for Stepper */}
+            <div className="w-full lg:w-64 lg:min-h-full bg-slate-50 dark:bg-slate-900 border-b lg:border-b-0 lg:border-r border-slate-200 dark:border-slate-800 p-4 lg:p-6 lg:pt-10">
+                <div className="lg:sticky lg:top-6">
+                    <Stepper currentStep={currentStep} orientation="vertical" />
+                </div>
             </div>
 
-            <Stepper currentStep={currentStep} />
+            {/* Main Content Area */}
+            <div className="flex-1 bg-background p-4 md:p-8 lg:p-12 overflow-y-auto">
+                <div className="max-w-3xl mx-auto space-y-6">
+                    <div className="flex justify-between items-center">
+                        <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+                            {id ? 'Editar Solicitud' : 'Nueva Solicitud'}
+                        </h1>
+                        <Button variant="ghost" size="sm" onClick={saveDraft} className="text-muted-foreground hover:text-primary">
+                            <Save className="mr-2 h-4 w-4" />
+                            <span className="hidden sm:inline">Guardar Borrador</span>
+                        </Button>
+                    </div>
 
-            <div className="mt-6 md:mt-8">
-                {currentStep === 1 && (
-                    <StepPropiedad
-                        data={formData}
-                        onUpdate={handleUpdate}
-                        onNext={nextStep}
-                        // Remove onBack here as it's the first step now? Or keep it if we want to go back to dashboard? 
-                        // Usually first step doesn't have back button or goes to list. 
-                        // StepPropiedad had onBack={prevStep}. prevStep(1) -> 1. So it does nothing.
-                        onBack={() => navigate('/dashboard')}
-                    />
-                )}
-                {currentStep === 2 && (
-                    <StepDueñoBanco
-                        data={formData}
-                        onUpdate={handleUpdate}
-                        onNext={nextStep}
-                        onBack={prevStep}
-                    />
-                )}
-                {currentStep === 3 && (
-                    <StepArrendatario
-                        data={formData}
-                        onUpdate={handleUpdate}
-                        onNext={nextStep}
-                        onBack={prevStep}
-                    />
-                )}
-                {currentStep === 4 && (
-                    <StepCalculos
-                        data={formData}
-                        onUpdate={handleUpdate}
-                        onNext={nextStep}
-                        onBack={prevStep}
-                    />
-                )}
-                {currentStep === 5 && (
-                    <StepResumen
-                        data={formData}
-                        onBack={prevStep}
-                        onComplete={async () => {
-                            if (id) {
-                                await supabase.from('requests').update({ status: 'submitted' }).eq('id', id)
-                            }
-                        }}
-                    />
-                )}
+                    <div className="mt-8">
+                        {currentStep === 1 && (
+                            <StepPropiedad
+                                data={formData}
+                                onUpdate={handleUpdate}
+                                onNext={nextStep}
+                                onBack={() => navigate('/dashboard')}
+                            />
+                        )}
+                        {currentStep === 2 && (
+                            <StepDueñoBanco
+                                data={formData}
+                                onUpdate={handleUpdate}
+                                onNext={nextStep}
+                                onBack={prevStep}
+                            />
+                        )}
+                        {currentStep === 3 && (
+                            <StepArrendatario
+                                data={formData}
+                                onUpdate={handleUpdate}
+                                onNext={nextStep}
+                                onBack={prevStep}
+                            />
+                        )}
+                        {currentStep === 4 && (
+                            <StepCalculos
+                                data={formData}
+                                onUpdate={handleUpdate}
+                                onNext={nextStep}
+                                onBack={prevStep}
+                            />
+                        )}
+                        {currentStep === 5 && (
+                            <StepResumen
+                                data={formData}
+                                onBack={prevStep}
+                                onComplete={async () => {
+                                    if (id) {
+                                        await supabase.from('requests').update({ status: 'submitted' }).eq('id', id)
+                                    }
+                                }}
+                            />
+                        )}
+                    </div>
+                </div>
             </div>
         </div>
     )
