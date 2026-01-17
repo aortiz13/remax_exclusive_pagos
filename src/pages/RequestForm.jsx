@@ -5,7 +5,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../services/supabase'
 import { useAuth } from '../context/AuthContext'
 import Stepper from '../components/layout/Stepper'
-import StepAgente from '../components/steps/StepAgente'
+// StepAgente removed
 import StepPropiedad from '../components/steps/StepPropiedad'
 import StepDueñoBanco from '../components/steps/StepDueñoBanco'
 import StepArrendatario from '../components/steps/StepArrendatario'
@@ -138,7 +138,7 @@ export default function RequestForm() {
     }
 
     const nextStep = () => {
-        setCurrentStep(prev => Math.min(prev + 1, 6))
+        setCurrentStep(prev => Math.min(prev + 1, 5))
         saveDraft() // Auto-save on step change? Optional, but good UX.
     }
 
@@ -166,21 +166,17 @@ export default function RequestForm() {
 
             <div className="mt-6 md:mt-8">
                 {currentStep === 1 && (
-                    <StepAgente
-                        data={formData}
-                        onUpdate={handleUpdate}
-                        onNext={nextStep}
-                    />
-                )}
-                {currentStep === 2 && (
                     <StepPropiedad
                         data={formData}
                         onUpdate={handleUpdate}
                         onNext={nextStep}
-                        onBack={prevStep}
+                        // Remove onBack here as it's the first step now? Or keep it if we want to go back to dashboard? 
+                        // Usually first step doesn't have back button or goes to list. 
+                        // StepPropiedad had onBack={prevStep}. prevStep(1) -> 1. So it does nothing.
+                        onBack={() => navigate('/dashboard')}
                     />
                 )}
-                {currentStep === 3 && (
+                {currentStep === 2 && (
                     <StepDueñoBanco
                         data={formData}
                         onUpdate={handleUpdate}
@@ -188,7 +184,7 @@ export default function RequestForm() {
                         onBack={prevStep}
                     />
                 )}
-                {currentStep === 4 && (
+                {currentStep === 3 && (
                     <StepArrendatario
                         data={formData}
                         onUpdate={handleUpdate}
@@ -196,7 +192,7 @@ export default function RequestForm() {
                         onBack={prevStep}
                     />
                 )}
-                {currentStep === 5 && (
+                {currentStep === 4 && (
                     <StepCalculos
                         data={formData}
                         onUpdate={handleUpdate}
@@ -204,7 +200,7 @@ export default function RequestForm() {
                         onBack={prevStep}
                     />
                 )}
-                {currentStep === 6 && (
+                {currentStep === 5 && (
                     <StepResumen
                         data={formData}
                         onBack={prevStep}

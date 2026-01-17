@@ -2,12 +2,11 @@ import React from 'react'
 
 export default function Stepper({ currentStep }) {
     const steps = [
-        { id: 1, label: 'Agente' },
-        { id: 2, label: 'Propiedad' },
-        { id: 3, label: 'Dueño / Banco' },
-        { id: 4, label: 'Arrendatario' },
-        { id: 5, label: 'Cálculos' },
-        { id: 6, label: 'Resumen' },
+        { id: 1, label: 'Propiedad' },
+        { id: 2, label: 'Dueño / Banco' },
+        { id: 3, label: 'Arrendatario' },
+        { id: 4, label: 'Cálculos' },
+        { id: 5, label: 'Resumen' },
     ]
 
     return (
