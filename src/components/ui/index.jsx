@@ -239,7 +239,7 @@ AvatarFallback.displayName = AvatarPrimitive.Fallback.displayName
 
 // DROPDOWN MENU
 import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu"
-import { Check, ChevronRight, Circle } from "lucide-react"
+import { Check, ChevronRight, Circle, ChevronDown, ChevronUp } from "lucide-react"
 
 const DropdownMenu = DropdownMenuPrimitive.Root
 
@@ -535,7 +535,7 @@ AlertDescription.displayName = "AlertDescription"
 
 // SELECT
 import * as SelectPrimitive from "@radix-ui/react-select"
-import { Check, ChevronDown, ChevronUp } from "lucide-react"
+
 
 const Select = SelectPrimitive.Root
 const SelectGroup = SelectPrimitive.Group
