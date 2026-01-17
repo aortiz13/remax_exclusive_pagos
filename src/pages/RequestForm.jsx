@@ -10,7 +10,7 @@ import StepDueñoBanco from '../components/steps/StepDueñoBanco'
 import StepArrendatario from '../components/steps/StepArrendatario'
 import StepCalculos from '../components/steps/StepCalculos'
 import StepResumen from '../components/steps/StepResumen'
-import { Button } from '@/components/ui/button'
+import { Button } from '@/components/ui'
 import { Save } from 'lucide-react'
 
 export default function RequestForm() {

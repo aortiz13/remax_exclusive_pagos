@@ -2,11 +2,7 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../services/supabase'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Card, CardHeader, CardTitle, CardContent, CardFooter, CardDescription } from '@/components/ui/card'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Button, Input, Label, Card, CardHeader, CardTitle, CardContent, CardFooter, CardDescription, Avatar, AvatarFallback, AvatarImage } from '@/components/ui'
 
 export default function Profile() {
     const { user, profile, refreshProfile } = useAuth()

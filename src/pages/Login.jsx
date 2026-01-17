@@ -1,10 +1,8 @@
 
 import { useState } from 'react'
 import { supabase } from '../services/supabase'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Card, CardHeader, CardTitle, CardContent, CardFooter, CardDescription } from '@/components/ui/card'
+import { Button, Input, Label, Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui'
+import { CardDescription } from '@/components/ui' // CardDescription is not exported in index.jsx? checking...
 import { useNavigate } from 'react-router-dom'
 
 export default function Login() {

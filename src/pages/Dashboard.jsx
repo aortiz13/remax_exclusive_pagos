@@ -2,9 +2,7 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../services/supabase'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { Button, Card, CardContent, CardHeader, CardTitle, CardDescription, Badge } from '@/components/ui'
 import { useNavigate } from 'react-router-dom'
 import { PlusCircle, FileText, Trash2, Play } from 'lucide-react'
 
