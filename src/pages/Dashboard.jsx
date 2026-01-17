@@ -109,7 +109,7 @@ export default function Dashboard() {
                                         </Badge>
                                     </div>
                                     <p className="text-sm text-slate-500">
-                                        Última actualización: {formatDate(request.updated_at)} • Paso {request.step}/6
+                                        Última actualización: {formatDate(request.updated_at)} • Paso {request.step}/5
                                     </p>
                                     <p className="text-sm text-slate-600 truncate max-w-md">
                                         {request.data?.direccion || 'Dirección no especificada'}
