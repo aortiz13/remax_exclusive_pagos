@@ -105,6 +105,16 @@ export default function Login() {
                                 onChange={(e) => setPassword(e.target.value)}
                             />
                         </div>
+                        <div className="flex justify-end">
+                            <Button
+                                type="button"
+                                variant="link"
+                                className="px-0 font-normal text-xs text-slate-500"
+                                onClick={() => navigate('/forgot-password')}
+                            >
+                                ¿Olvidaste tu contraseña?
+                            </Button>
+                        </div>
                     </CardContent>
                     <CardFooter className="flex flex-col gap-4">
                         <Button type="submit" className="w-full" disabled={loading}>

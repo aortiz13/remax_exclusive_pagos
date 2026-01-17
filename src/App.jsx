@@ -9,6 +9,8 @@ import RequestForm from './pages/RequestForm'
 import NewRequestSelection from './pages/NewRequestSelection'
 import ContractForm from './pages/ContractForm'
 import AdminInvites from './pages/AdminInvites'
+import ForgotPassword from './pages/ForgotPassword'
+import UpdatePassword from './pages/UpdatePassword'
 import { Toaster } from 'sonner'
 
 // Protected Route Component
@@ -49,6 +51,8 @@ function App() {
         <Layout>
           <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/update-password" element={<UpdatePassword />} />
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
             <Route path="/dashboard" element={
