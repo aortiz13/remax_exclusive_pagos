@@ -24,6 +24,7 @@ export default function Login() {
                     email,
                     password,
                     options: {
+                        emailRedirectTo: 'https://calculadoremax.brandboost-ai.com/dashboard',
                         data: {
                             first_name: firstName,
                             last_name: lastName,
