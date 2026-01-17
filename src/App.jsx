@@ -2,6 +2,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import Header from './components/layout/Header'
+import Sidebar from './components/layout/Sidebar'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Profile from './pages/Profile'
@@ -32,14 +33,19 @@ const ProtectedRoute = ({ children }) => {
 
 // Layout Wrapper
 const Layout = ({ children }) => {
-  return (
-    <div className="min-h-screen bg-background font-sans text-foreground flex flex-col">
-      <Header />
-      <main className="flex-1">
-        {children}
-      </main>
+  const { user } = useAuth()
 
-      <Toaster />
+  return (
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex">
+      {user && <Sidebar />}
+
+      <div className="flex-1 flex flex-col min-h-screen relative overflow-hidden">
+        <Header />
+        <main className="flex-1 overflow-y-auto">
+          {children}
+        </main>
+        <Toaster position="top-right" richColors />
+      </div>
     </div>
   )
 }
