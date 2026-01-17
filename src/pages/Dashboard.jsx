@@ -99,7 +99,7 @@ export default function Dashboard() {
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div id="tour-welcome">
                         <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Panel de Control</h1>
-                        <p className="text-slate-500 mt-1">Gestiona tus solicitudes de contrato y seguimiento.</p>
+                        <p className="text-slate-500 mt-1">Gestiona tus solicitudes de contratos, links de pago y más.</p>
                     </div>
                     <div className="flex items-center gap-2">
                         <Button variant="outline" onClick={() => startTour(true)} className="hidden sm:flex" title="Iniciar guía">
