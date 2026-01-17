@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
 import { supabase } from '../services/supabase'
-import { Button, Input, Label, Card, CardHeader, CardTitle, CardContent, CardFooter, CardDescription, Alert, AlertDescription, Badge, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui'
+import { Button, Input, Label, Card, CardHeader, CardTitle, CardContent, CardFooter, CardDescription, Alert, AlertDescription, Badge, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui'
 import { useAuth } from '../context/AuthContext'
 import { Navigate } from 'react-router-dom'
 import { Trash2, Shield, User, Loader2 } from 'lucide-react'
@@ -18,6 +18,8 @@ export default function AdminInvites() {
     const [users, setUsers] = useState([])
     const [usersLoading, setUsersLoading] = useState(true)
     const [deleteLoading, setDeleteLoading] = useState(null) // ID of user being deleted
+    const [userToDelete, setUserToDelete] = useState(null)
+    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
 
     useEffect(() => {
         if (profile?.role === 'admin') {
@@ -76,9 +78,11 @@ export default function AdminInvites() {
         }
     }
 
-    const handleDeleteUser = async (userId) => {
-        if (!window.confirm('¿Estás seguro de que quieres eliminar este usuario? Esta acción no se puede deshacer.')) return
+    const confirmDelete = async () => {
+        if (!userToDelete) return
+        const userId = userToDelete.id
 
+        setIsDeleteDialogOpen(false)
         setDeleteLoading(userId)
         try {
             const { data, error } = await supabase.functions.invoke('admin-action', {
@@ -87,7 +91,6 @@ export default function AdminInvites() {
 
             if (error) throw error
 
-            // Optimistic update or refetch
             setUsers(users.filter(u => u.id !== userId))
             toast.success('Usuario eliminado correctamente')
 
@@ -96,7 +99,13 @@ export default function AdminInvites() {
             toast.error('Error al eliminar usuario')
         } finally {
             setDeleteLoading(null)
+            setUserToDelete(null)
         }
+    }
+
+    const handleDeleteClick = (user) => {
+        setUserToDelete(user)
+        setIsDeleteDialogOpen(true)
     }
 
     return (
@@ -234,7 +243,7 @@ export default function AdminInvites() {
                                             variant="ghost"
                                             size="icon"
                                             className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20"
-                                            onClick={() => handleDeleteUser(u.id)}
+                                            onClick={() => handleDeleteClick(u)}
                                             disabled={deleteLoading === u.id}
                                         >
                                             {deleteLoading === u.id ? (
@@ -250,6 +259,26 @@ export default function AdminInvites() {
                     )}
                 </CardContent>
             </Card>
+
+            <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>¿Estás completamente seguro?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Esta acción no se puede deshacer. Eliminarás a <strong>{userToDelete?.first_name} {userToDelete?.last_name || ''}</strong> ({userToDelete?.email}) permanentemente de la plataforma.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel onClick={() => setUserToDelete(null)}>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={confirmDelete}
+                            className="bg-red-600 hover:bg-red-700"
+                        >
+                            Eliminar Usuario
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div >
     )
 }
