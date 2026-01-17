@@ -140,31 +140,6 @@ export default function Sidebar() {
             {/* User Profile Summary & Bottom Navigation */}
             <div className="p-4 border-t border-slate-100 dark:border-slate-900 space-y-4 bg-slate-50/10 dark:bg-slate-950/20">
 
-                {/* Profile Card Refined */}
-                {!isCollapsed && (
-                    <div className="px-2 mb-2">
-                        <div className="flex items-center gap-3 p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm">
-                            <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center overflow-hidden shrink-0 ring-2 ring-white dark:ring-slate-800 shadow-sm">
-                                {profile?.avatar_url ? (
-                                    <img src={profile.avatar_url} alt="Profile" className="h-full w-full object-cover" />
-                                ) : (
-                                    <span className="font-bold text-primary text-sm uppercase">
-                                        {profile?.first_name?.[0] || '?'}
-                                    </span>
-                                )}
-                            </div>
-                            <div className="min-w-0 overflow-hidden">
-                                <p className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">
-                                    {profile?.first_name} {profile?.last_name}
-                                </p>
-                                <p className="text-[10px] text-slate-500 uppercase tracking-tighter font-semibold truncate">
-                                    {profile?.role === 'admin' ? 'Administrador' : 'Agente'}
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
                 {/* Bottom Menu Items */}
                 <nav className="space-y-1">
                     {bottomMenuItems.map((item) => {
