@@ -1,132 +1,80 @@
-import { useState, useEffect } from 'react'
+
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
+import { AuthProvider, useAuth } from './context/AuthContext'
 import Header from './components/layout/Header'
-import Stepper from './components/layout/Stepper'
-import StepAgente from './components/steps/StepAgente'
-import StepPropiedad from './components/steps/StepPropiedad'
-import StepDueñoBanco from './components/steps/StepDueñoBanco'
-import StepArrendatario from './components/steps/StepArrendatario'
-import StepCalculos from './components/steps/StepCalculos'
-import StepResumen from './components/steps/StepResumen'
+import Login from './pages/Login'
+import Dashboard from './pages/Dashboard'
+import Profile from './pages/Profile'
+import RequestForm from './pages/RequestForm'
+import AdminInvites from './pages/AdminInvites'
+import { Toaster } from '@/components/ui/toaster'
 
-function App() {
-  const [currentStep, setCurrentStep] = useState(1)
+// Protected Route Component
+const ProtectedRoute = ({ children }) => {
+  const { user, loading } = useAuth()
+  if (loading) return <div className="h-screen flex items-center justify-center">Cargando...</div>
+  if (!user) return <Navigate to="/login" replace />
+  return children
+}
 
-  useEffect(() => {
-    // Dynamic Favicon from Env Var
-    const faviconUrl = import.meta.env.VITE_FAVICON_URL;
-    if (faviconUrl) {
-      const link = document.getElementById('favicon');
-      if (link) link.href = faviconUrl;
-    }
-
-    // Dynamic Title from Env Var
-    const appTitle = import.meta.env.VITE_APP_TITLE;
-    if (appTitle) {
-      document.title = appTitle;
-    }
-  }, []);
-  const [formData, setFormData] = useState({
-    // Agente (New)
-    agenteNombre: '',
-    agenteApellido: '',
-    agenteEmail: '',
-    agenteTelefono: '',
-    // Propiedad
-    tipoPropiedad: '',
-    direccion: '',
-    comuna: '',
-    // Dueño
-    dueñoNombre: '',
-    dueñoRut: '',
-    dueñoEmail: '',
-    dueñoTelefono: '',
-    // Arrendatario
-    arrendatarioNombre: '',
-    arrendatarioApellido: '',
-    arrendatarioEmail: '',
-    arrendatarioTelefono: '',
-    arrendatarioRut: '',
-    // Banco
-    bancoNombre: '',
-    bancoTipoCuenta: '',
-    bancoNroCuenta: '',
-    bancoRutTitular: '',
-    // Financiero
-    canonArriendo: '',
-    chkProporcional: false,
-    diasProporcionales: '',
-    chkMesAdelantado: false,
-    garantia: '',
-    gastosNotariales: '',
-    chkSeguro: false,
-    montoSeguro: '',
-    costoDominioVigente: '',
-    honorariosAdmin: '',
-  })
-
-  // 6 Steps total now
-  const nextStep = () => setCurrentStep(prev => Math.min(prev + 1, 6))
-  const prevStep = () => setCurrentStep(prev => Math.max(prev - 1, 1))
-
-  const handleUpdate = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
-  }
-
+// Layout Wrapper
+const Layout = ({ children }) => {
   return (
     <div className="min-h-screen bg-background font-sans text-foreground flex flex-col">
       <Header />
-      <main className="container max-w-4xl mx-auto px-4 py-8 flex-1">
-        <Stepper currentStep={currentStep} />
-
-        <div className="mt-6 md:mt-8">
-          {currentStep === 1 && (
-            <StepAgente
-              data={formData}
-              onUpdate={handleUpdate}
-              onNext={nextStep}
-            />
-          )}
-          {currentStep === 2 && (
-            <StepPropiedad
-              data={formData}
-              onUpdate={handleUpdate}
-              onNext={nextStep}
-              onBack={prevStep}
-            />
-          )}
-          {currentStep === 3 && (
-            <StepDueñoBanco
-              data={formData}
-              onUpdate={handleUpdate}
-              onNext={nextStep}
-              onBack={prevStep}
-            />
-          )}
-          {currentStep === 4 && (
-            <StepArrendatario
-              data={formData}
-              onUpdate={handleUpdate}
-              onNext={nextStep}
-              onBack={prevStep}
-            />
-          )}
-          {currentStep === 5 && (
-            <StepCalculos
-              data={formData}
-              onUpdate={handleUpdate}
-              onNext={nextStep}
-              onBack={prevStep}
-            />
-          )}
-          {currentStep === 6 && (
-            <StepResumen
-              data={formData}
-              onBack={prevStep}
-            />
-          )}
-        </div>
+      <main className="flex-1">
+        {children}
       </main>
+      <Toaster />
     </div>
   )
 }
+
+function App() {
+  return (
+    <AuthProvider>
+      <Router>
+        <Layout>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+
+            <Route path="/dashboard" element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/profile" element={
+              <ProtectedRoute>
+                <Profile />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/new-request" element={
+              <ProtectedRoute>
+                <RequestForm />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/request/:id" element={
+              <ProtectedRoute>
+                <RequestForm />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/admin/invites" element={
+              <ProtectedRoute>
+                <AdminInvites />
+              </ProtectedRoute>
+            } />
+
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Layout>
+      </Router>
+    </AuthProvider>
+  )
+}
+
 export default App

@@ -1,14 +1,15 @@
 import React, { useState } from 'react'
 import { generatePDF } from '../../services/pdfGenerator'
-import { supabase } from '../../services/supabase'
 import { triggerWebhook } from '../../services/api'
 import { Card, CardContent, Button } from '@/components/ui'
 import { CheckCircle2, FileText, Send, ArrowLeft, Loader2, User, Building, Wallet, Download } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 
-export default function StepResumen({ data, onBack }) {
+export default function StepResumen({ data, onBack, onComplete }) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState('')
+  const navigate = useNavigate()
 
   const calculations = data.calculations || {}
   const formatCurrency = (val) => new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(val || 0)
@@ -41,14 +42,14 @@ export default function StepResumen({ data, onBack }) {
         pdf_base64: pdfRaw // Send raw base64
       }
 
-      // Optimistic success for demo purposes if no supabase credentials
-      // const { error: dbError } = await supabase.from('solicitudes_pago').insert({...})
-      // if (dbError) throw dbError
-
-      // Simulating network request
-      await new Promise(resolve => setTimeout(resolve, 1500))
-
+      // 1. Trigger N8N Webhook
       await triggerWebhook(payload)
+
+      // 2. Notify Parent (RequestForm) to update DB Status
+      if (onComplete) {
+        await onComplete()
+      }
+
       setSuccess(true)
     } catch (err) {
       console.error(err)
@@ -84,7 +85,7 @@ export default function StepResumen({ data, onBack }) {
             La solicitud ha sido registrada exitosamente. Hemos generado el documento PDF correspondiente.
           </p>
           <div className="flex flex-col gap-3 w-full max-w-xs">
-            <Button onClick={() => window.location.reload()} size="lg" className="w-full">
+            <Button onClick={() => navigate('/new-request')} size="lg" className="w-full">
               Nueva Solicitud
             </Button>
             <Button variant="outline" className="w-full" onClick={downloadPDF}>
