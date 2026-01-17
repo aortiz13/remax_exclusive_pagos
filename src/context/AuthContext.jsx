@@ -24,9 +24,12 @@ export const AuthProvider = ({ children }) => {
 
         // Listen for changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-            setUser(session?.user ?? null)
-            if (session?.user) {
-                fetchProfile(session.user.id)
+            const currentUser = session?.user ?? null
+            setUser(currentUser)
+
+            if (currentUser) {
+                setLoading(true) // Prevent premature redirect while fetching profile
+                fetchProfile(currentUser.id)
             } else {
                 setProfile(null)
                 setLoading(false)
