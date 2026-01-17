@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { toast } from 'sonner'
 import { generatePDF } from '../../services/pdfGenerator'
 import { triggerWebhook } from '../../services/api'
 import { Card, CardContent, Button } from '@/components/ui'
@@ -8,7 +9,6 @@ import { useNavigate } from 'react-router-dom'
 export default function StepResumen({ data, onBack, onComplete }) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [success, setSuccess] = useState(false)
-  const [error, setError] = useState('')
   const navigate = useNavigate()
 
   const calculations = data.calculations || {}
@@ -16,7 +16,6 @@ export default function StepResumen({ data, onBack, onComplete }) {
 
   const handleFinish = async () => {
     setIsSubmitting(true)
-    setError('')
 
     try {
       const pdfRaw = generatePDF(data, calculations)
@@ -53,7 +52,7 @@ export default function StepResumen({ data, onBack, onComplete }) {
       setSuccess(true)
     } catch (err) {
       console.error(err)
-      setError('Hubo un error al procesar la solicitud. Intente nuevamente.')
+      toast.error('Hubo un error al procesar la solicitud. Intente nuevamente.')
     } finally {
       setIsSubmitting(false)
     }
@@ -70,6 +69,7 @@ export default function StepResumen({ data, onBack, onComplete }) {
       downloadLink.click();
     } catch (e) {
       console.error("Download failed", e)
+      toast.error('Error al descargar el PDF')
     }
   }
 
@@ -202,11 +202,7 @@ export default function StepResumen({ data, onBack, onComplete }) {
           </div>
         </div>
 
-        {error && (
-          <div className="mb-6 p-4 rounded-lg bg-red-50 text-red-600 text-sm flex items-center gap-2">
-            <span className="font-bold">Error:</span> {error}
-          </div>
-        )}
+
 
         <div className="flex justify-between pt-6 border-t">
           <Button variant="outline" onClick={onBack} disabled={isSubmitting}>

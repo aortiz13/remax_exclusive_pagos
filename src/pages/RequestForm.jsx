@@ -72,6 +72,7 @@ export default function RequestForm() {
 
                 if (error) {
                     console.error('Error fetching request:', error)
+                    toast.error('Error al cargar la solicitud')
                     navigate('/dashboard')
                     return
                 }
