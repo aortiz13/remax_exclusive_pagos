@@ -57,7 +57,7 @@ export default function Header() {
                             {profile?.role === 'admin' && (
                                 <DropdownMenuItem onClick={() => navigate('/admin/invites')}>
                                     <Settings className="mr-2 h-4 w-4" />
-                                    <span>Invitar Agentes</span>
+                                    <span>Administración</span>
                                 </DropdownMenuItem>
                             )}
                             <DropdownMenuSeparator />
