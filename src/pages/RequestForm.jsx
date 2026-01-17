@@ -153,14 +153,15 @@ export default function RequestForm() {
     return (
         <div className="flex flex-col lg:flex-row min-h-[calc(100vh-80px)]">
             {/* Sidebar / Topbar for Stepper */}
-            <div className="w-full lg:w-64 lg:min-h-full bg-slate-50 dark:bg-slate-900 border-b lg:border-b-0 lg:border-r border-slate-200 dark:border-slate-800 p-4 lg:p-6 lg:pt-10">
-                <div className="lg:sticky lg:top-6">
+            {/* Sidebar / Topbar for Stepper */}
+            <div className="w-full lg:w-64 lg:fixed lg:left-0 lg:top-[80px] lg:h-[calc(100vh-80px)] bg-slate-50 dark:bg-slate-900 border-b lg:border-b-0 lg:border-r border-slate-200 dark:border-slate-800 p-4 lg:p-6 lg:pt-10 overflow-y-auto">
+                <div className="">
                     <Stepper currentStep={currentStep} orientation="vertical" />
                 </div>
             </div>
 
             {/* Main Content Area */}
-            <div className="flex-1 bg-background p-4 md:p-8 lg:p-12 overflow-y-auto">
+            <div className="flex-1 bg-background p-4 md:p-8 lg:p-12 overflow-y-auto lg:ml-64">
                 <div className="max-w-3xl mx-auto space-y-6">
                     <div className="flex justify-between items-center">
                         <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
