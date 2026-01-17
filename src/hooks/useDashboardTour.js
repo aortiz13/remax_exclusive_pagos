@@ -30,7 +30,7 @@ export const useDashboardTour = () => {
                     element: '#tour-new-request',
                     popover: {
                         title: 'Nueva Solicitud',
-                        description: 'Haz clic aquí para iniciar una nueva solicitud de contrato de compraventa, arriendo o generar links de pago.',
+                        description: 'Selecciona una de estas opciones para iniciar una nueva solicitud de link de pago o redactar un contrato.',
                         side: "left",
                         align: 'start'
                     }

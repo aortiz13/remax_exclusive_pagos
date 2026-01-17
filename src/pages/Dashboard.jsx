@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext'
 import { supabase } from '../services/supabase'
 import { Button, Card, CardContent, CardHeader, CardTitle, CardDescription, Badge, Input, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, Separator, AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui'
 import { useNavigate } from 'react-router-dom'
-import { PlusCircle, FileText, Trash2, Play, Search, MapPin, User, Calendar, MoreVertical, Building2, HelpCircle } from 'lucide-react'
+import { PlusCircle, FileText, Trash2, Play, Search, MapPin, User, Calendar, MoreVertical, Building2, HelpCircle, Receipt } from 'lucide-react'
 import { toast } from 'sonner'
 import { useDashboardTour } from '../hooks/useDashboardTour'
 
@@ -106,11 +106,44 @@ export default function Dashboard() {
                             <HelpCircle className="mr-2 h-4 w-4" />
                             Guía
                         </Button>
-                        <Button id="tour-new-request" onClick={() => navigate('/new-request')} size="lg" className="shadow-lg shadow-primary/20">
-                            <PlusCircle className="mr-2 h-5 w-5" />
-                            Nueva Solicitud
-                        </Button>
                     </div>
+                </div>
+
+                {/* Quick Actions Section */}
+                <div id="tour-new-request" className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <Card
+                        className="cursor-pointer transition-all hover:scale-[1.01] hover:shadow-md border-l-4 border-l-blue-500 hover:border-l-blue-600 group"
+                        onClick={() => navigate('/request/payment/new')}
+                    >
+                        <CardContent className="flex items-center p-6 gap-6">
+                            <div className="h-16 w-16 rounded-full bg-blue-50 flex items-center justify-center group-hover:bg-blue-100 transition-colors shrink-0">
+                                <Receipt className="h-8 w-8 text-blue-600" />
+                            </div>
+                            <div className="space-y-1">
+                                <h3 className="text-xl font-bold text-slate-900 group-hover:text-blue-700 transition-colors">Link de Pago</h3>
+                                <p className="text-sm text-slate-500">
+                                    Generar solicitud para cálculo de arriendo y link de pago.
+                                </p>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card
+                        className="cursor-pointer transition-all hover:scale-[1.01] hover:shadow-md border-l-4 border-l-indigo-500 hover:border-l-indigo-600 group"
+                        onClick={() => navigate('/request/contract/new')}
+                    >
+                        <CardContent className="flex items-center p-6 gap-6">
+                            <div className="h-16 w-16 rounded-full bg-indigo-50 flex items-center justify-center group-hover:bg-indigo-100 transition-colors shrink-0">
+                                <FileText className="h-8 w-8 text-indigo-600" />
+                            </div>
+                            <div className="space-y-1">
+                                <h3 className="text-xl font-bold text-slate-900 group-hover:text-indigo-700 transition-colors">Redacción de Contrato</h3>
+                                <p className="text-sm text-slate-500">
+                                    Solicitar redacción de contratos de compraventa o arriendo.
+                                </p>
+                            </div>
+                        </CardContent>
+                    </Card>
                 </div>
 
                 {/* Search and Filter Bar */}
