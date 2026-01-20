@@ -235,6 +235,9 @@ export default function AdminInvites() {
                                                     </Badge>
                                                 )}
                                             </div>
+                                            <p className="text-xs text-muted-foreground mt-0.5">
+                                                Aceptó invitación: {new Date(u.created_at).toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                            </p>
                                         </div>
                                     </div>
 
