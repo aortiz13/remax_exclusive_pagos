@@ -36,12 +36,12 @@ const Layout = ({ children }) => {
   const { user } = useAuth()
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex">
+    <div className="h-screen w-full bg-slate-50 dark:bg-slate-950 flex overflow-hidden">
       {user && <Sidebar />}
 
-      <div className="flex-1 flex flex-col min-h-screen relative overflow-hidden">
+      <div className="flex-1 flex flex-col h-full relative">
         <Header />
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 overflow-y-auto scroll-smooth">
           {children}
         </main>
         <Toaster position="top-right" richColors />

@@ -40,7 +40,7 @@ export default function Header() {
     }
 
     return (
-        <header className="bg-white dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-50">
+        <header className="bg-white dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 z-50">
             <div className="container max-w-4xl mx-auto px-4 py-4 flex items-center justify-between gap-4">
                 <div className="flex items-center gap-2 md:hidden">
                     {user && (
