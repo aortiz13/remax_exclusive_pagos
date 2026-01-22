@@ -1,5 +1,5 @@
 
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useState, useRef } from 'react'
 import { supabase } from '../services/supabase'
 import { toast } from 'sonner'
 
@@ -12,12 +12,17 @@ export const AuthProvider = ({ children }) => {
     const [profile, setProfile] = useState(null)
     const [loading, setLoading] = useState(true)
 
+    const lastUserId = useRef(null)
+
     useEffect(() => {
         // Check active session
         supabase.auth.getSession().then(({ data: { session } }) => {
-            setUser(session?.user ?? null)
-            if (session?.user) {
-                fetchProfile(session.user.id)
+            const initialUser = session?.user ?? null
+            setUser(initialUser)
+            lastUserId.current = initialUser?.id
+
+            if (initialUser) {
+                fetchProfile(initialUser.id)
             } else {
                 setLoading(false)
             }
@@ -26,10 +31,18 @@ export const AuthProvider = ({ children }) => {
         // Listen for changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
             const currentUser = session?.user ?? null
+
+            // If the user ID hasn't changed, strictly ignore (handles token refreshes, tab focuses, etc.)
+            if (currentUser?.id === lastUserId.current) {
+                return
+            }
+
+            // Update ref
+            lastUserId.current = currentUser?.id ?? null
             setUser(currentUser)
 
             if (currentUser) {
-                setLoading(true) // Prevent premature redirect while fetching profile
+                setLoading(true)
                 fetchProfile(currentUser.id)
             } else {
                 setProfile(null)
