@@ -201,7 +201,7 @@ export default function InvoiceForm() {
                 filename: `solicitud_factura_${requestData.id}.xlsx`
             };
 
-            await fetch('https://workflow.remax-exclusive.cl/webhook-test/boleto_de_pago', {
+            await fetch('https://workflow.remax-exclusive.cl/webhook/boleto_de_pago', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
