@@ -27,7 +27,7 @@ export default function AdminRequests() {
             // Fetch all requests that are NOT draft (meaning they are submitted/pending, or already processed)
             const { data, error } = await supabase
                 .from('requests')
-                .select('*')
+                .select('*, user:user_id(first_name, last_name, email, phone)')
                 .neq('status', 'draft') // We only want submitted requests
                 .order('updated_at', { ascending: false })
 

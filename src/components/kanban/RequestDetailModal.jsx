@@ -97,9 +97,25 @@ export function RequestDetailModal({ request, isOpen, onClose }) {
 
                         {/* Agent Info */}
                         <Section title="Agente Solicitante" icon={User}>
-                            <Field label="Nombre" value={request.data?.agente?.nombre ? `${request.data.agente.nombre} ${request.data.agente.apellido || ''}` : request.data?.agenteNombre} />
-                            <Field label="Email" value={request.data?.agente?.email || request.data?.agenteEmail} />
-                            <Field label="Teléfono" value={request.data?.agente?.telefono || request.data?.agenteTelefono} />
+                            <Field label="Nombre" value={
+                                request.data?.agente?.nombre
+                                    ? `${request.data.agente.nombre} ${request.data.agente.apellido || ''}`
+                                    : request.data?.agenteNombre
+                                        ? `${request.data.agenteNombre} ${request.data.agenteApellido || ''}`
+                                        : request.user
+                                            ? `${request.user.first_name || ''} ${request.user.last_name || ''}`
+                                            : '-'
+                            } />
+                            <Field label="Email" value={
+                                request.data?.agente?.email
+                                || request.data?.agenteEmail
+                                || request.user?.email
+                            } />
+                            <Field label="Teléfono" value={
+                                request.data?.agente?.telefono
+                                || request.data?.agenteTelefono
+                                || request.user?.phone
+                            } />
                         </Section>
 
                         {/* Property Info */}
