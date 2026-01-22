@@ -126,28 +126,75 @@ export default function InvoiceForm() {
     }
 
     const sendWebhook = async (requestData) => {
-        const webhookPayload = {
-            solicitud: 'factura',
-            agente: {
-                nombre: profile?.first_name || '',
-                apellido: profile?.last_name || '',
-                email: user?.email || '',
-                telefono: profile?.phone || ''
-            },
-            ...formData,
-            requestId: requestData.id,
-            createdAt: new Date().toISOString()
-        }
+        // We'll use exceljs to create a buffer/blob
+        // Since we can't import exceljs in browser without issues sometimes depending on build, 
+        // we'll assume it's working or use a dynamic import if needed. 
+        // package.json has "exceljs": "^4.4.0".
+        // Note: exceljs standard usage in browser:
 
         try {
+            const ExcelJS = await import('exceljs');
+            const workbook = new ExcelJS.Workbook();
+            const worksheet = workbook.addWorksheet('Solicitud Factura');
+
+            // Define columns
+            worksheet.columns = [
+                { header: 'Solicitud', key: 'solicitud', width: 15 },
+                { header: 'Agente', key: 'agente', width: 25 },
+                { header: 'Vendedor', key: 'vendedor', width: 25 },
+                { header: 'RUT Vendedor', key: 'vendedorRut', width: 15 },
+                { header: 'Email Vendedor', key: 'vendedorEmail', width: 25 },
+                { header: 'Comprador', key: 'comprador', width: 25 },
+                { header: 'RUT Comprador', key: 'compradorRut', width: 15 },
+                { header: 'Email Comprador', key: 'compradorEmail', width: 25 },
+                { header: 'Dirección Propiedad', key: 'propiedad', width: 30 },
+                { header: 'Monto Comisión', key: 'comision', width: 15 },
+                { header: 'Notas', key: 'notas', width: 30 },
+                { header: 'ID Interno', key: 'id', width: 36 },
+                { header: 'Fecha', key: 'fecha', width: 20 },
+            ];
+
+            // Add row
+            worksheet.addRow({
+                solicitud: 'factura',
+                agente: `${profile?.first_name || ''} ${profile?.last_name || ''}`,
+                vendedor: formData.vendedorNombre,
+                vendedorRut: formData.vendedorRut,
+                vendedorEmail: formData.vendedorEmail,
+                comprador: formData.compradorNombre,
+                compradorRut: formData.compradorRut,
+                compradorEmail: formData.compradorEmail,
+                propiedad: formData.propiedadDireccion,
+                comision: formData.montoComision,
+                notas: formData.notas,
+                id: requestData.id,
+                fecha: new Date().toLocaleDateString('es-CL')
+            });
+
+            // Generate buffer
+            const buffer = await workbook.xlsx.writeBuffer();
+            const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+
+            // Create FormData
+            const payload = new FormData();
+            // User requested: "El payload debería tener un item que diga 'solicitud: factura'"
+            // We can add it as a text field in FormData
+            payload.append('solicitud', 'factura');
+            // Attach the file
+            payload.append('file', blob, `solicitud_factura_${requestData.id}.xlsx`);
+
+            // Also adding the raw JSON fields might be helpful for filtering if the workflow supports mixed content,
+            // but usually a file upload implies reading the file.
+            // Let's stick to the file + the ID tag.
+
             await fetch('https://workflow.remax-exclusive.cl/webhook-test/boleto_de_pago', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(webhookPayload)
+                // No Content-Type header; fetch adds it automatically for FormData with boundary
+                body: payload
             })
         } catch (error) {
             console.error('Webhook error:', error)
-            toast.warning('Solicitud guardada, pero hubo un problema notificando al sistema externo.')
+            toast.warning('Solicitud guardada, pero hubo un problema generando el archivo Excel.')
         }
     }
 
