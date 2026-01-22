@@ -109,11 +109,17 @@ export default function InvoiceForm() {
                 await sendWebhook(requestData)
                 toast.success('Solicitud enviada exitosamente')
                 navigate('/dashboard')
-            } else if (!nextStepVal) {
-                // Only show toast if explicitly saving draft, not intermediate step auto-save
-                toast.success('Borrador guardado')
+            } else {
+                // Handle navigation for new records immediately
                 if (!id && requestData) {
+                    // Update URL to include the new ID
+                    // This will trigger the useEffect to fetch data and set step/form data again
                     navigate(`/request/invoice/${requestData.id}`, { replace: true })
+                }
+
+                if (!nextStepVal) {
+                    // Only show toast if explicitly saving draft, not intermediate step auto-save
+                    toast.success('Borrador guardado')
                 }
             }
 
