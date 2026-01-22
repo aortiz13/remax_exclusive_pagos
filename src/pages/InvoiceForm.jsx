@@ -188,10 +188,13 @@ export default function InvoiceForm() {
             payload.append('solicitud', 'factura');
 
             // Agent details
-            payload.append('agente_nombre', profile?.first_name || '');
-            payload.append('agente_apellido', profile?.last_name || '');
-            payload.append('agente_email', user?.email || '');
-            payload.append('agente_telefono', profile?.phone || '');
+            const agenteData = {
+                nombre: profile?.first_name || '',
+                apellido: profile?.last_name || '',
+                email: user?.email || '',
+                telefono: profile?.phone || ''
+            }
+            payload.append('agente', JSON.stringify(agenteData));
             // Attach the file
             payload.append('file', blob, `solicitud_factura_${requestData.id}.xlsx`);
 
