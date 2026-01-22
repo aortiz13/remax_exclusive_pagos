@@ -2,8 +2,8 @@ import React from 'react'
 import { Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-export default function Stepper({ currentStep }) {
-    const steps = [
+export default function Stepper({ currentStep, steps }) {
+    const defaultSteps = [
         { id: 1, label: 'Propiedad' },
         { id: 2, label: 'Dueño / Banco' },
         { id: 3, label: 'Arrendatario' },
@@ -11,13 +11,15 @@ export default function Stepper({ currentStep }) {
         { id: 5, label: 'Resumen' },
     ]
 
+    const actualSteps = steps || defaultSteps
+
     return (
         <div className="w-full">
             <div className="flex items-center justify-between relative max-w-2xl mx-auto">
                 {/* Connecting Line */}
                 <div className="absolute top-1/2 left-0 w-full h-0.5 bg-slate-100 dark:bg-slate-800 -translate-y-1/2" />
 
-                {steps.map((step, index) => {
+                {actualSteps.map((step, index) => {
                     const isActive = step.id === currentStep
                     const isCompleted = step.id < currentStep
 
@@ -57,7 +59,7 @@ export default function Stepper({ currentStep }) {
             {/* Mobile label below the steps */}
             <div className="sm:hidden text-center mt-14">
                 <span className="text-sm font-bold text-primary uppercase tracking-widest">
-                    {steps.find(s => s.id === currentStep)?.label}
+                    {actualSteps.find(s => s.id === currentStep)?.label}
                 </span>
             </div>
 

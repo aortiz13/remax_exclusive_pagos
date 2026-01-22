@@ -3,8 +3,9 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../services/supabase'
 import { toast } from 'sonner'
-import { Button, Input, Label, Card, CardHeader, CardTitle, CardContent, CardDescription, Separator, Textarea } from '@/components/ui'
-import { ArrowLeft, Save, Send, Receipt } from 'lucide-react'
+import { Button, Input, Label, Card, CardHeader, CardTitle, CardContent, CardDescription, Textarea } from '@/components/ui'
+import { ArrowLeft, Save, Send, Receipt, User, Building2, FileText } from 'lucide-react'
+import Stepper from '../components/layout/Stepper'
 
 export default function InvoiceForm() {
     const { id } = useParams()
@@ -12,20 +13,31 @@ export default function InvoiceForm() {
     const navigate = useNavigate()
     const [loading, setLoading] = useState(!!id)
     const [submitting, setSubmitting] = useState(false)
+    const [currentStep, setCurrentStep] = useState(1)
 
     const [formData, setFormData] = useState({
-        compradorNombre: '',
-        compradorRut: '',
-        compradorDireccion: '',
-        compradorEmail: '',
+        // Vendedor
         vendedorNombre: '',
         vendedorRut: '',
         vendedorDireccion: '',
         vendedorEmail: '',
+        // Comprador
+        compradorNombre: '',
+        compradorRut: '',
+        compradorDireccion: '',
+        compradorEmail: '',
+        // Propiedad & Transacción
         propiedadDireccion: '',
         montoComision: '',
         notas: ''
     })
+
+    const steps = [
+        { id: 1, label: 'Vendedor' },
+        { id: 2, label: 'Comprador' },
+        { id: 3, label: 'Propiedad' },
+        { id: 4, label: 'Resumen' },
+    ]
 
     useEffect(() => {
         if (id) {
@@ -44,6 +56,7 @@ export default function InvoiceForm() {
 
                 if (data && data.data) {
                     setFormData(data.data)
+                    setCurrentStep(data.step || 1)
                 }
                 setLoading(false)
             }
@@ -51,20 +64,21 @@ export default function InvoiceForm() {
         }
     }, [id, navigate])
 
-
     const handleChange = (e) => {
         const { name, value } = e.target
         setFormData(prev => ({ ...prev, [name]: value }))
     }
 
-    const saveRequest = async (status = 'draft') => {
+    const saveRequest = async (status = 'draft', nextStepVal = null) => {
         if (!user) return
 
-        setSubmitting(true)
+        const stepToSave = nextStepVal !== null ? nextStepVal : currentStep
+        if (status === 'submitted') setSubmitting(true)
+
         const payload = {
             user_id: user.id,
             type: 'invoice',
-            step: 1, // Single step
+            step: stepToSave,
             data: formData,
             status: status,
             updated_at: new Date()
@@ -95,7 +109,8 @@ export default function InvoiceForm() {
                 await sendWebhook(requestData)
                 toast.success('Solicitud enviada exitosamente')
                 navigate('/dashboard')
-            } else {
+            } else if (!nextStepVal) {
+                // Only show toast if explicitly saving draft, not intermediate step auto-save
                 toast.success('Borrador guardado')
                 if (!id && requestData) {
                     navigate(`/request/invoice/${requestData.id}`, { replace: true })
@@ -125,135 +140,218 @@ export default function InvoiceForm() {
         }
 
         try {
-            // Using no-cors mode since we can't read response from opaque connection anyway usually
-            // but for tracking success we might try standard fetch.
-            // If the user provided URL supports CORS, great. If not, we might need a proxy or Edge Function.
-            // Assuming standard fetch for now as requested.
             await fetch('https://workflow.remax-exclusive.cl/webhook-test/boleto_de_pago', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(webhookPayload)
             })
         } catch (error) {
             console.error('Webhook error:', error)
-            // We don't block the UI flow on webhook error generally unless critical, 
-            // but we might want to alert. For now just logging.
             toast.warning('Solicitud guardada, pero hubo un problema notificando al sistema externo.')
         }
+    }
+
+    const nextStep = () => {
+        const next = Math.min(currentStep + 1, steps.length)
+        setCurrentStep(next)
+        saveRequest('draft', next)
+    }
+
+    const prevStep = () => {
+        setCurrentStep(prev => Math.max(prev - 1, 1))
     }
 
     if (loading) return <div className="p-8 text-center text-slate-500">Cargando...</div>
 
     return (
         <div className="min-h-screen bg-slate-50/50 dark:bg-slate-950/50 pb-20">
-            <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-30 px-4 py-4 mb-6 shadow-sm">
-                <div className="container max-w-3xl mx-auto flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        <Button variant="ghost" size="icon" onClick={() => navigate('/new-request')}>
-                            <ArrowLeft className="h-5 w-5" />
-                        </Button>
-                        <div>
-                            <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
-                                <Receipt className="h-5 w-5 text-blue-600" />
-                                Solicitud de Factura
-                            </h1>
-                        </div>
-                    </div>
-                    <div className="flex gap-2">
-                        <Button variant="outline" onClick={() => saveRequest('draft')} disabled={submitting}>
-                            <Save className="mr-2 h-4 w-4" />
-                            Guardar
-                        </Button>
-                    </div>
+            {/* Top Stepper Area - Matching RequestForm layout */}
+            <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-30 px-4 py-8 mb-8 shadow-sm">
+                <div className="max-w-4xl mx-auto">
+                    <Stepper currentStep={currentStep} steps={steps} />
                 </div>
             </div>
 
-            <div className="container max-w-3xl mx-auto px-4 space-y-6">
+            <div className="container max-w-4xl mx-auto px-4">
+                <div className="max-w-3xl mx-auto space-y-6">
 
-                {/* Comprador Data */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="text-lg">Datos del Comprador</CardTitle>
-                        <CardDescription>Información de quien adquiere la propiedad.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2 md:col-span-2">
-                            <Label htmlFor="compradorNombre">Nombre Completo</Label>
-                            <Input id="compradorNombre" name="compradorNombre" value={formData.compradorNombre} onChange={handleChange} placeholder="Juan Pérez" />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="compradorRut">RUT</Label>
-                            <Input id="compradorRut" name="compradorRut" value={formData.compradorRut} onChange={handleChange} placeholder="12.345.678-9" />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="compradorEmail">Correo Electrónico</Label>
-                            <Input id="compradorEmail" name="compradorEmail" type="email" value={formData.compradorEmail} onChange={handleChange} placeholder="juan@ejemplo.com" />
-                        </div>
-                        <div className="space-y-2 md:col-span-2">
-                            <Label htmlFor="compradorDireccion">Dirección Domicilio</Label>
-                            <Input id="compradorDireccion" name="compradorDireccion" value={formData.compradorDireccion} onChange={handleChange} placeholder="Av. Siempre Viva 123, Santiago" />
-                        </div>
-                    </CardContent>
-                </Card>
+                    {/* Header Title & Actions */}
+                    <div className="flex justify-between items-center">
+                        <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                            {id ? 'Editar Solicitud Factura' : 'Nueva Solicitud Factura'}
+                        </h1>
+                        <Button variant="ghost" size="sm" onClick={() => saveRequest('draft')} className="text-muted-foreground hover:text-primary">
+                            <Save className="mr-2 h-4 w-4" />
+                            <span className="hidden sm:inline">Guardar Borrador</span>
+                        </Button>
+                    </div>
 
-                {/* Vendedor Data */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="text-lg">Datos del Vendedor</CardTitle>
-                        <CardDescription>Información del propietario actual.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2 md:col-span-2">
-                            <Label htmlFor="vendedorNombre">Nombre Completo</Label>
-                            <Input id="vendedorNombre" name="vendedorNombre" value={formData.vendedorNombre} onChange={handleChange} placeholder="María González" />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="vendedorRut">RUT</Label>
-                            <Input id="vendedorRut" name="vendedorRut" value={formData.vendedorRut} onChange={handleChange} placeholder="9.876.543-2" />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="vendedorEmail">Correo Electrónico</Label>
-                            <Input id="vendedorEmail" name="vendedorEmail" type="email" value={formData.vendedorEmail} onChange={handleChange} placeholder="maria@ejemplo.com" />
-                        </div>
-                        <div className="space-y-2 md:col-span-2">
-                            <Label htmlFor="vendedorDireccion">Dirección Domicilio</Label>
-                            <Input id="vendedorDireccion" name="vendedorDireccion" value={formData.vendedorDireccion} onChange={handleChange} placeholder="Calle Falsa 456, Providencia" />
-                        </div>
-                    </CardContent>
-                </Card>
+                    <div className="mt-8">
+                        {/* Step 1: Vendedor */}
+                        {currentStep === 1 && (
+                            <Card className="border-slate-200 dark:border-slate-800 shadow-sm">
+                                <CardHeader className="pb-4 border-b border-slate-100 dark:border-slate-800">
+                                    <div className="flex items-center gap-2">
+                                        <User className="h-5 w-5 text-primary" />
+                                        <CardTitle>Datos del Vendedor</CardTitle>
+                                    </div>
+                                    <CardDescription>Información del propietario actual.</CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-4 pt-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="space-y-2 md:col-span-2">
+                                            <Label htmlFor="vendedorNombre">Nombre Completo</Label>
+                                            <Input id="vendedorNombre" name="vendedorNombre" value={formData.vendedorNombre} onChange={handleChange} placeholder="María González" />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="vendedorRut">RUT</Label>
+                                            <Input id="vendedorRut" name="vendedorRut" value={formData.vendedorRut} onChange={handleChange} placeholder="9.876.543-2" />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="vendedorEmail">Correo Electrónico</Label>
+                                            <Input id="vendedorEmail" name="vendedorEmail" type="email" value={formData.vendedorEmail} onChange={handleChange} placeholder="maria@ejemplo.com" />
+                                        </div>
+                                        <div className="space-y-2 md:col-span-2">
+                                            <Label htmlFor="vendedorDireccion">Dirección Domicilio</Label>
+                                            <Input id="vendedorDireccion" name="vendedorDireccion" value={formData.vendedorDireccion} onChange={handleChange} placeholder="Calle Falsa 456, Providencia" />
+                                        </div>
+                                    </div>
 
-                {/* Propiedad y Transacción */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="text-lg">Detalles de la Operación</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="propiedadDireccion">Dirección de la Propiedad Vendida</Label>
-                            <Input id="propiedadDireccion" name="propiedadDireccion" value={formData.propiedadDireccion} onChange={handleChange} placeholder="Dirección del inmueble objeto de la venta" />
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="montoComision">Monto Comisión</Label>
-                                <Input id="montoComision" name="montoComision" value={formData.montoComision} onChange={handleChange} placeholder="Ej: 2% + IVA o valor fijo" />
-                            </div>
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="notas">Notas Adicionales (Opcional)</Label>
-                            <Textarea id="notas" name="notas" value={formData.notas} onChange={handleChange} placeholder="Cualquier detalle relevante para la facturación..." className="resize-none h-24" />
-                        </div>
-                    </CardContent>
-                </Card>
+                                    <div className="flex justify-between pt-6 mt-4 border-t border-slate-100 dark:border-slate-800">
+                                        <Button variant="outline" onClick={() => navigate('/dashboard')}>Atrás</Button>
+                                        <Button onClick={nextStep}>Siguiente</Button>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
 
-                <div className="flex justify-end pt-4 pb-8">
-                    <Button size="lg" onClick={() => saveRequest('submitted')} disabled={submitting} className="w-full md:w-auto">
-                        <Send className="mr-2 h-4 w-4" />
-                        Enviar Solicitud
-                    </Button>
+                        {/* Step 2: Comprador */}
+                        {currentStep === 2 && (
+                            <Card className="border-slate-200 dark:border-slate-800 shadow-sm">
+                                <CardHeader className="pb-4 border-b border-slate-100 dark:border-slate-800">
+                                    <div className="flex items-center gap-2">
+                                        <User className="h-5 w-5 text-primary" />
+                                        <CardTitle>Datos del Comprador</CardTitle>
+                                    </div>
+                                    <CardDescription>Información de quien adquiere la propiedad.</CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-4 pt-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="space-y-2 md:col-span-2">
+                                            <Label htmlFor="compradorNombre">Nombre Completo</Label>
+                                            <Input id="compradorNombre" name="compradorNombre" value={formData.compradorNombre} onChange={handleChange} placeholder="Juan Pérez" />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="compradorRut">RUT</Label>
+                                            <Input id="compradorRut" name="compradorRut" value={formData.compradorRut} onChange={handleChange} placeholder="12.345.678-9" />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="compradorEmail">Correo Electrónico</Label>
+                                            <Input id="compradorEmail" name="compradorEmail" type="email" value={formData.compradorEmail} onChange={handleChange} placeholder="juan@ejemplo.com" />
+                                        </div>
+                                        <div className="space-y-2 md:col-span-2">
+                                            <Label htmlFor="compradorDireccion">Dirección Domicilio</Label>
+                                            <Input id="compradorDireccion" name="compradorDireccion" value={formData.compradorDireccion} onChange={handleChange} placeholder="Av. Siempre Viva 123, Santiago" />
+                                        </div>
+                                    </div>
+
+                                    <div className="flex justify-between pt-6 mt-4 border-t border-slate-100 dark:border-slate-800">
+                                        <Button variant="outline" onClick={prevStep}>Atrás</Button>
+                                        <Button onClick={nextStep}>Siguiente</Button>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
+
+                        {/* Step 3: Propiedad */}
+                        {currentStep === 3 && (
+                            <Card className="border-slate-200 dark:border-slate-800 shadow-sm">
+                                <CardHeader className="pb-4 border-b border-slate-100 dark:border-slate-800">
+                                    <div className="flex items-center gap-2">
+                                        <Building2 className="h-5 w-5 text-primary" />
+                                        <CardTitle>Datos de la Operación</CardTitle>
+                                    </div>
+                                    <CardDescription>Detalles del inmueble y comisión.</CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-4 pt-6">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="propiedadDireccion">Dirección de la Propiedad Vendida</Label>
+                                        <Input id="propiedadDireccion" name="propiedadDireccion" value={formData.propiedadDireccion} onChange={handleChange} placeholder="Dirección del inmueble objeto de la venta" />
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="montoComision">Monto Comisión</Label>
+                                            <Input id="montoComision" name="montoComision" value={formData.montoComision} onChange={handleChange} placeholder="Ej: 2% + IVA o valor fijo" />
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="notas">Notas Adicionales (Opcional)</Label>
+                                        <Textarea id="notas" name="notas" value={formData.notas} onChange={handleChange} placeholder="Cualquier detalle relevante para la facturación..." className="resize-none h-24" />
+                                    </div>
+
+                                    <div className="flex justify-between pt-6 mt-4 border-t border-slate-100 dark:border-slate-800">
+                                        <Button variant="outline" onClick={prevStep}>Atrás</Button>
+                                        <Button onClick={nextStep}>Siguiente</Button>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
+
+                        {/* Step 4: Resumen */}
+                        {currentStep === 4 && (
+                            <Card className="border-slate-200 dark:border-slate-800 shadow-sm">
+                                <CardHeader className="pb-4 border-b border-slate-100 dark:border-slate-800">
+                                    <div className="flex items-center gap-2">
+                                        <FileText className="h-5 w-5 text-primary" />
+                                        <CardTitle>Resumen de Solicitud</CardTitle>
+                                    </div>
+                                    <CardDescription>Revisa los datos antes de enviar.</CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-6 pt-6">
+                                    <div className="space-y-4">
+                                        <div className="rounded-lg border p-4 space-y-3">
+                                            <h3 className="font-semibold text-sm text-slate-900 border-b pb-2 mb-2">Vendedor</h3>
+                                            <div className="grid grid-cols-2 gap-2 text-sm">
+                                                <span className="text-slate-500">Nombre:</span>
+                                                <span className="font-medium text-right">{formData.vendedorNombre}</span>
+                                                <span className="text-slate-500">RUT:</span>
+                                                <span className="font-medium text-right">{formData.vendedorRut}</span>
+                                            </div>
+                                        </div>
+
+                                        <div className="rounded-lg border p-4 space-y-3">
+                                            <h3 className="font-semibold text-sm text-slate-900 border-b pb-2 mb-2">Comprador</h3>
+                                            <div className="grid grid-cols-2 gap-2 text-sm">
+                                                <span className="text-slate-500">Nombre:</span>
+                                                <span className="font-medium text-right">{formData.compradorNombre}</span>
+                                                <span className="text-slate-500">RUT:</span>
+                                                <span className="font-medium text-right">{formData.compradorRut}</span>
+                                            </div>
+                                        </div>
+
+                                        <div className="rounded-lg border p-4 space-y-3">
+                                            <h3 className="font-semibold text-sm text-slate-900 border-b pb-2 mb-2">Inmueble & Comisión</h3>
+                                            <div className="grid grid-cols-2 gap-2 text-sm">
+                                                <span className="text-slate-500">Dirección:</span>
+                                                <span className="font-medium text-right truncate pl-4" title={formData.propiedadDireccion}>{formData.propiedadDireccion}</span>
+                                                <span className="text-slate-500">Monto:</span>
+                                                <span className="font-medium text-right">{formData.montoComision}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex justify-between pt-6 mt-4 border-t border-slate-100 dark:border-slate-800">
+                                        <Button variant="outline" onClick={prevStep}>Atrás</Button>
+                                        <Button onClick={() => saveRequest('submitted')} disabled={submitting} className="w-32 bg-green-600 hover:bg-green-700">
+                                            {submitting ? 'Enviando...' : 'Enviar'}
+                                        </Button>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
+
+                    </div>
                 </div>
-
             </div>
         </div>
     )
