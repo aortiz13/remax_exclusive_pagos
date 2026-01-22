@@ -80,7 +80,9 @@ export function KanbanCard({ request, isOverlay, onViewDetail }) {
                                 ? `${request.data.agente.nombre} ${request.data.agente.apellido || ''}`
                                 : request.data?.agenteNombre
                                     ? `${request.data.agenteNombre} ${request.data.agenteApellido || ''}`
-                                    : 'Desconocido'}
+                                    : request.user
+                                        ? `${request.user.first_name || ''} ${request.user.last_name || ''}`
+                                        : 'Desconocido'}
                         </span>
                     </div>
                     <div className="flex justify-end pt-2 border-t border-slate-100 dark:border-slate-800">
