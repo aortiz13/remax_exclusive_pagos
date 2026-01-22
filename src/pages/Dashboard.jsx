@@ -194,12 +194,23 @@ export default function Dashboard() {
                                 onClick={() => resumeRequest(request.id)}
                             >
                                 {/* Status Indicator Color Line */}
-                                <div className={`absolute top-0 left-0 w-1 h-full ${request.status === 'submitted' ? 'bg-green-500' : 'bg-amber-400'}`} />
+                                <div className={`absolute top-0 left-0 w-1 h-full ${request.status === 'realizado' ? 'bg-green-500' :
+                                        request.status === 'rechazado' ? 'bg-red-500' :
+                                            request.status === 'submitted' || request.status === 'pendiente' ? 'bg-amber-400' :
+                                                'bg-slate-300'
+                                    }`} />
 
                                 <CardHeader className="pb-3 pl-6">
                                     <div className="flex justify-between items-start">
-                                        <Badge variant={request.status === 'submitted' ? 'default' : 'secondary'} className={request.status === 'submitted' ? 'bg-green-100 text-green-700 hover:bg-green-100 border-green-200' : 'bg-amber-100 text-amber-700 hover:bg-amber-100 border-amber-200'}>
-                                            {request.status === 'submitted' ? 'Enviada' : 'Borrador'}
+                                        <Badge variant={request.status === 'submitted' || request.status === 'pendiente' ? 'default' : request.status === 'realizado' ? 'success' : request.status === 'rechazado' ? 'destructive' : 'secondary'} className={
+                                            request.status === 'submitted' || request.status === 'pendiente' ? 'bg-amber-100 text-amber-700 hover:bg-amber-100 border-amber-200' :
+                                                request.status === 'realizado' ? 'bg-green-100 text-green-700 hover:bg-green-100 border-green-200' :
+                                                    request.status === 'rechazado' ? 'bg-red-100 text-red-700 hover:bg-red-100 border-red-200' :
+                                                        'bg-slate-100 text-slate-700 hover:bg-slate-100 border-slate-200'
+                                        }>
+                                            {request.status === 'submitted' || request.status === 'pendiente' ? 'Pendiente' :
+                                                request.status === 'realizado' ? 'Realizado' :
+                                                    request.status === 'rechazado' ? 'Rechazado' : 'Borrador'}
                                         </Badge>
                                         <div className="relative z-10">
                                             <Button variant="ghost" size="icon" className="h-8 w-8 -mr-2 text-slate-400 hover:text-red-500" onClick={(e) => handleDeleteClick(request.id, e)}>

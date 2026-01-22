@@ -52,6 +52,11 @@ export default function Sidebar() {
             icon: Settings,
             path: '/admin/invites',
         })
+        bottomMenuItems.push({
+            title: 'Tablero Solicitudes',
+            icon: LayoutDashboard,
+            path: '/admin/requests',
+        })
     }
 
     return (

@@ -12,6 +12,7 @@ import ContractForm from './pages/ContractForm'
 import AdminInvites from './pages/AdminInvites'
 import ForgotPassword from './pages/ForgotPassword'
 import UpdatePassword from './pages/UpdatePassword'
+import AdminRequests from './pages/AdminRequests'
 import { Toaster } from 'sonner'
 
 // Protected Route Component
@@ -100,6 +101,12 @@ function App() {
             <Route path="/admin/invites" element={
               <ProtectedRoute>
                 <AdminInvites />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/admin/requests" element={
+              <ProtectedRoute>
+                <AdminRequests />
               </ProtectedRoute>
             } />
 
