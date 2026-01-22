@@ -30,6 +30,11 @@ export function KanbanCard({ request, isOverlay }) {
             icon: FileText,
             color: 'text-indigo-600 bg-indigo-50 border-indigo-100',
             label: 'Contrato'
+        },
+        'invoice': {
+            icon: Receipt,
+            color: 'text-emerald-600 bg-emerald-50 border-emerald-100',
+            label: 'Factura'
         }
     }
 
@@ -46,7 +51,7 @@ export function KanbanCard({ request, isOverlay }) {
 
     // Agent name logic (assuming profiles are joined or simply using data from request if available, 
     // or we might need to fetch it. For now, showing client name as it's more relevant for identifying the case)
-    const clientName = request.data?.arrendatarioNombre || request.data?.dueñoNombre || 'Cliente'
+    const clientName = request.data?.arrendatarioNombre || request.data?.dueñoNombre || request.data?.compradorNombre || 'Cliente'
 
     return (
         <div ref={setNodeRef} style={style} {...attributes} {...listeners} className="touch-none">

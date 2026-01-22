@@ -13,6 +13,7 @@ import AdminInvites from './pages/AdminInvites'
 import ForgotPassword from './pages/ForgotPassword'
 import UpdatePassword from './pages/UpdatePassword'
 import AdminRequests from './pages/AdminRequests'
+import InvoiceForm from './pages/InvoiceForm'
 import { Toaster } from 'sonner'
 
 // Protected Route Component
@@ -95,6 +96,18 @@ function App() {
             <Route path="/request/:id" element={
               <ProtectedRoute>
                 <RequestForm />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/request/invoice/new" element={
+              <ProtectedRoute>
+                <InvoiceForm />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/request/invoice/:id" element={
+              <ProtectedRoute>
+                <InvoiceForm />
               </ProtectedRoute>
             } />
 

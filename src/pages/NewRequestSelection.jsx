@@ -48,6 +48,23 @@ export default function NewRequestSelection() {
                             </div>
                         </CardContent>
                     </Card>
+
+                    <Card
+                        className="cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:shadow-xl border-2 hover:border-emerald-500 group"
+                        onClick={() => navigate('/request/invoice/new')}
+                    >
+                        <CardContent className="flex flex-col items-center justify-center p-12 text-center space-y-6">
+                            <div className="p-6 rounded-full bg-emerald-50 group-hover:bg-emerald-100 transition-colors">
+                                <Receipt className="h-12 w-12 text-emerald-600" />
+                            </div>
+                            <div className="space-y-2">
+                                <h3 className="text-xl font-bold text-slate-900 group-hover:text-emerald-700 transition-colors">Solicitud Factura</h3>
+                                <p className="text-sm text-slate-500 max-w-[200px] mx-auto">
+                                    Solicitar factura por comisión de venta de inmueble.
+                                </p>
+                            </div>
+                        </CardContent>
+                    </Card>
                 </div>
 
                 <div className="text-center">

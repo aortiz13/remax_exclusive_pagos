@@ -69,7 +69,12 @@ export default function Dashboard() {
     }
 
     const resumeRequest = (id) => {
-        navigate(`/request/${id}`)
+        const request = requests.find(r => r.id === id)
+        if (request?.type === 'invoice') {
+            navigate(`/request/invoice/${id}`)
+        } else {
+            navigate(`/request/${id}`)
+        }
     }
 
     const formatDate = (dateString) => {
@@ -86,8 +91,19 @@ export default function Dashboard() {
 
     const filteredRequests = requests.filter(request => {
         const searchLower = searchTerm.toLowerCase()
-        const address = request.data?.direccion?.toLowerCase() || ''
-        const client = (request.data?.arrendatarioNombre || request.data?.dueñoNombre || '').toLowerCase()
+        // Handle standard requests (direccion) and invoices (propiedadDireccion)
+        const address = (request.data?.direccion || request.data?.propiedadDireccion || '').toLowerCase()
+
+        // Handle standard requests (arrendatario/dueño) and invoices (comprador/vendedor)
+        const client = (
+            request.data?.arrendatarioNombre ||
+            request.data?.dueñoNombre ||
+            request.data?.comuna || // Include comuna too
+            request.data?.compradorNombre ||
+            request.data?.vendedorNombre ||
+            ''
+        ).toLowerCase()
+
         return address.includes(searchLower) || client.includes(searchLower)
     })
 
@@ -195,9 +211,9 @@ export default function Dashboard() {
                             >
                                 {/* Status Indicator Color Line */}
                                 <div className={`absolute top-0 left-0 w-1 h-full ${request.status === 'realizado' ? 'bg-green-500' :
-                                        request.status === 'rechazado' ? 'bg-red-500' :
-                                            request.status === 'submitted' || request.status === 'pendiente' ? 'bg-amber-400' :
-                                                'bg-slate-300'
+                                    request.status === 'rechazado' ? 'bg-red-500' :
+                                        request.status === 'submitted' || request.status === 'pendiente' ? 'bg-amber-400' :
+                                            'bg-slate-300'
                                     }`} />
 
                                 <CardHeader className="pb-3 pl-6">
@@ -218,12 +234,16 @@ export default function Dashboard() {
                                             </Button>
                                         </div>
                                     </div>
-                                    <CardTitle className="text-lg font-bold line-clamp-1 mt-2 flex items-center gap-2" title={request.data?.direccion}>
-                                        <Building2 className="h-4 w-4 text-slate-400 shrink-0" />
-                                        {request.data?.direccion || 'Nueva Propiedad'}
+                                    <CardTitle className="text-lg font-bold line-clamp-1 mt-2 flex items-center gap-2" title={request.data?.direccion || request.data?.propiedadDireccion}>
+                                        {request.type === 'invoice' ? (
+                                            <Receipt className="h-4 w-4 text-emerald-500 shrink-0" />
+                                        ) : (
+                                            <Building2 className="h-4 w-4 text-slate-400 shrink-0" />
+                                        )}
+                                        {request.data?.direccion || request.data?.propiedadDireccion || 'Nueva Solicitud'}
                                     </CardTitle>
                                     <CardDescription className="line-clamp-1">
-                                        {request.data?.comuna || 'Ubicación pendiente'}
+                                        {request.data?.comuna || (request.type === 'invoice' ? 'Solicitud Factura' : 'Ubicación pendiente')}
                                     </CardDescription>
                                 </CardHeader>
 
@@ -233,7 +253,7 @@ export default function Dashboard() {
                                         <div className="flex items-center gap-2">
                                             <User className="h-4 w-4 text-slate-400" />
                                             <span className="truncate">
-                                                {request.data?.arrendatarioNombre || request.data?.dueñoNombre || 'Cliente sin asignar'}
+                                                {request.data?.arrendatarioNombre || request.data?.dueñoNombre || request.data?.compradorNombre || 'Cliente sin asignar'}
                                             </span>
                                         </div>
                                         <div className="flex items-center gap-2">
