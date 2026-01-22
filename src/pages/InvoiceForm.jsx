@@ -64,9 +64,23 @@ export default function InvoiceForm() {
         }
     }, [id, navigate])
 
+    const formatCurrency = (value) => {
+        // Remove non-numeric characters
+        const number = value.replace(/\D/g, '')
+        if (!number) return ''
+        return '$ ' + new Intl.NumberFormat('es-CL').format(number)
+    }
+
     const handleChange = (e) => {
         const { name, value } = e.target
-        setFormData(prev => ({ ...prev, [name]: value }))
+
+        if (name === 'montoComision') {
+            // Apply currency formatting
+            const formatted = formatCurrency(value)
+            setFormData(prev => ({ ...prev, [name]: formatted }))
+        } else {
+            setFormData(prev => ({ ...prev, [name]: value }))
+        }
     }
 
     const saveRequest = async (status = 'draft', nextStepVal = null) => {
@@ -344,7 +358,14 @@ export default function InvoiceForm() {
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div className="space-y-2">
                                             <Label htmlFor="montoComision">Monto Comisión</Label>
-                                            <Input id="montoComision" name="montoComision" value={formData.montoComision} onChange={handleChange} placeholder="Ej: 2% + IVA o valor fijo" />
+                                            <Input
+                                                id="montoComision"
+                                                name="montoComision"
+                                                value={formData.montoComision}
+                                                onChange={handleChange}
+                                                placeholder="Ej: $ 500.000"
+                                                maxLength={15}
+                                            />
                                         </div>
                                     </div>
                                     <div className="space-y-2">
