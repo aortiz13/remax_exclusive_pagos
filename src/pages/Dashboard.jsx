@@ -126,12 +126,18 @@ export default function Dashboard() {
                 </div>
 
                 {/* Quick Actions Section */}
-                <div id="tour-new-request" className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Quick Actions Section - Horizontal Scroll / Carousel */}
+                <div
+                    id="tour-new-request"
+                    className="flex overflow-x-auto pb-4 gap-6 snap-x snap-mandatory hide-scrollbar"
+                    style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                >
+                    {/* Card 1: Link de Pago */}
                     <Card
-                        className="cursor-pointer transition-all hover:scale-[1.01] hover:shadow-md border-l-4 border-l-blue-500 hover:border-l-blue-600 group"
+                        className="min-w-[300px] md:min-w-[350px] flex-1 cursor-pointer transition-all hover:scale-[1.01] hover:shadow-md border-l-4 border-l-blue-500 hover:border-l-blue-600 group snap-center"
                         onClick={() => navigate('/request/payment/new')}
                     >
-                        <CardContent className="flex items-center p-6 gap-6">
+                        <CardContent className="flex items-center p-6 gap-6 h-full">
                             <div className="h-16 w-16 rounded-full bg-blue-50 flex items-center justify-center group-hover:bg-blue-100 transition-colors shrink-0">
                                 <Receipt className="h-8 w-8 text-blue-600" />
                             </div>
@@ -144,11 +150,12 @@ export default function Dashboard() {
                         </CardContent>
                     </Card>
 
+                    {/* Card 2: Redacción de Contrato */}
                     <Card
-                        className="cursor-pointer transition-all hover:scale-[1.01] hover:shadow-md border-l-4 border-l-indigo-500 hover:border-l-indigo-600 group"
+                        className="min-w-[300px] md:min-w-[350px] flex-1 cursor-pointer transition-all hover:scale-[1.01] hover:shadow-md border-l-4 border-l-indigo-500 hover:border-l-indigo-600 group snap-center"
                         onClick={() => navigate('/request/contract/new')}
                     >
-                        <CardContent className="flex items-center p-6 gap-6">
+                        <CardContent className="flex items-center p-6 gap-6 h-full">
                             <div className="h-16 w-16 rounded-full bg-indigo-50 flex items-center justify-center group-hover:bg-indigo-100 transition-colors shrink-0">
                                 <FileText className="h-8 w-8 text-indigo-600" />
                             </div>
@@ -156,6 +163,24 @@ export default function Dashboard() {
                                 <h3 className="text-xl font-bold text-slate-900 group-hover:text-indigo-700 transition-colors">Redacción de Contrato</h3>
                                 <p className="text-sm text-slate-500">
                                     Solicitar redacción de contratos de compraventa o arriendo.
+                                </p>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Card 3: Solicitud de Factura */}
+                    <Card
+                        className="min-w-[300px] md:min-w-[350px] flex-1 cursor-pointer transition-all hover:scale-[1.01] hover:shadow-md border-l-4 border-l-emerald-500 hover:border-l-emerald-600 group snap-center"
+                        onClick={() => navigate('/request/invoice/new')}
+                    >
+                        <CardContent className="flex items-center p-6 gap-6 h-full">
+                            <div className="h-16 w-16 rounded-full bg-emerald-50 flex items-center justify-center group-hover:bg-emerald-100 transition-colors shrink-0">
+                                <Receipt className="h-8 w-8 text-emerald-600" />
+                            </div>
+                            <div className="space-y-1">
+                                <h3 className="text-xl font-bold text-slate-900 group-hover:text-emerald-700 transition-colors">Solicitud de Factura</h3>
+                                <p className="text-sm text-slate-500">
+                                    Generar solicitud de emisión de factura por comisiones.
                                 </p>
                             </div>
                         </CardContent>
