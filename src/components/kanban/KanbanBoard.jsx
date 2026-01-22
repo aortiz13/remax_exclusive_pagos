@@ -18,7 +18,7 @@ import { KanbanColumn } from './KanbanColumn'
 import { KanbanCard } from './KanbanCard'
 import { createPortal } from 'react-dom'
 
-export function KanbanBoard({ requests, onStatusChange }) {
+export function KanbanBoard({ requests, onStatusChange, onViewDetail }) {
     const [activeId, setActiveId] = useState(null)
 
     const sensors = useSensors(
@@ -131,18 +131,21 @@ export function KanbanBoard({ requests, onStatusChange }) {
                     title="Pendiente"
                     items={columns.pendiente}
                     color="bg-amber-100 text-amber-900 border-amber-200"
+                    onViewDetail={onViewDetail}
                 />
                 <KanbanColumn
                     id="realizado"
                     title="Realizado"
                     items={columns.realizado}
                     color="bg-green-100 text-green-900 border-green-200"
+                    onViewDetail={onViewDetail}
                 />
                 <KanbanColumn
                     id="rechazado"
                     title="Rechazado"
                     items={columns.rechazado}
                     color="bg-red-100 text-red-900 border-red-200"
+                    onViewDetail={onViewDetail}
                 />
             </div>
 

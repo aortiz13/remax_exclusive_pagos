@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../services/supabase'
 import { KanbanBoard } from '../components/kanban/KanbanBoard'
+import { RequestDetailModal } from '../components/kanban/RequestDetailModal'
 import { toast } from 'sonner'
 import { Navigate } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
@@ -10,6 +11,8 @@ export default function AdminRequests() {
     const { profile, loading: authLoading, user } = useAuth()
     const [requests, setRequests] = useState([])
     const [loading, setLoading] = useState(true)
+
+    const [selectedRequest, setSelectedRequest] = useState(null)
 
     useEffect(() => {
         if (profile?.role === 'admin') {
@@ -106,10 +109,17 @@ export default function AdminRequests() {
                         <KanbanBoard
                             requests={requests}
                             onStatusChange={handleStatusChange}
+                            onViewDetail={setSelectedRequest}
                         />
                     )}
                 </div>
             </div>
+
+            <RequestDetailModal
+                request={selectedRequest}
+                isOpen={!!selectedRequest}
+                onClose={() => setSelectedRequest(null)}
+            />
         </div>
     )
 }

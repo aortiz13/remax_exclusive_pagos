@@ -2,9 +2,8 @@ import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { Card, CardContent, CardHeader, Badge, Button } from '@/components/ui'
 import { FileText, Receipt, MapPin, User, Calendar, ExternalLink } from 'lucide-react'
-import { Link } from 'react-router-dom'
 
-export function KanbanCard({ request, isOverlay }) {
+export function KanbanCard({ request, isOverlay, onViewDetail }) {
     const {
         attributes,
         listeners,
@@ -73,17 +72,30 @@ export function KanbanCard({ request, isOverlay }) {
                 <CardContent className="p-3 pt-0">
                     <div className="flex items-center gap-1.5 text-xs text-slate-500 mb-2">
                         <User className="h-3 w-3 shrink-0" />
-                        <span className="truncate max-w-[150px]">{clientName}</span>
+                        <span className="truncate max-w-[150px]">
+                            {/* Priority: Agent Name > Client Name > Default */}
+                            {/* User requested Agent Name. Agent info is usually in data.agente (object) or data.agenteNombre (string) */}
+                            <span className="font-semibold text-slate-700 dark:text-slate-300 mr-1">Agente:</span>
+                            {request.data?.agente?.nombre
+                                ? `${request.data.agente.nombre} ${request.data.agente.apellido || ''}`
+                                : request.data?.agenteNombre
+                                    ? `${request.data.agenteNombre} ${request.data.agenteApellido || ''}`
+                                    : 'Desconocido'}
+                        </span>
                     </div>
                     <div className="flex justify-end pt-2 border-t border-slate-100 dark:border-slate-800">
-                        <Link
-                            to={request.type === 'invoice' ? `/request/invoice/${request.id}` : `/request/${request.id}`}
-                            className="text-xs font-medium text-slate-600 hover:text-primary flex items-center gap-1 hover:underline p-1"
-                            onClick={(e) => e.stopPropagation()} // Prevent drag start when clicking link
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-auto p-0 px-2 py-1 text-xs font-medium text-slate-600 hover:text-primary flex items-center gap-1 hover:bg-slate-100 dark:hover:bg-slate-800"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onViewDetail && onViewDetail(request);
+                            }}
                             onPointerDown={(e) => e.stopPropagation()}
                         >
                             Ver detalle <ExternalLink className="h-3 w-3" />
-                        </Link>
+                        </Button>
                     </div>
                 </CardContent>
             </Card>
