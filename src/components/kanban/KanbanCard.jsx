@@ -77,7 +77,7 @@ export function KanbanCard({ request, isOverlay }) {
                     </div>
                     <div className="flex justify-end pt-2 border-t border-slate-100 dark:border-slate-800">
                         <Link
-                            to={`/request/${request.id}`}
+                            to={request.type === 'invoice' ? `/request/invoice/${request.id}` : `/request/${request.id}`}
                             className="text-xs font-medium text-slate-600 hover:text-primary flex items-center gap-1 hover:underline p-1"
                             onClick={(e) => e.stopPropagation()} // Prevent drag start when clicking link
                             onPointerDown={(e) => e.stopPropagation()}
