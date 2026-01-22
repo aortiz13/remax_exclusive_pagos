@@ -194,7 +194,7 @@ export function RequestDetailModal({ request, isOpen, onClose }) {
                             <div className="relative pl-4">
                                 <div className="absolute -left-[21px] top-1 h-3 w-3 rounded-full border-2 border-white dark:border-slate-950 bg-primary" />
                                 <div className="text-xs text-slate-500 mb-1">
-                                    {format(new Date(request.createdAt || request.updated_at), "d MMM yyyy", { locale: es })}
+                                    {format(new Date(request.createdAt || request.updated_at), "d MMM yyyy, HH:mm", { locale: es })}
                                 </div>
                                 <p className="text-sm font-medium text-slate-900 dark:text-slate-200">
                                     Solicitud Creada
