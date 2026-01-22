@@ -186,6 +186,12 @@ export default function InvoiceForm() {
             // User requested: "El payload debería tener un item que diga 'solicitud: factura'"
             // We can add it as a text field in FormData
             payload.append('solicitud', 'factura');
+
+            // Agent details
+            payload.append('agente_nombre', profile?.first_name || '');
+            payload.append('agente_apellido', profile?.last_name || '');
+            payload.append('agente_email', user?.email || '');
+            payload.append('agente_telefono', profile?.phone || '');
             // Attach the file
             payload.append('file', blob, `solicitud_factura_${requestData.id}.xlsx`);
 
