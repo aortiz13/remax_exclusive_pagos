@@ -187,14 +187,11 @@ export default function InvoiceForm() {
             // We can add it as a text field in FormData
             payload.append('solicitud', 'factura');
 
-            // Agent details
-            const agenteData = {
-                nombre: profile?.first_name || '',
-                apellido: profile?.last_name || '',
-                email: user?.email || '',
-                telefono: profile?.phone || ''
-            }
-            payload.append('agente', JSON.stringify(agenteData));
+            // Agent details (Bracket notation for automatic object parsing)
+            payload.append('agente[nombre]', profile?.first_name || '');
+            payload.append('agente[apellido]', profile?.last_name || '');
+            payload.append('agente[email]', user?.email || '');
+            payload.append('agente[telefono]', profile?.phone || '');
             // Attach the file
             payload.append('file', blob, `solicitud_factura_${requestData.id}.xlsx`);
 
