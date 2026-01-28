@@ -206,6 +206,11 @@ export default function AdminInvites() {
             }
 
             try {
+                // Add a small delay between requests to avoid rate limits
+                if (results.success + results.error > 0) {
+                    await new Promise(resolve => setTimeout(resolve, 2000))
+                }
+
                 const { error } = await supabase.functions.invoke('invite-agent', {
                     body: {
                         email: rowEmail,
@@ -220,7 +225,17 @@ export default function AdminInvites() {
             } catch (err) {
                 console.error(`Error inviting ${rowEmail}:`, err)
                 results.error++
-                results.details.push({ email: rowEmail, status: 'api_error' })
+
+                let status = 'api_error'
+                if (err.message?.toLowerCase().includes('rate limit')) {
+                    status = 'rate_limit'
+                    toast.error(`Límite de correos alcanzado en Supabase: ${rowEmail} no pudo ser invitado.`)
+                }
+
+                results.details.push({ email: rowEmail, status })
+
+                // If we hit rate limit, maybe we should stop or suggest a longer wait
+                if (status === 'rate_limit') break
             }
         }
 
