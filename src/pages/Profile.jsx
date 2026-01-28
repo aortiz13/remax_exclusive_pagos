@@ -41,6 +41,11 @@ export default function Profile() {
                 updated_at: new Date(),
             }
 
+            // Only set invitation_accepted_at if it's not already set
+            if (!profile?.invitation_accepted_at) {
+                updates.invitation_accepted_at = new Date()
+            }
+
             const { error } = await supabase.from('profiles').upsert(updates)
 
             if (error) throw error

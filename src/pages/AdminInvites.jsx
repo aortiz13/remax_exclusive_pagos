@@ -511,9 +511,30 @@ export default function AdminInvites() {
                                                     </Badge>
                                                 )}
                                             </div>
-                                            <p className="text-xs text-muted-foreground mt-0.5">
-                                                Aceptó invitación: {new Date(u.created_at).toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' })}
-                                            </p>
+                                            <div className="flex flex-col gap-0.5 mt-1">
+                                                <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
+                                                    Invitado el: {new Date(u.created_at).toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                                </p>
+                                                <p className="text-xs font-medium">
+                                                    {u.invitation_accepted_at ? (
+                                                        <span className="text-green-600 dark:text-green-400 flex items-center gap-1">
+                                                            <CheckCircle2 className="h-3 w-3" />
+                                                            Aceptó invitación: {new Date(u.invitation_accepted_at).toLocaleString('es-CL', {
+                                                                day: 'numeric',
+                                                                month: 'long',
+                                                                year: 'numeric',
+                                                                hour: '2-digit',
+                                                                minute: '2-digit'
+                                                            })}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                                                            <Loader2 className="h-3 w-3 animate-pulse" />
+                                                            Pendiente de aceptar
+                                                        </span>
+                                                    )}
+                                                </p>
+                                            </div>
                                         </div>
                                     </div>
 
