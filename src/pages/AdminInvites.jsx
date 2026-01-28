@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { toast } from 'sonner'
 import { supabase } from '../services/supabase'
 import { Button, Input, Label, Card, CardHeader, CardTitle, CardContent, CardFooter, CardDescription, Alert, AlertDescription, Badge, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui'
 import { useAuth } from '../context/AuthContext'
 import { Navigate } from 'react-router-dom'
-import { Trash2, Shield, User, Loader2 } from 'lucide-react'
+import { Trash2, Shield, User, Loader2, Upload, FileText, CheckCircle2, AlertCircle, X } from 'lucide-react'
+import ExcelJS from 'exceljs'
 
 export default function AdminInvites() {
     const { profile, loading: authLoading } = useAuth()
@@ -20,6 +21,20 @@ export default function AdminInvites() {
     const [deleteLoading, setDeleteLoading] = useState(null) // ID of user being deleted
     const [userToDelete, setUserToDelete] = useState(null)
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+
+    // Bulk Invite state
+    const [csvFile, setCsvFile] = useState(null)
+    const [csvData, setCsvData] = useState([])
+    const [headers, setHeaders] = useState([])
+    const [mapping, setMapping] = useState({
+        email: '',
+        firstName: '',
+        lastName: '',
+        role: ''
+    })
+    const [isBulkLoading, setIsBulkLoading] = useState(false)
+    const [processingResults, setProcessingResults] = useState(null)
+    const fileInputRef = useRef(null)
 
     useEffect(() => {
         if (profile?.role === 'admin') {
@@ -68,7 +83,7 @@ export default function AdminInvites() {
             setFirstName('')
             setLastName('')
             setRole('agent')
-            fetchUsers() // Refresh list just in case (though invited users might not appear until they accept/login first time, depending on flow. For now, profile is created on login usually, unless invite script inserts it. The invite script uses inviteUserByEmail but doesn't insert profile directly usually unless meta data is handled by trigger. Assuming standard flow.)
+            fetchUsers()
 
         } catch (error) {
             console.error('Error sending invite:', error)
@@ -76,6 +91,106 @@ export default function AdminInvites() {
         } finally {
             setLoading(false)
         }
+    }
+
+    const handleFileUpload = async (e) => {
+        const file = e.target.files[0]
+        if (!file) return
+
+        setCsvFile(file)
+        setProcessingResults(null)
+        setCsvData([])
+        setHeaders([])
+
+        try {
+            const workbook = new ExcelJS.Workbook()
+            const buffer = await file.arrayBuffer()
+            await workbook.csv.readBuffer(new Uint8Array(buffer))
+
+            const worksheet = workbook.worksheets[0]
+            if (!worksheet) throw new Error('No se pudo leer el archivo')
+
+            const rows = []
+            let headerRow = []
+
+            worksheet.eachRow((row, rowNumber) => {
+                if (rowNumber === 1) {
+                    headerRow = row.values.slice(1).map(v => v?.toString() || '')
+                    setHeaders(headerRow)
+                } else {
+                    const rowData = {}
+                    row.eachCell((cell, colNumber) => {
+                        rowData[headerRow[colNumber - 1]] = cell.value?.toString() || ''
+                    })
+                    rows.push(rowData)
+                }
+            })
+
+            setCsvData(rows)
+
+            // Auto-mapping attempt
+            const newMapping = { ...mapping }
+            headerRow.forEach(h => {
+                const lowerH = h.toLowerCase()
+                if (lowerH.includes('correo') || lowerH.includes('email')) newMapping.email = h
+                if (lowerH.includes('nombre') || lowerH.includes('first')) newMapping.firstName = h
+                if (lowerH.includes('apellido') || lowerH.includes('last')) newMapping.lastName = h
+                if (lowerH.includes('rol') || lowerH.includes('role')) newMapping.role = h
+            })
+            setMapping(newMapping)
+
+        } catch (error) {
+            console.error('Error parsing CSV:', error)
+            toast.error('Error al procesar el archivo CSV')
+        }
+    }
+
+    const handleBulkInvite = async () => {
+        if (!mapping.email || !mapping.firstName || !mapping.lastName) {
+            toast.error('Por favor mapea los campos obligatorios: Nombre, Apellido y Email')
+            return
+        }
+
+        setIsBulkLoading(true)
+        const results = { success: 0, error: 0, details: [] }
+
+        for (const row of csvData) {
+            const rowEmail = row[mapping.email]
+            const rowFirstName = row[mapping.firstName]
+            const rowLastName = row[mapping.lastName]
+            const rowRole = mapping.role ? (row[mapping.role]?.toLowerCase() === 'admin' ? 'admin' : 'agent') : 'agent'
+
+            if (!rowEmail || !rowFirstName || !rowLastName) {
+                results.error++
+                results.details.push({ email: rowEmail || 'Sin email', status: 'missing_data' })
+                continue
+            }
+
+            try {
+                const { error } = await supabase.functions.invoke('invite-agent', {
+                    body: {
+                        email: rowEmail,
+                        firstName: rowFirstName,
+                        lastName: rowLastName,
+                        role: rowRole
+                    }
+                })
+
+                if (error) throw error
+                results.success++
+            } catch (err) {
+                console.error(`Error inviting ${rowEmail}:`, err)
+                results.error++
+                results.details.push({ email: rowEmail, status: 'api_error' })
+            }
+        }
+
+        setProcessingResults(results)
+        setIsBulkLoading(false)
+        setCsvFile(null)
+        setCsvData([])
+        fetchUsers()
+        toast.success(`Proceso completado: ${results.success} éxitos, ${results.error} errores`)
     }
 
     const confirmDelete = async () => {
@@ -173,24 +288,131 @@ export default function AdminInvites() {
                     </form>
                 </Card>
 
-                {/* Instructions / Info */}
-                <Card>
+                {/* Bulk Invite Section */}
+                <Card className="flex flex-col">
                     <CardHeader>
-                        <CardTitle>Administración</CardTitle>
+                        <CardTitle className="flex items-center gap-2">
+                            <Upload className="h-5 w-5" />
+                            Invitación Masiva
+                        </CardTitle>
                         <CardDescription>
-                            Gestiona el acceso y los usuarios de la plataforma.
+                            Carga un archivo CSV para invitar a múltiples agentes.
                         </CardDescription>
                     </CardHeader>
-                    <CardContent className="space-y-4 text-sm text-muted-foreground">
-                        <p>
-                            Los usuarios invitados recibirán un correo electrónico con un enlace para establecer su contraseña e ingresar a la aplicación.
-                        </p>
-                        <Alert>
-                            <AlertDescription>
-                                Si eliminas un usuario, perderá acceso inmediatamente y todos sus datos de perfil serán borrados.
-                            </AlertDescription>
-                        </Alert>
+                    <CardContent className="flex-1 space-y-4">
+                        {!csvFile ? (
+                            <div
+                                className="border-2 border-dashed rounded-xl p-8 text-center cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-900 border-slate-200 dark:border-slate-800 transition-colors"
+                                onClick={() => fileInputRef.current?.click()}
+                            >
+                                <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                                    <FileText className="h-10 w-10 opacity-50" />
+                                    <p className="font-medium">Haz clic para cargar CSV</p>
+                                    <p className="text-xs">Debe contener Nombre, Apellido y Email</p>
+                                </div>
+                                <input
+                                    type="file"
+                                    ref={fileInputRef}
+                                    className="hidden"
+                                    accept=".csv"
+                                    onChange={handleFileUpload}
+                                />
+                            </div>
+                        ) : (
+                            <div className="space-y-4 animate-in fade-in duration-300">
+                                <div className="flex items-center justify-between p-3 bg-primary/5 rounded-lg border border-primary/20">
+                                    <div className="flex items-center gap-2">
+                                        <FileText className="h-5 w-5 text-primary" />
+                                        <span className="text-sm font-medium truncate max-w-[150px]">{csvFile.name}</span>
+                                        <Badge variant="outline" className="text-[10px]">{csvData.length} filas</Badge>
+                                    </div>
+                                    <Button variant="ghost" size="icon" onClick={() => setCsvFile(null)} className="h-8 w-8">
+                                        <X className="h-4 w-4" />
+                                    </Button>
+                                </div>
+
+                                <div className="space-y-3">
+                                    <p className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Mapeo de Campos</p>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="space-y-1.5">
+                                            <Label className="text-[11px]">Nombre *</Label>
+                                            <Select value={mapping.firstName} onValueChange={(v) => setMapping(prev => ({ ...prev, firstName: v }))}>
+                                                <SelectTrigger className="h-8 text-xs">
+                                                    <SelectValue placeholder="Seleccionar" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {headers.map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <Label className="text-[11px]">Apellido *</Label>
+                                            <Select value={mapping.lastName} onValueChange={(v) => setMapping(prev => ({ ...prev, lastName: v }))}>
+                                                <SelectTrigger className="h-8 text-xs">
+                                                    <SelectValue placeholder="Seleccionar" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {headers.map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <Label className="text-[11px]">Email *</Label>
+                                            <Select value={mapping.email} onValueChange={(v) => setMapping(prev => ({ ...prev, email: v }))}>
+                                                <SelectTrigger className="h-8 text-xs">
+                                                    <SelectValue placeholder="Seleccionar" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {headers.map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <Label className="text-[11px]">Rol (Opcional)</Label>
+                                            <Select value={mapping.role} onValueChange={(v) => setMapping(prev => ({ ...prev, role: v }))}>
+                                                <SelectTrigger className="h-8 text-xs">
+                                                    <SelectValue placeholder="Seleccionar" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="">Predeterminado (Agente)</SelectItem>
+                                                    {headers.map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {processingResults && (
+                            <Alert className={processingResults.error > 0 ? "border-amber-200 bg-amber-50" : "border-green-200 bg-green-50"}>
+                                <div className="flex gap-2">
+                                    {processingResults.error === 0 ? <CheckCircle2 className="h-4 w-4 text-green-600" /> : <AlertCircle className="h-4 w-4 text-amber-600" />}
+                                    <AlertDescription className="text-xs">
+                                        <p className="font-bold">Resultado:</p>
+                                        <p>{processingResults.success} invitaciones enviadas.</p>
+                                        {processingResults.error > 0 && <p>{processingResults.error} errores detectados.</p>}
+                                    </AlertDescription>
+                                </div>
+                            </Alert>
+                        )}
                     </CardContent>
+                    <CardFooter className="pt-0">
+                        <Button
+                            className="w-full"
+                            disabled={!csvFile || isBulkLoading}
+                            onClick={handleBulkInvite}
+                        >
+                            {isBulkLoading ? (
+                                <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Procesando...
+                                </>
+                            ) : (
+                                'Iniciar Proceso Masivo'
+                            )}
+                        </Button>
+                    </CardFooter>
                 </Card>
             </div>
 
