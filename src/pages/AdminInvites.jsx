@@ -109,14 +109,20 @@ export default function AdminInvites() {
                 const lines = text.split(/\r?\n/)
                 if (lines.length === 0) return
 
-                // Helper to parse CSV line handling quotes
-                const parseCSVLine = (line) => {
+                // Detect delimiter
+                const firstLine = lines[0]
+                const commaCount = (firstLine.match(/,/g) || []).length
+                const semicolonCount = (firstLine.match(/;/g) || []).length
+                const delimiter = semicolonCount > commaCount ? ';' : ','
+
+                // Helper to parse CSV line handling quotes and dynamic delimiter
+                const parseCSVLine = (line, delim) => {
                     const result = []
                     let startValueIndex = 0
                     let inQuotes = false
                     for (let i = 0; i < line.length; i++) {
                         if (line[i] === '"') inQuotes = !inQuotes
-                        if (line[i] === ',' && !inQuotes) {
+                        if (line[i] === delim && !inQuotes) {
                             result.push(line.substring(startValueIndex, i).replace(/^"|"$/g, '').trim())
                             startValueIndex = i + 1
                         }
@@ -125,13 +131,13 @@ export default function AdminInvites() {
                     return result
                 }
 
-                const headerRow = parseCSVLine(lines[0]).filter(h => h !== '')
+                const headerRow = parseCSVLine(lines[0], delimiter).filter(h => h !== '')
                 setHeaders(headerRow)
 
                 const rows = []
                 for (let i = 1; i < lines.length; i++) {
                     if (!lines[i].trim()) continue
-                    const values = parseCSVLine(lines[i])
+                    const values = parseCSVLine(lines[i], delimiter)
                     const rowData = {}
                     headerRow.forEach((h, index) => {
                         rowData[h] = values[index] || ''
