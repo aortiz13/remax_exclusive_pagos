@@ -109,14 +109,9 @@ export default function AdminInvites() {
                 const lines = text.split(/\r?\n/)
                 if (lines.length === 0) return
 
-                // Detect delimiter
-                const firstLine = lines[0]
-                const commaCount = (firstLine.match(/,/g) || []).length
-                const semicolonCount = (firstLine.match(/;/g) || []).length
-                const delimiter = semicolonCount > commaCount ? ';' : ','
-
                 // Helper to parse CSV line handling quotes and dynamic delimiter
                 const parseCSVLine = (line, delim) => {
+                    if (!line) return []
                     const result = []
                     let startValueIndex = 0
                     let inQuotes = false
@@ -131,13 +126,30 @@ export default function AdminInvites() {
                     return result
                 }
 
+                // Detect delimiter more robustly
+                const delimiters = [',', ';', '\t', '|']
+                let bestDelimiter = ','
+                let maxColumns = 0
+
+                delimiters.forEach(d => {
+                    const columns = parseCSVLine(lines[0], d).filter(h => h.trim() !== '').length
+                    if (columns > maxColumns) {
+                        maxColumns = columns
+                        bestDelimiter = d
+                    }
+                })
+
+                const delimiter = bestDelimiter
+                console.log('Detected delimiter:', delimiter, 'Columns:', maxColumns)
+
                 const headerRow = parseCSVLine(lines[0], delimiter).filter(h => h !== '')
                 setHeaders(headerRow)
 
                 const rows = []
                 for (let i = 1; i < lines.length; i++) {
-                    if (!lines[i].trim()) continue
-                    const values = parseCSVLine(lines[i], delimiter)
+                    const line = lines[i].trim()
+                    if (!line) continue
+                    const values = parseCSVLine(line, delimiter)
                     const rowData = {}
                     headerRow.forEach((h, index) => {
                         rowData[h] = values[index] || ''
