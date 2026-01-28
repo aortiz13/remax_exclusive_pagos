@@ -103,41 +103,62 @@ export default function AdminInvites() {
         setHeaders([])
 
         try {
-            const workbook = new ExcelJS.Workbook()
-            const buffer = await file.arrayBuffer()
-            await workbook.csv.readBuffer(new Uint8Array(buffer))
+            const reader = new FileReader()
+            reader.onload = (event) => {
+                const text = event.target.result
+                const lines = text.split(/\r?\n/)
+                if (lines.length === 0) return
 
-            const worksheet = workbook.worksheets[0]
-            if (!worksheet) throw new Error('No se pudo leer el archivo')
+                // Helper to parse CSV line handling quotes
+                const parseCSVLine = (line) => {
+                    const result = []
+                    let startValueIndex = 0
+                    let inQuotes = false
+                    for (let i = 0; i < line.length; i++) {
+                        if (line[i] === '"') inQuotes = !inQuotes
+                        if (line[i] === ',' && !inQuotes) {
+                            result.push(line.substring(startValueIndex, i).replace(/^"|"$/g, '').trim())
+                            startValueIndex = i + 1
+                        }
+                    }
+                    result.push(line.substring(startValueIndex).replace(/^"|"$/g, '').trim())
+                    return result
+                }
 
-            const rows = []
-            let headerRow = []
+                const headerRow = parseCSVLine(lines[0]).filter(h => h !== '')
+                setHeaders(headerRow)
 
-            worksheet.eachRow((row, rowNumber) => {
-                if (rowNumber === 1) {
-                    headerRow = row.values.slice(1).map(v => v?.toString() || '')
-                    setHeaders(headerRow)
-                } else {
+                const rows = []
+                for (let i = 1; i < lines.length; i++) {
+                    if (!lines[i].trim()) continue
+                    const values = parseCSVLine(lines[i])
                     const rowData = {}
-                    row.eachCell((cell, colNumber) => {
-                        rowData[headerRow[colNumber - 1]] = cell.value?.toString() || ''
+                    headerRow.forEach((h, index) => {
+                        rowData[h] = values[index] || ''
                     })
                     rows.push(rowData)
                 }
-            })
 
-            setCsvData(rows)
+                setCsvData(rows)
 
-            // Auto-mapping attempt
-            const newMapping = { ...mapping }
-            headerRow.forEach(h => {
-                const lowerH = h.toLowerCase()
-                if (lowerH.includes('correo') || lowerH.includes('email')) newMapping.email = h
-                if (lowerH.includes('nombre') || lowerH.includes('first')) newMapping.firstName = h
-                if (lowerH.includes('apellido') || lowerH.includes('last')) newMapping.lastName = h
-                if (lowerH.includes('rol') || lowerH.includes('role')) newMapping.role = h
-            })
-            setMapping(newMapping)
+                // Auto-mapping attempt
+                const newMapping = {
+                    email: '',
+                    firstName: '',
+                    lastName: '',
+                    role: ''
+                }
+
+                headerRow.forEach(h => {
+                    const lowerH = h.toLowerCase()
+                    if (lowerH.includes('correo') || lowerH.includes('email')) newMapping.email = h
+                    if (lowerH.includes('nombre') || lowerH.includes('first')) newMapping.firstName = h
+                    if (lowerH.includes('apellido') || lowerH.includes('last')) newMapping.lastName = h
+                    if (lowerH.includes('rol') || lowerH.includes('role')) newMapping.role = h
+                })
+                setMapping(newMapping)
+            }
+            reader.readAsText(file)
 
         } catch (error) {
             console.error('Error parsing CSV:', error)
@@ -158,7 +179,7 @@ export default function AdminInvites() {
             const rowEmail = row[mapping.email]
             const rowFirstName = row[mapping.firstName]
             const rowLastName = row[mapping.lastName]
-            const rowRole = mapping.role ? (row[mapping.role]?.toLowerCase() === 'admin' ? 'admin' : 'agent') : 'agent'
+            const rowRole = (mapping.role && mapping.role !== 'none') ? (row[mapping.role]?.toLowerCase() === 'admin' ? 'admin' : 'agent') : 'agent'
 
             if (!rowEmail || !rowFirstName || !rowLastName) {
                 results.error++
@@ -341,7 +362,7 @@ export default function AdminInvites() {
                                                     <SelectValue placeholder="Seleccionar" />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                    {headers.map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}
+                                                    {headers.filter(h => h).map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}
                                                 </SelectContent>
                                             </Select>
                                         </div>
@@ -352,7 +373,7 @@ export default function AdminInvites() {
                                                     <SelectValue placeholder="Seleccionar" />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                    {headers.map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}
+                                                    {headers.filter(h => h).map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}
                                                 </SelectContent>
                                             </Select>
                                         </div>
@@ -363,19 +384,19 @@ export default function AdminInvites() {
                                                     <SelectValue placeholder="Seleccionar" />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                    {headers.map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}
+                                                    {headers.filter(h => h).map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}
                                                 </SelectContent>
                                             </Select>
                                         </div>
                                         <div className="space-y-1.5">
                                             <Label className="text-[11px]">Rol (Opcional)</Label>
-                                            <Select value={mapping.role} onValueChange={(v) => setMapping(prev => ({ ...prev, role: v }))}>
+                                            <Select value={mapping.role || 'none'} onValueChange={(v) => setMapping(prev => ({ ...prev, role: v === 'none' ? '' : v }))}>
                                                 <SelectTrigger className="h-8 text-xs">
                                                     <SelectValue placeholder="Seleccionar" />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                    <SelectItem value="">Predeterminado (Agente)</SelectItem>
-                                                    {headers.map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}
+                                                    <SelectItem value="none">Predeterminado (Agente)</SelectItem>
+                                                    {headers.filter(h => h).map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}
                                                 </SelectContent>
                                             </Select>
                                         </div>
