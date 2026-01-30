@@ -140,6 +140,25 @@ export default function StepCalculos({ data, onUpdate, onNext, onBack }) {
     const isCommercial = ['Oficina', 'Local Comercial', 'Bodega', 'Industrial'].includes(data.tipoPropiedad);
     const categoryLabel = isCommercial ? 'Comercial' : 'Residencial';
 
+    // Local state to track "mode" (short vs long) explicitly.
+    // This prevents the UI from flipping back to "short" when the user clears the input (value becomes empty or 0).
+    const [contractTimeMode, setContractTimeMode] = useState('short'); // 'short' | 'long'
+
+    // Initialize/Sync mode based on incoming data (only if not already set or first load)
+    useEffect(() => {
+        if (!data.duracionContrato) return;
+        const val = Number(data.duracionContrato);
+        if (isCommercial) {
+            if (val > 60) setContractTimeMode('long');
+            else setContractTimeMode('short');
+        } else {
+            if (val > 24) setContractTimeMode('long');
+            else setContractTimeMode('short');
+        }
+    }, [isCommercial]); // Dependency on isCommercial ensures we reset if property type changes (unlikely here but safe)
+    // We intentionally DO NOT depend on data.duracionContrato here to avoid checking it on every keystroke
+    // which would cause the issue we are trying to fix.
+
     return (
         <Card className="max-w-4xl mx-auto border-0 shadow-none sm:border sm:shadow-sm">
             <CardContent className="pt-6">
@@ -159,58 +178,45 @@ export default function StepCalculos({ data, onUpdate, onNext, onBack }) {
                                 <div className="relative flex-1">
                                     <select
                                         className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                        value={
-                                            !data.duracionContrato ? '' :
-                                                isCommercial
-                                                    ? (Number(data.duracionContrato) > 60 ? 'long' : 'short')
-                                                    : (Number(data.duracionContrato) > 24 ? 'long' : 'short')
-                                        }
+                                        value={contractTimeMode}
                                         onChange={(e) => {
-                                            const val = e.target.value;
-                                            if (!val) return;
-                                            // Set default values for the selected range to trigger/hide input
+                                            const newMode = e.target.value;
+                                            setContractTimeMode(newMode);
+
+                                            // Set default values when switching modes
                                             if (isCommercial) {
-                                                onUpdate('duracionContrato', val === 'short' ? 12 : 61)
+                                                onUpdate('duracionContrato', newMode === 'short' ? 12 : 61)
                                             } else {
-                                                onUpdate('duracionContrato', val === 'short' ? 12 : 25)
+                                                onUpdate('duracionContrato', newMode === 'short' ? 12 : 25)
                                             }
                                         }}
                                     >
-                                        <option value="">Seleccionar duración...</option>
-                                        {isCommercial ? (
-                                            <>
-                                                <option value="short">Contrato de hasta 5 años</option>
-                                                <option value="long">Contrato mayor a 5 años</option>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <option value="short">Contrato de hasta 2 años</option>
-                                                <option value="long">Contrato de más de 2 años</option>
-                                            </>
-                                        )}
+                                        <option value="short">
+                                            {isCommercial ? 'Contrato de hasta 5 años' : 'Contrato de hasta 2 años'}
+                                        </option>
+                                        <option value="long">
+                                            {isCommercial ? 'Contrato mayor a 5 años' : 'Contrato de más de 2 años'}
+                                        </option>
                                     </select>
                                 </div>
 
                                 {/* Conditional Input for Months */}
-                                {(
-                                    (isCommercial && Number(data.duracionContrato) > 60) ||
-                                    (!isCommercial && Number(data.duracionContrato) > 24)
-                                ) && (
-                                        <div className="animate-in slide-in-from-top-2">
-                                            <Label className="text-xs text-blue-800 mb-1.5 block">Cantidad de Meses</Label>
-                                            <div className="relative">
-                                                <Input
-                                                    type="number"
-                                                    min={isCommercial ? 61 : 25}
-                                                    value={data.duracionContrato}
-                                                    onChange={(e) => onUpdate('duracionContrato', e.target.value)}
-                                                    className="bg-white border-blue-200 focus:border-blue-400"
-                                                    placeholder={isCommercial ? "Ej: 72" : "Ej: 36"}
-                                                />
-                                                <span className="absolute right-3 top-2.5 text-xs text-muted-foreground font-medium">meses</span>
-                                            </div>
+                                {contractTimeMode === 'long' && (
+                                    <div className="animate-in slide-in-from-top-2">
+                                        <Label className="text-xs text-blue-800 mb-1.5 block">Cantidad de Meses</Label>
+                                        <div className="relative">
+                                            <Input
+                                                type="number"
+                                                min={isCommercial ? 61 : 25}
+                                                value={data.duracionContrato}
+                                                onChange={(e) => onUpdate('duracionContrato', e.target.value)}
+                                                className="bg-white border-blue-200 focus:border-blue-400"
+                                                placeholder={isCommercial ? "Ej: 72" : "Ej: 36"}
+                                            />
+                                            <span className="absolute right-3 top-2.5 text-xs text-muted-foreground font-medium">meses</span>
                                         </div>
-                                    )}
+                                    </div>
+                                )}
                             </div>
                         </div>
 
