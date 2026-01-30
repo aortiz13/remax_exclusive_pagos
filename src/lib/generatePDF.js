@@ -93,6 +93,9 @@ export const generatePDF = async (formData) => {
         addField('Nombres', formData.get('arrendador_nombres'));
         addField('Apellidos', formData.get('arrendador_apellidos'));
         addField('RUT', formData.get('arrendador_rut'));
+        addField('Nacionalidad', formData.get('arrendador_nacionalidad'));
+        addField('Estado Civil', formData.get('arrendador_civil'));
+        addField('Fecha Nacimiento', formData.get('arrendador_nacimiento'));
         addField('Email', formData.get('arrendador_email'));
         addField('Teléfono', formData.get('arrendador_telefono'));
         addField('Dirección', formData.get('arrendador_direccion'));
@@ -107,14 +110,33 @@ export const generatePDF = async (formData) => {
             addField('Nombres', formData.get('arrendatario_nombres'));
             addField('Apellidos', formData.get('arrendatario_apellidos'));
             addField('RUT', formData.get('arrendatario_rut'));
+            addField('Nacionalidad', formData.get('arrendatario_nacionalidad'));
+            addField('Estado Civil', formData.get('arrendatario_civil'));
+            addField('Fecha Nacimiento', formData.get('arrendatario_nacimiento'));
             addField('Email', formData.get('arrendatario_email'));
             addField('Teléfono', formData.get('arrendatario_telefono'));
+            addField('Dirección', formData.get('arrendatario_direccion'));
+            addField('Comuna', formData.get('arrendatario_comuna'));
             addField('Ocupación', formData.get('arrendatario_ocupacion'));
-            addField('Renta Líquida', formData.get('arrendatario_renta')); // If exists
+            addField('Profesión', formData.get('arrendatario_profesion'));
+            addField('Empleador', formData.get('arrendatario_empleador'));
+            addField('Cargo', formData.get('arrendatario_cargo'));
+            addField('Antigüedad', formData.get('arrendatario_antiguedad'));
+            addField('Tel. Laboral', formData.get('arrendatario_telefono_lab'));
+            addField('Dir. Laboral', formData.get('arrendatario_direccion_lab'));
         } else {
             addField('Razón Social', formData.get('arrendatario_juridica_razon'));
             addField('RUT Empresa', formData.get('arrendatario_juridica_rut'));
-            addField('Rep. Legal', `${formData.get('arrendatario_juridica_rep_nombres')} ${formData.get('arrendatario_juridica_rep_apellidos')}`);
+            addField('Dirección Comercial', formData.get('arrendatario_juridica_direccion'));
+            addField('Teléfono', formData.get('arrendatario_juridica_telefono'));
+
+            addSection('REPRESENTANTE LEGAL');
+            addField('Nombre Completo', `${formData.get('arrendatario_juridica_rep_nombres')} ${formData.get('arrendatario_juridica_rep_apellidos')}`);
+            addField('RUT', formData.get('arrendatario_juridica_rep_rut'));
+            addField('Nacionalidad', formData.get('arrendatario_juridica_rep_nacionalidad'));
+            addField('Estado Civil', formData.get('arrendatario_juridica_rep_civil'));
+            addField('Email', formData.get('arrendatario_juridica_rep_email'));
+            addField('Teléfono', formData.get('arrendatario_juridica_rep_telefono'));
         }
 
         const hasFiador = formData.get('tiene_fiador') === 'si';
@@ -124,8 +146,15 @@ export const generatePDF = async (formData) => {
             addField('Nombres', formData.get('fiador_nombres'));
             addField('Apellidos', formData.get('fiador_apellidos'));
             addField('RUT', formData.get('fiador_rut'));
+            addField('Nacionalidad', formData.get('fiador_nacionalidad'));
+            addField('Estado Civil', formData.get('fiador_civil'));
+            addField('Fecha Nacimiento', formData.get('fiador_nacimiento'));
             addField('Email', formData.get('fiador_email'));
             addField('Teléfono', formData.get('fiador_telefono'));
+            addField('Dirección', formData.get('fiador_direccion'));
+            addField('Comuna', formData.get('fiador_comuna'));
+            addField('Ocupación', formData.get('fiador_ocupacion'));
+            addField('Tel. Laboral', formData.get('fiador_telefono_lab'));
         }
 
     } else {
@@ -140,30 +169,78 @@ export const generatePDF = async (formData) => {
         checkPageBreak();
         addSection('2. PROPIEDAD');
         addField('Rol', formData.get('rol_propiedad'));
+        addField('Tipo', formData.get('tipo_propiedad'));
         addField('Comuna', formData.get('comuna'));
         addField('Valor Venta (Pesos)', formData.get('valor_venta_pesos'));
         addField('Valor Venta (UF)', formData.get('valor_venta_uf'));
 
         checkPageBreak();
         addSection('3. VENDEDORES');
-        addField('Vendedor 1', `${formData.get('vendedor_1_nombres')} ${formData.get('vendedor_1_apellidos')} - ${formData.get('vendedor_1_rut')}`);
+        // Vendedor 1
+        addSection('Vendedor 1');
+        addField('Nombre', `${formData.get('vendedor_1_nombres')} ${formData.get('vendedor_1_apellidos')}`);
+        addField('RUT', formData.get('vendedor_1_rut'));
+        addField('Nacionalidad', formData.get('vendedor_1_nacionalidad'));
+        addField('Estado Civil', formData.get('vendedor_1_civil'));
+        addField('Fecha Nacimiento', formData.get('vendedor_1_nacimiento'));
+        addField('Profesión', formData.get('vendedor_1_profesion'));
+        addField('Email', formData.get('vendedor_1_email'));
+        addField('Teléfono', formData.get('vendedor_1_telefono'));
+        addField('Dirección', formData.get('vendedor_1_direccion'));
+        addField('Comuna', formData.get('vendedor_1_comuna'));
+
+        // Vendedor 2
         if (formData.get('vendedor_2_nombres')) {
-            addField('Vendedor 2', `${formData.get('vendedor_2_nombres')} ${formData.get('vendedor_2_apellidos')} - ${formData.get('vendedor_2_rut')}`);
+            addSection('Vendedor 2');
+            addField('Nombre', `${formData.get('vendedor_2_nombres')} ${formData.get('vendedor_2_apellidos')}`);
+            addField('RUT', formData.get('vendedor_2_rut'));
+            addField('Nacionalidad', formData.get('vendedor_2_nacionalidad'));
+            addField('Estado Civil', formData.get('vendedor_2_civil'));
+            addField('Fecha Nacimiento', formData.get('vendedor_2_nacimiento'));
+            addField('Email', formData.get('vendedor_2_email'));
+            addField('Teléfono', formData.get('vendedor_2_telefono'));
+            addField('Dirección', formData.get('vendedor_2_direccion'));
+            addField('Comuna', formData.get('vendedor_2_comuna'));
         }
-        addField('Banco Vendedor', `${formData.get('vendedor_banco')} / ${formData.get('vendedor_ejecutivo')}`);
+
+        addField('Datos Bancarios', `Banco: ${formData.get('vendedor_banco')} | Ejecutivo: ${formData.get('vendedor_ejecutivo')} | Email: ${formData.get('vendedor_correo_banco')}`);
 
         checkPageBreak();
         addSection('4. COMPRADORES');
-        addField('Comprador 1', `${formData.get('comprador_1_nombres')} ${formData.get('comprador_1_apellidos')} - ${formData.get('comprador_1_rut')}`);
+        // Comprador 1
+        addSection('Comprador 1');
+        addField('Nombre', `${formData.get('comprador_1_nombres')} ${formData.get('comprador_1_apellidos')}`);
+        addField('RUT', formData.get('comprador_1_rut'));
+        addField('Nacionalidad', formData.get('comprador_1_nacionalidad'));
+        addField('Estado Civil', formData.get('comprador_1_civil'));
+        addField('Fecha Nacimiento', formData.get('comprador_1_nacimiento'));
+        addField('Profesión', formData.get('comprador_1_profesion'));
+        addField('Email', formData.get('comprador_1_email'));
+        addField('Teléfono', formData.get('comprador_1_telefono'));
+        addField('Dirección', formData.get('comprador_1_direccion'));
+        addField('Comuna', formData.get('comprador_1_comuna'));
+
+        // Comprador 2
         if (formData.get('comprador_2_nombres')) {
-            addField('Comprador 2', `${formData.get('comprador_2_nombres')} ${formData.get('comprador_2_apellidos')} - ${formData.get('comprador_2_rut')}`);
+            addSection('Comprador 2');
+            addField('Nombre', `${formData.get('comprador_2_nombres')} ${formData.get('comprador_2_apellidos')}`);
+            addField('RUT', formData.get('comprador_2_rut'));
+            addField('Nacionalidad', formData.get('comprador_2_nacionalidad'));
+            addField('Estado Civil', formData.get('comprador_2_civil'));
+            addField('Fecha Nacimiento', formData.get('comprador_2_nacimiento'));
+            addField('Email', formData.get('comprador_2_email'));
+            addField('Teléfono', formData.get('comprador_2_telefono'));
+            addField('Dirección', formData.get('comprador_2_direccion'));
+            addField('Comuna', formData.get('comprador_2_comuna'));
         }
-        addField('Banco Comprador', `${formData.get('comprador_banco')} / ${formData.get('comprador_ejecutivo')}`);
+
+        addField('Datos Bancarios', `Banco: ${formData.get('comprador_banco')} | Ejecutivo: ${formData.get('comprador_ejecutivo')} | Email: ${formData.get('comprador_correo_banco')}`);
 
         checkPageBreak();
         addSection('5. ACUERDOS');
         addField('Monto Pie', formData.get('monto_pie'));
         addField('Monto Financiar', formData.get('monto_financiar'));
+        addField('Monto Contado', formData.get('monto_contado'));
     }
 
     checkPageBreak();
