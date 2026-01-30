@@ -32,10 +32,6 @@ export default function AdminRequests() {
                 .order('updated_at', { ascending: false })
 
             if (error) throw error
-            console.log('AdminRequests fetched:', data)
-            console.log('Searching for target ID:', 'a075500b-a099-445b-8ec5-44db93920339')
-            const target = data?.find(r => r.id === 'a075500b-a099-445b-8ec5-44db93920339')
-            console.log('Target found?', target)
             setRequests(data)
         } catch (error) {
             console.error('Error fetching requests:', error)

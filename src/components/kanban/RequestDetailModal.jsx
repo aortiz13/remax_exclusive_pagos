@@ -120,9 +120,13 @@ export function RequestDetailModal({ request, isOpen, onClose }) {
 
                         {/* Property Info */}
                         <Section title="Propiedad" icon={Building2}>
-                            <Field label="Dirección" value={request.data?.direccion || request.data?.propiedadDireccion} className="md:col-span-2" />
-                            <Field label="Comuna" value={request.data?.comuna} />
-                            <Field label="Tipo" value={request.data?.tipoPropiedad} />
+                            <Field label="Dirección" value={
+                                request.data?.direccion ||
+                                request.data?.propiedadDireccion ||
+                                request.data?.direccion_propiedad
+                            } className="md:col-span-2" />
+                            <Field label="Comuna" value={request.data?.comuna || request.data?.comuna_propiedad || request.data?.propiedadComuna} />
+                            <Field label="Tipo" value={request.data?.tipoPropiedad || request.data?.contract_type} />
                         </Section>
 
                         {/* Clients Info */}
@@ -136,10 +140,16 @@ export function RequestDetailModal({ request, isOpen, onClose }) {
                                 </>
                             ) : (
                                 <>
-                                    <Field label="Dueño" value={request.data?.dueñoNombre} />
-                                    <Field label="Arrendatario" value={request.data?.arrendatarioNombre} />
-                                    <Field label="RUT Dueño" value={request.data?.dueñoRut} />
-                                    <Field label="RUT Arrendatario" value={request.data?.arrendatarioRut} />
+                                    <Field label="Dueño/Arrendador" value={
+                                        request.data?.dueñoNombre ||
+                                        ((request.data?.arrendador_nombres || '') + ' ' + (request.data?.arrendador_apellidos || '')).trim()
+                                    } />
+                                    <Field label="Arrendatario" value={
+                                        request.data?.arrendatarioNombre ||
+                                        ((request.data?.arrendatario_nombres || '') + ' ' + (request.data?.arrendatario_apellidos || '')).trim()
+                                    } />
+                                    <Field label="RUT Dueño" value={request.data?.dueñoRut || request.data?.arrendador_rut} />
+                                    <Field label="RUT Arrendatario" value={request.data?.arrendatarioRut || request.data?.arrendatario_rut} />
                                 </>
                             )}
                         </Section>
@@ -155,7 +165,7 @@ export function RequestDetailModal({ request, isOpen, onClose }) {
                                 <>
                                     <Field label="Canon Arriendo" value={request.data?.canonArriendo} />
                                     <Field label="Garantía" value={request.data?.garantia} />
-                                    <Field label="Honorarios" value={request.data?.honorariosAdmin} />
+                                    <Field label="Honorarios" value={request.data?.honorariosAdmin || request.data?.totalComision} />
                                 </>
                             )}
                         </Section>
