@@ -30,6 +30,11 @@ export default function StepDueñoBanco({ data, onUpdate, onNext, onBack }) {
     const isBankComplete = data.bancoNombre && data.bancoTipoCuenta && data.bancoNroCuenta && data.bancoRutTitular
     const isComplete = isOwnerComplete && isBankComplete
 
+    // Check if initial value is "Other" (not in list and not empty)
+    const [showOther, setShowOther] = React.useState(
+        data.bancoNombre && !BANKS.includes(data.bancoNombre)
+    )
+
     const handleSubmit = (e) => {
         e.preventDefault()
         if (isComplete) onNext()
@@ -106,14 +111,20 @@ export default function StepDueñoBanco({ data, onUpdate, onNext, onBack }) {
                                 <Label>Banco</Label>
                                 <select
                                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                    value={BANKS.includes(data.bancoNombre) ? data.bancoNombre : (data.bancoNombre ? 'Otros' : '')}
+
+                                    // If showOther is true, value is 'Otros'. 
+                                    // If not, ensure value is in BANKS (or '' if empty). 
+                                    // If data.bancoNombre is manually typed (custom) but we are hiding it? No, if custom, showOther must be true.
+                                    value={showOther ? 'Otros' : (BANKS.includes(data.bancoNombre) ? data.bancoNombre : '')}
+
                                     onChange={(e) => {
                                         const val = e.target.value
                                         if (val === 'Otros') {
-                                            onUpdate('bancoNombre', '') // Reset to empty to force input
-                                            onUpdate('bancoNombreSelect', 'Otros') // Helper state if needed, or just rely on value logic
+                                            setShowOther(true)
+                                            onUpdate('bancoNombre', '') // Clear to let user type
                                         } else {
-                                            onUpdate('bancoNombre', val)
+                                            setShowOther(false)
+                                            onUpdate('bancoNombre', val) // Set selected bank
                                         }
                                     }}
                                     required
@@ -125,7 +136,7 @@ export default function StepDueñoBanco({ data, onUpdate, onNext, onBack }) {
                             </div>
 
                             {/* Conditional Other Bank Input */}
-                            {(!BANKS.includes(data.bancoNombre) && (data.bancoNombre || data.bancoNombre === '')) && (
+                            {showOther && (
                                 <div className="space-y-2 animate-in fade-in slide-in-from-top-1">
                                     <Label>Nombre del Banco</Label>
                                     <Input

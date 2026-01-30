@@ -157,17 +157,24 @@ export default function StepCalculos({ data, onUpdate, onNext, onBack }) {
                             <Label className="text-blue-900 font-semibold">Duración del Contrato</Label>
                             <div className="flex gap-4 items-center">
                                 <div className="relative flex-1">
-                                    <Input
-                                        type="number"
+                                    <select
+                                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                                         value={data.duracionContrato || ''}
                                         onChange={(e) => onUpdate('duracionContrato', e.target.value)}
-                                        placeholder="Meses"
-                                        className="pr-16"
-                                    />
-                                    <span className="absolute right-3 top-2.5 text-xs text-muted-foreground font-medium pointer-events-none">MESES</span>
-                                </div>
-                                <div className="text-xs text-blue-700/80 max-w-[180px] leading-tight">
-                                    Define el cálculo de honorarios ({isCommercial ? '> 5 años' : '> 2 años'} cambia %).
+                                    >
+                                        <option value="">Seleccionar duración...</option>
+                                        {isCommercial ? (
+                                            <>
+                                                <option value="12">Contrato de hasta 5 años</option>
+                                                <option value="61">Contrato mayor a 5 años</option>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <option value="12">Contrato de hasta 2 años</option>
+                                                <option value="25">Contrato de más de 2 años</option>
+                                            </>
+                                        )}
+                                    </select>
                                 </div>
                             </div>
                         </div>

@@ -138,7 +138,7 @@ export default function RequestForm() {
                     .single()
 
                 if (!insertError && newRequest) {
-                    navigate(`/request/payment/${newRequest.id}`, { replace: true })
+                    navigate(`/request/${newRequest.id}`, { replace: true })
                 }
                 error = insertError
             }
@@ -189,7 +189,7 @@ export default function RequestForm() {
                             </div>
                             <div>
                                 <h3 className="text-xl font-bold">Arriendo</h3>
-                                <p className="text-sm text-muted-foreground mt-1">Generar link para pago inicial de arriendo (Mes, Garantía, Comisión).</p>
+                                <p className="text-sm text-muted-foreground mt-1">Generar solicitud link de pago de arriendo</p>
                             </div>
                         </CardContent>
                     </Card>

@@ -36,12 +36,12 @@ export default function StepComision({ data, onUpdate, onNext, onBack }) {
                                 className="pl-8"
                                 value={data.montoComision || ''}
                                 onChange={(e) => onUpdate('montoComision', e.target.value)}
-                                placeholder="Ej: 50 UF + IVA o $ 2.000.000"
+                                placeholder="Ej: $ 2.000.000"
                                 required
                                 autoFocus
                             />
                         </div>
-                        <p className="text-xs text-muted-foreground">Puede ingresar valores en Pesos o UF.</p>
+                        <p className="text-xs text-muted-foreground">Aca colocar valor en pesos chilenos unicamente.</p>
                     </div>
 
                     <div className="flex justify-between pt-4 gap-4">
