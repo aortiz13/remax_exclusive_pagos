@@ -388,13 +388,6 @@ function BuySellFormLogic({ user, profile, navigate, initialData = {}, requestId
             navigate('/dashboard')
 
         } catch (error) {
-
-
-            if (error) throw error
-
-
-
-        } catch (error) {
             console.error('Error:', error)
             toast.error('Error al enviar la solicitud: ' + error.message)
         } finally {
