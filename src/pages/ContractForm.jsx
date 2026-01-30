@@ -285,8 +285,8 @@ function BuySellFormLogic({ user, profile, navigate }) {
             })
             // Append Files (Binary)
             // Re-append valid files from original formData
-            const fileFields = ['dominio_vigente', 'gp_certificado']
-            fileFields.forEach(field => {
+            const binaryFileFields = ['dominio_vigente', 'gp_certificado']
+            binaryFileFields.forEach(field => {
                 const file = formData.get(field)
                 if (file instanceof File && file.size > 0) {
                     webhookData.append(field, file)
@@ -502,8 +502,8 @@ function LeaseFormLogic({ user, profile, navigate }) {
                 }
             })
             // Append Files (Binary)
-            const fileFields = ['dominio_vigente']
-            fileFields.forEach(field => {
+            const binaryFileFields = ['dominio_vigente']
+            binaryFileFields.forEach(field => {
                 const file = formData.get(field)
                 if (file instanceof File && file.size > 0) {
                     webhookData.append(field, file)
