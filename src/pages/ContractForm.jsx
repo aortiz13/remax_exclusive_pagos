@@ -1,5 +1,5 @@
-import { useState, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useRef, useEffect } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../services/supabase'
@@ -35,8 +35,16 @@ function Field({ label, name, type = "text", placeholder, defaultValue, classNam
     )
 }
 
-function DateField({ label, name }) {
+function DateField({ label, name, defaultValue }) {
     const [noDate, setNoDate] = useState(false)
+
+    useEffect(() => {
+        // If defaultValue is empty or null, we might consider "Sin Fecha", 
+        // but typically standard date input just shows empty.
+        // If we want to support "Sin Fecha" persistence, we'd need a separate field.
+        // For now, simple initialization.
+    }, [defaultValue])
+
     return (
         <div className="space-y-2">
             <div className="flex items-center justify-between">
@@ -57,6 +65,7 @@ function DateField({ label, name }) {
                 id={name}
                 name={name}
                 type="date"
+                defaultValue={defaultValue}
                 disabled={noDate}
                 className={noDate ? "bg-slate-100 text-slate-400" : ""}
             />
@@ -125,8 +134,12 @@ function FileUploadField({ label, name, accept }) {
     )
 }
 
-function PartyForm({ type, index }) {
+function PartyForm({ type, index, initialData = {} }) {
     const prefix = `${type.toLowerCase()}_${index}`
+
+    // Helper to get value securely
+    const getValue = (suffix) => initialData[`${prefix}_${suffix}`] || ''
+
     return (
         <div className="bg-slate-50/50 p-6 rounded-lg border space-y-4">
             <h5 className="font-semibold text-sm text-slate-700 flex items-center gap-2">
@@ -134,14 +147,14 @@ function PartyForm({ type, index }) {
                 {type} {index}
             </h5>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <Field label="Nombres" name={`${prefix}_nombres`} />
-                <Field label="Apellidos" name={`${prefix}_apellidos`} />
-                <Field label="RUT / Pasaporte" name={`${prefix}_rut`} />
-                <Field label="Profesión" name={`${prefix}_profesion`} />
-                <Field label="Estado Civil" name={`${prefix}_estado_civil`} />
-                <Field label="Dirección" name={`${prefix}_direccion`} className="md:col-span-2" />
-                <Field label="Teléfono" name={`${prefix}_telefono`} />
-                <Field label="Correo" name={`${prefix}_correo`} type="email" />
+                <Field label="Nombres" name={`${prefix}_nombres`} defaultValue={getValue('nombres')} />
+                <Field label="Apellidos" name={`${prefix}_apellidos`} defaultValue={getValue('apellidos')} />
+                <Field label="RUT / Pasaporte" name={`${prefix}_rut`} defaultValue={getValue('rut')} />
+                <Field label="Profesión" name={`${prefix}_profesion`} defaultValue={getValue('profesion')} />
+                <Field label="Estado Civil" name={`${prefix}_estado_civil`} defaultValue={getValue('estado_civil')} />
+                <Field label="Dirección" name={`${prefix}_direccion`} className="md:col-span-2" defaultValue={getValue('direccion')} />
+                <Field label="Teléfono" name={`${prefix}_telefono`} defaultValue={getValue('telefono')} />
+                <Field label="Correo" name={`${prefix}_correo`} type="email" defaultValue={getValue('correo')} />
             </div>
         </div>
     )
@@ -150,14 +163,49 @@ function PartyForm({ type, index }) {
 // --- MAIN PAGE COMPONENT ---
 
 export default function ContractForm() {
+    const { id } = useParams()
     const { user, profile } = useAuth()
     const navigate = useNavigate()
     const [step, setStep] = useState('type') // 'type', 'form'
     const [formType, setFormType] = useState(null) // 'buy-sell', 'lease'
+    const [initialData, setInitialData] = useState({})
+    const [loading, setLoading] = useState(false)
+
+    useEffect(() => {
+        if (id) {
+            setLoading(true)
+            const fetchRequest = async () => {
+                const { data, error } = await supabase
+                    .from('requests')
+                    .select('*')
+                    .eq('id', id)
+                    .single()
+
+                if (error) {
+                    console.error('Error fetching request:', error)
+                    toast.error('Error al cargar la solicitud')
+                    navigate('/dashboard')
+                    return
+                }
+
+                if (data && data.data) {
+                    setInitialData(data.data)
+                    setFormType(data.data.contract_type)
+                    setStep('form')
+                }
+                setLoading(false)
+            }
+            fetchRequest()
+        }
+    }, [id, navigate])
 
     const handleTypeSelect = (type) => {
         setFormType(type)
         setStep('form')
+    }
+
+    if (loading) {
+        return <div className="min-h-screen flex items-center justify-center">Cargando...</div>
     }
 
     if (step === 'type') {
@@ -212,16 +260,16 @@ export default function ContractForm() {
     return (
         <div className="min-h-screen bg-slate-50 dark:bg-slate-950 p-4 md:p-8">
             <div className="max-w-5xl mx-auto">
-                <Button variant="ghost" onClick={() => setStep('type')} className="mb-6 pl-0 text-slate-500 hover:text-primary">
-                    <ArrowLeft className="mr-2 h-4 w-4" /> Volver a Selección de Contrato
+                <Button variant="ghost" onClick={() => id ? navigate('/dashboard') : setStep('type')} className="mb-6 pl-0 text-slate-500 hover:text-primary">
+                    <ArrowLeft className="mr-2 h-4 w-4" /> {id ? 'Volver al Dashboard' : 'Volver a Selección de Contrato'}
                 </Button>
 
                 <h1 className="text-2xl font-bold mb-6">
-                    {formType === 'buy-sell' ? 'Solicitud de Compraventa' : 'Solicitud de Arriendo'}
+                    {formType === 'buy-sell' ? 'Solicitud de Compraventa' : 'Solicitud de Arriendo'} {id && '(Edición)'}
                 </h1>
 
-                {formType === 'buy-sell' && <BuySellFormLogic user={user} profile={profile} navigate={navigate} />}
-                {formType === 'lease' && <LeaseFormLogic user={user} profile={profile} navigate={navigate} />}
+                {formType === 'buy-sell' && <BuySellFormLogic user={user} profile={profile} navigate={navigate} initialData={initialData} requestId={id} />}
+                {formType === 'lease' && <LeaseFormLogic user={user} profile={profile} navigate={navigate} initialData={initialData} requestId={id} />}
             </div>
         </div>
     )
@@ -229,9 +277,9 @@ export default function ContractForm() {
 
 // --- LOGIC COMPONENTS ---
 
-function BuySellFormLogic({ user, profile, navigate }) {
-    const [numVendedores, setNumVendedores] = useState(1)
-    const [numCompradores, setNumCompradores] = useState(1)
+function BuySellFormLogic({ user, profile, navigate, initialData = {}, requestId = null }) {
+    const [numVendedores, setNumVendedores] = useState(initialData?.vendedor_2_nombres ? 2 : 1)
+    const [numCompradores, setNumCompradores] = useState(initialData?.comprador_2_nombres ? 2 : 1)
     const [isSubmitting, setIsSubmitting] = useState(false)
 
     const handleSubmit = async (e) => {
@@ -307,20 +355,44 @@ function BuySellFormLogic({ user, profile, navigate }) {
                 }
             })
 
-            const { error } = await supabase.from('requests').insert({
-                user_id: user.id,
-                status: 'submitted',
-                step: 5,
-                data: {
-                    ...jsonData,
-                    contract_type: 'buy-sell'
-                }
-            })
+            let error;
+
+            if (requestId) {
+                // UPDATE existing request
+                const { error: updateError } = await supabase.from('requests').update({
+                    status: 'submitted',
+                    updated_at: new Date(),
+                    data: {
+                        ...jsonData,
+                        contract_type: 'buy-sell'
+                    }
+                }).eq('id', requestId)
+                error = updateError
+            } else {
+                // INSERT new request
+                const { error: insertError } = await supabase.from('requests').insert({
+                    user_id: user.id,
+                    status: 'submitted',
+                    step: 5,
+                    data: {
+                        ...jsonData,
+                        contract_type: 'buy-sell'
+                    }
+                })
+                error = insertError
+            }
 
             if (error) throw error
 
-            toast.success('Solicitud de contrato enviada exitosamente.')
+            toast.success(requestId ? 'Solicitud actualizada exitosamente.' : 'Solicitud de contrato enviada exitosamente.')
             navigate('/dashboard')
+
+        } catch (error) {
+
+
+            if (error) throw error
+
+
 
         } catch (error) {
             console.error('Error:', error)
@@ -335,21 +407,21 @@ function BuySellFormLogic({ user, profile, navigate }) {
             <div className="grid gap-8">
                 <CardSection title="1. Información de la Operación">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        <DateField label="Fecha de cierre de negocio" name="fecha_cierre" />
-                        <Field label="Código RE/MAX" name="codigo_remax" placeholder="Ej. 12345" />
-                        <DateField label="Fecha firma PROMESA" name="fecha_promesa" />
-                        <DateField label="Fecha de entrega propiedad" name="fecha_entrega" />
-                        <DateField label="Fecha firma Escritura" name="fecha_escritura" />
+                        <DateField label="Fecha de cierre de negocio" name="fecha_cierre" defaultValue={initialData.fecha_cierre} />
+                        <Field label="Código RE/MAX" name="codigo_remax" placeholder="Ej. 12345" defaultValue={initialData.codigo_remax} />
+                        <DateField label="Fecha firma PROMESA" name="fecha_promesa" defaultValue={initialData.fecha_promesa} />
+                        <DateField label="Fecha de entrega propiedad" name="fecha_entrega" defaultValue={initialData.fecha_entrega} />
+                        <DateField label="Fecha firma Escritura" name="fecha_escritura" defaultValue={initialData.fecha_escritura} />
                     </div>
                 </CardSection>
 
                 <CardSection title="2. Identificación de la Propiedad">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                        <Field label="ROL Propiedad" name="rol_propiedad" placeholder="940-146" />
-                        <Field label="Tipo de Propiedad" name="tipo_propiedad" placeholder="Departamento, Casa..." />
-                        <Field label="Comuna" name="comuna" placeholder="Las Condes" />
-                        <Field label="Valor de Venta (Pesos)" name="valor_venta_pesos" placeholder="$ 198.000.000" />
-                        <Field label="Valor Referencial (UF)" name="valor_venta_uf" placeholder="UF 5.000" />
+                        <Field label="ROL Propiedad" name="rol_propiedad" placeholder="940-146" defaultValue={initialData.rol_propiedad} />
+                        <Field label="Tipo de Propiedad" name="tipo_propiedad" placeholder="Departamento, Casa..." defaultValue={initialData.tipo_propiedad} />
+                        <Field label="Comuna" name="comuna" placeholder="Las Condes" defaultValue={initialData.comuna} />
+                        <Field label="Valor de Venta (Pesos)" name="valor_venta_pesos" placeholder="$ 198.000.000" defaultValue={initialData.valor_venta_pesos} />
+                        <Field label="Valor Referencial (UF)" name="valor_venta_uf" placeholder="UF 5.000" defaultValue={initialData.valor_venta_uf} />
                     </div>
                 </CardSection>
 
@@ -365,13 +437,13 @@ function BuySellFormLogic({ user, profile, navigate }) {
                                 )}
                             </div>
                             <div className="space-y-6">
-                                <PartyForm type="Vendedor" index={1} />
+                                <PartyForm type="Vendedor" index={1} initialData={initialData} />
                                 {numVendedores >= 2 && (
                                     <div className="relative pt-4">
                                         <Button size="sm" variant="ghost" className="absolute right-0 top-0 text-red-500 h-8" onClick={() => setNumVendedores(1)} type="button">
                                             <Trash2 className="h-4 w-4 mr-2" /> Eliminar
                                         </Button>
-                                        <PartyForm type="Vendedor" index={2} />
+                                        <PartyForm type="Vendedor" index={2} initialData={initialData} />
                                     </div>
                                 )}
                             </div>
@@ -387,13 +459,13 @@ function BuySellFormLogic({ user, profile, navigate }) {
                                 )}
                             </div>
                             <div className="space-y-6">
-                                <PartyForm type="Comprador" index={1} />
+                                <PartyForm type="Comprador" index={1} initialData={initialData} />
                                 {numCompradores >= 2 && (
                                     <div className="relative pt-4">
                                         <Button size="sm" variant="ghost" className="absolute right-0 top-0 text-red-500 h-8" onClick={() => setNumCompradores(1)} type="button">
                                             <Trash2 className="h-4 w-4 mr-2" /> Eliminar
                                         </Button>
-                                        <PartyForm type="Comprador" index={2} />
+                                        <PartyForm type="Comprador" index={2} initialData={initialData} />
                                     </div>
                                 )}
                             </div>
@@ -403,23 +475,23 @@ function BuySellFormLogic({ user, profile, navigate }) {
 
                 <CardSection title="4. Acuerdos para Promesa">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                        <Field label="Monto del Pie" name="monto_pie" placeholder="$" />
-                        <Field label="Monto a Financiar" name="monto_financiar" placeholder="$" />
-                        <Field label="Monto Contado" name="monto_contado" placeholder="$" />
+                        <Field label="Monto del Pie" name="monto_pie" placeholder="$" defaultValue={initialData.monto_pie} />
+                        <Field label="Monto a Financiar" name="monto_financiar" placeholder="$" defaultValue={initialData.monto_financiar} />
+                        <Field label="Monto Contado" name="monto_contado" placeholder="$" defaultValue={initialData.monto_contado} />
                     </div>
                     <h4 className="text-sm font-medium mb-4 text-slate-700">Datos Bancarios (Vendedor)</h4>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 p-4 bg-slate-50 rounded-lg border">
-                        <Field label="Banco" name="vendedor_banco" />
-                        <Field label="Ejecutivo" name="vendedor_ejecutivo" />
-                        <Field label="Correo" name="vendedor_correo_banco" type="email" />
-                        <Field label="Teléfono" name="vendedor_telefono_banco" />
+                        <Field label="Banco" name="vendedor_banco" defaultValue={initialData.vendedor_banco} />
+                        <Field label="Ejecutivo" name="vendedor_ejecutivo" defaultValue={initialData.vendedor_ejecutivo} />
+                        <Field label="Correo" name="vendedor_correo_banco" type="email" defaultValue={initialData.vendedor_correo_banco} />
+                        <Field label="Teléfono" name="vendedor_telefono_banco" defaultValue={initialData.vendedor_telefono_banco} />
                     </div>
                     <h4 className="text-sm font-medium mb-4 text-slate-700">Datos Bancarios (Comprador)</h4>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-slate-50 rounded-lg border">
-                        <Field label="Banco" name="comprador_banco" />
-                        <Field label="Ejecutivo" name="comprador_ejecutivo" />
-                        <Field label="Correo" name="comprador_correo_banco" type="email" />
-                        <Field label="Teléfono" name="comprador_telefono_banco" />
+                        <Field label="Banco" name="comprador_banco" defaultValue={initialData.comprador_banco} />
+                        <Field label="Ejecutivo" name="comprador_ejecutivo" defaultValue={initialData.comprador_ejecutivo} />
+                        <Field label="Correo" name="comprador_correo_banco" type="email" defaultValue={initialData.comprador_correo_banco} />
+                        <Field label="Teléfono" name="comprador_telefono_banco" defaultValue={initialData.comprador_telefono_banco} />
                     </div>
                 </CardSection>
 
@@ -431,7 +503,7 @@ function BuySellFormLogic({ user, profile, navigate }) {
                 </CardSection>
 
                 <CardSection title="6. Notas de Avance">
-                    <Textarea name="notas" placeholder="Escribe aquí cualquier nota importante..." className="min-h-[120px]" />
+                    <Textarea name="notas" placeholder="Escribe aquí cualquier nota importante..." className="min-h-[120px]" defaultValue={initialData.notas} />
                 </CardSection>
 
                 <div className="sticky bottom-4 z-10">
@@ -439,7 +511,7 @@ function BuySellFormLogic({ user, profile, navigate }) {
                         <CardContent className="p-4 flex justify-end">
                             <Button type="submit" size="lg" disabled={isSubmitting} className="w-full md:w-auto">
                                 <Save className="mr-2 h-5 w-5" />
-                                {isSubmitting ? 'Enviando...' : 'Enviar Solicitud'}
+                                {isSubmitting ? 'Enviando...' : (requestId ? 'Actualizar Solicitud' : 'Enviar Solicitud')}
                             </Button>
                         </CardContent>
                     </Card>
@@ -449,10 +521,10 @@ function BuySellFormLogic({ user, profile, navigate }) {
     )
 }
 
-function LeaseFormLogic({ user, profile, navigate }) {
+function LeaseFormLogic({ user, profile, navigate, initialData = {}, requestId = null }) {
     const [isSubmitting, setIsSubmitting] = useState(false)
-    const [tenantType, setTenantType] = useState('natural')
-    const [hasGuarantor, setHasGuarantor] = useState(false)
+    const [tenantType, setTenantType] = useState(initialData.tipo_arrendatario || 'natural')
+    const [hasGuarantor, setHasGuarantor] = useState(initialData.tiene_fiador === 'si')
 
     const handleSubmit = async (e) => {
         e.preventDefault()
@@ -524,19 +596,33 @@ function LeaseFormLogic({ user, profile, navigate }) {
                 }
             })
 
-            const { error } = await supabase.from('requests').insert({
-                user_id: user.id,
-                status: 'submitted',
-                step: 5,
-                data: {
-                    ...jsonData,
-                    contract_type: 'lease'
-                }
-            })
+            let error;
+            if (requestId) {
+                const { error: updateError } = await supabase.from('requests').update({
+                    status: 'submitted',
+                    updated_at: new Date(),
+                    data: {
+                        ...jsonData,
+                        contract_type: 'lease'
+                    }
+                }).eq('id', requestId)
+                error = updateError
+            } else {
+                const { error: insertError } = await supabase.from('requests').insert({
+                    user_id: user.id,
+                    status: 'submitted',
+                    step: 5,
+                    data: {
+                        ...jsonData,
+                        contract_type: 'lease'
+                    }
+                })
+                error = insertError
+            }
 
             if (error) throw error
 
-            toast.success('Solicitud de arriendo enviada exitosamente.')
+            toast.success(requestId ? 'Solicitud actualizada exitosamente.' : 'Solicitud de arriendo enviada exitosamente.')
             navigate('/dashboard')
 
         } catch (error) {
@@ -552,29 +638,29 @@ function LeaseFormLogic({ user, profile, navigate }) {
             <div className="grid gap-8">
                 <CardSection title="1. Datos del Contrato y Propiedad">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
-                        <Field label="Plazo del Contrato" name="plazo_contrato" placeholder="Ej. 1 año renovable" />
-                        <DateField label="Fecha Inicio Arriendo" name="fecha_inicio" />
-                        <Field label="Canon de Arriendo" name="canon_arriendo" placeholder="$ 420.000" />
-                        <Field label="Documenta con Cheque (SI/NO)" name="documenta_cheque" placeholder="SI/NO" />
-                        <Field label="Cuenta para Transferencia" name="cuenta_transferencia" className="md:col-span-2" placeholder="Banco, Tipo Cta, Número, RUT" />
+                        <Field label="Plazo del Contrato" name="plazo_contrato" placeholder="Ej. 1 año renovable" defaultValue={initialData.plazo_contrato} />
+                        <DateField label="Fecha Inicio Arriendo" name="fecha_inicio" defaultValue={initialData.fecha_inicio} />
+                        <Field label="Canon de Arriendo" name="canon_arriendo" placeholder="$ 420.000" defaultValue={initialData.canon_arriendo} />
+                        <Field label="Documenta con Cheque (SI/NO)" name="documenta_cheque" placeholder="SI/NO" defaultValue={initialData.documenta_cheque} />
+                        <Field label="Cuenta para Transferencia" name="cuenta_transferencia" className="md:col-span-2" placeholder="Banco, Tipo Cta, Número, RUT" defaultValue={initialData.cuenta_transferencia} />
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                         <div className="flex items-center space-x-2 border p-3 rounded-md bg-white">
-                            <input type="checkbox" id="con_administracion" name="con_administracion" className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary" />
+                            <input type="checkbox" id="con_administracion" name="con_administracion" className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary" defaultChecked={initialData.con_administracion === 'SI'} />
                             <Label htmlFor="con_administracion" className="font-medium cursor-pointer text-slate-700">Con Administración</Label>
                         </div>
                         <div className="flex items-center space-x-2 border p-3 rounded-md bg-white">
-                            <input type="checkbox" id="con_restitucion" name="con_restitucion" className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary" />
+                            <input type="checkbox" id="con_restitucion" name="con_restitucion" className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary" defaultChecked={initialData.con_restitucion === 'SI'} />
                             <Label htmlFor="con_restitucion" className="font-medium cursor-pointer text-slate-700">Con Restitución</Label>
                         </div>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4 border-t">
-                        <Field label="ROL Propiedad" name="rol_propiedad" placeholder="123-45" />
-                        <Field label="N° Cliente Agua" name="cliente_agua" />
-                        <Field label="N° Cliente Luz" name="cliente_luz" />
-                        <Field label="Dirección de la Propiedad" name="direccion_propiedad" className="md:col-span-3" />
+                        <Field label="ROL Propiedad" name="rol_propiedad" placeholder="123-45" defaultValue={initialData.rol_propiedad} />
+                        <Field label="N° Cliente Agua" name="cliente_agua" defaultValue={initialData.cliente_agua} />
+                        <Field label="N° Cliente Luz" name="cliente_luz" defaultValue={initialData.cliente_luz} />
+                        <Field label="Dirección de la Propiedad" name="direccion_propiedad" className="md:col-span-3" defaultValue={initialData.direccion_propiedad} />
                     </div>
                 </CardSection>
 
@@ -582,16 +668,16 @@ function LeaseFormLogic({ user, profile, navigate }) {
 
                     <div className="bg-slate-50/50 p-6 rounded-lg border space-y-4">
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            <Field label="Nombres" name="arrendador_nombres" />
-                            <Field label="Apellidos" name="arrendador_apellidos" />
-                            <Field label="RUT / Pasaporte" name="arrendador_rut" />
-                            <Field label="Nacionalidad" name="arrendador_nacionalidad" />
-                            <Field label="Estado Civil" name="arrendador_civil" />
-                            <DateField label="Fecha Nacimiento" name="arrendador_nacimiento" />
-                            <Field label="Domicilio Particular" name="arrendador_direccion" className="md:col-span-2" />
-                            <Field label="Comuna" name="arrendador_comuna" />
-                            <Field label="Teléfono" name="arrendador_telefono" />
-                            <Field label="Correo" name="arrendador_email" type="email" />
+                            <Field label="Nombres" name="arrendador_nombres" defaultValue={initialData.arrendador_nombres} />
+                            <Field label="Apellidos" name="arrendador_apellidos" defaultValue={initialData.arrendador_apellidos} />
+                            <Field label="RUT / Pasaporte" name="arrendador_rut" defaultValue={initialData.arrendador_rut} />
+                            <Field label="Nacionalidad" name="arrendador_nacionalidad" defaultValue={initialData.arrendador_nacionalidad} />
+                            <Field label="Estado Civil" name="arrendador_civil" defaultValue={initialData.arrendador_civil} />
+                            <DateField label="Fecha Nacimiento" name="arrendador_nacimiento" defaultValue={initialData.arrendador_nacimiento} />
+                            <Field label="Domicilio Particular" name="arrendador_direccion" className="md:col-span-2" defaultValue={initialData.arrendador_direccion} />
+                            <Field label="Comuna" name="arrendador_comuna" defaultValue={initialData.arrendador_comuna} />
+                            <Field label="Teléfono" name="arrendador_telefono" defaultValue={initialData.arrendador_telefono} />
+                            <Field label="Correo" name="arrendador_email" type="email" defaultValue={initialData.arrendador_email} />
                         </div>
                     </div>
                 </CardSection>
@@ -608,49 +694,49 @@ function LeaseFormLogic({ user, profile, navigate }) {
                     {tenantType === 'natural' ? (
                         <div className="bg-slate-50/50 p-6 rounded-lg border space-y-6">
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                <Field label="Nombres" name="arrendatario_nombres" />
-                                <Field label="Apellidos" name="arrendatario_apellidos" />
-                                <Field label="RUT / Pasaporte" name="arrendatario_rut" />
-                                <Field label="Nacionalidad" name="arrendatario_nacionalidad" />
-                                <Field label="Estado Civil" name="arrendatario_civil" />
-                                <DateField label="Fecha Nacimiento" name="arrendatario_nacimiento" />
-                                <Field label="Domicilio Particular" name="arrendatario_direccion" className="md:col-span-2" />
-                                <Field label="Comuna" name="arrendatario_comuna" />
-                                <Field label="Teléfono" name="arrendatario_telefono" />
-                                <Field label="Correo" name="arrendatario_email" type="email" />
+                                <Field label="Nombres" name="arrendatario_nombres" defaultValue={initialData.arrendatario_nombres} />
+                                <Field label="Apellidos" name="arrendatario_apellidos" defaultValue={initialData.arrendatario_apellidos} />
+                                <Field label="RUT / Pasaporte" name="arrendatario_rut" defaultValue={initialData.arrendatario_rut} />
+                                <Field label="Nacionalidad" name="arrendatario_nacionalidad" defaultValue={initialData.arrendatario_nacionalidad} />
+                                <Field label="Estado Civil" name="arrendatario_civil" defaultValue={initialData.arrendatario_civil} />
+                                <DateField label="Fecha Nacimiento" name="arrendatario_nacimiento" defaultValue={initialData.arrendatario_nacimiento} />
+                                <Field label="Domicilio Particular" name="arrendatario_direccion" className="md:col-span-2" defaultValue={initialData.arrendatario_direccion} />
+                                <Field label="Comuna" name="arrendatario_comuna" defaultValue={initialData.arrendatario_comuna} />
+                                <Field label="Teléfono" name="arrendatario_telefono" defaultValue={initialData.arrendatario_telefono} />
+                                <Field label="Correo" name="arrendatario_email" type="email" defaultValue={initialData.arrendatario_email} />
                             </div>
                             <div className="bg-white p-4 rounded-lg border space-y-4">
                                 <h4 className="text-sm font-bold uppercase text-slate-500">Datos Laborales</h4>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <Field label="Ocupación" name="arrendatario_ocupacion" />
-                                    <Field label="Profesión" name="arrendatario_profesion" />
-                                    <Field label="Empleador" name="arrendatario_empleador" />
-                                    <Field label="Cargo" name="arrendatario_cargo" />
-                                    <Field label="Antigüedad" name="arrendatario_antiguedad" />
-                                    <Field label="Teléfono Laboral" name="arrendatario_telefono_lab" />
-                                    <Field label="Domicilio Laboral" name="arrendatario_direccion_lab" className="md:col-span-3" />
+                                    <Field label="Ocupación" name="arrendatario_ocupacion" defaultValue={initialData.arrendatario_ocupacion} />
+                                    <Field label="Profesión" name="arrendatario_profesion" defaultValue={initialData.arrendatario_profesion} />
+                                    <Field label="Empleador" name="arrendatario_empleador" defaultValue={initialData.arrendatario_empleador} />
+                                    <Field label="Cargo" name="arrendatario_cargo" defaultValue={initialData.arrendatario_cargo} />
+                                    <Field label="Antigüedad" name="arrendatario_antiguedad" defaultValue={initialData.arrendatario_antiguedad} />
+                                    <Field label="Teléfono Laboral" name="arrendatario_telefono_lab" defaultValue={initialData.arrendatario_telefono_lab} />
+                                    <Field label="Domicilio Laboral" name="arrendatario_direccion_lab" className="md:col-span-3" defaultValue={initialData.arrendatario_direccion_lab} />
                                 </div>
                             </div>
                         </div>
                     ) : (
                         <div className="bg-slate-50/50 p-6 rounded-lg border space-y-6">
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <Field label="Razón Social" name="arrendatario_juridica_razon" className="md:col-span-2" />
-                                <Field label="RUT Empresa" name="arrendatario_juridica_rut" />
-                                <Field label="Domicilio Comercial" name="arrendatario_juridica_direccion" className="md:col-span-2" />
-                                <Field label="Teléfono" name="arrendatario_juridica_telefono" />
+                                <Field label="Razón Social" name="arrendatario_juridica_razon" className="md:col-span-2" defaultValue={initialData.arrendatario_juridica_razon} />
+                                <Field label="RUT Empresa" name="arrendatario_juridica_rut" defaultValue={initialData.arrendatario_juridica_rut} />
+                                <Field label="Domicilio Comercial" name="arrendatario_juridica_direccion" className="md:col-span-2" defaultValue={initialData.arrendatario_juridica_direccion} />
+                                <Field label="Teléfono" name="arrendatario_juridica_telefono" defaultValue={initialData.arrendatario_juridica_telefono} />
                             </div>
                             <div className="bg-white p-4 rounded-lg border space-y-4">
                                 <h4 className="text-sm font-bold uppercase text-slate-500">Representante Legal</h4>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <Field label="Nombres" name="arrendatario_juridica_rep_nombres" />
-                                    <Field label="Apellidos" name="arrendatario_juridica_rep_apellidos" />
-                                    <Field label="RUT" name="arrendatario_juridica_rep_rut" />
-                                    <DateField label="Fecha Nacimiento" name="arrendatario_juridica_rep_nacimiento" />
-                                    <Field label="Nacionalidad" name="arrendatario_juridica_rep_nacionalidad" />
-                                    <Field label="Estado Civil" name="arrendatario_juridica_rep_civil" />
-                                    <Field label="Teléfono" name="arrendatario_juridica_rep_telefono" />
-                                    <Field label="Correo" name="arrendatario_juridica_rep_email" type="email" />
+                                    <Field label="Nombres" name="arrendatario_juridica_rep_nombres" defaultValue={initialData.arrendatario_juridica_rep_nombres} />
+                                    <Field label="Apellidos" name="arrendatario_juridica_rep_apellidos" defaultValue={initialData.arrendatario_juridica_rep_apellidos} />
+                                    <Field label="RUT" name="arrendatario_juridica_rep_rut" defaultValue={initialData.arrendatario_juridica_rep_rut} />
+                                    <DateField label="Fecha Nacimiento" name="arrendatario_juridica_rep_nacimiento" defaultValue={initialData.arrendatario_juridica_rep_nacimiento} />
+                                    <Field label="Nacionalidad" name="arrendatario_juridica_rep_nacionalidad" defaultValue={initialData.arrendatario_juridica_rep_nacionalidad} />
+                                    <Field label="Estado Civil" name="arrendatario_juridica_rep_civil" defaultValue={initialData.arrendatario_juridica_rep_civil} />
+                                    <Field label="Teléfono" name="arrendatario_juridica_rep_telefono" defaultValue={initialData.arrendatario_juridica_rep_telefono} />
+                                    <Field label="Correo" name="arrendatario_juridica_rep_email" type="email" defaultValue={initialData.arrendatario_juridica_rep_email} />
                                 </div>
                             </div>
                         </div>
@@ -674,27 +760,27 @@ function LeaseFormLogic({ user, profile, navigate }) {
                     {hasGuarantor && (
                         <div className="bg-slate-50/50 p-6 rounded-lg border space-y-6 animate-in fade-in">
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                <Field label="Nombres" name="fiador_nombres" />
-                                <Field label="Apellidos" name="fiador_apellidos" />
-                                <Field label="RUT / Pasaporte" name="fiador_rut" />
-                                <Field label="Nacionalidad" name="fiador_nacionalidad" />
-                                <Field label="Estado Civil" name="fiador_civil" />
-                                <DateField label="Fecha Nacimiento" name="fiador_nacimiento" />
-                                <Field label="Domicilio Particular" name="fiador_direccion" className="md:col-span-2" />
-                                <Field label="Comuna" name="fiador_comuna" />
-                                <Field label="Teléfono" name="fiador_telefono" />
-                                <Field label="Correo" name="fiador_email" type="email" />
+                                <Field label="Nombres" name="fiador_nombres" defaultValue={initialData.fiador_nombres} />
+                                <Field label="Apellidos" name="fiador_apellidos" defaultValue={initialData.fiador_apellidos} />
+                                <Field label="RUT / Pasaporte" name="fiador_rut" defaultValue={initialData.fiador_rut} />
+                                <Field label="Nacionalidad" name="fiador_nacionalidad" defaultValue={initialData.fiador_nacionalidad} />
+                                <Field label="Estado Civil" name="fiador_civil" defaultValue={initialData.fiador_civil} />
+                                <DateField label="Fecha Nacimiento" name="fiador_nacimiento" defaultValue={initialData.fiador_nacimiento} />
+                                <Field label="Domicilio Particular" name="fiador_direccion" className="md:col-span-2" defaultValue={initialData.fiador_direccion} />
+                                <Field label="Comuna" name="fiador_comuna" defaultValue={initialData.fiador_comuna} />
+                                <Field label="Teléfono" name="fiador_telefono" defaultValue={initialData.fiador_telefono} />
+                                <Field label="Correo" name="fiador_email" type="email" defaultValue={initialData.fiador_email} />
                             </div>
                             <div className="bg-white p-4 rounded-lg border space-y-4">
                                 <h4 className="text-sm font-bold uppercase text-slate-500">Datos Laborales</h4>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <Field label="Ocupación" name="fiador_ocupacion" />
-                                    <Field label="Profesión" name="fiador_profesion" />
-                                    <Field label="Empleador" name="fiador_empleador" />
-                                    <Field label="Cargo" name="fiador_cargo" />
-                                    <Field label="Antigüedad" name="fiador_antiguedad" />
-                                    <Field label="Teléfono Laboral" name="fiador_telefono_lab" />
-                                    <Field label="Domicilio Laboral" name="fiador_direccion_lab" className="md:col-span-3" />
+                                    <Field label="Ocupación" name="fiador_ocupacion" defaultValue={initialData.fiador_ocupacion} />
+                                    <Field label="Profesión" name="fiador_profesion" defaultValue={initialData.fiador_profesion} />
+                                    <Field label="Empleador" name="fiador_empleador" defaultValue={initialData.fiador_empleador} />
+                                    <Field label="Cargo" name="fiador_cargo" defaultValue={initialData.fiador_cargo} />
+                                    <Field label="Antigüedad" name="fiador_antiguedad" defaultValue={initialData.fiador_antiguedad} />
+                                    <Field label="Teléfono Laboral" name="fiador_telefono_lab" defaultValue={initialData.fiador_telefono_lab} />
+                                    <Field label="Domicilio Laboral" name="fiador_direccion_lab" className="md:col-span-3" defaultValue={initialData.fiador_direccion_lab} />
                                 </div>
                             </div>
                         </div>
@@ -706,7 +792,7 @@ function LeaseFormLogic({ user, profile, navigate }) {
                 </CardSection>
 
                 <CardSection title="6. Notas Adicionales">
-                    <Textarea name="notas" placeholder="Información adicional relevante..." className="min-h-[120px]" />
+                    <Textarea name="notas" placeholder="Información adicional relevante..." className="min-h-[120px]" defaultValue={initialData.notas} />
                 </CardSection>
 
                 <div className="sticky bottom-4 z-10">
@@ -714,7 +800,7 @@ function LeaseFormLogic({ user, profile, navigate }) {
                         <CardContent className="p-4 flex justify-end">
                             <Button type="submit" size="lg" disabled={isSubmitting} className="w-full md:w-auto">
                                 <Save className="mr-2 h-5 w-5" />
-                                {isSubmitting ? 'Enviando...' : 'Enviar Solicitud'}
+                                {isSubmitting ? 'Enviando...' : (requestId ? 'Actualizar Solicitud' : 'Enviar Solicitud')}
                             </Button>
                         </CardContent>
                     </Card>

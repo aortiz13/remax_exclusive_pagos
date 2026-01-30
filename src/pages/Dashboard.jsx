@@ -72,6 +72,8 @@ export default function Dashboard() {
         const request = requests.find(r => r.id === id)
         if (request?.type === 'invoice') {
             navigate(`/request/invoice/${id}`)
+        } else if (request?.data?.contract_type) {
+            navigate(`/request/contract/${id}`)
         } else {
             navigate(`/request/${id}`)
         }

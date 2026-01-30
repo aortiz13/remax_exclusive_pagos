@@ -93,6 +93,12 @@ function App() {
               </ProtectedRoute>
             } />
 
+            <Route path="/request/contract/:id" element={
+              <ProtectedRoute>
+                <ContractForm />
+              </ProtectedRoute>
+            } />
+
             <Route path="/request/:id" element={
               <ProtectedRoute>
                 <RequestForm />
