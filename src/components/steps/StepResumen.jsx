@@ -14,31 +14,72 @@ export default function StepResumen({ data, onBack, onComplete }) {
   const calculations = data.calculations || {}
   const formatCurrency = (val) => new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(val || 0)
 
+  const isArriendo = data.tipoSolicitud === 'arriendo'
+
   const handleFinish = async () => {
     setIsSubmitting(true)
 
     try {
-      const pdfRaw = generatePDF(data, calculations)
+      let payload = {}
 
-      const payload = {
-        agente: {
-          nombre: data.agenteNombre,
-          apellido: data.agenteApellido,
-          email: data.agenteEmail,
-          telefono: data.agenteTelefono
-        },
-        fecha: new Date().toISOString().split('T')[0],
-        propiedad: { direccion: data.direccion, comuna: data.comuna, tipo: data.tipoPropiedad },
-        arrendatario: {
-          nombre: data.arrendatarioNombre,
-          apellido: data.arrendatarioApellido,
-          rut: data.arrendatarioRut,
-          email: data.arrendatarioEmail,
-          telefono: data.arrendatarioTelefono
-        },
-        dueño: { nombre: data.dueñoNombre, rut: data.dueñoRut, banco: data.bancoNombre },
-        financiero: { total_cancelar: calculations.totalCancelar, total_recibir: calculations.totalRecibir },
-        pdf_base64: pdfRaw // Send raw base64
+      if (isArriendo) {
+        const pdfRaw = generatePDF(data, calculations)
+        payload = {
+          tipo_solicitud: 'arriendo', // Explicit Type
+          agente: {
+            nombre: data.agenteNombre,
+            apellido: data.agenteApellido,
+            email: data.agenteEmail,
+            telefono: data.agenteTelefono
+          },
+          fecha: new Date().toISOString().split('T')[0],
+          propiedad: { direccion: data.direccion, comuna: data.comuna, tipo: data.tipoPropiedad },
+          arrendatario: {
+            nombre: data.arrendatarioNombre,
+            apellido: data.arrendatarioApellido,
+            rut: data.arrendatarioRut,
+            email: data.arrendatarioEmail,
+            telefono: data.arrendatarioTelefono
+          },
+          dueño: { nombre: data.dueñoNombre, rut: data.dueñoRut, banco: data.bancoNombre },
+          financiero: {
+            total_cancelar: calculations.totalCancelar,
+            total_recibir: calculations.totalRecibir,
+            honorarios: calculations.totalComision,
+            administracion: calculations.totalAdmin
+          },
+          pdf_base64: pdfRaw // Send raw base64
+        }
+      } else {
+        // COMPRAVENTA Payload
+        payload = {
+          tipo_solicitud: 'compraventa',
+          agente: {
+            nombre: data.agenteNombre,
+            apellido: data.agenteApellido,
+            email: data.agenteEmail,
+          },
+          fecha: new Date().toISOString().split('T')[0],
+          propiedad: {
+            direccion: data.direccion,
+            comuna: data.comuna,
+            tipo: data.tipoPropiedad
+          },
+          vendedor: {
+            nombre: data.vendedorNombre,
+            rut: data.vendedorRut,
+            email: data.vendedorEmail
+          },
+          comprador: {
+            nombre: data.compradorNombre,
+            rut: data.compradorRut,
+            email: data.compradorEmail
+          },
+          financiero: {
+            monto_comision: data.montoComision
+          }
+          // PDF logic for buy/sell if needed, currently omitted as per plan if not critical
+        }
       }
 
       // 1. Trigger N8N Webhook
@@ -82,15 +123,18 @@ export default function StepResumen({ data, onBack, onComplete }) {
           </div>
           <h2 className="text-3xl font-bold text-foreground">¡Solicitud Enviada!</h2>
           <p className="text-muted-foreground mt-2 mb-8 max-w-xs mx-auto">
-            La solicitud ha sido registrada exitosamente. Hemos generado el documento PDF correspondiente.
+            La solicitud ha sido registrada exitosamente.
+            {isArriendo && " Hemos generado el documento PDF correspondiente."}
           </p>
           <div className="flex flex-col gap-3 w-full max-w-xs">
-            <Button onClick={() => navigate('/new-request')} size="lg" className="w-full">
-              Nueva Solicitud
+            <Button onClick={() => navigate('/pages/Dashboard')} size="lg" className="w-full">
+              Volver al Inicio
             </Button>
-            <Button variant="outline" className="w-full" onClick={downloadPDF}>
-              <Download className="w-4 h-4 mr-2" /> Descargar Comprobante
-            </Button>
+            {isArriendo && (
+              <Button variant="outline" className="w-full" onClick={downloadPDF}>
+                <Download className="w-4 h-4 mr-2" /> Descargar Comprobante
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -105,7 +149,7 @@ export default function StepResumen({ data, onBack, onComplete }) {
             <FileText className="w-6 h-6 text-primary" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold">Resumen Final</h2>
+            <h2 className="text-2xl font-bold">Resumen Final ({isArriendo ? 'Arriendo' : 'Compraventa'})</h2>
             <p className="text-muted-foreground text-sm">Revise los datos antes de enviar la solicitud.</p>
           </div>
         </div>
@@ -126,26 +170,47 @@ export default function StepResumen({ data, onBack, onComplete }) {
               </div>
             </div>
 
-            <div className="bg-slate-50 dark:bg-slate-900/50 rounded-xl p-5 space-y-4 border border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-2 text-primary font-semibold border-b border-slate-200 dark:border-slate-700 pb-2 mb-2">
-                <User className="w-4 h-4" /> Propietario & Banco
+            {isArriendo ? (
+              <div className="bg-slate-50 dark:bg-slate-900/50 rounded-xl p-5 space-y-4 border border-slate-100 dark:border-slate-800">
+                <div className="flex items-center gap-2 text-primary font-semibold border-b border-slate-200 dark:border-slate-700 pb-2 mb-2">
+                  <User className="w-4 h-4" /> Propietario & Banco
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <span className="text-xs uppercase text-muted-foreground font-semibold">Nombre</span>
+                    <p className="font-medium text-sm truncate">{data.dueñoNombre}</p>
+                  </div>
+                  <div>
+                    <span className="text-xs uppercase text-muted-foreground font-semibold">RUT</span>
+                    <p className="font-medium text-sm">{data.dueñoRut}</p>
+                  </div>
+                  <div className="col-span-2">
+                    <span className="text-xs uppercase text-muted-foreground font-semibold">Cuenta Bancaria</span>
+                    <p className="font-medium text-sm">{data.bancoNombre}</p>
+                    <p className="text-sm text-muted-foreground">{data.bancoTipoCuenta} · {data.bancoNroCuenta}</p>
+                  </div>
+                </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <span className="text-xs uppercase text-muted-foreground font-semibold">Nombre</span>
-                  <p className="font-medium text-sm truncate">{data.dueñoNombre}</p>
+            ) : (
+              <div className="bg-slate-50 dark:bg-slate-900/50 rounded-xl p-5 space-y-4 border border-slate-100 dark:border-slate-800">
+                <div className="flex items-center gap-2 text-primary font-semibold border-b border-slate-200 dark:border-slate-700 pb-2 mb-2">
+                  <User className="w-4 h-4" /> Partes
                 </div>
-                <div>
-                  <span className="text-xs uppercase text-muted-foreground font-semibold">RUT</span>
-                  <p className="font-medium text-sm">{data.dueñoRut}</p>
-                </div>
-                <div className="col-span-2">
-                  <span className="text-xs uppercase text-muted-foreground font-semibold">Cuenta Bancaria</span>
-                  <p className="font-medium text-sm">{data.bancoNombre}</p>
-                  <p className="text-sm text-muted-foreground">{data.bancoTipoCuenta} · {data.bancoNroCuenta}</p>
+                <div className="space-y-4">
+                  <div>
+                    <span className="text-xs uppercase text-muted-foreground font-semibold block mb-1">Vendedor</span>
+                    <p className="font-medium text-sm">{data.vendedorNombre}</p>
+                    <p className="text-xs text-muted-foreground">{data.vendedorRut} · {data.vendedorEmail}</p>
+                  </div>
+                  <div>
+                    <span className="text-xs uppercase text-muted-foreground font-semibold block mb-1">Comprador</span>
+                    <p className="font-medium text-sm">{data.compradorNombre}</p>
+                    <p className="text-xs text-muted-foreground">{data.compradorRut} · {data.compradorEmail}</p>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
+
           </div>
 
           {/* Financial Summary */}
@@ -155,50 +220,68 @@ export default function StepResumen({ data, onBack, onComplete }) {
                 <Wallet className="w-4 h-4" /> Desglose Financiero
               </div>
 
-              <div className="space-y-3 text-sm">
-                {data.chkProporcional && (
+              {isArriendo ? (
+                <div className="space-y-3 text-sm">
+                  {data.chkProporcional && (
+                    <div className="flex justify-between py-1">
+                      <span className="text-muted-foreground">Prop. ({data.diasProporcionales} días)</span>
+                      <span className="font-medium">{formatCurrency(data.calculations?.montoProporcional)}</span>
+                    </div>
+                  )}
+                  {data.chkMesAdelantado && (
+                    <div className="flex justify-between py-1">
+                      <span className="text-muted-foreground">Mes Adelantado</span>
+                      <span className="font-medium">{formatCurrency(data.calculations?.montoMesAdelantado)}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between py-1">
-                    <span className="text-muted-foreground">Prop. ({data.diasProporcionales} días)</span>
-                    <span className="font-medium">{formatCurrency(data.calculations?.montoProporcional)}</span>
+                    <span className="text-muted-foreground">Garantía</span>
+                    <span className="font-medium">{formatCurrency(data.garantia)}</span>
                   </div>
-                )}
-                {data.chkMesAdelantado && (
+                  {data.chkSeguro && (
+                    <div className="flex justify-between py-1">
+                      <span className="text-muted-foreground">Seguro Restitución</span>
+                      <span className="font-medium">{formatCurrency(data.calculations?.montoSeguro)}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between py-1">
-                    <span className="text-muted-foreground">Mes Adelantado</span>
-                    <span className="font-medium">{formatCurrency(data.calculations?.montoMesAdelantado)}</span>
+                    <span className="text-muted-foreground">Honorarios</span>
+                    <span className="font-medium">{formatCurrency(data.calculations?.totalComision)}</span>
                   </div>
-                )}
-                <div className="flex justify-between py-1">
-                  <span className="text-muted-foreground">Garantía</span>
-                  <span className="font-medium">{formatCurrency(data.garantia)}</span>
-                </div>
-                {data.chkSeguro && (
+                  {data.conAdministracion && (
+                    <div className="flex justify-between py-1 text-indigo-600">
+                      <span className="text-muted-foreground">Administración</span>
+                      <span className="font-medium">{formatCurrency(data.calculations?.totalAdmin)}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between py-1">
-                    <span className="text-muted-foreground">Seguro Restitución</span>
-                    <span className="font-medium">{formatCurrency(data.calculations?.montoSeguro)}</span>
+                    <span className="text-muted-foreground">Gastos Notariales</span>
+                    <span className="font-medium">{formatCurrency(data.gastosNotariales)}</span>
                   </div>
-                )}
-                <div className="flex justify-between py-1">
-                  <span className="text-muted-foreground">Comisión Total</span>
-                  <span className="font-medium">{formatCurrency(data.calculations?.totalComision)}</span>
                 </div>
-                <div className="flex justify-between py-1">
-                  <span className="text-muted-foreground">Gastos Notariales</span>
-                  <span className="font-medium">{formatCurrency(data.gastosNotariales)}</span>
+              ) : (
+                <div className="space-y-3 text-sm">
+                  <div className="p-4 bg-slate-50 rounded-lg text-center">
+                    <span className="text-muted-foreground block mb-2">Monto Comisión Acordada</span>
+                    <span className="text-xl font-bold text-slate-900 dark:text-slate-100">{data.montoComision}</span>
+                  </div>
                 </div>
-              </div>
+              )}
+
             </div>
 
-            <div className="space-y-4 mt-8 pt-6 border-t border-slate-100 dark:border-slate-800">
-              <div className="flex justify-between items-center px-4 py-3 bg-slate-50 dark:bg-slate-900 rounded-lg">
-                <span className="text-sm font-semibold text-slate-600 dark:text-slate-400">Total a Pagar</span>
-                <span className="text-lg font-bold text-slate-900 dark:text-slate-100">{formatCurrency(calculations.totalCancelar)}</span>
+            {isArriendo && (
+              <div className="space-y-4 mt-8 pt-6 border-t border-slate-100 dark:border-slate-800">
+                <div className="flex justify-between items-center px-4 py-3 bg-slate-50 dark:bg-slate-900 rounded-lg">
+                  <span className="text-sm font-semibold text-slate-600 dark:text-slate-400">Total a Pagar</span>
+                  <span className="text-lg font-bold text-slate-900 dark:text-slate-100">{formatCurrency(calculations.totalCancelar)}</span>
+                </div>
+                <div className="flex justify-between items-center px-4 py-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-100 dark:border-green-900/30">
+                  <span className="text-sm font-semibold text-green-700 dark:text-green-400">Total a Recibir Owner</span>
+                  <span className="text-lg font-bold text-green-700 dark:text-green-400">{formatCurrency(calculations.totalRecibir)}</span>
+                </div>
               </div>
-              <div className="flex justify-between items-center px-4 py-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-100 dark:border-green-900/30">
-                <span className="text-sm font-semibold text-green-700 dark:text-green-400">Total a Recibir Owner</span>
-                <span className="text-lg font-bold text-green-700 dark:text-green-400">{formatCurrency(calculations.totalRecibir)}</span>
-              </div>
-            </div>
+            )}
           </div>
         </div>
 

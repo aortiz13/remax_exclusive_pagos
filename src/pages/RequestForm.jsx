@@ -1,28 +1,31 @@
-
 import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../services/supabase'
 import { useAuth } from '../context/AuthContext'
 import Stepper from '../components/layout/Stepper'
-// StepAgente removed
 import StepPropiedad from '../components/steps/StepPropiedad'
 import StepDueñoBanco from '../components/steps/StepDueñoBanco'
 import StepArrendatario from '../components/steps/StepArrendatario'
 import StepCalculos from '../components/steps/StepCalculos'
 import StepResumen from '../components/steps/StepResumen'
-import { Button } from '@/components/ui'
-import { Save } from 'lucide-react'
+import StepParte from '../components/steps/StepParte'
+import StepComision from '../components/steps/StepComision'
+import { Button, Card, CardContent } from '@/components/ui'
+import { Save, Building, Briefcase } from 'lucide-react'
 
 export default function RequestForm() {
     const { id } = useParams()
     const { user, profile } = useAuth()
     const navigate = useNavigate()
-    const [currentStep, setCurrentStep] = useState(1)
+    const [currentStep, setCurrentStep] = useState(1) // 0 = Selection, 1+ = Flow
     const [loading, setLoading] = useState(!!id)
 
     const [formData, setFormData] = useState({
-        // Initial State will be overwritten if loading from DB or Profile
+        // General
+        tipoSolicitud: '', // 'arriendo' | 'compraventa'
+
+        // Agent
         agenteNombre: '',
         agenteApellido: '',
         agenteEmail: '',
@@ -31,23 +34,21 @@ export default function RequestForm() {
         tipoPropiedad: '',
         direccion: '',
         comuna: '',
-        // Dueño
+        // Arriendo Specific
         dueñoNombre: '',
         dueñoRut: '',
         dueñoEmail: '',
         dueñoTelefono: '',
-        // Arrendatario
         arrendatarioNombre: '',
         arrendatarioApellido: '',
         arrendatarioEmail: '',
         arrendatarioTelefono: '',
         arrendatarioRut: '',
-        // Banco
         bancoNombre: '',
         bancoTipoCuenta: '',
         bancoNroCuenta: '',
         bancoRutTitular: '',
-        // Financiero
+        // Calculos Arriendo
         canonArriendo: '',
         chkProporcional: false,
         diasProporcionales: '',
@@ -58,6 +59,18 @@ export default function RequestForm() {
         montoSeguro: '',
         costoDominioVigente: '',
         honorariosAdmin: '',
+        duracionContrato: '',
+        conAdministracion: false,
+        porcentajeAdministracion: '',
+
+        // Compraventa Specific
+        vendedorNombre: '',
+        vendedorRut: '',
+        vendedorEmail: '',
+        compradorNombre: '',
+        compradorRut: '',
+        compradorEmail: '',
+        montoComision: '',
     })
 
     // Load Request if ID exists
@@ -125,7 +138,7 @@ export default function RequestForm() {
                     .single()
 
                 if (!insertError && newRequest) {
-                    navigate(`/request/${newRequest.id}`, { replace: true })
+                    navigate(`/request/payment/${newRequest.id}`, { replace: true })
                 }
                 error = insertError
             }
@@ -139,8 +152,8 @@ export default function RequestForm() {
     }
 
     const nextStep = () => {
-        setCurrentStep(prev => Math.min(prev + 1, 5))
-        saveDraft() // Auto-save on step change? Optional, but good UX.
+        setCurrentStep(prev => prev + 1)
+        saveDraft()
     }
 
     const prevStep = () => setCurrentStep(prev => Math.max(prev - 1, 1))
@@ -149,14 +162,92 @@ export default function RequestForm() {
         setFormData(prev => ({ ...prev, [field]: value }))
     }
 
+    const handleSelectType = (type) => {
+        handleUpdate('tipoSolicitud', type)
+        // If type selected, proceed to Step 1 (or Step 1 is Propiedad for both)
+        // We are already at step 1 technically if we consider selection as step 0 or transient state.
+        // Let's say Selection is not a "Step" in the Stepper, just pre-requisite.
+    }
+
     if (loading) return <div className="p-8 text-center">Cargando solicitud...</div>
+
+    // SELECTION SCREEN if no type selected
+    if (!formData.tipoSolicitud) {
+        return (
+            <div className="container max-w-4xl mx-auto px-4 py-12">
+                <h1 className="text-3xl font-bold text-center mb-2">Nueva Solicitud de Link de Pago</h1>
+                <p className="text-muted-foreground text-center mb-8">Seleccione el tipo de operación para continuar.</p>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl mx-auto">
+                    <Card
+                        className="cursor-pointer hover:border-primary hover:shadow-md transition-all group"
+                        onClick={() => handleSelectType('arriendo')}
+                    >
+                        <CardContent className="flex flex-col items-center justify-center p-8 text-center space-y-4">
+                            <div className="p-4 rounded-full bg-blue-50 text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                                <Building className="w-10 h-10" />
+                            </div>
+                            <div>
+                                <h3 className="text-xl font-bold">Arriendo</h3>
+                                <p className="text-sm text-muted-foreground mt-1">Generar link para pago inicial de arriendo (Mes, Garantía, Comisión).</p>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card
+                        className="cursor-pointer hover:border-primary hover:shadow-md transition-all group"
+                        onClick={() => handleSelectType('compraventa')}
+                    >
+                        <CardContent className="flex flex-col items-center justify-center p-8 text-center space-y-4">
+                            <div className="p-4 rounded-full bg-green-50 text-green-600 group-hover:bg-green-600 group-hover:text-white transition-colors">
+                                <Briefcase className="w-10 h-10" />
+                            </div>
+                            <div>
+                                <h3 className="text-xl font-bold">Compraventa</h3>
+                                <p className="text-sm text-muted-foreground mt-1">Generar link para pago de comisión por compraventa de propiedades.</p>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+
+                <div className="text-center mt-12">
+                    <Button variant="outline" onClick={() => navigate('/dashboard')}>Cancelar y Volver</Button>
+                </div>
+            </div>
+        )
+    }
+
+    // Determine Logic based on Type
+    const isArriendo = formData.tipoSolicitud === 'arriendo'
+
+    // STEPS CONFIG
+    const ARRIENDO_STEPS = [
+        { id: 1, label: 'Propiedad' },
+        { id: 2, label: 'Dueño / Banco' },
+        { id: 3, label: 'Arrendatario' },
+        { id: 4, label: 'Cálculos' },
+        { id: 5, label: 'Resumen' },
+    ]
+
+    const COMPRAVENTA_STEPS = [
+        { id: 1, label: 'Propiedad' },
+        { id: 2, label: 'Vendedor' },
+        { id: 3, label: 'Comprador' },
+        { id: 4, label: 'Comisión' },
+        { id: 5, label: 'Resumen' },
+    ]
+
+    const currentSteps = isArriendo ? ARRIENDO_STEPS : COMPRAVENTA_STEPS
 
     return (
         <div className="min-h-screen bg-slate-50/50 dark:bg-slate-950/50 pb-20">
             {/* Top Stepper Area */}
             <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-30 px-4 py-8 mb-8 shadow-sm">
                 <div className="max-w-4xl mx-auto">
-                    <Stepper currentStep={currentStep} />
+                    <Stepper currentStep={currentStep} steps={currentSteps} />
+                    <div className="text-center mt-2 text-xs font-semibold text-muted-foreground uppercase tracking-widest">
+                        {formData.tipoSolicitud}
+                    </div>
                 </div>
             </div>
 
@@ -174,38 +265,79 @@ export default function RequestForm() {
                     </div>
 
                     <div className="mt-8">
+                        {/* SHARED STEP 1: PROPIEDAD */}
                         {currentStep === 1 && (
                             <StepPropiedad
                                 data={formData}
                                 onUpdate={handleUpdate}
                                 onNext={nextStep}
-                                onBack={() => navigate('/dashboard')}
+                                onBack={() => setFormData(prev => ({ ...prev, tipoSolicitud: '' }))} // Back to Selection
                             />
                         )}
-                        {currentStep === 2 && (
-                            <StepDueñoBanco
-                                data={formData}
-                                onUpdate={handleUpdate}
-                                onNext={nextStep}
-                                onBack={prevStep}
-                            />
+
+                        {/* ARRIENDO FLOW */}
+                        {isArriendo && (
+                            <>
+                                {currentStep === 2 && (
+                                    <StepDueñoBanco
+                                        data={formData}
+                                        onUpdate={handleUpdate}
+                                        onNext={nextStep}
+                                        onBack={prevStep}
+                                    />
+                                )}
+                                {currentStep === 3 && (
+                                    <StepArrendatario
+                                        data={formData}
+                                        onUpdate={handleUpdate}
+                                        onNext={nextStep}
+                                        onBack={prevStep}
+                                    />
+                                )}
+                                {currentStep === 4 && (
+                                    <StepCalculos
+                                        data={formData}
+                                        onUpdate={handleUpdate}
+                                        onNext={nextStep}
+                                        onBack={prevStep}
+                                    />
+                                )}
+                            </>
                         )}
-                        {currentStep === 3 && (
-                            <StepArrendatario
-                                data={formData}
-                                onUpdate={handleUpdate}
-                                onNext={nextStep}
-                                onBack={prevStep}
-                            />
+
+                        {/* COMPRAVENTA FLOW */}
+                        {!isArriendo && (
+                            <>
+                                {currentStep === 2 && (
+                                    <StepParte
+                                        type="Vendedor"
+                                        data={formData}
+                                        onUpdate={handleUpdate}
+                                        onNext={nextStep}
+                                        onBack={prevStep}
+                                    />
+                                )}
+                                {currentStep === 3 && (
+                                    <StepParte
+                                        type="Comprador"
+                                        data={formData}
+                                        onUpdate={handleUpdate}
+                                        onNext={nextStep}
+                                        onBack={prevStep}
+                                    />
+                                )}
+                                {currentStep === 4 && (
+                                    <StepComision
+                                        data={formData}
+                                        onUpdate={handleUpdate}
+                                        onNext={nextStep}
+                                        onBack={prevStep}
+                                    />
+                                )}
+                            </>
                         )}
-                        {currentStep === 4 && (
-                            <StepCalculos
-                                data={formData}
-                                onUpdate={handleUpdate}
-                                onNext={nextStep}
-                                onBack={prevStep}
-                            />
-                        )}
+
+                        {/* SHARED STEP 5: RESUMEN */}
                         {currentStep === 5 && (
                             <StepResumen
                                 data={formData}
@@ -214,6 +346,7 @@ export default function RequestForm() {
                                     if (id) {
                                         await supabase.from('requests').update({ status: 'submitted' }).eq('id', id)
                                     }
+                                    // Could redirect here or StepResumen handles it.
                                 }}
                             />
                         )}

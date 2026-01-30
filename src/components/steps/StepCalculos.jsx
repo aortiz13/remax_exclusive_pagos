@@ -1,15 +1,21 @@
 import React, { useEffect, useState } from 'react'
 import { Card, CardContent, Button, Input, Label, Separator } from '@/components/ui'
-import { Calculator, DollarSign, TrendingDown, TrendingUp, Calendar, ShieldCheck } from 'lucide-react'
+import { Calculator, DollarSign, TrendingUp, ShieldCheck, Briefcase } from 'lucide-react'
+
+// Valor UF estimado, idealmente traer de API o Contexto
+const VALOR_UF_ESTIMADO = 38000;
 
 export default function StepCalculos({ data, onUpdate, onNext, onBack }) {
     const [results, setResults] = useState({
         totalArriendoInicial: 0,
         honorariosNeto: 0,
         ivaHonorarios: 0,
-        totalComision: 0,
+        totalComision: 0, // Now "Honorarios"
         totalCancelar: 0,
-        totalRecibir: 0
+        totalRecibir: 0,
+        montoAdmin: 0,
+        ivaAdmin: 0,
+        totalAdmin: 0
     })
 
     // Calculations Effect
@@ -19,36 +25,90 @@ export default function StepCalculos({ data, onUpdate, onNext, onBack }) {
         const garantia = Number(data.garantia) || 0
         const gastosNotariales = Number(data.gastosNotariales) || 0
         const certDominio = Number(data.costoDominioVigente) || 0
-        const honorariosAdmin = Number(data.honorariosAdmin) || 0
+
+        // Seguro de Restitución (Pass-through)
         const seguro = data.chkSeguro ? (Number(data.montoSeguro) || 0) : 0
 
-        // 1. Initial Rent Calculation
-
-        // Días Proporcionales
+        // --- 1. Arriendo Inicial ---
         const dias = Number(data.diasProporcionales) || 0
         const montoProporcional = data.chkProporcional ? Math.round((canon / 30) * dias) : 0
-
-        // Mes Adelantado
         const montoMesAdelantado = data.chkMesAdelantado ? canon : 0
-
         const totalArriendoInicial = montoProporcional + montoMesAdelantado
 
-        // 2. Honorarios (50% del CANON base + IVA)
-        // Commission is based on the Monthly Canon, irrespective of initial days
-        const honorariosNeto = Math.round(canon * 0.5)
-        const ivaHonorarios = Math.round(honorariosNeto * 0.19)
-        const totalComision = honorariosNeto + ivaHonorarios
+        // --- 2. Honorarios (Comisión) ---
+        let honorariosNeto = 0;
+        const mesesContrato = Number(data.duracionContrato) || 12; // Default 1 year if not set
+        const tipoPropiedad = data.tipoPropiedad || 'Casa'; // Default Residential
 
-        // 3. Total a Cancelar (Arrendatario)
+        // Determine Category
+        const isCommercial = ['Oficina', 'Local Comercial', 'Bodega', 'Industrial'].includes(tipoPropiedad);
+
+        if (!isCommercial) {
+            // -- RESIDENCIAL --
+            if (mesesContrato <= 24) {
+                // 50% Canon + IVA (Min 6 UF)
+                let baseHonorarios = Math.round(canon * 0.5);
+                const minHonorarios = 6 * VALOR_UF_ESTIMADO;
+
+                if (baseHonorarios < minHonorarios) {
+                    baseHonorarios = minHonorarios;
+                }
+                honorariosNeto = baseHonorarios;
+            } else {
+                // > 24 meses: 2% del total del contrato
+                const totalContrato = canon * mesesContrato;
+                honorariosNeto = Math.round(totalContrato * 0.02);
+            }
+        } else {
+            // -- COMERCIAL --
+            if (mesesContrato <= 60) { // Hasta 5 años
+                // 100% Canon (1 mes) + IVA
+                honorariosNeto = canon;
+            } else {
+                // > 5 años: 2% del total del contrato
+                const totalContrato = canon * mesesContrato;
+                honorariosNeto = Math.round(totalContrato * 0.02);
+            }
+        }
+
+        const ivaHonorarios = Math.round(honorariosNeto * 0.19);
+        const totalComision = honorariosNeto + ivaHonorarios;
+
+        // --- 3. Administración ---
+        let montoAdmin = 0;
+        let ivaAdmin = 0;
+        let totalAdmin = 0;
+
+        if (data.conAdministracion) {
+            const porcentaje = Number(data.porcentajeAdministracion) || 0;
+            // Fee is a percentage of the Canon
+            montoAdmin = Math.round(canon * (porcentaje / 100));
+            ivaAdmin = Math.round(montoAdmin * 0.19);
+            totalAdmin = montoAdmin + ivaAdmin;
+
+            // Note: Administration fee is usually recurrent (monthly), but here we calculate the *first payment* impact?
+            // "que el agente tenga la opción para agregar el % y que el sistema haga el calculo sumándole el IVA"
+            // Usually valid for first payment if they collect first month admin. 
+            // Assuming this is just calculation for the REQUEST, to show value.
+            // Usually Admin Fee is deducted from monthly rent.
+            // If this is "Payment Link", maybe they are paying the first month rent + comission?
+            // Admin fee is usually deducted from what owner receives.
+        }
+
+        // --- 4. Total a Cancelar (Arrendatario) ---
+        // Arrendatario pays: Initial Rent + Warranty + Notary + Commission + Insurance
+        // (Admin fee is usually cost to owner, not extra to tenant, unless specific agreement. 
+        //  The prompt says "el sistema haga el calculo sumándole el IVA". 
+        //  I will display it but usually it's deducted from owner. I will deduct from owner in 'Recibir')
         const totalCancelar = totalArriendoInicial + garantia + gastosNotariales + totalComision + seguro
 
-        // 4. Total a Recibir (Dueño)
+        // --- 5. Total a Recibir (Dueño) ---
         // Ingresos: Arriendo Inicial + Garantía
-        // Egresos: Comisión + Gastos Notariales + Cert Dominio + Hon Admin
-        // (Insurance is assumed external/pass-through)
-        const ingresos = totalArriendoInicial + garantia
-        const egresos = totalComision + gastosNotariales + certDominio + honorariosAdmin
-        const totalRecibir = ingresos - egresos
+        // Egresos: Comisión + Gastos Notariales + Cert Dominio + (Admin Fee?) + (Seguro?)
+        // If owner pays Admin Fee for the first month:
+        const totalEgresosOwner = totalComision + gastosNotariales + certDominio + totalAdmin
+
+        const totalRecibir = (totalArriendoInicial + garantia) - totalEgresosOwner
 
         setResults({
             totalArriendoInicial,
@@ -59,8 +119,12 @@ export default function StepCalculos({ data, onUpdate, onNext, onBack }) {
             ivaHonorarios,
             totalComision,
             totalCancelar,
-            totalRecibir
+            totalRecibir,
+            montoAdmin,
+            ivaAdmin,
+            totalAdmin
         })
+
     }, [data])
 
     const handleNext = () => {
@@ -72,17 +136,41 @@ export default function StepCalculos({ data, onUpdate, onNext, onBack }) {
         return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(val)
     }
 
+    // Determine category label for UI
+    const isCommercial = ['Oficina', 'Local Comercial', 'Bodega', 'Industrial'].includes(data.tipoPropiedad);
+    const categoryLabel = isCommercial ? 'Comercial' : 'Residencial';
+
     return (
         <Card className="max-w-4xl mx-auto border-0 shadow-none sm:border sm:shadow-sm">
             <CardContent className="pt-6">
                 <div className="flex items-center gap-2 mb-6">
                     <Calculator className="w-6 h-6 text-primary" />
-                    <h2 className="text-xl font-bold">Cálculos Financieros</h2>
+                    <h2 className="text-xl font-bold">Cálculos & Honorarios ({categoryLabel})</h2>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                     {/* INPUTS COLUMN */}
                     <div className="space-y-6">
+
+                        {/* SECCIÓN: DURACIÓN CONTRATO */}
+                        <div className="bg-blue-50/50 p-4 rounded-lg border border-blue-100 space-y-3">
+                            <Label className="text-blue-900 font-semibold">Duración del Contrato</Label>
+                            <div className="flex gap-4 items-center">
+                                <div className="relative flex-1">
+                                    <Input
+                                        type="number"
+                                        value={data.duracionContrato || ''}
+                                        onChange={(e) => onUpdate('duracionContrato', e.target.value)}
+                                        placeholder="Meses"
+                                        className="pr-16"
+                                    />
+                                    <span className="absolute right-3 top-2.5 text-xs text-muted-foreground font-medium pointer-events-none">MESES</span>
+                                </div>
+                                <div className="text-xs text-blue-700/80 max-w-[180px] leading-tight">
+                                    Define el cálculo de honorarios ({isCommercial ? '> 5 años' : '> 2 años'} cambia %).
+                                </div>
+                            </div>
+                        </div>
 
                         {/* SECCIÓN 1: CANON */}
                         <div className="space-y-2">
@@ -95,7 +183,6 @@ export default function StepCalculos({ data, onUpdate, onNext, onBack }) {
                                     value={data.canonArriendo}
                                     onChange={(e) => onUpdate('canonArriendo', e.target.value)}
                                     placeholder="$ 750000"
-                                    autoFocus
                                 />
                             </div>
                         </div>
@@ -171,107 +258,87 @@ export default function StepCalculos({ data, onUpdate, onNext, onBack }) {
 
                         {/* SECCIÓN 3: OTROS COSTOS */}
                         <div className="space-y-4">
-                            <h3 className="font-semibold text-sm uppercase tracking-wide text-slate-500">Costos Adicionales</h3>
+                            <h3 className="font-semibold text-sm uppercase tracking-wide text-slate-500">Costos & Garantía</h3>
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                     <Label>Garantía</Label>
                                     <div className="relative">
                                         <DollarSign className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                                        <Input
-                                            className="pl-8"
-                                            type="number"
-                                            value={data.garantia}
-                                            onChange={(e) => onUpdate('garantia', e.target.value)}
-                                            placeholder="$ 850000"
-                                        />
+                                        <Input className="pl-8" type="number" value={data.garantia} onChange={(e) => onUpdate('garantia', e.target.value)} placeholder="$ 850000" />
                                     </div>
                                 </div>
                                 <div className="space-y-2">
                                     <Label>Gastos Notariales</Label>
                                     <div className="relative">
                                         <DollarSign className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                                        <Input
-                                            className="pl-8"
-                                            type="number"
-                                            value={data.gastosNotariales}
-                                            onChange={(e) => onUpdate('gastosNotariales', e.target.value)}
-                                            placeholder="$ 7500"
-                                        />
+                                        <Input className="pl-8" type="number" value={data.gastosNotariales} onChange={(e) => onUpdate('gastosNotariales', e.target.value)} placeholder="$ 7500" />
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Seguro Restitución */}
-                            <div className="bg-slate-50 dark:bg-slate-900/50 p-3 rounded-lg border border-slate-100 dark:border-slate-800">
-                                <div className="flex items-center space-x-2 mb-2">
-                                    <input
-                                        type="checkbox"
-                                        id="chkSeguro"
-                                        className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-                                        checked={data.chkSeguro || false}
-                                        onChange={(e) => onUpdate('chkSeguro', e.target.checked)}
-                                    />
-                                    <Label htmlFor="chkSeguro" className="font-medium cursor-pointer flex items-center gap-2">
-                                        <ShieldCheck className="w-4 h-4 text-slate-500" />
-                                        Seguro de Restitución
-                                    </Label>
-                                </div>
-                                {data.chkSeguro && (
-                                    <div className="pl-6 animate-in slide-in-from-top-2">
-                                        <div className="relative">
-                                            <DollarSign className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                                            <Input
-                                                className="pl-8 bg-white dark:bg-slate-950"
-                                                type="number"
-                                                value={data.montoSeguro}
-                                                onChange={(e) => onUpdate('montoSeguro', e.target.value)}
-                                                placeholder="$ Monto Seguro"
-                                            />
+                            <div className="space-y-4 pt-2">
+                                {/* Seguro Restitución */}
+                                <div className="bg-slate-50 dark:bg-slate-900/50 p-3 rounded-lg border border-slate-100 dark:border-slate-800">
+                                    <div className="flex items-center space-x-2 mb-2">
+                                        <input type="checkbox" id="chkSeguro" className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary" checked={data.chkSeguro || false} onChange={(e) => onUpdate('chkSeguro', e.target.checked)} />
+                                        <Label htmlFor="chkSeguro" className="font-medium cursor-pointer flex items-center gap-2">
+                                            <ShieldCheck className="w-4 h-4 text-slate-500" /> Seguro de Restitución
+                                        </Label>
+                                    </div>
+                                    {data.chkSeguro && (
+                                        <div className="pl-6 animate-in slide-in-from-top-2">
+                                            <div className="relative">
+                                                <DollarSign className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                                                <Input className="pl-8 bg-white dark:bg-slate-950" type="number" value={data.montoSeguro} onChange={(e) => onUpdate('montoSeguro', e.target.value)} placeholder="$ Monto Seguro" />
+                                            </div>
                                         </div>
+                                    )}
+                                </div>
+
+                                {/* Administración */}
+                                <div className="bg-indigo-50/50 dark:bg-indigo-900/10 p-3 rounded-lg border border-indigo-100 dark:border-indigo-900/30">
+                                    <div className="flex items-center space-x-2 mb-2">
+                                        <input type="checkbox" id="conAdministracion" className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600" checked={data.conAdministracion || false} onChange={(e) => onUpdate('conAdministracion', e.target.checked)} />
+                                        <Label htmlFor="conAdministracion" className="font-medium cursor-pointer flex items-center gap-2 text-indigo-900 dark:text-indigo-300">
+                                            <Briefcase className="w-4 h-4" /> Con Administración
+                                        </Label>
                                     </div>
-                                )}
+                                    {data.conAdministracion && (
+                                        <div className="pl-6 animate-in slide-in-from-top-2 grid grid-cols-2 gap-4">
+                                            <div className="space-y-1">
+                                                <Label className="text-xs text-muted-foreground">% Comisión</Label>
+                                                <div className="relative">
+                                                    <Input type="number" value={data.porcentajeAdministracion} onChange={(e) => onUpdate('porcentajeAdministracion', e.target.value)} placeholder="Ej: 7" className="pr-8 h-9 bg-white" />
+                                                    <span className="absolute right-3 top-2 text-xs font-bold text-muted-foreground">%</span>
+                                                </div>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <Label className="text-xs text-muted-foreground">Monto (+IVA)</Label>
+                                                <div className="h-9 px-3 py-2 bg-white/50 text-indigo-700 text-sm rounded-md border border-indigo-100 flex items-center font-mono">
+                                                    {formatCurrency(results.totalAdmin)}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
 
-                        {/* SECCIÓN 4: CARGOS PROPIETARIO */}
-                        <div className="space-y-4">
-                            <h3 className="font-semibold text-sm uppercase tracking-wide text-slate-500">Cargos Propietario</h3>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                    <Label>Certificado de Dominio Vigente</Label>
-                                    <div className="relative">
-                                        <DollarSign className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                                        <Input
-                                            className="pl-8"
-                                            type="number"
-                                            value={data.costoDominioVigente}
-                                            onChange={(e) => onUpdate('costoDominioVigente', e.target.value)}
-                                            placeholder="$ 4600"
-                                        />
-                                    </div>
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>Honorarios Admin</Label>
-                                    <div className="relative">
-                                        <DollarSign className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                                        <Input
-                                            className="pl-8"
-                                            type="number"
-                                            value={data.honorariosAdmin}
-                                            onChange={(e) => onUpdate('honorariosAdmin', e.target.value)}
-                                            placeholder="$ 80920"
-                                        />
-                                    </div>
-                                </div>
+                        {/* Costos Propietario Extra */}
+                        <div className="space-y-2">
+                            <Label>Certificado de Dominio Vigente (Costo)</Label>
+                            <div className="relative">
+                                <DollarSign className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                                <Input className="pl-8" type="number" value={data.costoDominioVigente} onChange={(e) => onUpdate('costoDominioVigente', e.target.value)} placeholder="$ 4600" />
                             </div>
                         </div>
+
                     </div>
 
                     {/* PREVIEW COLUMN */}
                     <div className="flex flex-col h-full">
                         <div className="bg-slate-900 text-slate-50 rounded-xl p-6 shadow-xl flex-1 flex flex-col justify-between relative overflow-hidden">
-                            {/* Decorative background element */}
                             <div className="absolute top-0 right-0 -mt-10 -mr-10 w-40 h-40 bg-white/5 rounded-full blur-3xl"></div>
 
                             <div>
@@ -315,9 +382,23 @@ export default function StepCalculos({ data, onUpdate, onNext, onBack }) {
                                         </div>
                                     )}
                                     <div className="flex justify-between text-white/70">
-                                        <span>+ Comisión ({formatCurrency(results.honorariosNeto)} + IVA)</span>
+                                        <span className="flex flex-col">
+                                            <span>+ Honorarios Remax</span>
+                                            <span className="text-[10px] opacity-60">
+                                                {isCommercial
+                                                    ? (data.duracionContrato > 60 ? 'Comercial (>5a): 2% Total' : 'Comercial (<=5a): 1 Canon')
+                                                    : (data.duracionContrato > 24 ? 'Residencial (>2a): 2% Total' : 'Residencial (<=2a): 50% Canon')} + IVA
+                                            </span>
+                                        </span>
                                         <span className="font-mono">{formatCurrency(results.totalComision)}</span>
                                     </div>
+
+                                    {data.conAdministracion && (
+                                        <div className="flex justify-between text-indigo-300/90">
+                                            <span>+ Administración ({data.porcentajeAdministracion}% + IVA)</span>
+                                            <span className="font-mono">{formatCurrency(results.totalAdmin)}</span>
+                                        </div>
+                                    )}
 
                                     <div className="my-2 border-t border-white/20"></div>
                                 </div>
@@ -337,7 +418,7 @@ export default function StepCalculos({ data, onUpdate, onNext, onBack }) {
                                         {formatCurrency(results.totalRecibir)}
                                     </div>
                                     <p className="text-[10px] text-green-200/60 mt-2 leading-tight">
-                                        *Descuentos aplicados: Comisión, Gastos Notariales, Cert. Dominio, Hon. Admin.
+                                        *Descuentos aplicados: Honorarios, Notaria, Cert. Dominio {data.conAdministracion && ', Admin'}.
                                     </p>
                                 </div>
                             </div>
@@ -352,7 +433,6 @@ export default function StepCalculos({ data, onUpdate, onNext, onBack }) {
                     <Button
                         type="button"
                         onClick={handleNext}
-                        // Valid if at least one payment type selected or logic permits (flexible)
                         disabled={!data.canonArriendo}
                         size="lg"
                     >

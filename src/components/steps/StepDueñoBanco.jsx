@@ -106,14 +106,38 @@ export default function StepDueñoBanco({ data, onUpdate, onNext, onBack }) {
                                 <Label>Banco</Label>
                                 <select
                                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                    value={data.bancoNombre}
-                                    onChange={(e) => onUpdate('bancoNombre', e.target.value)}
+                                    value={BANKS.includes(data.bancoNombre) ? data.bancoNombre : (data.bancoNombre ? 'Otros' : '')}
+                                    onChange={(e) => {
+                                        const val = e.target.value
+                                        if (val === 'Otros') {
+                                            onUpdate('bancoNombre', '') // Reset to empty to force input
+                                            onUpdate('bancoNombreSelect', 'Otros') // Helper state if needed, or just rely on value logic
+                                        } else {
+                                            onUpdate('bancoNombre', val)
+                                        }
+                                    }}
                                     required
                                 >
                                     <option value="">Seleccionar...</option>
                                     {BANKS.map(b => <option key={b} value={b}>{b}</option>)}
+                                    <option value="Otros">Otros</option>
                                 </select>
                             </div>
+
+                            {/* Conditional Other Bank Input */}
+                            {(!BANKS.includes(data.bancoNombre) && (data.bancoNombre || data.bancoNombre === '')) && (
+                                <div className="space-y-2 animate-in fade-in slide-in-from-top-1">
+                                    <Label>Nombre del Banco</Label>
+                                    <Input
+                                        value={data.bancoNombre}
+                                        onChange={(e) => onUpdate('bancoNombre', e.target.value)}
+                                        placeholder="Ingrese nombre del banco"
+                                        required
+                                        autoFocus
+                                    />
+                                </div>
+                            )}
+
                             <div className="space-y-2">
                                 <Label>Tipo de Cuenta</Label>
                                 <select
