@@ -90,7 +90,7 @@ export const generatePDF = async (formData) => {
 
         checkPageBreak();
         addSection('3. ARRENDADOR');
-        addField('Vombres', formData.get('arrendador_nombres'));
+        addField('Nombres', formData.get('arrendador_nombres'));
         addField('Apellidos', formData.get('arrendador_apellidos'));
         addField('RUT', formData.get('arrendador_rut'));
         addField('Email', formData.get('arrendador_email'));

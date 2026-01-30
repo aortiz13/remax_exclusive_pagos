@@ -579,23 +579,7 @@ function LeaseFormLogic({ user, profile, navigate }) {
                 </CardSection>
 
                 <CardSection title="2. Arrendador (Propietario)">
-                    <PartyForm type="Arrendador" index="" />
-                    {/* Note: PartyForm expects index. I'll hack it to hide 1/2 if index is empty or modify PartyForm. 
-                       Actually LeasePersonForm in original was different. I reused PartyForm. 
-                       PartyForm has "index" prop. If I pass index="" it shows "Arrendador ". It works nicely enough.
-                       Wait, key names. PartyForm uses `${type.toLowerCase()}_${index}`.
-                       Original: `arrendador_nombres`. 
-                       My PartyForm: `arrendador__nombres`.
-                       I need to be careful with key names if generateExcel expects specific keys.
-                       generateExcel expects `arrendador_nombres`.
-                       My Component produces `arrendador__nombres` (double underscore? no, index is appended).
-                       If index is empty string, it becomes `arrendador__nombres`.
-                       I should probably create a LeasePersonForm helper that matches the key generation.
-                   */}
 
-                    {/* Let's redefine PartyForm to be flexible or create LeasePersonForm specific.
-                       To save code space I will inline the fields for Lease to match exact keys.
-                   */}
                     <div className="bg-slate-50/50 p-6 rounded-lg border space-y-4">
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             <Field label="Nombres" name="arrendador_nombres" />
