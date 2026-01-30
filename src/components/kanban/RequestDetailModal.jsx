@@ -125,8 +125,13 @@ export function RequestDetailModal({ request, isOpen, onClose }) {
                                 request.data?.propiedadDireccion ||
                                 request.data?.direccion_propiedad
                             } className="md:col-span-2" />
-                            <Field label="Comuna" value={request.data?.comuna || request.data?.comuna_propiedad || request.data?.propiedadComuna} />
-                            <Field label="Tipo" value={request.data?.tipoPropiedad || request.data?.contract_type} />
+                            <Field label="Comuna" value={request.data?.comuna || request.data?.comuna_propiedad || request.data?.propiedadComuna || request.data?.arrendador_comuna} />
+                            <Field label="Tipo" value={
+                                request.data?.tipoPropiedad ||
+                                (request.data?.contract_type === 'lease' ? 'Arriendo' :
+                                    request.data?.contract_type === 'buy-sell' ? 'Compraventa' :
+                                        request.data?.contract_type)
+                            } />
                         </Section>
 
                         {/* Clients Info */}
@@ -140,16 +145,18 @@ export function RequestDetailModal({ request, isOpen, onClose }) {
                                 </>
                             ) : (
                                 <>
-                                    <Field label="Dueño/Arrendador" value={
+                                    <Field label="Dueño/Vendedor" value={
                                         request.data?.dueñoNombre ||
-                                        ((request.data?.arrendador_nombres || '') + ' ' + (request.data?.arrendador_apellidos || '')).trim()
+                                        ((request.data?.arrendador_nombres || '') + ' ' + (request.data?.arrendador_apellidos || '')).trim() ||
+                                        ((request.data?.vendedor_1_nombres || '') + ' ' + (request.data?.vendedor_1_apellidos || '')).trim()
                                     } />
-                                    <Field label="Arrendatario" value={
+                                    <Field label="Comp./Arrendatario" value={
                                         request.data?.arrendatarioNombre ||
-                                        ((request.data?.arrendatario_nombres || '') + ' ' + (request.data?.arrendatario_apellidos || '')).trim()
+                                        ((request.data?.arrendatario_nombres || '') + ' ' + (request.data?.arrendatario_apellidos || '')).trim() ||
+                                        ((request.data?.comprador_1_nombres || '') + ' ' + (request.data?.comprador_1_apellidos || '')).trim()
                                     } />
-                                    <Field label="RUT Dueño" value={request.data?.dueñoRut || request.data?.arrendador_rut} />
-                                    <Field label="RUT Arrendatario" value={request.data?.arrendatarioRut || request.data?.arrendatario_rut} />
+                                    <Field label="RUT Dueño" value={request.data?.dueñoRut || request.data?.arrendador_rut || request.data?.vendedor_1_rut} />
+                                    <Field label="RUT Cliente" value={request.data?.arrendatarioRut || request.data?.arrendatario_rut || request.data?.comprador_1_rut} />
                                 </>
                             )}
                         </Section>
@@ -163,9 +170,18 @@ export function RequestDetailModal({ request, isOpen, onClose }) {
                                 </>
                             ) : (
                                 <>
-                                    <Field label="Canon Arriendo" value={request.data?.canonArriendo} />
-                                    <Field label="Garantía" value={request.data?.garantia} />
-                                    <Field label="Honorarios" value={request.data?.honorariosAdmin || request.data?.totalComision} />
+                                    <Field label={request.data?.contract_type === 'buy-sell' ? 'Valor Venta' : 'Canon Arriendo'}
+                                        value={request.data?.canonArriendo || request.data?.canon_arriendo || request.data?.valor_venta_pesos} />
+
+                                    {request.data?.contract_type === 'lease' && (
+                                        <Field label="Garantía" value={request.data?.garantia || '-'} />
+                                    )}
+
+                                    {request.data?.contract_type === 'buy-sell' && (
+                                        <Field label="Pie" value={request.data?.monto_pie} />
+                                    )}
+
+                                    <Field label="Honorarios/Comisión" value={request.data?.honorariosAdmin || request.data?.totalComision || '-'} />
                                 </>
                             )}
                         </Section>
