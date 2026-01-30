@@ -3,7 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../services/supabase'
-import { generateExcel } from '../lib/generateExcel' // Ensure this path is correct
+import { generateExcel } from '../lib/generateExcel'
+import { generatePDF } from '../lib/generatePDF'
+import { triggerLegalWebhook } from '../services/api'
 import { Button, Card, CardContent, CardHeader, CardTitle, CardDescription, Input, Label, Textarea } from '@/components/ui'
 import { ArrowLeft, Building2, Key, Save, Plus, Trash2, UploadCloud } from 'lucide-react'
 
@@ -270,13 +272,34 @@ function BuySellFormLogic({ user, profile, navigate }) {
             // Generate Excel
             const excelBlob = await generateExcel(formData)
 
-            // Upload files to Storage (if needed) or just save JSON data
-            // Since we don't have a backend specifically for files in this mini-app yet (unless configured), 
-            // and the original app sent them via webhook, we will assume we might strictly need to save the DATA to Supabase.
-            // But 'requests' table might be small. 
-            // For now, let's just save the JSON data to Supabase 'requests' table and maybe upload the Excel.
+            // Generate PDF
+            const pdfBlob = await generatePDF(formData)
 
-            // CONVERT FORMDATA TO JSON FOR SUPABASE
+            // Prepare Webhook Payload
+            const webhookData = new FormData()
+            // Append all string fields
+            formData.forEach((value, key) => {
+                if (typeof value === 'string') {
+                    webhookData.append(key, value)
+                }
+            })
+            // Append Files (Binary)
+            // Re-append valid files from original formData
+            const fileFields = ['dominio_vigente', 'gp_certificado']
+            fileFields.forEach(field => {
+                const file = formData.get(field)
+                if (file instanceof File && file.size > 0) {
+                    webhookData.append(field, file)
+                }
+            })
+
+            // Append Generated PDF
+            webhookData.append('detalles solicitud.pdf', pdfBlob, 'detalles solicitud.pdf')
+
+            // Trigger Webhook
+            await triggerLegalWebhook(webhookData)
+
+            // Save JSON to Supabase (Audit / Backup)
             const jsonData = {}
             formData.forEach((value, key) => {
                 if (!(value instanceof File)) {
@@ -284,11 +307,10 @@ function BuySellFormLogic({ user, profile, navigate }) {
                 }
             })
 
-            // Save to Supabase
             const { error } = await supabase.from('requests').insert({
                 user_id: user.id,
-                status: 'submitted', // Auto-submit for contracts? Or draft? Let's submit.
-                step: 5, // Completed
+                status: 'submitted',
+                step: 5,
                 data: {
                     ...jsonData,
                     contract_type: 'buy-sell'
@@ -468,7 +490,33 @@ function LeaseFormLogic({ user, profile, navigate }) {
             // Generate Excel
             const excelBlob = await generateExcel(formData)
 
-            // Save to Supabase (Simulated upload)
+            // Generate PDF
+            const pdfBlob = await generatePDF(formData)
+
+            // Prepare Webhook Payload
+            const webhookData = new FormData()
+            // Append all string fields
+            formData.forEach((value, key) => {
+                if (typeof value === 'string') {
+                    webhookData.append(key, value)
+                }
+            })
+            // Append Files (Binary)
+            const fileFields = ['dominio_vigente']
+            fileFields.forEach(field => {
+                const file = formData.get(field)
+                if (file instanceof File && file.size > 0) {
+                    webhookData.append(field, file)
+                }
+            })
+
+            // Append Generated PDF
+            webhookData.append('detalles solicitud.pdf', pdfBlob, 'detalles solicitud.pdf')
+
+            // Trigger Webhook
+            await triggerLegalWebhook(webhookData)
+
+            // Save to Supabase
             const jsonData = {}
             formData.forEach((value, key) => {
                 if (!(value instanceof File)) {
