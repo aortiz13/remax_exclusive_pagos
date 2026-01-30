@@ -189,7 +189,7 @@ export default function RequestForm() {
                             </div>
                             <div>
                                 <h3 className="text-xl font-bold">Arriendo</h3>
-                                <p className="text-sm text-muted-foreground mt-1">Generar solicitud link de pago de arriendo</p>
+                                <p className="text-sm text-muted-foreground mt-1">Generar solicitud de link de pago por arriendo</p>
                             </div>
                         </CardContent>
                     </Card>
@@ -204,7 +204,7 @@ export default function RequestForm() {
                             </div>
                             <div>
                                 <h3 className="text-xl font-bold">Compraventa</h3>
-                                <p className="text-sm text-muted-foreground mt-1">Generar link para pago de comisión por compraventa de propiedades.</p>
+                                <p className="text-sm text-muted-foreground mt-1">Generar solicitud de link de pago por compra venta de propiedades</p>
                             </div>
                         </CardContent>
                     </Card>
