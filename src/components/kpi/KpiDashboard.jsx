@@ -15,6 +15,14 @@ import {
     SelectItem,
     SelectTrigger,
     SelectValue,
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogFooter,
+    Button,
+    Input,
+    Label
 } from '@/components/ui'
 
 export default function KpiDashboard() {
@@ -60,6 +68,22 @@ export default function KpiDashboard() {
     }
 
     const [funnelFilter, setFunnelFilter] = useState('year') // 'week', 'month', 'year', 'custom'
+    const [showCustomDateDialog, setShowCustomDateDialog] = useState(false)
+    const [customDateRange, setCustomDateRange] = useState({ start: '', end: '' })
+    const [tempDateRange, setTempDateRange] = useState({ start: '', end: '' })
+
+    const handleFilterChange = (value) => {
+        setFunnelFilter(value)
+        if (value === 'custom') {
+            setTempDateRange(customDateRange) // Initialize with current
+            setShowCustomDateDialog(true)
+        }
+    }
+
+    const applyCustomDate = () => {
+        setCustomDateRange(tempDateRange)
+        setShowCustomDateDialog(false)
+    }
 
     // --- Calculations ---
 
@@ -67,11 +91,15 @@ export default function KpiDashboard() {
     const filteredKpis = useMemo(() => {
         const now = new Date()
         if (funnelFilter === 'year') return kpis
-        if (funnelFilter === 'custom') return kpis // Placeholder for now
 
         let start, end
 
-        if (funnelFilter === 'month') {
+        if (funnelFilter === 'custom') {
+            if (!customDateRange.start || !customDateRange.end) return kpis
+            start = new Date(customDateRange.start)
+            end = new Date(customDateRange.end)
+            end.setHours(23, 59, 59, 999)
+        } else if (funnelFilter === 'month') {
             start = startOfMonth(now)
             end = endOfMonth(now)
         } else if (funnelFilter === 'week') {
@@ -344,7 +372,7 @@ export default function KpiDashboard() {
                 <div className="bg-white p-6 rounded-3xl shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-100 flex flex-col">
                     <div className="flex items-center justify-between mb-8">
                         <h3 className="text-lg font-bold text-slate-900">Conversión</h3>
-                        <Select value={funnelFilter} onValueChange={setFunnelFilter}>
+                        <Select value={funnelFilter} onValueChange={handleFilterChange}>
                             <SelectTrigger className="w-[100px] h-8 text-xs bg-slate-50 border-slate-200">
                                 <SelectValue placeholder="Periodo" />
                             </SelectTrigger>
@@ -387,6 +415,44 @@ export default function KpiDashboard() {
                 </div>
 
             </div>
+
+            {/* Custom Date Dialog */}
+            <Dialog open={showCustomDateDialog} onOpenChange={setShowCustomDateDialog}>
+                <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                        <DialogTitle>Seleccionar Periodo</DialogTitle>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="start" className="text-right">
+                                Inicio
+                            </Label>
+                            <Input
+                                id="start"
+                                type="date"
+                                value={tempDateRange.start}
+                                onChange={(e) => setTempDateRange(prev => ({ ...prev, start: e.target.value }))}
+                                className="col-span-3"
+                            />
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="end" className="text-right">
+                                Fin
+                            </Label>
+                            <Input
+                                id="end"
+                                type="date"
+                                value={tempDateRange.end}
+                                onChange={(e) => setTempDateRange(prev => ({ ...prev, end: e.target.value }))}
+                                className="col-span-3"
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button type="submit" onClick={applyCustomDate}>Aplicar Filtro</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     )
 }

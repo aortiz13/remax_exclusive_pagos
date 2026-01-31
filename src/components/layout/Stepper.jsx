@@ -38,12 +38,14 @@ export default function Stepper({ currentStep, steps }) {
                                 initial={false}
                                 animate={{
                                     scale: isActive ? 1.1 : 1,
-                                    backgroundColor: isActive ? 'var(--primary)' : isCompleted ? '#22c55e' : 'var(--background)',
-                                    borderColor: isActive ? 'var(--primary)' : isCompleted ? '#22c55e' : 'var(--border)'
                                 }}
                                 className={cn(
                                     "w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-colors duration-300 shadow-sm",
-                                    (isActive || isCompleted) ? "text-primary-foreground" : "text-slate-400 dark:text-slate-600 bg-white dark:bg-slate-900"
+                                    isActive
+                                        ? "bg-primary border-primary text-primary-foreground"
+                                        : isCompleted
+                                            ? "bg-green-500 border-green-500 text-white"
+                                            : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-400"
                                 )}
                             >
                                 {isCompleted ? (

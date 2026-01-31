@@ -150,8 +150,9 @@ export default function Sidebar() {
             <div className="absolute inset-0 bg-gradient-to-b from-white/40 to-transparent dark:from-white/5 pointer-events-none" />
 
             {/* Logo area */}
-            <div className="h-20 flex items-center px-6 relative z-10">
-                <div className="flex items-center gap-3 w-full overflow-hidden">
+            <div className={cn("h-20 flex items-center relative z-10 transition-all duration-300", isCollapsed ? "justify-center px-0" : "px-6")}>
+                <div className={cn("flex items-center gap-3 overflow-hidden", isCollapsed ? "w-auto" : "w-full")}>
+
                     <motion.div
                         className="shrink-0 flex items-center justify-center p-2 bg-gradient-to-br from-blue-50 to-white dark:from-slate-800 dark:to-slate-900 rounded-xl shadow-lg border border-white/50"
                         whileHover={{ scale: 1.05 }}
