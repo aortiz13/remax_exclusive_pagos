@@ -44,10 +44,20 @@ export default function Sidebar() {
                     icon: LayoutDashboard,
                     path: '/dashboard',
                 },
+            ]
+        },
+        {
+            title: 'INDICADORES',
+            items: [
                 {
                     title: 'Analisis KPI',
                     icon: BarChart3,
                     path: '/kpis/dashboard',
+                },
+                {
+                    title: 'Carga Semanal',
+                    icon: ClipboardList,
+                    path: '/kpis/entry',
                 },
                 {
                     title: 'Mis Objetivos',
@@ -59,11 +69,6 @@ export default function Sidebar() {
         {
             title: 'TOOLS',
             items: [
-                {
-                    title: 'Carga Semanal',
-                    icon: ClipboardList,
-                    path: '/kpis/entry',
-                },
                 {
                     title: 'Nueva Solicitud',
                     icon: PlusCircle,
@@ -125,11 +130,12 @@ export default function Sidebar() {
             {/* Logo area */}
             <div className="h-16 flex items-center px-6 border-b border-transparent">
                 <div className="flex items-center gap-3 w-full">
-                    <div className="bg-primary/10 p-1.5 rounded-lg shrink-0">
-                        {/* Placeholder logo matching style */}
-                        <div className="w-5 h-5 bg-primary rounded-sm flex items-center justify-center">
-                            <Zap className="w-3 h-3 text-white fill-white" />
-                        </div>
+                    <div className="shrink-0 flex items-center justify-center">
+                        <img
+                            src="https://res.cloudinary.com/dhzmkxbek/image/upload/v1769611638/ChatGPT_Image_28_ene_2026_11_47_11_a.m._n41jc4.png"
+                            alt="RE/MAX Exclusive"
+                            className="h-8 w-auto object-contain"
+                        />
                     </div>
                     {!isCollapsed && (
                         <span className="font-bold text-slate-900 text-lg tracking-tight">Exclusive</span>
