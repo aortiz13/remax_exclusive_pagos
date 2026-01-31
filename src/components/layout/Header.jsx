@@ -118,7 +118,10 @@ export default function Header() {
 
                 <div className="flex items-center gap-4">
                     {user && (
-                        <div className="flex items-center gap-3 px-3 py-1 bg-slate-100/50 dark:bg-slate-900/50 rounded-full border border-slate-200 dark:border-slate-800">
+                        <Link
+                            to="/profile"
+                            className="flex items-center gap-3 px-3 py-1 bg-slate-100/50 dark:bg-slate-900/50 rounded-full border border-slate-200 dark:border-slate-800 hover:bg-slate-100 transition-colors"
+                        >
                             <div className="hidden sm:flex flex-col items-end mr-1">
                                 <p className="text-xs font-bold leading-none">{profile?.first_name}</p>
                                 <p className="text-[10px] leading-none text-muted-foreground capitalize">{profile?.role}</p>
@@ -129,7 +132,7 @@ export default function Header() {
                                     {profile?.first_name?.charAt(0) || user.email.charAt(0)}
                                 </AvatarFallback>
                             </Avatar>
-                        </div>
+                        </Link>
                     )}
                     {!user && (
                         <Button variant="ghost" onClick={() => navigate('/login')}>Ingresar</Button>

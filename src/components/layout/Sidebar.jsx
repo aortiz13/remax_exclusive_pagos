@@ -74,11 +74,6 @@ export default function Sidebar() {
                     icon: PlusCircle,
                     path: '/new-request',
                 },
-                {
-                    title: 'Mi Perfil',
-                    icon: User,
-                    path: '/profile',
-                },
             ]
         }
     ]
