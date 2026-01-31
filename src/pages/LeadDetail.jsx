@@ -1,14 +1,57 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../services/supabase'
-import { Card, CardContent, Button, Badge } from "@/components/ui" // Verify imports
+import { Card, CardContent, Button, Badge } from "@/components/ui"
 import {
-    Loader2, UserCheck, AlertCircle, Phone, Mail, MapPin,
-    Home, DollarSign, User, Copy, CheckCircle2
+    Loader2, UserCheck, Phone, Mail, MapPin,
+    Home, DollarSign, CheckCircle2
 } from "lucide-react"
 import { toast } from 'sonner'
 
-// Extraction Helpers (Shared logic - ideally utility function but keeping inline for speed)
+// Recursive component for clean data display
+const RecursiveDataViewer = ({ data, level = 0 }) => {
+    if (data === null || data === undefined) return <span className="text-slate-400 italic">vacío</span>
+
+    // Primitive types
+    if (typeof data !== 'object') {
+        return <span className="font-medium text-slate-700 break-all">{String(data)}</span>
+    }
+
+    // Array rendering
+    if (Array.isArray(data)) {
+        if (data.length === 0) return <span className="text-slate-400 italic">[]</span>
+        return (
+            <div className="space-y-4">
+                {data.map((item, index) => (
+                    <div key={index} className={`${level > 0 ? 'pl-4 border-l-2 border-slate-200' : ''}`}>
+                        {data.length > 1 && <div className="text-xs font-bold text-slate-400 mb-2">Item {index + 1}</div>}
+                        <RecursiveDataViewer data={item} level={level + 1} />
+                    </div>
+                ))}
+            </div>
+        )
+    }
+
+    // Object rendering
+    return (
+        <div className={`space-y-3 ${level > 0 ? 'mt-2' : ''}`}>
+            {Object.entries(data).map(([key, value]) => (
+                <div key={key} className={`${level === 0 ? 'p-4 bg-slate-50/50 rounded-lg border border-slate-100' : 'pl-2'}`}>
+                    <div className="flex flex-col gap-1">
+                        <span className={`uppercase tracking-wider font-bold text-slate-500 ${level === 0 ? 'text-xs' : 'text-[10px]'}`}>
+                            {key.replace(/_/g, ' ')}
+                        </span>
+                        <div className={`${typeof value === 'object' && value !== null ? 'mt-1' : ''}`}>
+                            <RecursiveDataViewer data={value} level={level + 1} />
+                        </div>
+                    </div>
+                </div>
+            ))}
+        </div>
+    )
+}
+
+// Extraction Helpers
 const extractContactInfo = (data) => {
     const root = Array.isArray(data) ? data[0] : data || {};
     let contactBlock = root["Datos Contacto"] || root["Contacto"] || root["Cliente"];
@@ -48,7 +91,6 @@ export default function LeadDetail() {
     useEffect(() => {
         const fetchLeadAndAgents = async () => {
             try {
-                // 1. Fetch Lead
                 const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
                 let query = supabase.from('external_leads').select('*')
                 if (isUUID) query = query.eq('id', id)
@@ -58,7 +100,6 @@ export default function LeadDetail() {
                 if (leadError) throw leadError
                 setLead(leadData)
 
-                // 2. Fetch Agents
                 const { data: agentsData, error: agentsError } = await supabase
                     .from('profiles')
                     .select('id, first_name, last_name, email')
@@ -88,11 +129,10 @@ export default function LeadDetail() {
             const { error } = await supabase
                 .from('external_leads')
                 .update({ assigned_agent_id: selectedAgent, status: 'assigned' })
-                .eq('id', lead.id) // Ensure we use UUID for update
+                .eq('id', lead.id)
 
             if (error) throw error
 
-            // Trigger Webhook
             const agent = agents.find(a => a.id === selectedAgent)
             if (agent) {
                 try {
@@ -155,7 +195,7 @@ export default function LeadDetail() {
                     </p>
                 </div>
 
-                {/* Assignment Section - Prominent */}
+                {/* Assignment Section */}
                 <Card className="border-blue-100 shadow-md overflow-hidden">
                     <div className="bg-blue-50/50 p-4 border-b border-blue-100">
                         <h3 className="font-semibold text-blue-900 flex items-center gap-2">
@@ -197,42 +237,13 @@ export default function LeadDetail() {
                 {/* Full Lead Information */}
                 <div className="space-y-4 pt-4">
                     <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider pl-1">Información Completa</h3>
-
                     <Card className="border-0 shadow-sm overflow-hidden">
                         <CardContent className="p-0">
-                            <div className="divide-y divide-slate-100">
-                                {/* Helper to flatten and render all data */}
-                                {Object.entries(lead.raw_data || {}).map(([key, value]) => {
-                                    // Helper function to render values based on type
-                                    const renderValue = (val) => {
-                                        if (typeof val === 'object' && val !== null) {
-                                            return (
-                                                <div className="mt-2 pl-3 border-l-2 border-slate-200">
-                                                    {Object.entries(val).map(([subKey, subVal]) => (
-                                                        <div key={subKey} className="py-1">
-                                                            <span className="font-semibold text-slate-600 text-xs uppercase mr-2">{subKey.replace(/_/g, ' ')}:</span>
-                                                            <span className="text-slate-700 text-sm break-all">{typeof subVal === 'object' ? JSON.stringify(subVal) : String(subVal)}</span>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            )
-                                        }
-                                        return <span className="font-medium text-slate-800 text-sm break-all">{String(val)}</span>
-                                    }
-
-                                    return (
-                                        <div key={key} className="p-4 hover:bg-slate-50 transition-colors">
-                                            <div className="flex flex-col gap-1">
-                                                <span className="text-xs font-bold text-blue-600 uppercase tracking-wide">
-                                                    {key.replace(/_/g, ' ')}
-                                                </span>
-                                                <div className="text-slate-700">
-                                                    {renderValue(value)}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )
-                                })}
+                            {/* Unwrap array if it's the root and just one item, for cleaner look */}
+                            <div className="p-2">
+                                <RecursiveDataViewer
+                                    data={Array.isArray(lead.raw_data) && lead.raw_data.length === 1 ? lead.raw_data[0] : lead.raw_data}
+                                />
                             </div>
                         </CardContent>
                     </Card>
