@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { Button, Input, Textarea, Select, Label, Switch } from '@/components/ui'
 import { X, Save } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -108,7 +109,7 @@ const ContactForm = ({ contact, isOpen, onClose }) => {
 
     if (!isOpen) return null
 
-    return (
+    return createPortal(
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
             <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => onClose(false)} />
             <motion.div
@@ -296,7 +297,8 @@ const ContactForm = ({ contact, isOpen, onClose }) => {
                     </Button>
                 </div>
             </motion.div>
-        </div>
+        </div>,
+        document.body
     )
 }
 

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { Button, Input, Label, Textarea } from '@/components/ui'
 import { X, Save, Calendar, Clock } from 'lucide-react'
 import { motion } from 'framer-motion'
@@ -103,7 +104,7 @@ const TaskModal = ({ task, contactId, isOpen, onClose }) => {
 
     if (!isOpen) return null
 
-    return (
+    return createPortal(
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => onClose(false)} />
             <motion.div
@@ -185,7 +186,8 @@ const TaskModal = ({ task, contactId, isOpen, onClose }) => {
                     </Button>
                 </div>
             </motion.div>
-        </div>
+        </div>,
+        document.body
     )
 }
 
