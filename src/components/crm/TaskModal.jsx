@@ -5,13 +5,13 @@ import { motion } from 'framer-motion'
 import { supabase } from '../../services/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { toast } from 'sonner'
-import {
-    Command,
-    CommandEmpty,
-    CommandGroup,
-    CommandInput,
-    CommandItem,
-} from "@/components/ui/command" // If available, otherwise simple select
+// import {
+//     Command,
+//     CommandEmpty,
+//     CommandGroup,
+//     CommandInput,
+//     CommandItem,
+// } from "@/components/ui/command" // If available, otherwise simple select
 // Since I don't know if command is available, I'll use a simple select with search logic
 
 const TaskModal = ({ task, contactId, isOpen, onClose }) => {

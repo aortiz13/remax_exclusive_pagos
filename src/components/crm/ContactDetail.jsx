@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../../services/supabase'
-import { Button } from "@/components/ui/button"
+import { Button } from "@/components/ui"
 import { ArrowLeft, Edit, Calendar, CheckCircle2, Circle } from 'lucide-react'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs' // Our custom tabs
 import ContactForm from './ContactForm'

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../services/supabase'
-import { Button } from "@/components/ui/button"
+import { Button } from "@/components/ui"
 import { CheckCircle2, Circle, Calendar, Clock, User, Plus } from 'lucide-react'
 import TaskModal from './TaskModal'
 import { toast } from 'sonner'

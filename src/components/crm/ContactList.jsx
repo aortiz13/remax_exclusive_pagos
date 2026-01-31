@@ -6,18 +6,16 @@ import {
     TableHead,
     TableHeader,
     TableRow,
-} from "@/components/ui/table"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Plus, Search, MoreHorizontal, Phone, Mail, MapPin } from 'lucide-react'
-import {
+    Button,
+    Input,
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuLabel,
     DropdownMenuSeparator,
     DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+} from "@/components/ui"
+import { Plus, Search, MoreHorizontal, Phone, Mail, MapPin } from 'lucide-react'
 import { supabase } from '../../services/supabase'
 import ContactForm from './ContactForm'
 import { useNavigate } from 'react-router-dom'
