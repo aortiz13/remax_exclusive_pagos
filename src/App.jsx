@@ -130,11 +130,8 @@ function App() {
               </ProtectedRoute>
             } />
 
-            <Route path="/busqueda/:id" element={
-              <ProtectedRoute>
-                <LeadDetail />
-              </ProtectedRoute>
-            } />
+            {/* Public Route for Lead Assignment */}
+            <Route path="/busqueda/:id" element={<LeadDetail />} />
 
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
