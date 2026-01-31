@@ -14,6 +14,7 @@ import ForgotPassword from './pages/ForgotPassword'
 import UpdatePassword from './pages/UpdatePassword'
 import AdminRequests from './pages/AdminRequests'
 import InvoiceForm from './pages/InvoiceForm'
+import LeadDetail from './pages/LeadDetail'
 import { Toaster } from 'sonner'
 
 // Protected Route Component
@@ -126,6 +127,12 @@ function App() {
             <Route path="/admin/requests" element={
               <ProtectedRoute>
                 <AdminRequests />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/busqueda/:id" element={
+              <ProtectedRoute>
+                <LeadDetail />
               </ProtectedRoute>
             } />
 
