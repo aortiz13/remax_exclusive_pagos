@@ -68,6 +68,16 @@ export default function Sidebar() {
             ]
         },
         {
+            title: 'CRM',
+            items: [
+                {
+                    title: 'Contactos & Tareas',
+                    icon: Users,
+                    path: '/crm',
+                },
+            ]
+        },
+        {
             title: 'TOOLS',
             items: [
                 {

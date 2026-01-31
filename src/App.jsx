@@ -20,6 +20,8 @@ import WeeklyKpiForm from './components/kpi/WeeklyKpiForm'
 import AgentGoalsForm from './components/kpi/AgentGoalsForm'
 import KpiDashboard from './components/kpi/KpiDashboard'
 import AdminKpiView from './components/kpi/AdminKpiView'
+import CRM from './pages/CRM'
+import ContactDetail from './components/crm/ContactDetail'
 import { Toaster } from 'sonner'
 
 // Protected Route Component
@@ -143,6 +145,18 @@ function App() {
             <Route path="/admin/kpis" element={
               <ProtectedRoute>
                 <AdminKpiView />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/crm" element={
+              <ProtectedRoute>
+                <CRM />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/crm/contact/:id" element={
+              <ProtectedRoute>
+                <ContactDetail />
               </ProtectedRoute>
             } />
 
