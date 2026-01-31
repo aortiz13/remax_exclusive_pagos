@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
-import { supabase } from '../supabaseClient'
+import { supabase } from '../services/supabase'
 import { Card, CardContent } from "@/components/ui" // Verify import path
 import { Loader2, AlertCircle } from "lucide-react"
 
