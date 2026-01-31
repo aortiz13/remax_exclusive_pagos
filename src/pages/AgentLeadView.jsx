@@ -113,14 +113,9 @@ export default function AgentLeadView() {
             <div className="max-w-md mx-auto p-4 space-y-6">
 
                 {/* Hero / Summary */}
-                <div className="text-center space-y-2 py-2">
+                <div className="text-center space-y-2 py-4">
                     <h1 className="text-2xl font-bold text-slate-900">{contact.name}</h1>
-                    <p className="text-slate-500 text-sm flex items-center justify-center gap-1">
-                        <span className="bg-slate-100 px-2 py-0.5 rounded text-xs font-mono uppercase">
-                            {lead.short_id || "ID"}
-                        </span>
-                        • {new Date(lead.created_at).toLocaleDateString()}
-                    </p>
+                    <p className="text-slate-500 text-sm">{new Date(lead.created_at).toLocaleDateString()}</p>
                 </div>
 
                 {/* Quick Actions - Floating or Top */}
@@ -226,22 +221,7 @@ export default function AgentLeadView() {
                     </CardContent>
                 </Card>
 
-                {/* Raw Data Toggle */}
-                <div className="pt-4 pb-8">
-                    <button
-                        className="w-full text-sm text-slate-400 hover:text-slate-600 flex items-center justify-center gap-2 py-2"
-                        onClick={() => setShowRaw(!showRaw)}
-                    >
-                        {showRaw ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                        Ver datos técnicos (JSON)
-                    </button>
 
-                    {showRaw && (
-                        <div className="mt-4 animate-in fade-in slide-in-from-top-4 duration-300">
-                            <JSONViewer data={lead.raw_data} />
-                        </div>
-                    )}
-                </div>
             </div>
         </div>
     )

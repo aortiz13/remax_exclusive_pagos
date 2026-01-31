@@ -1,44 +1,39 @@
-import React, { useEffect, useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../services/supabase'
-import { Card, CardContent, Button, Label, Input } from '@/components/ui'
-import { UserCheck, CalendarDays, ExternalLink, Loader2 } from 'lucide-react'
+import { Card, CardContent, Button, Badge } from "@/components/ui" // Verify imports
+import {
+    Loader2, UserCheck, AlertCircle, Phone, Mail, MapPin,
+    Home, DollarSign, User, Copy, CheckCircle2
+} from "lucide-react"
 import { toast } from 'sonner'
 
-// Recursive component to render JSON nicely
-const JSONViewer = ({ data, level = 0 }) => {
-    if (!data) return <span className="text-muted-foreground italic">Sin datos</span>
+// Extraction Helpers (Shared logic - ideally utility function but keeping inline for speed)
+const extractContactInfo = (data) => {
+    const root = Array.isArray(data) ? data[0] : data || {};
+    let contactBlock = root["Datos Contacto"] || root["Contacto"] || root["Cliente"];
+    if (!contactBlock) contactBlock = root;
 
-    if (typeof data !== 'object') {
-        return <span className="font-mono text-slate-700 dark:text-slate-300">{String(data)}</span>
+    return {
+        name: contactBlock?.nombre_apellido || contactBlock?.nombre || "Cliente Potencial",
+        phone: contactBlock?.telefono || contactBlock?.celular || contactBlock?.movil,
+        email: contactBlock?.correo || contactBlock?.email,
+        details: contactBlock?.info_adicional || ""
     }
+}
 
-    if (Array.isArray(data)) {
-        return (
-            <div className="space-y-2">
-                {data.map((item, index) => (
-                    <div key={index} className="pl-4 border-l-2 border-slate-100 dark:border-slate-800">
-                        <JSONViewer data={item} level={level + 1} />
-                    </div>
-                ))}
-            </div>
-        )
+const extractPropertyInfo = (data) => {
+    const root = Array.isArray(data) ? data[0] : data || {};
+    const propBlock = root["Datos Propiedad"] || root["Propiedad"] || root;
+
+    return {
+        type: propBlock?.tipo_inmueble || propBlock?.tipo || "Propiedad",
+        transaction: propBlock?.tipo_transaccion || propBlock?.operacion || "Transacción",
+        address: propBlock?.direccion_propiedad || propBlock?.direccion || propBlock?.ubicacion,
+        price: propBlock?.valor_maximo || propBlock?.precio || propBlock?.presupuesto,
+        beds: propBlock?.habitaciones || propBlock?.dormitorios,
+        baths: propBlock?.banos || propBlock?.banos
     }
-
-    return (
-        <div className={`space-y-2 ${level > 0 ? 'mt-2' : ''}`}>
-            {Object.entries(data).map(([key, value]) => (
-                <div key={key} className="bg-slate-50 dark:bg-slate-900/50 rounded-lg p-3 border border-slate-100 dark:border-slate-800">
-                    <span className="text-xs uppercase tracking-wider font-semibold text-slate-500 mb-1 block">
-                        {key.replace(/_/g, ' ')}
-                    </span>
-                    <div className="pl-1">
-                        <JSONViewer data={value} level={level + 1} />
-                    </div>
-                </div>
-            ))}
-        </div>
-    )
 }
 
 export default function LeadDetail() {
@@ -54,18 +49,16 @@ export default function LeadDetail() {
         const fetchLeadAndAgents = async () => {
             try {
                 // 1. Fetch Lead
-                const { data: leadData, error: leadError } = await supabase
-                    .from('external_leads')
-                    .select('*')
-                    .eq('id', id)
-                    .single()
+                const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
+                let query = supabase.from('external_leads').select('*')
+                if (isUUID) query = query.eq('id', id)
+                else query = query.eq('short_id', id)
 
+                const { data: leadData, error: leadError } = await query.single()
                 if (leadError) throw leadError
                 setLead(leadData)
 
-                // 2. Fetch Agents (Profiles)
-                // Filter for users who are agents/admins if you have role logic, 
-                // for now we fetch all profiles as they are typically agents in this app context.
+                // 2. Fetch Agents
                 const { data: agentsData, error: agentsError } = await supabase
                     .from('profiles')
                     .select('id, first_name, last_name, email')
@@ -79,13 +72,11 @@ export default function LeadDetail() {
                 }
 
             } catch (error) {
-                console.error('Error fetching data:', error)
-                toast.error('Error al cargar la información del lead')
+                console.error('Error:', error)
             } finally {
                 setLoading(false)
             }
         }
-
         if (id) fetchLeadAndAgents()
     }, [id])
 
@@ -94,18 +85,14 @@ export default function LeadDetail() {
         setAssigning(true)
 
         try {
-            // 1. Update Database
             const { error } = await supabase
                 .from('external_leads')
-                .update({
-                    assigned_agent_id: selectedAgent,
-                    status: 'assigned'
-                })
-                .eq('id', id)
+                .update({ assigned_agent_id: selectedAgent, status: 'assigned' })
+                .eq('id', lead.id) // Ensure we use UUID for update
 
             if (error) throw error
 
-            // 2. Trigger Webhook
+            // Trigger Webhook
             const agent = agents.find(a => a.id === selectedAgent)
             if (agent) {
                 try {
@@ -116,134 +103,133 @@ export default function LeadDetail() {
                             email: agent.email,
                             phone: agent.phone
                         },
-                        lead_link: `https://solicitudes.remax-exclusive.cl/nuevolead/${lead.short_id || lead.id}`, // Use short_id if available
+                        lead_link: `https://solicitudes.remax-exclusive.cl/nuevolead/${lead.short_id || lead.id}`,
                         lead_data: lead.raw_data
                     }
-
-                    // Fire and forget - or await if critical? Usually for user experience we don't block.
-                    // Using 'no-cors' might be needed if the webhook server doesn't set CORS headers for the frontend.
-                    // However, standard POST often requires CORS. Let's try standard first.
                     await fetch('https://workflow.remax-exclusive.cl/webhook/recibir_datos', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(webhookPayload)
                     })
-                } catch (webhookError) {
-                    console.error('Webhook trigger failed:', webhookError)
-                    toast.warning('Agente asignado, pero falló la notificación automática.')
-                }
+                } catch (e) { console.error(e) }
             }
 
             setLead(prev => ({ ...prev, assigned_agent_id: selectedAgent, status: 'assigned' }))
             toast.success('Agente asignado exitosamente')
-
         } catch (error) {
-            console.error('Error assigning agent:', error)
-            toast.error('Error al asignar agente')
+            toast.error('Error al asignar')
         } finally {
             setAssigning(false)
         }
     }
 
-    if (loading) {
-        return (
-            <div className="flex flex-col items-center justify-center min-h-screen text-muted-foreground">
-                <Loader2 className="w-8 h-8 animate-spin mb-4" />
-                <p>Cargando información del lead...</p>
-            </div>
-        )
-    }
+    if (loading) return <div className="flex h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-blue-600" /></div>
+    if (!lead) return <div className="text-center p-10 font-bold text-slate-500">Lead no encontrado</div>
 
-    if (!lead) {
-        return (
-            <div className="container max-w-lg mx-auto py-20 text-center">
-                <h2 className="text-xl font-bold">Lead no encontrado</h2>
-                <Button className="mt-4" onClick={() => navigate('/dashboard')}>Ir al Inicio</Button>
-            </div>
-        )
-    }
-
+    const contact = extractContactInfo(lead.raw_data)
+    const property = extractPropertyInfo(lead.raw_data)
     const assignedAgentObj = agents.find(a => a.id === lead.assigned_agent_id)
 
     return (
-        <div className="min-h-screen bg-slate-50/50 pb-20">
-            <div className="bg-white border-b sticky top-0 z-10 px-4 py-4 shadow-sm">
-                <div className="max-w-4xl mx-auto flex items-center justify-between">
-                    <h1 className="text-lg font-bold flex items-center gap-2">
-                        <UserCheck className="w-5 h-5 text-primary" />
-                        Detalle de Lead
-                    </h1>
-                    <span className={`px-2 py-1 text-xs rounded-full font-medium ${lead.status === 'assigned' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
-                        }`}>
-                        {lead.status === 'assigned' ? 'Asignado' : 'Pendiente'}
-                    </span>
+        <div className="min-h-screen bg-slate-50 pb-20 font-sans">
+            {/* Header */}
+            <div className="bg-white border-b sticky top-0 z-20 px-4 py-3 shadow-sm flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                    <div className="h-8 w-8 bg-slate-900 rounded-full flex items-center justify-center text-white font-bold text-xs">
+                        Admin
+                    </div>
+                    <span className="font-bold text-slate-800 tracking-tight">Asignación</span>
                 </div>
+                <Badge className={lead.status === 'assigned' ? "bg-green-100 text-green-700 hover:bg-green-200" : "bg-yellow-100 text-yellow-700 hover:bg-yellow-200"}>
+                    {lead.status === 'assigned' ? 'Asignado' : 'Pendiente'}
+                </Badge>
             </div>
 
-            <div className="container max-w-4xl mx-auto px-4 py-8 space-y-8">
+            <div className="max-w-md mx-auto p-4 space-y-6">
 
-                {/* 1. ASSIGNMENT SECTION */}
-                <Card className="border-indigo-100 shadow-md">
-                    <CardContent className="p-6">
-                        <Label className="text-base font-semibold mb-4 block">Asignar a Agente Inmobiliario</Label>
+                {/* Hero / Lead Summary */}
+                <div className="text-center space-y-2 py-4">
+                    <h1 className="text-2xl font-bold text-slate-900">{contact.name}</h1>
+                    <p className="text-slate-500 text-sm">
+                        {property.transaction} • {property.type}
+                    </p>
+                </div>
 
-                        <div className="flex flex-col sm:flex-row gap-4 items-end">
-                            <div className="flex-1 w-full">
-                                <select
-                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                                    value={selectedAgent}
-                                    onChange={(e) => setSelectedAgent(e.target.value)}
-                                >
-                                    <option value="">-- Seleccionar Agente --</option>
-                                    {agents.map(agent => (
-                                        <option key={agent.id} value={agent.id}>
-                                            {agent.first_name} {agent.last_name}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                            <Button
-                                onClick={handleAssign}
-                                disabled={!selectedAgent || assigning || selectedAgent === lead.assigned_agent_id}
-                                className="w-full sm:w-auto"
-                            >
-                                {assigning ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <UserCheck className="w-4 h-4 mr-2" />}
-                                {lead.assigned_agent_id === selectedAgent ? 'Reasignar' : 'Asignar Lead'}
-                            </Button>
-                        </div>
+                {/* Assignment Section - Prominent */}
+                <Card className="border-blue-100 shadow-md overflow-hidden">
+                    <div className="bg-blue-50/50 p-4 border-b border-blue-100">
+                        <h3 className="font-semibold text-blue-900 flex items-center gap-2">
+                            <UserCheck className="w-5 h-5" />
+                            {assignedAgentObj ? 'Reasignar Agente' : 'Seleccionar Agente'}
+                        </h3>
+                    </div>
+                    <CardContent className="p-4 space-y-4">
+                        <select
+                            className="w-full h-12 px-3 rounded-lg border border-slate-300 bg-white text-base focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                            value={selectedAgent}
+                            onChange={(e) => setSelectedAgent(e.target.value)}
+                        >
+                            <option value="">-- Elegir un Agente --</option>
+                            {agents.map(agent => (
+                                <option key={agent.id} value={agent.id}>
+                                    {agent.first_name} {agent.last_name}
+                                </option>
+                            ))}
+                        </select>
+
+                        <Button
+                            className="w-full h-12 text-base font-semibold shadow-lg shadow-blue-900/10"
+                            onClick={handleAssign}
+                            disabled={!selectedAgent || assigning || selectedAgent === lead.assigned_agent_id}
+                        >
+                            {assigning ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <CheckCircle2 className="w-5 h-5 mr-2" />}
+                            {lead.assigned_agent_id === selectedAgent ? 'Agente Asignado' : 'Confirmar Asignación'}
+                        </Button>
 
                         {assignedAgentObj && (
-                            <div className="mt-4 p-3 bg-green-50 text-green-800 rounded-md text-sm border border-green-100 flex items-center gap-2">
-                                <UserCheck className="w-4 h-4" />
-                                <div>
-                                    Asignado actualmente a: <strong>{assignedAgentObj.first_name} {assignedAgentObj.last_name}</strong>
-                                    <div className="text-xs opacity-80">{new Date(lead.created_at).toLocaleString()}</div>
-                                </div>
-                            </div>
+                            <p className="text-xs text-center text-green-600 bg-green-50 py-2 rounded">
+                                Actualmente asignado a: <strong>{assignedAgentObj.first_name} {assignedAgentObj.last_name}</strong>
+                            </p>
                         )}
                     </CardContent>
                 </Card>
 
-                {/* 2. LEAD DATA DISPLAY */}
-                <div className="space-y-4">
-                    <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                        <ExternalLink className="w-5 h-5" /> Información del Lead
-                    </h2>
-                    <p className="text-sm text-muted-foreground">
-                        Datos recibidos automáticamente desde la campaña externa.
-                    </p>
+                {/* Lead Details Preview */}
+                <div className="space-y-4 pt-4">
+                    <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider pl-1">Resumen del Lead</h3>
 
-                    <Card>
-                        <CardContent className="p-6">
-                            {/* Recursive Adaptive Viewer */}
-                            <JSONViewer data={lead.raw_data} />
+                    <Card className="border-0 shadow-sm">
+                        <CardContent className="p-0">
+                            <div className="divide-y divide-slate-100">
+                                {contact.phone && (
+                                    <div className="flex items-center gap-3 p-4">
+                                        <Phone className="w-5 h-5 text-slate-400" />
+                                        <span className="font-medium text-slate-700">{contact.phone}</span>
+                                    </div>
+                                )}
+                                {contact.email && (
+                                    <div className="flex items-center gap-3 p-4">
+                                        <Mail className="w-5 h-5 text-slate-400" />
+                                        <span className="font-medium text-slate-700 text-sm break-all">{contact.email}</span>
+                                    </div>
+                                )}
+                                {property.price && (
+                                    <div className="flex items-center gap-3 p-4">
+                                        <DollarSign className="w-5 h-5 text-slate-400" />
+                                        <span className="font-medium text-slate-700">{property.price}</span>
+                                    </div>
+                                )}
+                                {property.address && (
+                                    <div className="flex items-center gap-3 p-4">
+                                        <MapPin className="w-5 h-5 text-slate-400" />
+                                        <span className="font-medium text-slate-700 text-sm">{property.address}</span>
+                                    </div>
+                                )}
+                            </div>
                         </CardContent>
                     </Card>
-
-                    <div className="text-xs text-center text-muted-foreground pt-4">
-                        ID: {lead.id} • Creado: {new Date(lead.created_at).toLocaleString()}
-                    </div>
                 </div>
+
             </div>
         </div>
     )
