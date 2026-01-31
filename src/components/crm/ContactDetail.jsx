@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../../services/supabase'
-import { Button } from "@/components/ui"
-import { ArrowLeft, Edit, Calendar, CheckCircle2, Circle } from 'lucide-react'
+import { Button, AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, Input, Label } from "@/components/ui"
+import { ArrowLeft, Edit, Calendar, CheckCircle2, Circle, Trash2, AlertTriangle } from 'lucide-react'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs' // Our custom tabs
 import ContactForm from './ContactForm'
 import TaskModal from './TaskModal'
@@ -19,6 +19,11 @@ const ContactDetail = () => {
     const [isTaskModalOpen, setIsTaskModalOpen] = useState(false)
     const [note, setNote] = useState('')
     const [noteLoading, setNoteLoading] = useState(false)
+
+    // Delete State
+    const [isDeleteOpen, setIsDeleteOpen] = useState(false)
+    const [deleteConfirmation, setDeleteConfirmation] = useState('')
+    const [isDeleting, setIsDeleting] = useState(false)
 
     useEffect(() => {
         fetchData()
@@ -124,6 +129,27 @@ const ContactDetail = () => {
         }
     }
 
+    const handleDeleteContact = async () => {
+        if (deleteConfirmation !== 'ELIMINAR') return
+
+        try {
+            setIsDeleting(true)
+            const { error } = await supabase
+                .from('contacts')
+                .delete()
+                .eq('id', id)
+
+            if (error) throw error
+
+            toast.success('Contacto eliminado correctamente')
+            navigate('/crm')
+        } catch (error) {
+            console.error('Error deleting contact:', error)
+            toast.error('Error al eliminar contacto')
+            setIsDeleting(false)
+        }
+    }
+
     if (loading) return <div className="p-8 text-center">Cargando detalles...</div>
     if (!contact) return <div className="p-8 text-center">Contacto no encontrado</div>
 
@@ -134,9 +160,14 @@ const ContactDetail = () => {
                 <Button variant="ghost" onClick={() => navigate('/crm')} className="gap-2 pl-0">
                     <ArrowLeft className="w-4 h-4" /> Volver
                 </Button>
-                <Button onClick={() => setIsEditOpen(true)} className="gap-2">
-                    <Edit className="w-4 h-4" /> Editar Contacto
-                </Button>
+                <div className="flex items-center gap-2">
+                    <Button variant="destructive" size="sm" onClick={() => setIsDeleteOpen(true)} className="gap-2">
+                        <Trash2 className="w-4 h-4" /> Eliminar
+                    </Button>
+                    <Button onClick={() => setIsEditOpen(true)} className="gap-2">
+                        <Edit className="w-4 h-4" /> Editar Contacto
+                    </Button>
+                </div>
             </div>
 
             {/* Main Info Card */}
@@ -319,6 +350,45 @@ const ContactDetail = () => {
                     if (refresh) fetchData()
                 }}
             />
+
+            {/* Delete Confirmation Alert */}
+            <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+                            <AlertTriangle className="h-5 w-5" /> Eliminar Contacto
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Esta acción es <strong>irrevocable</strong>. El contacto y todos sus datos asociados (historial, tareas, notas) serán eliminados permanentemente.
+                            <br /><br />
+                            Para confirmar, escribe la palabra <strong>ELIMINAR</strong> en el siguiente campo:
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+
+                    <div className="py-2">
+                        <Label htmlFor="confirm-delete" className="sr-only">Confirmar eliminación</Label>
+                        <Input
+                            id="confirm-delete"
+                            value={deleteConfirmation}
+                            onChange={(e) => setDeleteConfirmation(e.target.value)}
+                            placeholder="ELIMINAR"
+                            className="border-red-300 focus-visible:ring-red-500"
+                            autoComplete="off"
+                        />
+                    </div>
+
+                    <AlertDialogFooter>
+                        <AlertDialogCancel onClick={() => setDeleteConfirmation('')}>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={handleDeleteContact}
+                            disabled={deleteConfirmation !== 'ELIMINAR' || isDeleting}
+                            className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                        >
+                            {isDeleting ? 'Eliminando...' : 'Eliminar Definitivamente'}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     )
 }
