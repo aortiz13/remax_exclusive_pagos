@@ -6,7 +6,7 @@ import {
     AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
     PieChart, Pie, Cell, FunnelChart, Funnel, LabelList, BarChart, Bar
 } from 'recharts'
-import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, isWithinInterval } from 'date-fns'
+import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, isWithinInterval } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { TrendingUp, TrendingDown, DollarSign, Users, Target, Activity } from 'lucide-react'
 import {
