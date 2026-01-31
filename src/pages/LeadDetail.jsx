@@ -194,53 +194,45 @@ export default function LeadDetail() {
                     </CardContent>
                 </Card>
 
-                {/* Lead Details Preview */}
+                {/* Full Lead Information */}
                 <div className="space-y-4 pt-4">
-                    <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider pl-1">Resumen del Lead</h3>
+                    <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider pl-1">Información Completa</h3>
 
-                    <Card className="border-0 shadow-sm">
+                    <Card className="border-0 shadow-sm overflow-hidden">
                         <CardContent className="p-0">
                             <div className="divide-y divide-slate-100">
-                                {contact.phone && (
-                                    <div className="flex items-center gap-3 p-4">
-                                        <Phone className="w-5 h-5 text-slate-400" />
-                                        <span className="font-medium text-slate-700">{contact.phone}</span>
-                                    </div>
-                                )}
-                                {contact.email && (
-                                    <div className="flex items-center gap-3 p-4">
-                                        <Mail className="w-5 h-5 text-slate-400" />
-                                        <span className="font-medium text-slate-700 text-sm break-all">{contact.email}</span>
-                                    </div>
-                                )}
-                                {property.price && (
-                                    <div className="flex items-center gap-3 p-4">
-                                        <DollarSign className="w-5 h-5 text-slate-400" />
-                                        <span className="font-medium text-slate-700">{property.price}</span>
-                                    </div>
-                                )}
-                                {property.address && (
-                                    <div className="flex items-center gap-3 p-4">
-                                        <MapPin className="w-5 h-5 text-slate-400" />
-                                        <span className="font-medium text-slate-700 text-sm">{property.address}</span>
-                                    </div>
-                                )}
-                                {(property.beds || property.baths) && (
-                                    <div className="flex items-center gap-3 p-4">
-                                        <Home className="w-5 h-5 text-slate-400" />
-                                        <span className="font-medium text-slate-700 text-sm">
-                                            {property.beds ? `${property.beds} Dorm` : ''}
-                                            {property.beds && property.baths ? ' • ' : ''}
-                                            {property.baths ? `${property.baths} Baños` : ''}
-                                        </span>
-                                    </div>
-                                )}
-                                {contact.details && (
-                                    <div className="flex items-start gap-3 p-4">
-                                        <AlertCircle className="w-5 h-5 text-slate-400 mt-0.5" />
-                                        <span className="font-medium text-slate-700 text-sm italic">"{contact.details}"</span>
-                                    </div>
-                                )}
+                                {/* Helper to flatten and render all data */}
+                                {Object.entries(lead.raw_data || {}).map(([key, value]) => {
+                                    // Helper function to render values based on type
+                                    const renderValue = (val) => {
+                                        if (typeof val === 'object' && val !== null) {
+                                            return (
+                                                <div className="mt-2 pl-3 border-l-2 border-slate-200">
+                                                    {Object.entries(val).map(([subKey, subVal]) => (
+                                                        <div key={subKey} className="py-1">
+                                                            <span className="font-semibold text-slate-600 text-xs uppercase mr-2">{subKey.replace(/_/g, ' ')}:</span>
+                                                            <span className="text-slate-700 text-sm break-all">{typeof subVal === 'object' ? JSON.stringify(subVal) : String(subVal)}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )
+                                        }
+                                        return <span className="font-medium text-slate-800 text-sm break-all">{String(val)}</span>
+                                    }
+
+                                    return (
+                                        <div key={key} className="p-4 hover:bg-slate-50 transition-colors">
+                                            <div className="flex flex-col gap-1">
+                                                <span className="text-xs font-bold text-blue-600 uppercase tracking-wide">
+                                                    {key.replace(/_/g, ' ')}
+                                                </span>
+                                                <div className="text-slate-700">
+                                                    {renderValue(value)}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )
+                                })}
                             </div>
                         </CardContent>
                     </Card>
