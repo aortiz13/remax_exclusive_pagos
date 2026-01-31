@@ -75,7 +75,10 @@ const ContactList = () => {
     // Column State
     const [columns, setColumns] = useState([
         { id: 'name', label: 'Nombre', visible: true },
-        { id: 'contact', label: 'Contacto', visible: true },
+        { id: 'phone', label: 'Teléfono', visible: false },
+        { id: 'email', label: 'Correo', visible: false },
+        { id: 'need', label: 'Necesidad', visible: false },
+        { id: 'contact', label: 'Contacto (Resumen)', visible: true },
         { id: 'status', label: 'Estado', visible: true },
         { id: 'source', label: 'Fuente', visible: true },
         { id: 'rating', label: 'Clasificación', visible: true },
@@ -166,6 +169,12 @@ const ContactList = () => {
                         {contact.profession && <span className="text-xs text-muted-foreground">{contact.profession}</span>}
                     </div>
                 )
+            case 'phone':
+                return contact.phone || '-'
+            case 'email':
+                return contact.email || '-'
+            case 'need':
+                return contact.need || '-'
             case 'contact':
                 return (
                     <div className="flex flex-col gap-1 text-sm">
