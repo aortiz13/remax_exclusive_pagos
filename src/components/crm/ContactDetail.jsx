@@ -284,7 +284,10 @@ const ContactDetail = () => {
                                         </div>
                                         <div className="flex-1">
                                             <p className={`font-medium ${task.completed ? 'line-through text-gray-500' : ''}`}>{task.action}</p>
-                                            <p className="text-xs text-muted-foreground flex items-center gap-1">
+                                            {task.description && (
+                                                <p className="text-sm text-gray-500">{task.description}</p>
+                                            )}
+                                            <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
                                                 <Calendar className="w-3 h-3" />
                                                 {new Date(task.execution_date).toLocaleString()}
                                             </p>

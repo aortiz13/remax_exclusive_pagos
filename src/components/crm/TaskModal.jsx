@@ -22,6 +22,7 @@ const TaskModal = ({ task, contactId, isOpen, onClose }) => {
     const [formData, setFormData] = useState({
         contact_id: contactId || '',
         action: '',
+        description: '',
         execution_date: '',
         execution_time: '',
     })
@@ -35,6 +36,7 @@ const TaskModal = ({ task, contactId, isOpen, onClose }) => {
             setFormData({
                 contact_id: task.contact_id,
                 action: task.action,
+                description: task.description || '',
                 execution_date: task.execution_date.split('T')[0],
                 execution_time: dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             })
@@ -63,6 +65,7 @@ const TaskModal = ({ task, contactId, isOpen, onClose }) => {
                 contact_id: formData.contact_id || contactId,
                 agent_id: profile?.id || user?.id,
                 action: formData.action,
+                description: formData.description,
                 execution_date: dateTime.toISOString(),
             }
 
@@ -140,13 +143,24 @@ const TaskModal = ({ task, contactId, isOpen, onClose }) => {
                     )}
 
                     <div className="space-y-2">
-                        <label className="text-sm font-medium">Acción / Descripción</label>
+                        <label className="text-sm font-medium">Título tarea <span className="text-red-500">*</span></label>
                         <Input
                             name="action"
                             value={formData.action}
                             onChange={handleChange}
                             placeholder="Ej: Llamar para seguimiento"
                             required
+                        />
+                    </div>
+
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium">Descripción de tarea <span className="text-gray-500 font-normal">(opcional)</span></label>
+                        <Textarea
+                            name="description"
+                            value={formData.description}
+                            onChange={handleChange}
+                            placeholder="Detalles adicionales..."
+                            className="resize-none h-20"
                         />
                     </div>
 
