@@ -15,6 +15,7 @@ import UpdatePassword from './pages/UpdatePassword'
 import AdminRequests from './pages/AdminRequests'
 import InvoiceForm from './pages/InvoiceForm'
 import LeadDetail from './pages/LeadDetail'
+import AgentLeadView from './pages/AgentLeadView'
 import { Toaster } from 'sonner'
 
 // Protected Route Component
@@ -132,6 +133,9 @@ function App() {
 
             {/* Public Route for Lead Assignment */}
             <Route path="/busqueda/:id" element={<LeadDetail />} />
+
+            {/* Public Route for Agents to View Lead */}
+            <Route path="/nuevolead/:id" element={<AgentLeadView />} />
 
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

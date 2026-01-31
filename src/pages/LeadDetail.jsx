@@ -94,6 +94,7 @@ export default function LeadDetail() {
         setAssigning(true)
 
         try {
+            // 1. Update Database
             const { error } = await supabase
                 .from('external_leads')
                 .update({
@@ -104,10 +105,37 @@ export default function LeadDetail() {
 
             if (error) throw error
 
+            // 2. Trigger Webhook
+            const agent = agents.find(a => a.id === selectedAgent)
+            if (agent) {
+                try {
+                    const webhookPayload = {
+                        agent: {
+                            first_name: agent.first_name,
+                            last_name: agent.last_name,
+                            email: agent.email,
+                            phone: agent.phone
+                        },
+                        lead_link: `https://solicitudes.remax-exclusive.cl/nuevolead/${lead.short_id || lead.id}`, // Use short_id if available
+                        lead_data: lead.raw_data
+                    }
+
+                    // Fire and forget - or await if critical? Usually for user experience we don't block.
+                    // Using 'no-cors' might be needed if the webhook server doesn't set CORS headers for the frontend.
+                    // However, standard POST often requires CORS. Let's try standard first.
+                    await fetch('https://workflow.remax-exclusive.cl/webhook/recibir_datos', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(webhookPayload)
+                    })
+                } catch (webhookError) {
+                    console.error('Webhook trigger failed:', webhookError)
+                    toast.warning('Agente asignado, pero falló la notificación automática.')
+                }
+            }
+
             setLead(prev => ({ ...prev, assigned_agent_id: selectedAgent, status: 'assigned' }))
             toast.success('Agente asignado exitosamente')
-
-            // Optional: You could trigger an email notification via Edge Function here
 
         } catch (error) {
             console.error('Error assigning agent:', error)
