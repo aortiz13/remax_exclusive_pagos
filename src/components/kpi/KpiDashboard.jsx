@@ -4,17 +4,17 @@ import { supabase } from '../../services/supabase'
 import { useAuth } from '../../context/AuthContext'
 import {
     AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-    PieChart, Pie, Cell, FunnelChart, Funnel, LabelList
+    PieChart, Pie, Cell, FunnelChart, Funnel, LabelList, BarChart, Bar
 } from 'recharts'
 import { format, startOfMonth, endOfMonth } from 'date-fns'
 import { es } from 'date-fns/locale'
+import { TrendingUp, TrendingDown, DollarSign, Users, Target, Activity } from 'lucide-react'
 
 export default function KpiDashboard() {
     const { user } = useAuth()
     const [loading, setLoading] = useState(true)
     const [kpis, setKpis] = useState([])
     const [goals, setGoals] = useState(null)
-    const [viewMode, setViewMode] = useState('month') // 'month' | 'quarter'
 
     useEffect(() => {
         if (user) {
@@ -54,8 +54,8 @@ export default function KpiDashboard() {
 
     // --- Calculations ---
 
-    // 1. Gauge / Progress Logic (Pie Chart Data)
-    const { gaugeData, currentMonthBilling, monthlyGoal, gaugePercentage } = useMemo(() => {
+    // 1. Metrics for Top Cards
+    const { gaugeData, currentMonthBilling, monthlyGoal, gaugePercentage, annualBilling, annualGoal, totalListings } = useMemo(() => {
         const now = new Date()
         const start = startOfMonth(now)
         const end = endOfMonth(now)
@@ -67,8 +67,11 @@ export default function KpiDashboard() {
             })
             .reduce((sum, item) => sum + (item.billing_primary || 0), 0)
 
-        const goal = (goals?.annual_billing_goal || 0) / 12
-        const pct = goal > 0 ? (billing / goal) * 100 : 0
+        const yearBilling = kpis.reduce((acc, curr) => acc + (curr.billing_primary || 0), 0)
+        const yearListings = kpis.reduce((acc, curr) => acc + (curr.new_listings || 0), 0)
+
+        const mGoal = (goals?.annual_billing_goal || 0) / 12
+        const pct = mGoal > 0 ? (billing / mGoal) * 100 : 0
         const clampedPct = Math.min(pct, 100)
 
         // Data for PieChart: [Progress, Remaining]
@@ -76,7 +79,15 @@ export default function KpiDashboard() {
             { name: 'Progreso', value: clampedPct },
             { name: 'Restante', value: 100 - clampedPct }
         ]
-        return { gaugeData: data, currentMonthBilling: billing, monthlyGoal: goal, gaugePercentage: pct }
+        return {
+            gaugeData: data,
+            currentMonthBilling: billing,
+            monthlyGoal: mGoal,
+            gaugePercentage: pct,
+            annualBilling: yearBilling,
+            annualGoal: goals?.annual_billing_goal || 0,
+            totalListings: yearListings
+        }
     }, [kpis, goals])
 
 
@@ -90,39 +101,43 @@ export default function KpiDashboard() {
         }), { conversations: 0, interviews: 0, listings: 0, sales: 0 })
 
         return [
-            { name: 'Conversaciones', value: aggs.conversations, fill: '#60a5fa' },
-            { name: 'Entrevistas', value: aggs.interviews, fill: '#818cf8' },
-            { name: 'Captaciones', value: aggs.listings, fill: '#a78bfa' },
-            { name: 'Ventas', value: aggs.sales, fill: '#c084fc' },
+            { name: 'Conversaciones', value: aggs.conversations, fill: '#8b5cf6' }, // Violet
+            { name: 'Entrevistas', value: aggs.interviews, fill: '#6366f1' },   // Indigo
+            { name: 'Captaciones', value: aggs.listings, fill: '#3b82f6' },     // Blue
+            { name: 'Ventas', value: aggs.sales, fill: '#06b6d4' },             // Cyan
         ]
     }, [kpis])
 
-    // 3. Activity Trend (Weekly) - AreaChart
+    // 3. Activity Trend (Weekly) - Updated for Bar style similar to reference
     const trendData = useMemo(() => {
         const sorted = [...kpis].sort((a, b) => new Date(a.week_start_date) - new Date(b.week_start_date))
         const recent = sorted.slice(-8)
 
         return recent.map(k => ({
-            week: format(new Date(k.week_start_date), 'dd/MM'),
+            week: format(new Date(k.week_start_date), 'dd MMM', { locale: es }),
             conversations: k.conversations_started || 0,
             interviews: (k.sales_interviews || 0) + (k.buying_interviews || 0),
+            listings: k.new_listings || 0,
             fullDate: k.week_start_date
         }))
     }, [kpis])
 
-    const COLORS = ['#3b82f6', '#e2e8f0'] // Blue, Gray
+    // Colors referencing the image palette
+    const GAUGE_COLORS = ['#6366f1', '#f1f5f9'] // Indigo, Slate-100
 
     // Custom Tooltip for Charts
     const CustomTooltip = ({ active, payload, label }) => {
         if (active && payload && payload.length) {
             return (
-                <div className="bg-white p-3 border border-slate-100 shadow-xl rounded-lg text-sm">
-                    <p className="font-semibold text-slate-700 mb-1">{label}</p>
+                <div className="bg-white/95 backdrop-blur-sm p-4 border border-slate-100 shadow-xl rounded-2xl text-sm min-w-[150px]">
+                    <p className="font-bold text-slate-800 mb-2 border-b border-slate-100 pb-1">{label}</p>
                     {payload.map((entry, index) => (
-                        <div key={index} className="flex items-center gap-2">
-                            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }} />
-                            <span className="text-slate-500 capitalize">{entry.name}:</span>
-                            <span className="font-medium text-slate-900">{entry.value}</span>
+                        <div key={index} className="flex items-center justify-between gap-4 mb-1">
+                            <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color || entry.payload.fill }} />
+                                <span className="text-slate-500 capitalize text-xs font-medium">{entry.name}</span>
+                            </div>
+                            <span className="font-bold text-slate-700">{entry.value}</span>
                         </div>
                     ))}
                 </div>
@@ -132,100 +147,175 @@ export default function KpiDashboard() {
     }
 
     return (
-        <div className="max-w-7xl mx-auto p-6 space-y-8 animate-in fade-in duration-500">
-            <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                <span className="bg-primary/10 p-1.5 rounded-lg text-primary">📊</span>
-                Mi Tablero de Rendimiento
-            </h2>
+        <div className="max-w-7xl mx-auto p-6 space-y-6 animate-in fade-in duration-500 bg-slate-50/50 min-h-screen">
 
-            {/* Top Cards Summary */}
+            <header className="flex justify-between items-center mb-2">
+                <div>
+                    <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Dashboard</h2>
+                    <p className="text-sm text-slate-500 mt-1">Resumen de rendimiento y objetivos</p>
+                </div>
+                <div className="flex gap-2">
+                    <div className="bg-white border border-slate-200 text-slate-600 px-3 py-1.5 rounded-lg text-sm font-medium shadow-sm">
+                        {new Date().toLocaleDateString('es-Cl', { month: 'long', year: 'numeric' })}
+                    </div>
+                </div>
+            </header>
+
+            {/* Top Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
-                {/* Gauge Card (Modernized with PieChart) */}
-                <div className="bg-white dark:bg-slate-950 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-900 relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-                        {/* Background decoration */}
-                        <svg width="100" height="100" viewBox="0 0 24 24" fill="currentColor" className="text-blue-500"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-5.5-2.5 7.51-3.41 .99-6.59-3.41 7.51-6.59 .99z"></path></svg>
-                    </div>
-
-                    <h3 className="text-slate-500 font-medium z-10 relative">Meta Mensual (Estimado)</h3>
-                    <div className="h-48 relative flex items-center justify-center -mt-4">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                                <Pie
-                                    data={gaugeData}
-                                    cx="50%"
-                                    cy="70%"
-                                    startAngle={180}
-                                    endAngle={0}
-                                    innerRadius={60}
-                                    outerRadius={85}
-                                    paddingAngle={5}
-                                    dataKey="value"
-                                    cornerRadius={8}
-                                >
-                                    {gaugeData.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                    ))}
-                                </Pie>
-                            </PieChart>
-                        </ResponsiveContainer>
-                        <div className="absolute top-[65%] left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center">
-                            <span className="text-3xl font-bold text-slate-800 dark:text-slate-100">{Math.round(gaugePercentage)}%</span>
+                {/* Card 1: Monthly Goal Progress */}
+                <div className="bg-white p-6 rounded-3xl shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-100 flex flex-col justify-between">
+                    <div className="flex justify-between items-start mb-4">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2.5 bg-indigo-50 text-indigo-600 rounded-xl">
+                                <Target className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <h3 className="text-slate-500 text-sm font-medium">Meta Mensual</h3>
+                                <p className="text-2xl font-bold text-slate-900 mt-0.5">
+                                    {Math.round(gaugePercentage)}%
+                                </p>
+                            </div>
+                        </div>
+                        <div className={`flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-full ${gaugePercentage >= 100 ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-50 text-slate-600'}`}>
+                            {gaugePercentage >= 100 ? <TrendingUp className="w-3 h-3" /> : null}
+                            <span>{gaugePercentage >= 100 ? 'Completado' : 'En progreso'}</span>
                         </div>
                     </div>
-                    <div className="text-center -mt-6">
-                        <p className="text-sm font-medium text-slate-900 dark:text-slate-200">
-                            {new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(currentMonthBilling)}
-                        </p>
-                        <p className="text-xs text-slate-400">
-                            de {new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(monthlyGoal)}
-                        </p>
+
+                    <div className="relative h-2 bg-slate-100 rounded-full w-full overflow-hidden">
+                        <div
+                            className="absolute top-0 left-0 h-full bg-indigo-500 rounded-full transition-all duration-1000"
+                            style={{ width: `${Math.min(gaugePercentage, 100)}%` }}
+                        />
+                    </div>
+                    <div className="mt-3 flex justify-between text-xs text-slate-400 font-medium">
+                        <span>{new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(currentMonthBilling)}</span>
+                        <span>Meta: {new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(monthlyGoal)}</span>
                     </div>
                 </div>
 
-                {/* Quick Stat 1 */}
-                <div className="bg-gradient-to-br from-blue-500 to-blue-600 p-6 rounded-2xl shadow-lg shadow-blue-500/20 text-white flex flex-col justify-between relative overflow-hidden">
-                    <div className="absolute -right-4 -top-4 w-24 h-24 bg-white/10 rounded-full blur-xl"></div>
-                    <div>
-                        <h3 className="text-blue-100 font-medium text-sm">Facturación Anual Acumulada</h3>
-                        <p className="text-3xl font-bold mt-2 tracking-tight">
-                            {new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(kpis.reduce((acc, curr) => acc + (curr.billing_primary || 0), 0))}
-                        </p>
+                {/* Card 2: Annual Revenue */}
+                <div className="bg-white p-6 rounded-3xl shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-100 flex flex-col justify-between">
+                    <div className="flex justify-between items-start mb-2">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl">
+                                <DollarSign className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <h3 className="text-slate-500 text-sm font-medium">Facturación Anual</h3>
+                            </div>
+                        </div>
                     </div>
-                    <div className="mt-4 pt-4 border-t border-white/10 flex items-center justify-between text-xs text-blue-100">
-                        <span>vs Meta: {new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(goals?.annual_billing_goal || 0)}</span>
-                        <span className="bg-white/20 px-2 py-0.5 rounded text-white">Anual</span>
+                    <div className="mt-2">
+                        <p className="text-3xl font-bold text-slate-900 tracking-tight">
+                            {new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(annualBilling)}
+                        </p>
+                        <div className="flex items-center gap-2 mt-2">
+                            <div className="bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-md text-xs font-bold flex items-center gap-1">
+                                <TrendingUp className="w-3 h-3" />
+                                <span>{(annualBilling / (annualGoal || 1) * 100).toFixed(1)}%</span>
+                            </div>
+                            <span className="text-slate-400 text-xs font-medium">de la meta anual</span>
+                        </div>
                     </div>
                 </div>
 
-                {/* Quick Stat 2 */}
-                <div className="bg-gradient-to-br from-violet-500 to-purple-600 p-6 rounded-2xl shadow-lg shadow-purple-500/20 text-white flex flex-col justify-between relative overflow-hidden">
-                    <div className="absolute -right-4 -top-4 w-24 h-24 bg-white/10 rounded-full blur-xl"></div>
-                    <div>
-                        <h3 className="text-violet-100 font-medium text-sm">Captaciones Totales (Año)</h3>
-                        <p className="text-3xl font-bold mt-2 tracking-tight">
-                            {kpis.reduce((acc, curr) => acc + (curr.new_listings || 0), 0)}
-                        </p>
+                {/* Card 3: Listings */}
+                <div className="bg-white p-6 rounded-3xl shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-100 flex flex-col justify-between">
+                    <div className="flex justify-between items-start mb-2">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2.5 bg-blue-50 text-blue-600 rounded-xl">
+                                <Users className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <h3 className="text-slate-500 text-sm font-medium">Captaciones (Año)</h3>
+                            </div>
+                        </div>
+                        <div className="p-1.5 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors">
+                            <Activity className="w-4 h-4 text-slate-400" />
+                        </div>
                     </div>
-                    <div className="mt-4 pt-4 border-t border-white/10 flex items-center justify-between text-xs text-violet-100">
-                        <span>Propiedades en cartera</span>
-                        <span className="bg-white/20 px-2 py-0.5 rounded text-white">YTD</span>
+                    <div className="mt-2">
+                        <p className="text-3xl font-bold text-slate-900 tracking-tight">
+                            {totalListings}
+                        </p>
+                        <p className="text-slate-400 text-xs font-medium mt-2">Propiedades nuevas en cartera</p>
                     </div>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Charts Section */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-                {/* Funnel Chart - Modernized */}
-                <div className="bg-white dark:bg-slate-950 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-900">
-                    <div className="flex items-center justify-between mb-6">
-                        <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">Embudo de Conversión</h3>
-                        <select className="text-xs bg-slate-50 border-none rounded-md px-2 py-1 text-slate-500 focus:ring-0">
-                            <option>Este Año</option>
-                        </select>
+                {/* Main Activity Chart */}
+                <div className="lg:col-span-2 bg-white p-6 rounded-3xl shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-100">
+                    <div className="flex items-center justify-between mb-8">
+                        <div>
+                            <h3 className="text-lg font-bold text-slate-900">Resumen de Actividad</h3>
+                            <p className="text-sm text-slate-500 font-medium">Conversaciones vs Entrevistas vs Captaciones</p>
+                        </div>
+                        <div className="flex gap-2">
+                            <button className="text-xs font-medium bg-slate-50 text-slate-600 px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors">Filtrar</button>
+                        </div>
                     </div>
-                    <div className="h-80 w-full">
+                    <div className="h-[350px] w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={trendData} barGap={0} barCategoryGap="20%">
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                <XAxis
+                                    dataKey="week"
+                                    axisLine={false}
+                                    tickLine={false}
+                                    tick={{ fill: '#94a3b8', fontSize: 12, fontWeight: 500 }}
+                                    dy={10}
+                                />
+                                <YAxis
+                                    axisLine={false}
+                                    tickLine={false}
+                                    tick={{ fill: '#94a3b8', fontSize: 12, fontWeight: 500 }}
+                                />
+                                <Tooltip content={<CustomTooltip />} cursor={{ fill: '#f8fafc' }} />
+                                <Legend
+                                    wrapperStyle={{ paddingTop: '20px' }}
+                                    iconType="circle"
+                                    iconSize={8}
+                                    formatter={(value) => <span className="text-slate-600 font-medium ml-1 text-sm">{value}</span>}
+                                />
+                                <Bar
+                                    dataKey="conversations"
+                                    name="Conversaciones"
+                                    fill="#8b5cf6"
+                                    radius={[4, 4, 0, 0]}
+                                    maxBarSize={40}
+                                />
+                                <Bar
+                                    dataKey="interviews"
+                                    name="Entrevistas"
+                                    fill="#6366f1"
+                                    radius={[4, 4, 0, 0]}
+                                    maxBarSize={40}
+                                />
+                                <Bar
+                                    dataKey="listings"
+                                    name="Captaciones"
+                                    fill="#3b82f6"
+                                    radius={[4, 4, 0, 0]}
+                                    maxBarSize={40}
+                                />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+
+                {/* Funnel Chart - Side Panel */}
+                <div className="bg-white p-6 rounded-3xl shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-100 flex flex-col">
+                    <div className="flex items-center justify-between mb-8">
+                        <h3 className="text-lg font-bold text-slate-900">Conversión</h3>
+                        <span className="text-xs font-medium bg-slate-50 text-slate-500 px-2 py-1 rounded-md">Anual</span>
+                    </div>
+                    <div className="flex-1 min-h-[300px] flex items-center justify-center relative">
                         <ResponsiveContainer width="100%" height="100%">
                             <FunnelChart>
                                 <Tooltip content={<CustomTooltip />} />
@@ -234,41 +324,24 @@ export default function KpiDashboard() {
                                     data={funnelData}
                                     isAnimationActive
                                 >
-                                    <LabelList position="right" fill="#64748b" stroke="none" dataKey="name" />
+                                    <LabelList position="right" fill="#64748b" stroke="none" dataKey="name" fontSize={12} fontWeight={600} />
                                 </Funnel>
                             </FunnelChart>
                         </ResponsiveContainer>
-                    </div>
-                </div>
 
-                {/* Activity Trend Chart - AreaChart with Gradient */}
-                <div className="bg-white dark:bg-slate-950 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-900">
-                    <div className="flex items-center justify-between mb-6">
-                        <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">Tendencia de Actividad</h3>
-                        <span className="text-xs text-slate-400">Últimas 8 semanas</span>
                     </div>
-                    <div className="h-80 w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={trendData}>
-                                <defs>
-                                    <linearGradient id="colorCov" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
-                                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                                    </linearGradient>
-                                    <linearGradient id="colorInt" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
-                                        <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
-                                    </linearGradient>
-                                </defs>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                                <XAxis dataKey="week" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} dy={10} />
-                                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} />
-                                <Tooltip content={<CustomTooltip />} />
-                                <Legend wrapperStyle={{ paddingTop: '20px' }} />
-                                <Area type="monotone" dataKey="conversations" name="Conversaciones" stroke="#3b82f6" strokeWidth={3} fillOpacity={1} fill="url(#colorCov)" activeDot={{ r: 6, strokeWidth: 0 }} />
-                                <Area type="monotone" dataKey="interviews" name="Entrevistas" stroke="#8b5cf6" strokeWidth={3} fillOpacity={1} fill="url(#colorInt)" />
-                            </AreaChart>
-                        </ResponsiveContainer>
+
+                    <div className="mt-6 pt-6 border-t border-slate-50 grid grid-cols-2 gap-4">
+                        <div className="text-center">
+                            <p className="text-xs text-slate-400 font-medium uppercase tracking-wider">Tasa Cierre</p>
+                            <p className="text-xl font-bold text-slate-800 mt-1">
+                                {funnelData[0].value > 0 ? ((funnelData[3].value / funnelData[0].value) * 100).toFixed(1) : 0}%
+                            </p>
+                        </div>
+                        <div className="text-center">
+                            <p className="text-xs text-slate-400 font-medium uppercase tracking-wider">Total Ventas</p>
+                            <p className="text-xl font-bold text-slate-800 mt-1">{funnelData[3].value}</p>
+                        </div>
                     </div>
                 </div>
 
