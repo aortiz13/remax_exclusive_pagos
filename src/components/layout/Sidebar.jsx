@@ -9,7 +9,6 @@ import {
     ChevronLeft,
     ChevronRight,
     PlusCircle,
-    PlusCircle,
     FileText,
     BarChart3,
     Target,
