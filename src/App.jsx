@@ -44,15 +44,21 @@ const Layout = ({ children }) => {
   const { user } = useAuth()
 
   return (
-    <div className="h-screen w-full bg-slate-50 dark:bg-slate-950 flex overflow-hidden">
+    <div className="h-screen w-full bg-[#f8f9fc] dark:bg-[#030712] flex overflow-hidden relative isolate selection:bg-primary/20 selection:text-primary">
+      {/* Dynamic Background Mesh */}
+      <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
+        <div className="absolute top-[-20%] left-[-10%] w-[50vw] h-[50vw] bg-blue-400/10 rounded-full blur-[100px] animate-pulse" style={{ animationDuration: '8s' }} />
+        <div className="absolute bottom-[-20%] right-[-10%] w-[50vw] h-[50vw] bg-indigo-400/10 rounded-full blur-[100px] animate-pulse" style={{ animationDuration: '10s', animationDelay: '1s' }} />
+      </div>
+
       {user && <Sidebar />}
 
-      <div className="flex-1 flex flex-col h-full relative">
+      <div className="flex-1 flex flex-col h-full relative z-10 w-full max-w-[1920px] mx-auto">
         <Header />
-        <main className="flex-1 overflow-y-auto scroll-smooth">
+        <main className="flex-1 overflow-y-auto scroll-smooth p-4 md:p-8 w-full max-w-7xl mx-auto">
           {children}
         </main>
-        <Toaster position="top-right" richColors />
+        <Toaster position="top-right" richColors theme="light" closeButton className="font-sans" />
       </div>
     </div>
   )

@@ -4,8 +4,9 @@ import { useAuth } from '../context/AuthContext'
 import { supabase } from '../services/supabase'
 import { toast } from 'sonner'
 import { Button, Input, Label, Card, CardHeader, CardTitle, CardContent, CardDescription, Textarea } from '@/components/ui'
-import { ArrowLeft, Save, Send, Receipt, User, Building2, FileText } from 'lucide-react'
+import { ArrowLeft, Save, Send, Receipt, User, Building2, FileText, ChevronRight, ChevronLeft } from 'lucide-react'
 import Stepper from '../components/layout/Stepper'
+import { motion, AnimatePresence } from 'framer-motion'
 
 export default function InvoiceForm() {
     const { id } = useParams()
@@ -242,12 +243,22 @@ export default function InvoiceForm() {
         setCurrentStep(prev => Math.max(prev - 1, 1))
     }
 
-    if (loading) return <div className="p-8 text-center text-slate-500">Cargando...</div>
+    if (loading) return (
+        <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        </div>
+    )
+
+    const stepVariants = {
+        hidden: { opacity: 0, x: 20 },
+        visible: { opacity: 1, x: 0 },
+        exit: { opacity: 0, x: -20 }
+    }
 
     return (
         <div className="min-h-screen bg-slate-50/50 dark:bg-slate-950/50 pb-20">
             {/* Top Stepper Area - Matching RequestForm layout */}
-            <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-30 px-4 py-8 mb-8 shadow-sm">
+            <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-lg border-b border-slate-200 dark:border-slate-800 sticky top-16 z-20 px-4 py-6 mb-8 shadow-sm">
                 <div className="max-w-4xl mx-auto">
                     <Stepper currentStep={currentStep} steps={steps} />
                 </div>
@@ -257,187 +268,296 @@ export default function InvoiceForm() {
                 <div className="max-w-3xl mx-auto space-y-6">
 
                     {/* Header Title & Actions */}
-                    <div className="flex justify-between items-center">
-                        <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                            {id ? 'Editar Solicitud Factura' : 'Nueva Solicitud Factura'}
-                        </h1>
-                        <Button variant="ghost" size="sm" onClick={() => saveRequest('draft')} className="text-muted-foreground hover:text-primary">
+                    <div className="flex justify-between items-center mb-8">
+                        <div>
+                            <Button variant="ghost" className="pl-0 hover:pl-2 transition-all -ml-2 mb-2 text-slate-500" onClick={() => navigate('/dashboard')}>
+                                <ArrowLeft className="mr-2 h-4 w-4" />
+                                Volver al Panel
+                            </Button>
+                            <h1 className="text-3xl font-display font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                                {id ? 'Editar Solicitud Factura' : 'Nueva Solicitud Factura'}
+                            </h1>
+                        </div>
+                        <Button variant="outline" size="sm" onClick={() => saveRequest('draft')} className="text-slate-600 dark:text-slate-300 border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800">
                             <Save className="mr-2 h-4 w-4" />
                             <span className="hidden sm:inline">Guardar Borrador</span>
                         </Button>
                     </div>
 
-                    <div className="mt-8">
-                        {/* Step 1: Vendedor */}
-                        {currentStep === 1 && (
-                            <Card className="border-slate-200 dark:border-slate-800 shadow-sm">
-                                <CardHeader className="pb-4 border-b border-slate-100 dark:border-slate-800">
-                                    <div className="flex items-center gap-2">
-                                        <User className="h-5 w-5 text-primary" />
-                                        <CardTitle>Datos del Vendedor</CardTitle>
-                                    </div>
-                                    <CardDescription>Información del propietario actual.</CardDescription>
-                                </CardHeader>
-                                <CardContent className="space-y-4 pt-6">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div className="space-y-2 md:col-span-2">
-                                            <Label htmlFor="vendedorNombre">Nombre Completo</Label>
-                                            <Input id="vendedorNombre" name="vendedorNombre" value={formData.vendedorNombre} onChange={handleChange} placeholder="María González" />
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label htmlFor="vendedorRut">RUT</Label>
-                                            <Input id="vendedorRut" name="vendedorRut" value={formData.vendedorRut} onChange={handleChange} placeholder="9.876.543-2" />
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label htmlFor="vendedorEmail">Correo Electrónico</Label>
-                                            <Input id="vendedorEmail" name="vendedorEmail" type="email" value={formData.vendedorEmail} onChange={handleChange} placeholder="maria@ejemplo.com" />
-                                        </div>
-                                        <div className="space-y-2 md:col-span-2">
-                                            <Label htmlFor="vendedorDireccion">Dirección Domicilio</Label>
-                                            <Input id="vendedorDireccion" name="vendedorDireccion" value={formData.vendedorDireccion} onChange={handleChange} placeholder="Calle Falsa 456, Providencia" />
-                                        </div>
-                                    </div>
-
-                                    <div className="flex justify-between pt-6 mt-4 border-t border-slate-100 dark:border-slate-800">
-                                        <Button variant="outline" onClick={() => navigate('/dashboard')}>Atrás</Button>
-                                        <Button onClick={nextStep}>Siguiente</Button>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        )}
-
-                        {/* Step 2: Comprador */}
-                        {currentStep === 2 && (
-                            <Card className="border-slate-200 dark:border-slate-800 shadow-sm">
-                                <CardHeader className="pb-4 border-b border-slate-100 dark:border-slate-800">
-                                    <div className="flex items-center gap-2">
-                                        <User className="h-5 w-5 text-primary" />
-                                        <CardTitle>Datos del Comprador</CardTitle>
-                                    </div>
-                                    <CardDescription>Información de quien adquiere la propiedad.</CardDescription>
-                                </CardHeader>
-                                <CardContent className="space-y-4 pt-6">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div className="space-y-2 md:col-span-2">
-                                            <Label htmlFor="compradorNombre">Nombre Completo</Label>
-                                            <Input id="compradorNombre" name="compradorNombre" value={formData.compradorNombre} onChange={handleChange} placeholder="Juan Pérez" />
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label htmlFor="compradorRut">RUT</Label>
-                                            <Input id="compradorRut" name="compradorRut" value={formData.compradorRut} onChange={handleChange} placeholder="12.345.678-9" />
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label htmlFor="compradorEmail">Correo Electrónico</Label>
-                                            <Input id="compradorEmail" name="compradorEmail" type="email" value={formData.compradorEmail} onChange={handleChange} placeholder="juan@ejemplo.com" />
-                                        </div>
-                                        <div className="space-y-2 md:col-span-2">
-                                            <Label htmlFor="compradorDireccion">Dirección Domicilio</Label>
-                                            <Input id="compradorDireccion" name="compradorDireccion" value={formData.compradorDireccion} onChange={handleChange} placeholder="Av. Siempre Viva 123, Santiago" />
-                                        </div>
-                                    </div>
-
-                                    <div className="flex justify-between pt-6 mt-4 border-t border-slate-100 dark:border-slate-800">
-                                        <Button variant="outline" onClick={prevStep}>Atrás</Button>
-                                        <Button onClick={nextStep}>Siguiente</Button>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        )}
-
-                        {/* Step 3: Propiedad */}
-                        {currentStep === 3 && (
-                            <Card className="border-slate-200 dark:border-slate-800 shadow-sm">
-                                <CardHeader className="pb-4 border-b border-slate-100 dark:border-slate-800">
-                                    <div className="flex items-center gap-2">
-                                        <Building2 className="h-5 w-5 text-primary" />
-                                        <CardTitle>Datos de la Operación</CardTitle>
-                                    </div>
-                                    <CardDescription>Detalles del inmueble y comisión.</CardDescription>
-                                </CardHeader>
-                                <CardContent className="space-y-4 pt-6">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="propiedadDireccion">Dirección de la Propiedad Vendida</Label>
-                                        <Input id="propiedadDireccion" name="propiedadDireccion" value={formData.propiedadDireccion} onChange={handleChange} placeholder="Dirección del inmueble objeto de la venta" />
-                                    </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div className="space-y-2">
-                                            <Label htmlFor="montoComision">Monto Comisión</Label>
-                                            <Input
-                                                id="montoComision"
-                                                name="montoComision"
-                                                value={formData.montoComision}
-                                                onChange={handleChange}
-                                                placeholder="Ej: $ 500.000"
-                                                maxLength={15}
-                                            />
-                                        </div>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="notas">Notas Adicionales (Opcional)</Label>
-                                        <Textarea id="notas" name="notas" value={formData.notas} onChange={handleChange} placeholder="Cualquier detalle relevante para la facturación..." className="resize-none h-24" />
-                                    </div>
-
-                                    <div className="flex justify-between pt-6 mt-4 border-t border-slate-100 dark:border-slate-800">
-                                        <Button variant="outline" onClick={prevStep}>Atrás</Button>
-                                        <Button onClick={nextStep}>Siguiente</Button>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        )}
-
-                        {/* Step 4: Resumen */}
-                        {currentStep === 4 && (
-                            <Card className="border-slate-200 dark:border-slate-800 shadow-sm">
-                                <CardHeader className="pb-4 border-b border-slate-100 dark:border-slate-800">
-                                    <div className="flex items-center gap-2">
-                                        <FileText className="h-5 w-5 text-primary" />
-                                        <CardTitle>Resumen de Solicitud</CardTitle>
-                                    </div>
-                                    <CardDescription>Revisa los datos antes de enviar.</CardDescription>
-                                </CardHeader>
-                                <CardContent className="space-y-6 pt-6">
-                                    <div className="space-y-4">
-                                        <div className="rounded-lg border p-4 space-y-3">
-                                            <h3 className="font-semibold text-sm text-slate-900 border-b pb-2 mb-2">Vendedor</h3>
-                                            <div className="grid grid-cols-2 gap-2 text-sm">
-                                                <span className="text-slate-500">Nombre:</span>
-                                                <span className="font-medium text-right">{formData.vendedorNombre}</span>
-                                                <span className="text-slate-500">RUT:</span>
-                                                <span className="font-medium text-right">{formData.vendedorRut}</span>
+                    <div className="relative min-h-[500px]">
+                        <AnimatePresence mode="wait">
+                            {/* Step 1: Vendedor */}
+                            {currentStep === 1 && (
+                                <motion.div
+                                    key="step1"
+                                    variants={stepVariants}
+                                    initial="hidden"
+                                    animate="visible"
+                                    exit="exit"
+                                    transition={{ duration: 0.3 }}
+                                >
+                                    <Card className="glass-card overflow-hidden border-0 shadow-xl ring-1 ring-slate-200 dark:ring-slate-800">
+                                        <CardHeader className="bg-slate-50/50 dark:bg-slate-900/50 border-b border-slate-100 dark:border-slate-800 pb-6">
+                                            <div className="flex items-center gap-3">
+                                                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                                                    <User className="h-5 w-5 text-primary" />
+                                                </div>
+                                                <div>
+                                                    <CardTitle className="text-xl">Datos del Vendedor</CardTitle>
+                                                    <CardDescription>Información del propietario actual.</CardDescription>
+                                                </div>
                                             </div>
-                                        </div>
-
-                                        <div className="rounded-lg border p-4 space-y-3">
-                                            <h3 className="font-semibold text-sm text-slate-900 border-b pb-2 mb-2">Comprador</h3>
-                                            <div className="grid grid-cols-2 gap-2 text-sm">
-                                                <span className="text-slate-500">Nombre:</span>
-                                                <span className="font-medium text-right">{formData.compradorNombre}</span>
-                                                <span className="text-slate-500">RUT:</span>
-                                                <span className="font-medium text-right">{formData.compradorRut}</span>
+                                        </CardHeader>
+                                        <CardContent className="space-y-6 pt-8 p-6 md:p-8">
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                <div className="space-y-2 md:col-span-2">
+                                                    <Label htmlFor="vendedorNombre" className="text-slate-900 dark:text-slate-200">Nombre Completo</Label>
+                                                    <Input className="h-11 bg-white dark:bg-slate-950" id="vendedorNombre" name="vendedorNombre" value={formData.vendedorNombre} onChange={handleChange} placeholder="Ej: María González" />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="vendedorRut" className="text-slate-900 dark:text-slate-200">RUT</Label>
+                                                    <Input className="h-11 bg-white dark:bg-slate-950" id="vendedorRut" name="vendedorRut" value={formData.vendedorRut} onChange={handleChange} placeholder="Ej: 9.876.543-2" />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="vendedorEmail" className="text-slate-900 dark:text-slate-200">Correo Electrónico</Label>
+                                                    <Input className="h-11 bg-white dark:bg-slate-950" id="vendedorEmail" name="vendedorEmail" type="email" value={formData.vendedorEmail} onChange={handleChange} placeholder="Ej: maria@ejemplo.com" />
+                                                </div>
+                                                <div className="space-y-2 md:col-span-2">
+                                                    <Label htmlFor="vendedorDireccion" className="text-slate-900 dark:text-slate-200">Dirección Domicilio</Label>
+                                                    <Input className="h-11 bg-white dark:bg-slate-950" id="vendedorDireccion" name="vendedorDireccion" value={formData.vendedorDireccion} onChange={handleChange} placeholder="Ej: Calle Falsa 456, Providencia" />
+                                                </div>
                                             </div>
-                                        </div>
 
-                                        <div className="rounded-lg border p-4 space-y-3">
-                                            <h3 className="font-semibold text-sm text-slate-900 border-b pb-2 mb-2">Inmueble & Comisión</h3>
-                                            <div className="grid grid-cols-2 gap-2 text-sm">
-                                                <span className="text-slate-500">Dirección:</span>
-                                                <span className="font-medium text-right truncate pl-4" title={formData.propiedadDireccion}>{formData.propiedadDireccion}</span>
-                                                <span className="text-slate-500">Monto:</span>
-                                                <span className="font-medium text-right">{formData.montoComision}</span>
+                                            <div className="flex justify-end pt-6 mt-4 border-t border-slate-100 dark:border-slate-800">
+                                                <Button onClick={nextStep} className="pl-6 pr-4 h-11 text-base">
+                                                    Siguiente
+                                                    <ChevronRight className="ml-2 h-4 w-4" />
+                                                </Button>
                                             </div>
-                                        </div>
-                                    </div>
+                                        </CardContent>
+                                    </Card>
+                                </motion.div>
+                            )}
 
-                                    <div className="flex justify-between pt-6 mt-4 border-t border-slate-100 dark:border-slate-800">
-                                        <Button variant="outline" onClick={prevStep}>Atrás</Button>
-                                        <Button onClick={() => saveRequest('submitted')} disabled={submitting} className="w-32 bg-green-600 hover:bg-green-700">
-                                            {submitting ? 'Enviando...' : 'Enviar'}
-                                        </Button>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        )}
+                            {/* Step 2: Comprador */}
+                            {currentStep === 2 && (
+                                <motion.div
+                                    key="step2"
+                                    variants={stepVariants}
+                                    initial="hidden"
+                                    animate="visible"
+                                    exit="exit"
+                                    transition={{ duration: 0.3 }}
+                                >
+                                    <Card className="glass-card overflow-hidden border-0 shadow-xl ring-1 ring-slate-200 dark:ring-slate-800">
+                                        <CardHeader className="bg-slate-50/50 dark:bg-slate-900/50 border-b border-slate-100 dark:border-slate-800 pb-6">
+                                            <div className="flex items-center gap-3">
+                                                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                                                    <User className="h-5 w-5 text-primary" />
+                                                </div>
+                                                <div>
+                                                    <CardTitle className="text-xl">Datos del Comprador</CardTitle>
+                                                    <CardDescription>Información de quien adquiere la propiedad.</CardDescription>
+                                                </div>
+                                            </div>
+                                        </CardHeader>
+                                        <CardContent className="space-y-6 pt-8 p-6 md:p-8">
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                <div className="space-y-2 md:col-span-2">
+                                                    <Label htmlFor="compradorNombre">Nombre Completo</Label>
+                                                    <Input className="h-11 bg-white dark:bg-slate-950" id="compradorNombre" name="compradorNombre" value={formData.compradorNombre} onChange={handleChange} placeholder="Ej: Juan Pérez" />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="compradorRut">RUT</Label>
+                                                    <Input className="h-11 bg-white dark:bg-slate-950" id="compradorRut" name="compradorRut" value={formData.compradorRut} onChange={handleChange} placeholder="Ej: 12.345.678-9" />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="compradorEmail">Correo Electrónico</Label>
+                                                    <Input className="h-11 bg-white dark:bg-slate-950" id="compradorEmail" name="compradorEmail" type="email" value={formData.compradorEmail} onChange={handleChange} placeholder="Ej: juan@ejemplo.com" />
+                                                </div>
+                                                <div className="space-y-2 md:col-span-2">
+                                                    <Label htmlFor="compradorDireccion">Dirección Domicilio</Label>
+                                                    <Input className="h-11 bg-white dark:bg-slate-950" id="compradorDireccion" name="compradorDireccion" value={formData.compradorDireccion} onChange={handleChange} placeholder="Ej: Av. Siempre Viva 123, Santiago" />
+                                                </div>
+                                            </div>
 
+                                            <div className="flex justify-between pt-6 mt-4 border-t border-slate-100 dark:border-slate-800">
+                                                <Button variant="outline" onClick={prevStep} className="h-11 px-6">
+                                                    <ChevronLeft className="mr-2 h-4 w-4" />
+                                                    Atrás
+                                                </Button>
+                                                <Button onClick={nextStep} className="pl-6 pr-4 h-11 text-base">
+                                                    Siguiente
+                                                    <ChevronRight className="ml-2 h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                </motion.div>
+                            )}
+
+                            {/* Step 3: Propiedad */}
+                            {currentStep === 3 && (
+                                <motion.div
+                                    key="step3"
+                                    variants={stepVariants}
+                                    initial="hidden"
+                                    animate="visible"
+                                    exit="exit"
+                                    transition={{ duration: 0.3 }}
+                                >
+                                    <Card className="glass-card overflow-hidden border-0 shadow-xl ring-1 ring-slate-200 dark:ring-slate-800">
+                                        <CardHeader className="bg-slate-50/50 dark:bg-slate-900/50 border-b border-slate-100 dark:border-slate-800 pb-6">
+                                            <div className="flex items-center gap-3">
+                                                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                                                    <Building2 className="h-5 w-5 text-primary" />
+                                                </div>
+                                                <div>
+                                                    <CardTitle className="text-xl">Datos de la Operación</CardTitle>
+                                                    <CardDescription>Detalles del inmueble y comisión.</CardDescription>
+                                                </div>
+                                            </div>
+                                        </CardHeader>
+                                        <CardContent className="space-y-6 pt-8 p-6 md:p-8">
+                                            <div className="space-y-2">
+                                                <Label htmlFor="propiedadDireccion">Dirección de la Propiedad Vendida</Label>
+                                                <Input className="h-11 bg-white dark:bg-slate-950" id="propiedadDireccion" name="propiedadDireccion" value={formData.propiedadDireccion} onChange={handleChange} placeholder="Dirección del inmueble objeto de la venta" />
+                                            </div>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="montoComision">Monto Comisión</Label>
+                                                    <Input
+                                                        className="h-11 bg-white dark:bg-slate-950 font-medium text-lg"
+                                                        id="montoComision"
+                                                        name="montoComision"
+                                                        value={formData.montoComision}
+                                                        onChange={handleChange}
+                                                        placeholder="Ej: $ 500.000"
+                                                        maxLength={15}
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label htmlFor="notas">Notas Adicionales (Opcional)</Label>
+                                                <Textarea className="bg-white dark:bg-slate-950 resize-none h-32" id="notas" name="notas" value={formData.notas} onChange={handleChange} placeholder="Cualquier detalle relevante para la facturación..." />
+                                            </div>
+
+                                            <div className="flex justify-between pt-6 mt-4 border-t border-slate-100 dark:border-slate-800">
+                                                <Button variant="outline" onClick={prevStep} className="h-11 px-6">
+                                                    <ChevronLeft className="mr-2 h-4 w-4" />
+                                                    Atrás
+                                                </Button>
+                                                <Button onClick={nextStep} className="pl-6 pr-4 h-11 text-base">
+                                                    Siguiente
+                                                    <ChevronRight className="ml-2 h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                </motion.div>
+                            )}
+
+                            {/* Step 4: Resumen */}
+                            {currentStep === 4 && (
+                                <motion.div
+                                    key="step4"
+                                    variants={stepVariants}
+                                    initial="hidden"
+                                    animate="visible"
+                                    exit="exit"
+                                    transition={{ duration: 0.3 }}
+                                >
+                                    <Card className="glass-card overflow-hidden border-0 shadow-xl ring-1 ring-slate-200 dark:ring-slate-800">
+                                        <CardHeader className="bg-slate-50/50 dark:bg-slate-900/50 border-b border-slate-100 dark:border-slate-800 pb-6">
+                                            <div className="flex items-center gap-3">
+                                                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                                                    <FileText className="h-5 w-5 text-primary" />
+                                                </div>
+                                                <div>
+                                                    <CardTitle className="text-xl">Resumen de Solicitud</CardTitle>
+                                                    <CardDescription>Revisa los datos antes de enviar.</CardDescription>
+                                                </div>
+                                            </div>
+                                        </CardHeader>
+                                        <CardContent className="space-y-8 pt-8 p-6 md:p-8">
+                                            <div className="space-y-6">
+                                                <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 p-6 space-y-4">
+                                                    <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100 border-b border-slate-200 dark:border-slate-800 pb-3 flex items-center gap-2">
+                                                        <User className="w-4 h-4 text-primary" />
+                                                        Datos del Vendedor
+                                                    </h3>
+                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                                                        <div>
+                                                            <span className="block text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wide">Nombre</span>
+                                                            <span className="font-medium text-slate-900 dark:text-slate-200">{formData.vendedorNombre}</span>
+                                                        </div>
+                                                        <div>
+                                                            <span className="block text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wide">RUT</span>
+                                                            <span className="font-medium text-slate-900 dark:text-slate-200">{formData.vendedorRut}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 p-6 space-y-4">
+                                                    <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100 border-b border-slate-200 dark:border-slate-800 pb-3 flex items-center gap-2">
+                                                        <User className="w-4 h-4 text-blue-500" />
+                                                        Datos del Comprador
+                                                    </h3>
+                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                                                        <div>
+                                                            <span className="block text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wide">Nombre</span>
+                                                            <span className="font-medium text-slate-900 dark:text-slate-200">{formData.compradorNombre}</span>
+                                                        </div>
+                                                        <div>
+                                                            <span className="block text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wide">RUT</span>
+                                                            <span className="font-medium text-slate-900 dark:text-slate-200">{formData.compradorRut}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 p-6 space-y-4">
+                                                    <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100 border-b border-slate-200 dark:border-slate-800 pb-3 flex items-center gap-2">
+                                                        <Building2 className="w-4 h-4 text-emerald-500" />
+                                                        Datos de la Operación
+                                                    </h3>
+                                                    <div className="grid grid-cols-1 gap-4 text-sm">
+                                                        <div>
+                                                            <span className="block text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wide">Dirección Propiedad</span>
+                                                            <span className="font-medium text-slate-900 dark:text-slate-200">{formData.propiedadDireccion}</span>
+                                                        </div>
+                                                        <div>
+                                                            <span className="block text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wide">Monto Comisión</span>
+                                                            <span className="font-bold text-lg text-emerald-600 dark:text-emerald-400">{formData.montoComision}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex justify-between pt-6 mt-4 border-t border-slate-100 dark:border-slate-800">
+                                                <Button variant="outline" onClick={prevStep} className="h-11 px-6">
+                                                    <ChevronLeft className="mr-2 h-4 w-4" />
+                                                    Atrás
+                                                </Button>
+                                                <Button
+                                                    onClick={() => saveRequest('submitted')}
+                                                    disabled={submitting}
+                                                    className="pl-6 pr-6 h-11 text-base bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-500/20"
+                                                >
+                                                    {submitting ? (
+                                                        <>Enviando...</>
+                                                    ) : (
+                                                        <>
+                                                            Enviar Solicitud
+                                                            <Send className="ml-2 h-4 w-4" />
+                                                        </>
+                                                    )}
+                                                </Button>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
                     </div>
                 </div>
             </div>

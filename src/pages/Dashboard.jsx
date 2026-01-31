@@ -7,6 +7,16 @@ import { PlusCircle, FileText, Trash2, Play, Search, MapPin, User, Calendar, Mor
 import { toast } from 'sonner'
 import { useDashboardTour } from '../hooks/useDashboardTour'
 
+import { useEffect, useState } from 'react'
+import { useAuth } from '../context/AuthContext'
+import { supabase } from '../services/supabase'
+import { Button, Card, CardContent, CardHeader, CardTitle, CardDescription, Badge, Input, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, Separator, AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui'
+import { useNavigate } from 'react-router-dom'
+import { PlusCircle, FileText, Trash2, Play, Search, MapPin, User, Calendar, MoreVertical, Building2, HelpCircle, Receipt, ArrowUpRight } from 'lucide-react'
+import { toast } from 'sonner'
+import { useDashboardTour } from '../hooks/useDashboardTour'
+import { motion, AnimatePresence } from 'framer-motion'
+
 export default function Dashboard() {
     const { user } = useAuth()
     const [requests, setRequests] = useState([])
@@ -109,100 +119,112 @@ export default function Dashboard() {
         return address.includes(searchLower) || client.includes(searchLower)
     })
 
+    const container = {
+        hidden: { opacity: 0 },
+        show: {
+            opacity: 1,
+            transition: {
+                staggerChildren: 0.1
+            }
+        }
+    }
+
+    const item = {
+        hidden: { opacity: 0, y: 20 },
+        show: { opacity: 1, y: 0 }
+    }
+
     return (
-        <div className="min-h-[calc(100vh-80px)] bg-slate-50/50 dark:bg-slate-950/50">
-            <div className="container max-w-6xl mx-auto px-4 py-8 space-y-8">
+        <div className="min-h-[calc(100vh-80px)]">
+            <div className="container max-w-7xl mx-auto space-y-8">
 
                 {/* Header Section */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-2">
                     <div id="tour-welcome">
-                        <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Panel de Control</h1>
-                        <p className="text-slate-500 mt-1">Gestiona tus solicitudes de contratos, links de pago y más.</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <Button variant="outline" onClick={() => startTour(true)} className="hidden sm:flex" title="Iniciar guía">
-                            <HelpCircle className="mr-2 h-4 w-4" />
-                            Guía
-                        </Button>
+                        <h1 className="text-4xl font-display font-bold tracking-tight text-slate-900 dark:text-white bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-600 dark:from-white dark:to-slate-400">
+                            Panel de Control
+                        </h1>
+                        <p className="text-slate-500 mt-2 text-lg">Gestiona tus operaciones inmobiliarias.</p>
                     </div>
                 </div>
 
                 {/* Quick Actions Section */}
-                {/* Quick Actions Section - Horizontal Scroll / Carousel */}
-                <div
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5 }}
                     id="tour-new-request"
-                    className="flex overflow-x-auto pb-4 gap-6 snap-x snap-mandatory hide-scrollbar"
-                    style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                    className="grid grid-cols-1 md:grid-cols-3 gap-6"
                 >
                     {/* Card 1: Link de Pago */}
-                    <Card
-                        className="min-w-[300px] md:min-w-[350px] flex-1 cursor-pointer transition-all hover:scale-[1.01] hover:shadow-md border-l-4 border-l-blue-500 hover:border-l-blue-600 group snap-center"
+                    <div
+                        className="group relative overflow-hidden rounded-3xl bg-white dark:bg-slate-900 p-6 shadow-sm border border-slate-200 dark:border-slate-800 hover:shadow-2xl hover:shadow-blue-500/10 transition-all duration-300 cursor-pointer"
                         onClick={() => navigate('/request/payment/new')}
                     >
-                        <CardContent className="flex items-center p-6 gap-6 h-full">
-                            <div className="h-16 w-16 rounded-full bg-blue-50 flex items-center justify-center group-hover:bg-blue-100 transition-colors shrink-0">
-                                <Receipt className="h-8 w-8 text-blue-600" />
+                        <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <ArrowUpRight className="w-5 h-5 text-slate-400" />
+                        </div>
+                        <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-blue-500/5 rounded-full blur-3xl group-hover:bg-blue-500/10 transition-all" />
+
+                        <div className="relative z-10">
+                            <div className="h-12 w-12 rounded-2xl bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center mb-4 text-blue-600 dark:text-blue-400">
+                                <Receipt className="h-6 w-6" />
                             </div>
-                            <div className="space-y-1">
-                                <h3 className="text-xl font-bold text-slate-900 group-hover:text-blue-700 transition-colors">Link de Pago</h3>
-                                <p className="text-sm text-slate-500">
-                                    Generar solicitud para cálculo de arriendo y link de pago.
-                                </p>
-                            </div>
-                        </CardContent>
-                    </Card>
+                            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">Link de Pago</h3>
+                            <p className="text-sm text-slate-500 dark:text-slate-400">Cálculo de arriendo y generación de link Webpay.</p>
+                        </div>
+                    </div>
 
                     {/* Card 2: Redacción de Contrato */}
-                    <Card
-                        className="min-w-[300px] md:min-w-[350px] flex-1 cursor-pointer transition-all hover:scale-[1.01] hover:shadow-md border-l-4 border-l-indigo-500 hover:border-l-indigo-600 group snap-center"
+                    <div
+                        className="group relative overflow-hidden rounded-3xl bg-white dark:bg-slate-900 p-6 shadow-sm border border-slate-200 dark:border-slate-800 hover:shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300 cursor-pointer"
                         onClick={() => navigate('/request/contract/new')}
                     >
-                        <CardContent className="flex items-center p-6 gap-6 h-full">
-                            <div className="h-16 w-16 rounded-full bg-indigo-50 flex items-center justify-center group-hover:bg-indigo-100 transition-colors shrink-0">
-                                <FileText className="h-8 w-8 text-indigo-600" />
+                        <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <ArrowUpRight className="w-5 h-5 text-slate-400" />
+                        </div>
+                        <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-indigo-500/5 rounded-full blur-3xl group-hover:bg-indigo-500/10 transition-all" />
+
+                        <div className="relative z-10">
+                            <div className="h-12 w-12 rounded-2xl bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center mb-4 text-indigo-600 dark:text-indigo-400">
+                                <FileText className="h-6 w-6" />
                             </div>
-                            <div className="space-y-1">
-                                <h3 className="text-xl font-bold text-slate-900 group-hover:text-indigo-700 transition-colors">Redacción de Contrato</h3>
-                                <p className="text-sm text-slate-500">
-                                    Solicitar redacción de contratos de compraventa o arriendo.
-                                </p>
-                            </div>
-                        </CardContent>
-                    </Card>
+                            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">Redacción de Contrato</h3>
+                            <p className="text-sm text-slate-500 dark:text-slate-400">Solicitud de contratos de compraventa o arriendo.</p>
+                        </div>
+                    </div>
 
                     {/* Card 3: Solicitud de Factura */}
-                    <Card
-                        className="min-w-[300px] md:min-w-[350px] flex-1 cursor-pointer transition-all hover:scale-[1.01] hover:shadow-md border-l-4 border-l-emerald-500 hover:border-l-emerald-600 group snap-center"
+                    <div
+                        className="group relative overflow-hidden rounded-3xl bg-white dark:bg-slate-900 p-6 shadow-sm border border-slate-200 dark:border-slate-800 hover:shadow-2xl hover:shadow-emerald-500/10 transition-all duration-300 cursor-pointer"
                         onClick={() => navigate('/request/invoice/new')}
                     >
-                        <CardContent className="flex items-center p-6 gap-6 h-full">
-                            <div className="h-16 w-16 rounded-full bg-emerald-50 flex items-center justify-center group-hover:bg-emerald-100 transition-colors shrink-0">
-                                <Receipt className="h-8 w-8 text-emerald-600" />
+                        <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <ArrowUpRight className="w-5 h-5 text-slate-400" />
+                        </div>
+                        <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-emerald-500/5 rounded-full blur-3xl group-hover:bg-emerald-500/10 transition-all" />
+
+                        <div className="relative z-10">
+                            <div className="h-12 w-12 rounded-2xl bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center mb-4 text-emerald-600 dark:text-emerald-400">
+                                <Receipt className="h-6 w-6" />
                             </div>
-                            <div className="space-y-1">
-                                <h3 className="text-xl font-bold text-slate-900 group-hover:text-emerald-700 transition-colors">Solicitud de Factura</h3>
-                                <p className="text-sm text-slate-500">
-                                    Generar solicitud de emisión de factura por comisiones.
-                                </p>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div>
+                            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">Solicitud de Factura</h3>
+                            <p className="text-sm text-slate-500 dark:text-slate-400">Emisión de factura por comisiones de venta/arriendo.</p>
+                        </div>
+                    </div>
+                </motion.div>
 
                 {/* Search and Filter Bar */}
-                <div id="tour-search" className="bg-white dark:bg-slate-900 rounded-lg border shadow-sm p-4 flex items-center gap-4">
-                    <div className="relative flex-1 max-w-md">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                        <Input
-                            placeholder="Buscar por dirección, cliente..."
-                            className="pl-9 bg-slate-50 border-0 focus-visible:ring-1 focus-visible:bg-white transition-colors"
+                <div id="tour-search" className="sticky top-20 z-20 backdrop-blur-xl bg-white/70 dark:bg-slate-900/70 rounded-2xl border border-white/20 shadow-lg p-2 flex items-center gap-2 transition-all">
+                    <div className="relative flex-1">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                        <input
+                            type="text"
+                            placeholder="Buscar solicitudes..."
+                            className="w-full pl-11 pr-4 py-3 bg-transparent border-none text-sm focus:outline-none focus:ring-0 text-slate-900 placeholder:text-slate-400"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
-                    </div>
-                    {/* Placeholder for future filters */}
-                    <div className="hidden sm:flex items-center text-sm text-slate-500">
-                        {filteredRequests.length} {filteredRequests.length === 1 ? 'solicitud' : 'solicitudes'}
                     </div>
                 </div>
 
@@ -210,115 +232,95 @@ export default function Dashboard() {
                 {loading ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {[1, 2, 3].map(i => (
-                            <div key={i} className="h-48 rounded-xl bg-slate-200 animate-pulse" />
+                            <div key={i} className="h-64 rounded-3xl bg-slate-100 dark:bg-slate-900 animate-pulse" />
                         ))}
                     </div>
                 ) : filteredRequests.length === 0 ? (
-                    <div className="text-center py-20 bg-white dark:bg-slate-900 rounded-xl border border-dashed border-slate-300">
-                        <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <Search className="h-8 w-8 text-slate-400" />
+                    <div className="text-center py-20">
+                        <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-slate-50 mb-6">
+                            <Search className="h-10 w-10 text-slate-300" />
                         </div>
-                        <h3 className="text-lg font-medium text-slate-900 mb-1">No se encontraron solicitudes</h3>
-                        <p className="text-slate-500 mb-4 max-w-sm mx-auto">
-                            {searchTerm ? 'Intenta con otros términos de búsqueda.' : 'Comienza creando tu primera solicitud de contrato.'}
+                        <h3 className="text-xl font-bold text-slate-900 mb-2">No se encontraron solicitudes</h3>
+                        <p className="text-slate-500 mb-8 max-w-sm mx-auto">
+                            Comienza creando tu primera solicitud utilizando los accesos directos de arriba.
                         </p>
-                        {!searchTerm && (
-                            <Button onClick={() => navigate('/new-request')} variant="outline">
-                                Crear Solicitud
-                            </Button>
-                        )}
                     </div>
                 ) : (
-                    <div id="tour-requests-list" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <motion.div
+                        variants={container}
+                        initial="hidden"
+                        animate="show"
+                        id="tour-requests-list"
+                        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-20"
+                    >
                         {filteredRequests.map((request) => (
-                            <Card
+                            <motion.div
                                 key={request.id}
-                                className="group hover:shadow-lg transition-all duration-300 border-slate-200 dark:border-slate-800 cursor-pointer overflow-hidden relative"
+                                variants={item}
                                 onClick={() => resumeRequest(request.id)}
                             >
-                                {/* Status Indicator Color Line */}
-                                <div className={`absolute top-0 left-0 w-1 h-full ${request.status === 'realizado' ? 'bg-green-500' :
-                                    request.status === 'rechazado' ? 'bg-red-500' :
-                                        request.status === 'submitted' || request.status === 'pendiente' ? 'bg-amber-400' :
-                                            'bg-slate-300'
-                                    }`} />
-
-                                <CardHeader className="pb-3 pl-6">
-                                    <div className="flex justify-between items-start">
-                                        <Badge variant={request.status === 'submitted' || request.status === 'pendiente' ? 'default' : request.status === 'realizado' ? 'success' : request.status === 'rechazado' ? 'destructive' : 'secondary'} className={
-                                            request.status === 'submitted' || request.status === 'pendiente' ? 'bg-amber-100 text-amber-700 hover:bg-amber-100 border-amber-200' :
-                                                request.status === 'realizado' ? 'bg-green-100 text-green-700 hover:bg-green-100 border-green-200' :
-                                                    request.status === 'rechazado' ? 'bg-red-100 text-red-700 hover:bg-red-100 border-red-200' :
-                                                        'bg-slate-100 text-slate-700 hover:bg-slate-100 border-slate-200'
-                                        }>
-                                            {request.status === 'submitted' || request.status === 'pendiente' ? 'Pendiente' :
-                                                request.status === 'realizado' ? 'Realizado' :
-                                                    request.status === 'rechazado' ? 'Rechazado' : 'Borrador'}
-                                        </Badge>
-                                        <div className="relative z-10">
-                                            <Button variant="ghost" size="icon" className="h-8 w-8 -mr-2 text-slate-400 hover:text-red-500" onClick={(e) => handleDeleteClick(request.id, e)}>
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
+                                <div className="group h-full bg-white dark:bg-slate-900/50 backdrop-blur-sm rounded-3xl border border-slate-200 dark:border-slate-800 p-5 hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer relative overflow-hidden">
+                                    <div className="flex justify-between items-start mb-4">
+                                        <div className={`
+                                            px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider
+                                            ${request.status === 'realizado' ? 'bg-green-100 text-green-700' :
+                                                request.status === 'rechazado' ? 'bg-red-100 text-red-700' :
+                                                    request.status === 'submitted' || request.status === 'pendiente' ? 'bg-amber-100 text-amber-700' :
+                                                        'bg-slate-100 text-slate-600'}
+                                        `}>
+                                            {request.status === 'submitted' ? 'PENDIENTE' : request.status || 'BORRADOR'}
                                         </div>
-                                    </div>
-                                    <CardTitle className="text-lg font-bold line-clamp-1 mt-2 flex items-center gap-2" title={request.data?.direccion || request.data?.propiedadDireccion}>
-                                        {request.type === 'invoice' ? (
-                                            <Receipt className="h-4 w-4 text-emerald-500 shrink-0" />
-                                        ) : (
-                                            <Building2 className="h-4 w-4 text-slate-400 shrink-0" />
-                                        )}
-                                        {request.data?.direccion || request.data?.propiedadDireccion || 'Nueva Solicitud'}
-                                    </CardTitle>
-                                    <CardDescription className="line-clamp-1">
-                                        {request.data?.comuna || (request.type === 'invoice' ? 'Solicitud Factura' : 'Ubicación pendiente')}
-                                    </CardDescription>
-                                </CardHeader>
-
-                                <CardContent className="pl-6 pb-6 pt-0 space-y-4">
-                                    <Separator />
-                                    <div className="space-y-2 text-sm text-slate-600 dark:text-slate-400">
-                                        <div className="flex items-center gap-2">
-                                            <User className="h-4 w-4 text-slate-400" />
-                                            <span className="truncate">
-                                                {request.data?.arrendatarioNombre || request.data?.dueñoNombre || request.data?.compradorNombre || 'Cliente sin asignar'}
-                                            </span>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <Calendar className="h-4 w-4 text-slate-400" />
-                                            <span>Actualizado: {formatDate(request.updated_at)}</span>
-                                        </div>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 -mr-2 text-slate-300 hover:text-red-500 transition-colors" onClick={(e) => handleDeleteClick(request.id, e)}>
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
                                     </div>
 
+                                    <div className="mb-6">
+                                        <h4 className="font-bold text-lg text-slate-900 dark:text-white line-clamp-1 mb-1">
+                                            {request.data?.direccion || request.data?.propiedadDireccion || 'Nueva Solicitud'}
+                                        </h4>
+                                        <p className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                                            <MapPin className="w-3.5 h-3.5" />
+                                            {request.data?.comuna || 'Ubicación pendiente'}
+                                        </p>
+                                    </div>
+
+                                    <Separator className="mb-4 bg-slate-100 dark:bg-slate-800" />
+
+                                    <div className="flex items-center justify-between text-xs text-slate-500 font-medium">
+                                        <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800 px-2 py-1 rounded-md">
+                                            {request.type === 'invoice' ? <Receipt className="w-3 h-3" /> : <FileText className="w-3 h-3" />}
+                                            <span className="capitalize">{request.type === 'invoice' ? 'Factura' : 'Contrato'}</span>
+                                        </div>
+                                        <span>{formatDate(request.updated_at)}</span>
+                                    </div>
+
+                                    {/* Progress Bar for Drafts */}
                                     {request.status === 'draft' && (
-                                        <div className="space-y-1.5 pt-2">
-                                            <div className="flex justify-between text-xs font-medium text-slate-500">
-                                                <span>Progreso</span>
-                                                <span>{Math.round(getProgress(request.step))}%</span>
-                                            </div>
-                                            <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
-                                                <div
-                                                    className="h-full bg-primary transition-all duration-500 ease-out"
-                                                    style={{ width: `${getProgress(request.step)}%` }}
-                                                />
-                                            </div>
+                                        <div className="mt-4 h-1 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                            <div
+                                                className="h-full bg-primary transition-all duration-500 ease-out"
+                                                style={{ width: `${getProgress(request.step)}%` }}
+                                            />
                                         </div>
                                     )}
-                                </CardContent>
-                            </Card>
+                                </div>
+                            </motion.div>
                         ))}
-                    </div>
+                    </motion.div>
                 )}
+
                 <AlertDialog open={!!requestToDelete} onOpenChange={(open) => !open && setRequestToDelete(null)}>
                     <AlertDialogContent>
                         <AlertDialogHeader>
-                            <AlertDialogTitle>¿Estás completamente seguro?</AlertDialogTitle>
+                            <AlertDialogTitle>¿Eliminar solicitud?</AlertDialogTitle>
                             <AlertDialogDescription>
-                                Esta acción no se puede deshacer. Esto eliminará permanentemente la solicitud y todos los datos asociados.
+                                Esta acción es irreversible. Se perderán todos los datos asociados.
                             </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                            <AlertDialogAction onClick={confirmDelete} className="bg-red-600 hover:bg-red-700 focus:ring-red-600">
+                            <AlertDialogAction onClick={confirmDelete} className="bg-red-600 hover:bg-red-700">
                                 Eliminar
                             </AlertDialogAction>
                         </AlertDialogFooter>
