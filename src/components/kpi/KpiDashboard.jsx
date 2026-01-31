@@ -6,9 +6,16 @@ import {
     AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
     PieChart, Pie, Cell, FunnelChart, Funnel, LabelList, BarChart, Bar
 } from 'recharts'
-import { format, startOfMonth, endOfMonth } from 'date-fns'
+import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, isWithinInterval } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { TrendingUp, TrendingDown, DollarSign, Users, Target, Activity } from 'lucide-react'
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui'
 
 export default function KpiDashboard() {
     const { user } = useAuth()
@@ -52,15 +59,40 @@ export default function KpiDashboard() {
         }
     }
 
+    const [funnelFilter, setFunnelFilter] = useState('year') // 'week', 'month', 'year', 'custom'
+
     // --- Calculations ---
+
+    // 0. Filtered KPIs for Funnel
+    const filteredKpis = useMemo(() => {
+        const now = new Date()
+        if (funnelFilter === 'year') return kpis
+        if (funnelFilter === 'custom') return kpis // Placeholder for now
+
+        let start, end
+
+        if (funnelFilter === 'month') {
+            start = startOfMonth(now)
+            end = endOfMonth(now)
+        } else if (funnelFilter === 'week') {
+            start = startOfWeek(now, { locale: es })
+            end = endOfWeek(now, { locale: es })
+        }
+
+        return kpis.filter(k => {
+            const date = new Date(k.week_start_date)
+            return isWithinInterval(date, { start, end })
+        })
+    }, [kpis, funnelFilter])
 
     // 1. Metrics for Top Cards
     const { gaugeData, currentMonthBilling, monthlyGoal, gaugePercentage, annualBilling, annualGoal, totalListings } = useMemo(() => {
+        // ... existing logic stays same as it uses full year or specific calculations
         const now = new Date()
         const start = startOfMonth(now)
         const end = endOfMonth(now)
 
-        const billing = kpis
+        const billing = kpis // Keeping Top Cards mostly Annual/Monthly fixed as per their labels
             .filter(k => {
                 const dates = new Date(k.week_start_date)
                 return dates >= start && dates <= end
@@ -74,7 +106,6 @@ export default function KpiDashboard() {
         const pct = mGoal > 0 ? (billing / mGoal) * 100 : 0
         const clampedPct = Math.min(pct, 100)
 
-        // Data for PieChart: [Progress, Remaining]
         const data = [
             { name: 'Progreso', value: clampedPct },
             { name: 'Restante', value: 100 - clampedPct }
@@ -91,9 +122,9 @@ export default function KpiDashboard() {
     }, [kpis, goals])
 
 
-    // 2. Funnel Logic (Aggregated Total)
+    // 2. Funnel Logic (Aggregated Total based on Filter)
     const funnelData = useMemo(() => {
-        const aggs = kpis.reduce((acc, curr) => ({
+        const aggs = filteredKpis.reduce((acc, curr) => ({
             conversations: acc.conversations + (curr.conversations_started || 0),
             interviews: acc.interviews + (curr.sales_interviews || 0) + (curr.buying_interviews || 0),
             listings: acc.listings + (curr.new_listings || 0),
@@ -106,7 +137,7 @@ export default function KpiDashboard() {
             { name: 'Captaciones', value: aggs.listings, fill: '#3b82f6' },     // Blue
             { name: 'Ventas', value: aggs.sales, fill: '#06b6d4' },             // Cyan
         ]
-    }, [kpis])
+    }, [filteredKpis])
 
     // 3. Activity Trend (Weekly) - Updated for Bar style similar to reference
     const trendData = useMemo(() => {
@@ -313,18 +344,28 @@ export default function KpiDashboard() {
                 <div className="bg-white p-6 rounded-3xl shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-100 flex flex-col">
                     <div className="flex items-center justify-between mb-8">
                         <h3 className="text-lg font-bold text-slate-900">Conversión</h3>
-                        <span className="text-xs font-medium bg-slate-50 text-slate-500 px-2 py-1 rounded-md">Anual</span>
+                        <Select value={funnelFilter} onValueChange={setFunnelFilter}>
+                            <SelectTrigger className="w-[100px] h-8 text-xs bg-slate-50 border-slate-200">
+                                <SelectValue placeholder="Periodo" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="week">Semana</SelectItem>
+                                <SelectItem value="month">Mes</SelectItem>
+                                <SelectItem value="year">Anual</SelectItem>
+                                <SelectItem value="custom">Custom</SelectItem>
+                            </SelectContent>
+                        </Select>
                     </div>
                     <div className="flex-1 min-h-[300px] flex items-center justify-center relative">
                         <ResponsiveContainer width="100%" height="100%">
-                            <FunnelChart>
+                            <FunnelChart margin={{ right: 80, left: 20 }}>
                                 <Tooltip content={<CustomTooltip />} />
                                 <Funnel
                                     dataKey="value"
                                     data={funnelData}
                                     isAnimationActive
                                 >
-                                    <LabelList position="right" fill="#64748b" stroke="none" dataKey="name" fontSize={12} fontWeight={600} />
+                                    <LabelList position="right" fill="#64748b" stroke="none" dataKey="name" fontSize={11} fontWeight={600} />
                                 </Funnel>
                             </FunnelChart>
                         </ResponsiveContainer>
