@@ -129,18 +129,6 @@ export default function AgentLeadView() {
                     <CardContent className="p-6">
                         <div className="flex justify-between items-center gap-4">
                             <a
-                                href={cleanPhone ? `https://wa.me/${cleanPhone}` : '#'}
-                                target="_blank"
-                                rel="noreferrer"
-                                className={`flex flex-col items-center gap-2 flex-1 ${!cleanPhone && 'opacity-50 pointer-events-none'}`}
-                            >
-                                <div className="h-12 w-12 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-white/30 transition-colors">
-                                    <MessageCircle className="h-6 w-6" />
-                                </div>
-                                <span className="text-xs font-medium">WhatsApp</span>
-                            </a>
-
-                            <a
                                 href={cleanPhone ? `tel:${cleanPhone}` : '#'}
                                 className={`flex flex-col items-center gap-2 flex-1 ${!cleanPhone && 'opacity-50 pointer-events-none'}`}
                             >
