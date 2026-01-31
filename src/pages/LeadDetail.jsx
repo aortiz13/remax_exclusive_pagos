@@ -206,9 +206,12 @@ export default function LeadDetail() {
                     </p>
 
                     <Card>
-                        <CardContent className="p-6">
-                            {/* Recursive Adaptive Viewer */}
-                            <JSONViewer data={lead.raw_data} />
+                        <CardContent className="p-6 overflow-auto">
+                            {/* Recursive Adaptive Viewer - DEBUG MODE */}
+                            {/* <JSONViewer data={lead.raw_data} /> */}
+                            <pre className="text-xs font-mono bg-slate-100 p-4 rounded">
+                                {JSON.stringify(lead.raw_data, null, 2)}
+                            </pre>
                         </CardContent>
                     </Card>
 
