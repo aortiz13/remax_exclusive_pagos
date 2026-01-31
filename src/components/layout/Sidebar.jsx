@@ -9,7 +9,11 @@ import {
     ChevronLeft,
     ChevronRight,
     PlusCircle,
-    FileText
+    PlusCircle,
+    FileText,
+    BarChart3,
+    Target,
+    ClipboardList
 } from 'lucide-react'
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
@@ -30,6 +34,21 @@ export default function Sidebar() {
             title: 'Mis Solicitudes',
             icon: LayoutDashboard,
             path: '/dashboard',
+        },
+        {
+            title: 'Analisis KPI',
+            icon: BarChart3,
+            path: '/kpis/dashboard',
+        },
+        {
+            title: 'Carga Semanal',
+            icon: ClipboardList,
+            path: '/kpis/entry',
+        },
+        {
+            title: 'Mis Objetivos',
+            icon: Target,
+            path: '/kpis/goals',
         },
         {
             title: 'Nueva Solicitud',
@@ -56,6 +75,11 @@ export default function Sidebar() {
             title: 'Tablero Solicitudes',
             icon: LayoutDashboard,
             path: '/admin/requests',
+        })
+        bottomMenuItems.push({
+            title: 'KPIs Agentes',
+            icon: BarChart3,
+            path: '/admin/kpis',
         })
     }
 

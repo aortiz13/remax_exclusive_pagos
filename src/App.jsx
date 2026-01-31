@@ -12,10 +12,11 @@ import ContractForm from './pages/ContractForm'
 import AdminInvites from './pages/AdminInvites'
 import ForgotPassword from './pages/ForgotPassword'
 import UpdatePassword from './pages/UpdatePassword'
-import AdminRequests from './pages/AdminRequests'
-import InvoiceForm from './pages/InvoiceForm'
-import LeadDetail from './pages/LeadDetail'
 import AgentLeadView from './pages/AgentLeadView'
+import WeeklyKpiForm from './components/kpi/WeeklyKpiForm'
+import AgentGoalsForm from './components/kpi/AgentGoalsForm'
+import KpiDashboard from './components/kpi/KpiDashboard'
+import AdminKpiView from './components/kpi/AdminKpiView'
 import { Toaster } from 'sonner'
 
 // Protected Route Component
@@ -128,6 +129,28 @@ function App() {
             <Route path="/admin/requests" element={
               <ProtectedRoute>
                 <AdminRequests />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/kpis" element={
+              <ProtectedRoute>
+                <AdminKpiView />
+              </ProtectedRoute>
+            } />
+
+            {/* KPI Routes */}
+            <Route path="/kpis/entry" element={
+              <ProtectedRoute>
+                <WeeklyKpiForm />
+              </ProtectedRoute>
+            } />
+            <Route path="/kpis/goals" element={
+              <ProtectedRoute>
+                <AgentGoalsForm />
+              </ProtectedRoute>
+            } />
+            <Route path="/kpis/dashboard" element={
+              <ProtectedRoute>
+                <KpiDashboard />
               </ProtectedRoute>
             } />
 
