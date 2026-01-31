@@ -40,20 +40,18 @@ export default function StepCalculos({ data, onUpdate, onNext, onBack }) {
         const mesesContrato = Number(data.duracionContrato) || 12; // Default 1 year if not set
         const tipoPropiedad = data.tipoPropiedad || 'Casa'; // Default Residential
 
-        // Determine Category
-        const isCommercial = ['Oficina', 'Local Comercial', 'Bodega', 'Industrial'].includes(tipoPropiedad);
+        // Determine Category (Prioritize manual selection, fallback to property type inference)
+        const isCommercial = data.contractType
+            ? data.contractType === 'commercial'
+            : ['Oficina', 'Local Comercial', 'Bodega', 'Industrial'].includes(tipoPropiedad);
 
         if (!isCommercial) {
             // -- RESIDENCIAL --
             if (mesesContrato <= 24) {
-                // 50% Canon + IVA (Min 6 UF)
-                let baseHonorarios = Math.round(canon * 0.5);
-                const minHonorarios = 6 * VALOR_UF_ESTIMADO;
-
-                if (baseHonorarios < minHonorarios) {
-                    baseHonorarios = minHonorarios;
-                }
-                honorariosNeto = baseHonorarios;
+                // 50% Canon + IVA
+                // STRICT RULE: "Si es residencial inferior a 2 años el calculo de los honorarios remax debe ser el 50% + IVA de la renta."
+                // Removed previous Minimum 6 UF logic to comply strictly.
+                honorariosNeto = Math.round(canon * 0.5);
             } else {
                 // > 24 meses: 2% del total del contrato
                 const totalContrato = canon * mesesContrato;
@@ -62,8 +60,9 @@ export default function StepCalculos({ data, onUpdate, onNext, onBack }) {
         } else {
             // -- COMERCIAL --
             if (mesesContrato <= 60) { // Hasta 5 años
-                // 100% Canon (1 mes) + IVA
-                honorariosNeto = canon;
+                // NEW RULE: "Si es inferior a 5 años es el 50+ IVA de 1 mes de renta."
+                // (Previous was 100%)
+                honorariosNeto = Math.round(canon * 0.5);
             } else {
                 // > 5 años: 2% del total del contrato
                 const totalContrato = canon * mesesContrato;
@@ -137,8 +136,20 @@ export default function StepCalculos({ data, onUpdate, onNext, onBack }) {
     }
 
     // Determine category label for UI
-    const isCommercial = ['Oficina', 'Local Comercial', 'Bodega', 'Industrial'].includes(data.tipoPropiedad);
+    // Determine category label for UI
+    const isCommercial = data.contractType
+        ? data.contractType === 'commercial'
+        : ['Oficina', 'Local Comercial', 'Bodega', 'Industrial'].includes(data.tipoPropiedad);
+
     const categoryLabel = isCommercial ? 'Comercial' : 'Residencial';
+
+    // Initialize Contract Type if not set
+    useEffect(() => {
+        if (!data.contractType && data.tipoPropiedad) {
+            const AutoIsCommercial = ['Oficina', 'Local Comercial', 'Bodega', 'Industrial'].includes(data.tipoPropiedad);
+            onUpdate('contractType', AutoIsCommercial ? 'commercial' : 'residential');
+        }
+    }, []) // Run once on mount to set default if missing
 
     // Local state to track "mode" (short vs long) explicitly.
     // This prevents the UI from flipping back to "short" when the user clears the input (value becomes empty or 0).
@@ -171,6 +182,45 @@ export default function StepCalculos({ data, onUpdate, onNext, onBack }) {
                     {/* INPUTS COLUMN */}
                     <div className="space-y-6">
 
+                        {/* SECCIÓN: TIPO DE CONTRATO (RESIDENCIAL VS COMERCIAL) */}
+                        <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm space-y-3">
+                            <Label className="text-slate-900 font-semibold flex items-center gap-2">
+                                <Briefcase className="w-4 h-4" /> Tipo de Contrato
+                            </Label>
+                            <div className="flex gap-4">
+                                <label className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-md border cursor-pointer transition-all ${!isCommercial ? 'bg-primary/10 border-primary text-primary font-medium' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+                                    <input
+                                        type="radio"
+                                        name="contractType"
+                                        className="hidden"
+                                        checked={!isCommercial}
+                                        onChange={() => {
+                                            onUpdate('contractType', 'residential')
+                                            // Reset duration to default when switching
+                                            onUpdate('duracionContrato', 12)
+                                            setContractTimeMode('short')
+                                        }}
+                                    />
+                                    <span>Residencial</span>
+                                </label>
+                                <label className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-md border cursor-pointer transition-all ${isCommercial ? 'bg-primary/10 border-primary text-primary font-medium' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+                                    <input
+                                        type="radio"
+                                        name="contractType"
+                                        className="hidden"
+                                        checked={isCommercial}
+                                        onChange={() => {
+                                            onUpdate('contractType', 'commercial')
+                                            // Reset duration to default when switching
+                                            onUpdate('duracionContrato', 12)
+                                            setContractTimeMode('short')
+                                        }}
+                                    />
+                                    <span>Comercial</span>
+                                </label>
+                            </div>
+                        </div>
+
                         {/* SECCIÓN: DURACIÓN CONTRATO */}
                         <div className="bg-blue-50/50 p-4 rounded-lg border border-blue-100 space-y-3">
                             <Label className="text-blue-900 font-semibold">Duración del Contrato</Label>
@@ -192,10 +242,10 @@ export default function StepCalculos({ data, onUpdate, onNext, onBack }) {
                                         }}
                                     >
                                         <option value="short">
-                                            {isCommercial ? 'Contrato de hasta 5 años' : 'Contrato de hasta 2 años'}
+                                            {isCommercial ? 'Contrato de hasta 5 años (Comisión 50% canon)' : 'Contrato de hasta 2 años (Comisión 50% canon)'}
                                         </option>
                                         <option value="long">
-                                            {isCommercial ? 'Contrato mayor a 5 años' : 'Contrato de más de 2 años'}
+                                            {isCommercial ? 'Contrato mayor a 5 años (2% Total Contrato)' : 'Contrato mayor a 2 años (2% Total Contrato)'}
                                         </option>
                                     </select>
                                 </div>

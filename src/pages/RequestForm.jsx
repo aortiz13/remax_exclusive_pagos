@@ -60,6 +60,7 @@ export default function RequestForm() {
         costoDominioVigente: '',
         honorariosAdmin: '',
         duracionContrato: '',
+        contractType: '', // 'residential' | 'commercial'
         conAdministracion: false,
         porcentajeAdministracion: '',
 
