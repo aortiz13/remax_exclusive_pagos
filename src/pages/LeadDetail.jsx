@@ -225,6 +225,22 @@ export default function LeadDetail() {
                                         <span className="font-medium text-slate-700 text-sm">{property.address}</span>
                                     </div>
                                 )}
+                                {(property.beds || property.baths) && (
+                                    <div className="flex items-center gap-3 p-4">
+                                        <Home className="w-5 h-5 text-slate-400" />
+                                        <span className="font-medium text-slate-700 text-sm">
+                                            {property.beds ? `${property.beds} Dorm` : ''}
+                                            {property.beds && property.baths ? ' • ' : ''}
+                                            {property.baths ? `${property.baths} Baños` : ''}
+                                        </span>
+                                    </div>
+                                )}
+                                {contact.details && (
+                                    <div className="flex items-start gap-3 p-4">
+                                        <AlertCircle className="w-5 h-5 text-slate-400 mt-0.5" />
+                                        <span className="font-medium text-slate-700 text-sm italic">"{contact.details}"</span>
+                                    </div>
+                                )}
                             </div>
                         </CardContent>
                     </Card>
