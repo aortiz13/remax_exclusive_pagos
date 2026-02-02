@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
-import { supabase } from '../supabase/client'
+import { supabase } from '../services/supabase'
 import { useAuth } from '../context/AuthContext'
 import {
     Button,
