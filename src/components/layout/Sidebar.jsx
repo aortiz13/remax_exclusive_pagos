@@ -86,6 +86,21 @@ export default function Sidebar() {
                     path: '/new-request',
                 },
             ]
+        },
+        {
+            title: 'DOCUMENTOS',
+            items: [
+                {
+                    title: 'Formularios Compraventa',
+                    icon: FileText,
+                    path: '/documents/purchase',
+                },
+                {
+                    title: 'Formularios Arriendo',
+                    icon: ClipboardList, // Or another icon
+                    path: '/documents/rental',
+                },
+            ]
         }
     ]
 

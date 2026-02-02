@@ -22,6 +22,7 @@ import KpiDashboard from './components/kpi/KpiDashboard'
 import AdminKpiView from './components/kpi/AdminKpiView'
 import CRM from './pages/CRM'
 import ContactDetail from './components/crm/ContactDetail'
+import DocumentRepository from './pages/DocumentRepository'
 import { Toaster } from 'sonner'
 
 // Protected Route Component
@@ -157,6 +158,19 @@ function App() {
             <Route path="/crm/contact/:id" element={
               <ProtectedRoute>
                 <ContactDetail />
+              </ProtectedRoute>
+            } />
+
+
+            <Route path="/crm/contact/:id" element={
+              <ProtectedRoute>
+                <ContactDetail />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/documents/:category" element={
+              <ProtectedRoute>
+                <DocumentRepository />
               </ProtectedRoute>
             } />
 

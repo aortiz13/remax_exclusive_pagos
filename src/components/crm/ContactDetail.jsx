@@ -134,18 +134,19 @@ const ContactDetail = () => {
 
         try {
             setIsDeleting(true)
-            const { error } = await supabase
+            const { error, count } = await supabase
                 .from('contacts')
-                .delete()
+                .delete({ count: 'exact' })
                 .eq('id', id)
 
             if (error) throw error
+            if (count === 0) throw new Error('No se pudo eliminar (verifique permisos)')
 
             toast.success('Contacto eliminado correctamente')
             navigate('/crm')
         } catch (error) {
             console.error('Error deleting contact:', error)
-            toast.error('Error al eliminar contacto')
+            toast.error('Error al eliminar contacto: ' + (error.message || 'Error desconocido'))
             setIsDeleting(false)
         }
     }
