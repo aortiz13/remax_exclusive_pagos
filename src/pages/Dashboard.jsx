@@ -257,9 +257,11 @@ export default function Dashboard() {
                                             ${request.status === 'realizado' ? 'bg-green-100 text-green-700' :
                                                 request.status === 'rechazado' ? 'bg-red-100 text-red-700' :
                                                     request.status === 'submitted' || request.status === 'pendiente' ? 'bg-amber-100 text-amber-700' :
-                                                        'bg-slate-100 text-slate-600'}
+                                                        'bg-red-100 text-red-700'}
                                         `}>
-                                            {request.status === 'submitted' ? 'PENDIENTE' : request.status || 'BORRADOR'}
+                                            {request.status === 'submitted' ? 'PENDIENTE' :
+                                                (!request.status || request.status === 'draft') ? 'BORRADOR' :
+                                                    request.status}
                                         </div>
                                         <Button variant="ghost" size="icon" className="h-8 w-8 -mr-2 text-slate-300 hover:text-red-500 transition-colors" onClick={(e) => handleDeleteClick(request.id, e)}>
                                             <Trash2 className="h-4 w-4" />

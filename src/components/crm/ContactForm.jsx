@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { Button, Input, Textarea, Select, Label, Switch } from '@/components/ui'
+import { Button, Input, Textarea, Select, Label, Switch, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem, Badge } from '@/components/ui'
 import { X, Save } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '../../services/supabase'
@@ -247,22 +247,51 @@ const ContactForm = ({ contact, isOpen, onClose }) => {
                         </div>
                         <div className="space-y-2">
                             <label className="text-sm font-medium">Necesidad</label>
-                            <select
-                                name="need"
-                                value={formData.need}
-                                onChange={handleChange}
-                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                            >
-                                <option value="Comprar">Comprar</option>
-                                <option value="Arrendar">Arrendar</option>
-                                <option value="Invertir">Invertir</option>
-                                <option value="Vender">Vender</option>
-                                <option value="Otro">Otro</option>
-                            </select>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="outline" className="w-full justify-start font-normal">
+                                        {formData.need ? (
+                                            <div className="flex flex-wrap gap-1">
+                                                {formData.need.split(',').map((n, i) => (
+                                                    <span key={i} className="bg-slate-100 text-slate-800 text-xs px-2 py-0.5 rounded-full dark:bg-slate-800 dark:text-slate-300">
+                                                        {n.trim()}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <span className="text-muted-foreground">Seleccionar necesidades...</span>
+                                        )}
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent className="w-56" align="start">
+                                    {['Comprar', 'Arrendar', 'Invertir', 'Vender', 'Otro'].map((option) => {
+                                        const currentNeeds = formData.need ? formData.need.split(',').map(s => s.trim()) : []
+                                        const isChecked = currentNeeds.includes(option)
+
+                                        return (
+                                            <DropdownMenuCheckboxItem
+                                                key={option}
+                                                checked={isChecked}
+                                                onCheckedChange={(checked) => {
+                                                    let newNeeds = [...currentNeeds]
+                                                    if (checked) {
+                                                        newNeeds.push(option)
+                                                    } else {
+                                                        newNeeds = newNeeds.filter(n => n !== option)
+                                                    }
+                                                    setFormData(prev => ({ ...prev, need: newNeeds.join(', ') }))
+                                                }}
+                                            >
+                                                {option}
+                                            </DropdownMenuCheckboxItem>
+                                        )
+                                    })}
+                                </DropdownMenuContent>
+                            </DropdownMenu>
                         </div>
-                        {formData.need === 'Otro' && (
+                        {formData.need?.includes('Otro') && (
                             <div className="space-y-2">
-                                <label className="text-sm font-medium">Otra Necesidad</label>
+                                <label className="text-sm font-medium">Otra Necesidad (Detalle)</label>
                                 <Input name="need_other" value={formData.need_other} onChange={handleChange} />
                             </div>
                         )}

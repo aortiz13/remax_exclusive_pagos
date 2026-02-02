@@ -19,6 +19,11 @@ import {
 import { Plus, Search, MoreHorizontal, Phone, Mail, MapPin, GripHorizontal, Columns } from 'lucide-react'
 import { supabase } from '../../services/supabase'
 import ContactForm from './ContactForm'
+import ContactImporter from './ContactImporter'
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Label } from "@/components/ui/label"
+import ExcelJS from 'exceljs'
 import { useNavigate } from 'react-router-dom'
 import {
     DndContext,
@@ -85,6 +90,17 @@ const ContactList = () => {
         { id: 'actions', label: 'Acciones', visible: true, locked: true }, // Locked column
     ])
 
+    // Advanced Filters & Sort
+    const [isImporterOpen, setIsImporterOpen] = useState(false)
+    const [sortOrder, setSortOrder] = useState('newest') // newest, oldest
+    const [filters, setFilters] = useState({
+        profession: '',
+        rating: '',
+        need: '',
+        comuna: '',
+        address: ''
+    })
+
     const sensors = useSensors(
         useSensor(PointerSensor),
         useSensor(KeyboardSensor, {
@@ -119,7 +135,18 @@ const ContactList = () => {
         contact.last_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         contact.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         contact.phone?.includes(searchTerm)
-    )
+    ).filter(contact => {
+        if (filters.profession && !contact.profession?.toLowerCase().includes(filters.profession.toLowerCase())) return false
+        if (filters.rating && !contact.rating?.toLowerCase().includes(filters.rating.toLowerCase())) return false
+        if (filters.need && !contact.need?.toLowerCase().includes(filters.need.toLowerCase())) return false
+        if (filters.comuna && !(contact.barrio_comuna || contact.comuna)?.toLowerCase().includes(filters.comuna.toLowerCase())) return false
+        if (filters.address && !contact.address?.toLowerCase().includes(filters.address.toLowerCase())) return false
+        return true
+    }).sort((a, b) => {
+        const dateA = new Date(a.created_at)
+        const dateB = new Date(b.created_at)
+        return sortOrder === 'newest' ? dateB - dateA : dateA - dateB
+    })
 
     const handleEdit = (contact) => {
         setSelectedContact(contact)
@@ -137,6 +164,36 @@ const ContactList = () => {
         if (shouldRefresh) {
             fetchContacts()
         }
+    }
+
+    const handleExport = async () => {
+        const workbook = new ExcelJS.Workbook()
+        const worksheet = workbook.addWorksheet('Contactos')
+
+        worksheet.columns = [
+            { header: 'Nombre', key: 'first_name', width: 15 },
+            { header: 'Apellido', key: 'last_name', width: 15 },
+            { header: 'Email', key: 'email', width: 25 },
+            { header: 'Teléfono', key: 'phone', width: 15 },
+            { header: 'Profesión', key: 'profession', width: 20 },
+            { header: 'Necesidad', key: 'need', width: 15 },
+            { header: 'Comuna', key: 'barrio_comuna', width: 20 },
+            { header: 'Dirección', key: 'address', width: 30 },
+            { header: 'Fuente', key: 'source', width: 15 },
+            { header: 'Estado', key: 'status', width: 10 },
+        ]
+
+        filteredContacts.forEach(contact => {
+            worksheet.addRow(contact)
+        })
+
+        const buffer = await workbook.xlsx.writeBuffer()
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `contactos_remax_${new Date().toISOString().split('T')[0]}.xlsx`
+        a.click()
     }
 
     const handleDragEnd = (event) => {
@@ -227,7 +284,18 @@ const ContactList = () => {
                                 {/* Add more actions like Delete */}
                             </DropdownMenuContent>
                         </DropdownMenu>
-                    </div>
+                        {/* Quick Call Action */}
+                        {
+                            contact.phone && (
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50" onClick={(e) => {
+                                    e.stopPropagation()
+                                    window.location.href = `tel:${contact.phone}`
+                                }}>
+                                    <Phone className="h-4 w-4" />
+                                </Button>
+                            )
+                        }
+                    </div >
                 )
             default:
                 return null
@@ -276,6 +344,78 @@ const ContactList = () => {
                 <Button onClick={handleCreate}>
                     <Plus className="mr-2 h-4 w-4" /> Nuevo Contacto
                 </Button>
+            </div>
+
+            {/* Filter & Action Bar */}
+            <div className="flex flex-wrap items-center gap-2 justify-between bg-slate-50 dark:bg-slate-900/50 p-2 rounded-lg border">
+                <div className="flex items-center gap-2">
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button variant="outline" size="sm" className="h-8 border-dashed">
+                                <Plus className="mr-2 h-4 w-4" /> Filtros Avanzados
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-80" align="start">
+                            <div className="grid gap-4">
+                                <div className="space-y-2">
+                                    <h4 className="font-medium leading-none">Filtros</h4>
+                                    <p className="text-sm text-muted-foreground">Filtra tu lista de contactos.</p>
+                                </div>
+                                <div className="grid gap-2">
+                                    <div className="grid grid-cols-3 items-center gap-4">
+                                        <Label htmlFor="profession">Profesión</Label>
+                                        <Input
+                                            id="profession"
+                                            value={filters.profession}
+                                            onChange={(e) => setFilters({ ...filters, profession: e.target.value })}
+                                            className="col-span-2 h-8"
+                                        />
+                                    </div>
+                                    <div className="grid grid-cols-3 items-center gap-4">
+                                        <Label htmlFor="need">Necesidad</Label>
+                                        <Input
+                                            id="need"
+                                            value={filters.need}
+                                            onChange={(e) => setFilters({ ...filters, need: e.target.value })}
+                                            className="col-span-2 h-8"
+                                        />
+                                    </div>
+                                    <div className="grid grid-cols-3 items-center gap-4">
+                                        <Label htmlFor="comuna">Comuna</Label>
+                                        <Input
+                                            id="comuna"
+                                            value={filters.comuna}
+                                            onChange={(e) => setFilters({ ...filters, comuna: e.target.value })}
+                                            className="col-span-2 h-8"
+                                        />
+                                    </div>
+                                    <Button size="sm" variant="ghost" onClick={() => setFilters({ profession: '', rating: '', need: '', comuna: '', address: '' })} className="w-full">
+                                        Limpiar Filtros
+                                    </Button>
+                                </div>
+                            </div>
+                        </PopoverContent>
+                    </Popover>
+
+                    <Select value={sortOrder} onValueChange={setSortOrder}>
+                        <SelectTrigger className="h-8 w-[140px]">
+                            <SelectValue placeholder="Orden" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="newest">Más Nuevos</SelectItem>
+                            <SelectItem value="oldest">Más Antiguos</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+
+                <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" className="h-8" onClick={() => setIsImporterOpen(true)}>
+                        Importar Excel
+                    </Button>
+                    <Button variant="outline" size="sm" className="h-8" onClick={handleExport}>
+                        Exportar
+                    </Button>
+                </div>
             </div>
 
             <div className="rounded-md border bg-white dark:bg-gray-900 overflow-hidden">
@@ -336,6 +476,15 @@ const ContactList = () => {
                     onClose={handleFormClose}
                 />
             )}
+
+            <ContactImporter
+                isOpen={isImporterOpen}
+                onClose={() => setIsImporterOpen(false)}
+                onSuccess={() => {
+                    setIsImporterOpen(false)
+                    fetchContacts()
+                }}
+            />
         </div>
     )
 }
