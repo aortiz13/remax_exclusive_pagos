@@ -123,7 +123,7 @@ const ContactImporter = ({ isOpen, onClose, onSuccess }) => {
                     barrio_comuna: mapping.comuna ? row.getCell(Number(mapping.comuna)).value?.toString() : null,
                     need: mapping.need && typeof mapping.need === 'number' ? row.getCell(Number(mapping.need)).value?.toString() : 'Comprar',
                     status: 'Activo',
-                    user_id: user?.id
+                    agent_id: user?.id
                 }
 
                 // Basic validation
