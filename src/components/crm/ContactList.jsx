@@ -311,53 +311,22 @@ const ContactList = () => {
 
     return (
         <div className="space-y-4">
-            <div className="flex items-center justify-between">
-                <div className="flex gap-2">
-                    <div className="relative w-72">
-                        <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+            {/* Unified Toolbar */}
+            <div className="flex flex-wrap items-center justify-between gap-4 p-4 bg-slate-50/50 dark:bg-slate-900/20 rounded-xl border border-slate-100 dark:border-slate-800">
+                <div className="flex flex-wrap items-center gap-2 flex-1">
+                    <div className="relative w-full sm:w-64 lg:w-72">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input
                             placeholder="Buscar contactos..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="pl-8"
+                            className="pl-9 bg-white dark:bg-slate-950"
                         />
                     </div>
-                    {/* Column Selector */}
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="outline" className="gap-2">
-                                <Columns className="w-4 h-4" /> Columnas
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="start">
-                            <DropdownMenuLabel>Visible Columns</DropdownMenuLabel>
-                            <DropdownMenuSeparator />
-                            {columns.map((col) => {
-                                if (col.locked) return null
-                                return (
-                                    <DropdownMenuCheckboxItem
-                                        key={col.id}
-                                        checked={col.visible}
-                                        onCheckedChange={() => toggleColumn(col.id)}
-                                    >
-                                        {col.label}
-                                    </DropdownMenuCheckboxItem>
-                                )
-                            })}
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                </div>
-                <Button onClick={handleCreate}>
-                    <Plus className="mr-2 h-4 w-4" /> Nuevo Contacto
-                </Button>
-            </div>
 
-            {/* Filter & Action Bar */}
-            <div className="flex flex-wrap items-center gap-2 justify-between bg-slate-50 dark:bg-slate-900/50 p-2 rounded-lg border">
-                <div className="flex items-center gap-2">
                     <Popover>
                         <PopoverTrigger asChild>
-                            <Button variant="outline" size="sm" className="h-8 border-dashed">
+                            <Button variant="outline" className="border-dashed bg-white dark:bg-slate-950">
                                 <Plus className="mr-2 h-4 w-4" /> Filtros Avanzados
                             </Button>
                         </PopoverTrigger>
@@ -395,6 +364,15 @@ const ContactList = () => {
                                             className="col-span-2 h-8"
                                         />
                                     </div>
+                                    <div className="grid grid-cols-3 items-center gap-4">
+                                        <Label htmlFor="address">Dirección</Label>
+                                        <Input
+                                            id="address"
+                                            value={filters.address}
+                                            onChange={(e) => setFilters({ ...filters, address: e.target.value })}
+                                            className="col-span-2 h-8"
+                                        />
+                                    </div>
                                     <Button size="sm" variant="ghost" onClick={() => setFilters({ profession: '', rating: '', need: '', comuna: '', address: '' })} className="w-full">
                                         Limpiar Filtros
                                     </Button>
@@ -404,7 +382,7 @@ const ContactList = () => {
                     </Popover>
 
                     <Select value={sortOrder} onValueChange={setSortOrder}>
-                        <SelectTrigger className="h-8 w-[140px]">
+                        <SelectTrigger className="w-[140px] bg-white dark:bg-slate-950">
                             <SelectValue placeholder="Orden" />
                         </SelectTrigger>
                         <SelectContent>
@@ -412,14 +390,42 @@ const ContactList = () => {
                             <SelectItem value="oldest">Más Antiguos</SelectItem>
                         </SelectContent>
                     </Select>
+
+                    {/* Column Selector */}
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="outline" className="gap-2 bg-white dark:bg-slate-950">
+                                <Columns className="w-4 h-4" /> Columnas
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start">
+                            <DropdownMenuLabel>Columnas Visibles</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            {columns.map((col) => {
+                                if (col.locked) return null
+                                return (
+                                    <DropdownMenuCheckboxItem
+                                        key={col.id}
+                                        checked={col.visible}
+                                        onCheckedChange={() => toggleColumn(col.id)}
+                                    >
+                                        {col.label}
+                                    </DropdownMenuCheckboxItem>
+                                )
+                            })}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 </div>
 
                 <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" className="h-8" onClick={() => setIsImporterOpen(true)}>
-                        Importar Excel
+                    <Button variant="outline" onClick={() => setIsImporterOpen(true)} className="bg-white dark:bg-slate-950">
+                        Importar Contactos
                     </Button>
-                    <Button variant="outline" size="sm" className="h-8" onClick={handleExport}>
+                    <Button variant="outline" onClick={handleExport} className="bg-white dark:bg-slate-950">
                         Exportar
+                    </Button>
+                    <Button onClick={handleCreate}>
+                        <Plus className="mr-2 h-4 w-4" /> Nuevo Contacto
                     </Button>
                 </div>
             </div>
