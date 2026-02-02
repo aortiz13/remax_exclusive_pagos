@@ -647,7 +647,11 @@ export default function DocumentRepository({ category: propCategory }) {
                     <div className="flex-1 bg-slate-100 rounded-lg overflow-hidden relative">
                         {previewUrl && (
                             <iframe
-                                src={`https://docs.google.com/viewer?url=${encodeURIComponent(previewUrl)}&embedded=true`}
+                                src={
+                                    /\.(xls|xlsx|doc|docx|ppt|pptx)$/i.test(previewTitle)
+                                        ? `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(previewUrl)}`
+                                        : `https://docs.google.com/viewer?url=${encodeURIComponent(previewUrl)}&embedded=true`
+                                }
                                 className="w-full h-full border-0"
                                 frameBorder="0"
                                 title="Document Preview"
