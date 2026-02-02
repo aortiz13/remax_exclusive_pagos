@@ -23,9 +23,13 @@ export default function DocumentRepository() {
     // Upload State
     const [isUploadOpen, setIsUploadOpen] = useState(false)
     const [uploading, setUploading] = useState(false)
-    const [newDocTimeout, setNewDocTimeout] = useState(null)
-    const [uploadTitle, setUploadTitle] = useState('')
-    const [selectedFile, setSelectedFile] = useState(null)
+    const [selectedFiles, setSelectedFiles] = useState([]) // Array of { file, title }
+    const [isDragging, setIsDragging] = useState(false)
+
+    // Rename State
+    const [isRenameOpen, setIsRenameOpen] = useState(false)
+    const [renamingDoc, setRenamingDoc] = useState(null)
+    const [renameTitle, setRenameTitle] = useState('')
 
     const categoryTitle = category === 'purchase' ? 'Formularios Tipo de Compraventa' :
         category === 'rental' ? 'Formularios Tipo de Arriendo' : 'Documentos'
@@ -53,58 +57,126 @@ export default function DocumentRepository() {
         }
     }
 
-    const handleFileSelect = (e) => {
-        if (e.target.files && e.target.files[0]) {
-            setSelectedFile(e.target.files[0])
+    // Drag & Drop Handlers
+    const handleDragOver = (e) => {
+        e.preventDefault()
+        setIsDragging(true)
+    }
+
+    const handleDragLeave = (e) => {
+        e.preventDefault()
+        setIsDragging(false)
+    }
+
+    const handleDrop = (e) => {
+        e.preventDefault()
+        setIsDragging(false)
+
+        if (e.dataTransfer.files) {
+            addFiles(Array.from(e.dataTransfer.files))
         }
     }
 
-    const handleUpload = async () => {
-        if (!selectedFile || !uploadTitle) {
-            toast.error('Por favor completa todos los campos')
-            return
+    const handleFileSelect = (e) => {
+        if (e.target.files) {
+            addFiles(Array.from(e.target.files))
         }
+    }
+
+    const addFiles = (files) => {
+        const newFiles = files.map(file => ({
+            file,
+            title: file.name // Default title = filename
+        }))
+        setSelectedFiles(prev => [...prev, ...newFiles])
+    }
+
+    const removeFile = (index) => {
+        setSelectedFiles(prev => prev.filter((_, i) => i !== index))
+    }
+
+    const updateFileTitle = (index, newTitle) => {
+        setSelectedFiles(prev => prev.map((item, i) =>
+            i === index ? { ...item, title: newTitle } : item
+        ))
+    }
+
+    const handleUpload = async () => {
+        if (selectedFiles.length === 0) return
 
         try {
             setUploading(true)
 
-            // 1. Upload to Storage
-            const fileExt = selectedFile.name.split('.').pop()
-            const fileName = `${category}/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`
+            // Upload files sequentially or parallel. 
+            // Using Promise.all for parallel might be faster but harder to track individual progress if we needed strict ordering.
+            // Parallel is fine here.
 
-            const { error: uploadError } = await supabase.storage
-                .from('documents')
-                .upload(fileName, selectedFile)
+            await Promise.all(selectedFiles.map(async (item) => {
+                const fileExt = item.file.name.split('.').pop()
+                const fileName = `${category}/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`
 
-            if (uploadError) throw uploadError
+                // 1. Upload to Storage
+                const { error: uploadError } = await supabase.storage
+                    .from('documents')
+                    .upload(fileName, item.file)
 
-            // 2. Add metadata to DB
-            const { error: dbError } = await supabase
-                .from('document_repository')
-                .insert([{
-                    title: uploadTitle,
-                    category: category,
-                    file_path: fileName,
-                    file_type: fileExt,
-                    file_size: selectedFile.size,
-                    uploaded_by: profile.id // RLS will check auth.uid() automatically usually, but good to send if needed or let DB handle it. Relying on default here if column has default auth.uid() or we pass it.
-                    // My SQL schema had `uploaded_by uuid references auth.users(id)`. 
-                    // I will pass it explicitly to be safe, assuming profile.id matches auth.uid
-                }])
+                if (uploadError) throw uploadError
 
-            if (dbError) throw dbError
+                // 2. Add metadata to DB
+                // Use the custom title or fallback to filename if empty
+                const finalTitle = item.title.trim() || item.file.name
 
-            toast.success('Documento subido exitosamente')
-            setUploadTitle('')
-            setSelectedFile(null)
+                const { error: dbError } = await supabase
+                    .from('document_repository')
+                    .insert([{
+                        title: finalTitle,
+                        category: category,
+                        file_path: fileName,
+                        file_type: fileExt,
+                        file_size: item.file.size,
+                        uploaded_by: profile.id
+                    }])
+
+                if (dbError) throw dbError
+            }))
+
+            toast.success(`${selectedFiles.length} documento(s) subido(s) exitosamente`)
+            setSelectedFiles([])
             setIsUploadOpen(false)
             fetchDocuments()
 
         } catch (error) {
             console.error('Error uploading:', error)
-            toast.error('Error al subir documento: ' + error.message)
+            toast.error('Error al subir algunos documentos: ' + error.message)
         } finally {
             setUploading(false)
+        }
+    }
+
+    const handleRenameClick = (doc) => {
+        setRenamingDoc(doc)
+        setRenameTitle(doc.title)
+        setIsRenameOpen(true)
+    }
+
+    const handleRenameSubmit = async () => {
+        if (!renamingDoc || !renameTitle.trim()) return
+
+        try {
+            const { error } = await supabase
+                .from('document_repository')
+                .update({ title: renameTitle })
+                .eq('id', renamingDoc.id)
+
+            if (error) throw error
+
+            toast.success('Documento renombrado')
+            setIsRenameOpen(false)
+            setRenamingDoc(null)
+            fetchDocuments()
+        } catch (error) {
+            console.error('Error renaming:', error)
+            toast.error('Error al renombrar el documento')
         }
     }
 
@@ -115,12 +187,7 @@ export default function DocumentRepository() {
                 .from('documents')
                 .remove([filePath])
 
-            if (storageError) {
-                console.error('Storage delete error:', storageError)
-                // Continue to delete from DB anyway to keep consistent? 
-                // Or stop? Usually stop, but if file is missing we still want to clean DB.
-                // Let's warn but proceed.
-            }
+            if (storageError) console.error('Storage delete warning:', storageError)
 
             // 2. Delete from DB
             const { error: dbError } = await supabase
@@ -140,7 +207,6 @@ export default function DocumentRepository() {
     }
 
     const handleView = async (filePath) => {
-        // Get Public URL
         const { data } = supabase.storage
             .from('documents')
             .getPublicUrl(filePath)
@@ -163,7 +229,6 @@ export default function DocumentRepository() {
             const url = window.URL.createObjectURL(data)
             const a = document.createElement('a')
             a.href = url
-            // Try to deduce extension from path if title doesn't have it
             const ext = filePath.split('.').pop()
             a.download = title.endsWith(`.${ext}`) ? title : `${title}.${ext}`
             document.body.appendChild(a)
@@ -196,44 +261,113 @@ export default function DocumentRepository() {
                 </div>
 
                 {isAdmin && (
-                    <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
-                        <DialogTrigger asChild>
-                            <Button className="gap-2 shadow-lg hover:shadow-xl transition-all">
-                                <Upload className="w-4 h-4" />
-                                Subir Documento
-                            </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                            <DialogHeader>
-                                <DialogTitle>Subir Nuevo Documento</DialogTitle>
-                            </DialogHeader>
-                            <div className="space-y-4 py-4">
-                                <div className="space-y-2">
-                                    <Label>Título del Documento</Label>
-                                    <Input
-                                        placeholder="Ej: Contrato de Arriendo 2024"
-                                        value={uploadTitle}
-                                        onChange={(e) => setUploadTitle(e.target.value)}
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>Archivo</Label>
-                                    <Input
-                                        type="file"
-                                        onChange={handleFileSelect}
-                                        className="cursor-pointer"
-                                    />
-                                </div>
-                                <Button
-                                    onClick={handleUpload}
-                                    disabled={uploading || !selectedFile || !uploadTitle}
-                                    className="w-full"
-                                >
-                                    {uploading ? 'Subiendo...' : 'Subir Documento'}
+                    <>
+                        <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
+                            <DialogTrigger asChild>
+                                <Button className="gap-2 shadow-lg hover:shadow-xl transition-all">
+                                    <Upload className="w-4 h-4" />
+                                    Subir Documentos
                                 </Button>
-                            </div>
-                        </DialogContent>
-                    </Dialog>
+                            </DialogTrigger>
+                            <DialogContent className="max-w-xl">
+                                <DialogHeader>
+                                    <DialogTitle>Subir Documentos</DialogTitle>
+                                </DialogHeader>
+                                <div className="space-y-4 py-4">
+                                    {/* Drag & Drop Zone */}
+                                    <div
+                                        className={`border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center transition-colors cursor-pointer ${isDragging ? 'border-primary bg-primary/5' : 'border-slate-200 hover:border-primary/50 hover:bg-slate-50'
+                                            }`}
+                                        onDragOver={handleDragOver}
+                                        onDragLeave={handleDragLeave}
+                                        onDrop={handleDrop}
+                                        onClick={() => document.getElementById('file-upload').click()}
+                                    >
+                                        <div className="p-4 bg-blue-50 text-blue-500 rounded-full mb-4">
+                                            <Upload className="w-6 h-6" />
+                                        </div>
+                                        <p className="text-sm font-medium text-slate-900">
+                                            Arrastra archivos aquí o haz clic para seleccionar
+                                        </p>
+                                        <p className="text-xs text-slate-500 mt-1">
+                                            Soporta múltiples archivos
+                                        </p>
+                                        <input
+                                            id="file-upload"
+                                            type="file"
+                                            multiple
+                                            className="hidden"
+                                            onChange={handleFileSelect}
+                                        />
+                                    </div>
+
+                                    {/* Selected Files List */}
+                                    {selectedFiles.length > 0 && (
+                                        <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2">
+                                            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                                                Archivos Seleccionados ({selectedFiles.length})
+                                            </p>
+                                            {selectedFiles.map((item, idx) => (
+                                                <div key={idx} className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-100 dark:border-slate-800">
+                                                    <div className="shrink-0">
+                                                        <File className="w-8 h-8 text-blue-500" />
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <Input
+                                                            value={item.title}
+                                                            onChange={(e) => updateFileTitle(idx, e.target.value)}
+                                                            className="h-8 text-sm"
+                                                            placeholder="Título del documento"
+                                                        />
+                                                        <p className="text-[10px] text-slate-500 mt-1 truncate">
+                                                            Original: {item.file.name} • {(item.file.size / 1024).toFixed(0)} KB
+                                                        </p>
+                                                    </div>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-8 w-8 text-slate-400 hover:text-red-500"
+                                                        onClick={() => removeFile(idx)}
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </Button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    <Button
+                                        onClick={handleUpload}
+                                        disabled={uploading || selectedFiles.length === 0}
+                                        className="w-full"
+                                    >
+                                        {uploading ? 'Subiendo...' : `Subir ${selectedFiles.length} Archivos`}
+                                    </Button>
+                                </div>
+                            </DialogContent>
+                        </Dialog>
+
+                        {/* Rename Dialog */}
+                        <Dialog open={isRenameOpen} onOpenChange={setIsRenameOpen}>
+                            <DialogContent>
+                                <DialogHeader>
+                                    <DialogTitle>Renombrar Documento</DialogTitle>
+                                </DialogHeader>
+                                <div className="py-4 space-y-4">
+                                    <div className="space-y-2">
+                                        <Label>Nuevo Título</Label>
+                                        <Input
+                                            value={renameTitle}
+                                            onChange={(e) => setRenameTitle(e.target.value)}
+                                        />
+                                    </div>
+                                    <Button onClick={handleRenameSubmit} className="w-full">
+                                        Guardar Cambios
+                                    </Button>
+                                </div>
+                            </DialogContent>
+                        </Dialog>
+                    </>
                 )}
             </div>
 
@@ -271,30 +405,44 @@ export default function DocumentRepository() {
                                         <FileText className="w-6 h-6" />
                                     </div>
                                     {isAdmin && (
-                                        <AlertDialog>
-                                            <AlertDialogTrigger asChild>
-                                                <button className="opacity-0 group-hover:opacity-100 p-2 text-slate-400 hover:text-red-500 transition-all">
-                                                    <Trash2 className="w-4 h-4" />
-                                                </button>
-                                            </AlertDialogTrigger>
-                                            <AlertDialogContent>
-                                                <AlertDialogHeader>
-                                                    <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
-                                                    <AlertDialogDescription>
-                                                        Esta acción no se puede deshacer. El documento será eliminado permanentemente.
-                                                    </AlertDialogDescription>
-                                                </AlertDialogHeader>
-                                                <AlertDialogFooter>
-                                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                                    <AlertDialogAction
-                                                        onClick={() => handleDelete(doc.id, doc.file_path)}
-                                                        className="bg-red-500 hover:bg-red-600"
-                                                    >
-                                                        Eliminar
-                                                    </AlertDialogAction>
-                                                </AlertDialogFooter>
-                                            </AlertDialogContent>
-                                        </AlertDialog>
+                                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            {/* Edit Button */}
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-8 w-8 text-slate-400 hover:text-blue-500"
+                                                onClick={() => handleRenameClick(doc)}
+                                                title="Renombrar"
+                                            >
+                                                <FileText className="w-4 h-4" />
+                                            </Button>
+
+                                            {/* Delete Button */}
+                                            <AlertDialog>
+                                                <AlertDialogTrigger asChild>
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-red-500" title="Eliminar">
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </Button>
+                                                </AlertDialogTrigger>
+                                                <AlertDialogContent>
+                                                    <AlertDialogHeader>
+                                                        <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+                                                        <AlertDialogDescription>
+                                                            Esta acción no se puede deshacer. El documento será eliminado permanentemente.
+                                                        </AlertDialogDescription>
+                                                    </AlertDialogHeader>
+                                                    <AlertDialogFooter>
+                                                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                        <AlertDialogAction
+                                                            onClick={() => handleDelete(doc.id, doc.file_path)}
+                                                            className="bg-red-500 hover:bg-red-600"
+                                                        >
+                                                            Eliminar
+                                                        </AlertDialogAction>
+                                                    </AlertDialogFooter>
+                                                </AlertDialogContent>
+                                            </AlertDialog>
+                                        </div>
                                     )}
                                 </div>
 
