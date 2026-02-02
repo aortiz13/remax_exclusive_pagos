@@ -272,6 +272,7 @@ const ContactForm = ({ contact, isOpen, onClose }) => {
                                             <DropdownMenuCheckboxItem
                                                 key={option}
                                                 checked={isChecked}
+                                                onSelect={(e) => e.preventDefault()}
                                                 onCheckedChange={(checked) => {
                                                     let newNeeds = [...currentNeeds]
                                                     if (checked) {

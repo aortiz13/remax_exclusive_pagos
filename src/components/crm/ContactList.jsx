@@ -66,7 +66,7 @@ const SortableHeader = ({ id, children }) => {
 
     return (
         <TableHead ref={setNodeRef} style={style} {...attributes} {...listeners}>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center justify-center gap-2">
                 <GripHorizontal className="w-4 h-4 text-gray-400" />
                 {children}
             </div>
@@ -144,6 +144,7 @@ const ContactList = () => {
     ).filter(contact => {
         if (filters.profession && !contact.profession?.toLowerCase().includes(filters.profession.toLowerCase())) return false
         if (filters.rating && !contact.rating?.toLowerCase().includes(filters.rating.toLowerCase())) return false
+        if (filters.rating_80_20 && !contact.rating_80_20?.toLowerCase().includes(filters.rating_80_20.toLowerCase())) return false
         if (filters.need && !contact.need?.toLowerCase().includes(filters.need.toLowerCase())) return false
         if (filters.comuna && !(contact.barrio_comuna || contact.comuna)?.toLowerCase().includes(filters.comuna.toLowerCase())) return false
         if (filters.address && !contact.address?.toLowerCase().includes(filters.address.toLowerCase())) return false
@@ -227,7 +228,7 @@ const ContactList = () => {
         switch (colId) {
             case 'name':
                 return (
-                    <div className="flex flex-col">
+                    <div className="flex flex-col items-center">
                         <span>{contact.first_name} {contact.last_name}</span>
                         {contact.profession && <span className="text-xs text-muted-foreground">{contact.profession}</span>}
                     </div>
@@ -240,7 +241,7 @@ const ContactList = () => {
                 return contact.need || '-'
             case 'contact':
                 return (
-                    <div className="flex flex-col gap-1 text-sm">
+                    <div className="flex flex-col gap-1 text-sm items-center">
                         {contact.email && (
                             <div className="flex items-center gap-1">
                                 <Mail className="h-3 w-3 text-muted-foreground" />
@@ -275,7 +276,7 @@ const ContactList = () => {
                 )
             case 'actions':
                 return (
-                    <div className="text-right">
+                    <div className="text-center">
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                                 <Button variant="ghost" className="h-8 w-8 p-0">
@@ -347,6 +348,24 @@ const ContactList = () => {
                                         />
                                     </div>
                                     <div className="grid grid-cols-3 items-center gap-4">
+                                        <Label htmlFor="rating">Calificación (A+)</Label>
+                                        <Input
+                                            id="rating"
+                                            value={filters.rating}
+                                            onChange={(e) => setFilters({ ...filters, rating: e.target.value })}
+                                            className="col-span-2 h-8"
+                                        />
+                                    </div>
+                                    <div className="grid grid-cols-3 items-center gap-4">
+                                        <Label htmlFor="rating_80_20">Calificación 80/20</Label>
+                                        <Input
+                                            id="rating_80_20"
+                                            value={filters.rating_80_20}
+                                            onChange={(e) => setFilters({ ...filters, rating_80_20: e.target.value })}
+                                            className="col-span-2 h-8"
+                                        />
+                                    </div>
+                                    <div className="grid grid-cols-3 items-center gap-4">
                                         <Label htmlFor="need">Necesidad</Label>
                                         <Input
                                             id="need"
@@ -373,7 +392,7 @@ const ContactList = () => {
                                             className="col-span-2 h-8"
                                         />
                                     </div>
-                                    <Button size="sm" variant="ghost" onClick={() => setFilters({ profession: '', rating: '', need: '', comuna: '', address: '' })} className="w-full">
+                                    <Button size="sm" variant="ghost" onClick={() => setFilters({ profession: '', rating: '', rating_80_20: '', need: '', comuna: '', address: '' })} className="w-full">
                                         Limpiar Filtros
                                     </Button>
                                 </div>
@@ -454,13 +473,13 @@ const ContactList = () => {
                         <TableBody>
                             {loading ? (
                                 <TableRow>
-                                    <TableCell colSpan={visibleColumns.length} className="text-center h-24">
+                                    <TableCell colSpan={visibleColumns.length} className="text-center h-24 text-center">
                                         Cargando contactos...
                                     </TableCell>
                                 </TableRow>
                             ) : filteredContacts.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={visibleColumns.length} className="text-center h-24">
+                                    <TableCell colSpan={visibleColumns.length} className="text-center h-24 text-center">
                                         No se encontraron contactos.
                                     </TableCell>
                                 </TableRow>
@@ -468,7 +487,7 @@ const ContactList = () => {
                                 filteredContacts.map((contact) => (
                                     <TableRow key={contact.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/crm/contact/${contact.id}`)}>
                                         {visibleColumns.map((col) => (
-                                            <TableCell key={col.id}>
+                                            <TableCell key={col.id} className="text-center">
                                                 {renderCellContent(col.id, contact)}
                                             </TableCell>
                                         ))}
