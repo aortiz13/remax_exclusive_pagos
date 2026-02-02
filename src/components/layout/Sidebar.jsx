@@ -51,19 +51,9 @@ export default function Sidebar() {
             title: 'INDICADORES',
             items: [
                 {
-                    title: 'Analisis KPI',
+                    title: 'KPIs',
                     icon: BarChart3,
                     path: '/kpis/dashboard',
-                },
-                {
-                    title: 'Carga Semanal',
-                    icon: ClipboardList,
-                    path: '/kpis/entry',
-                },
-                {
-                    title: 'Mis Objetivos',
-                    icon: Target,
-                    path: '/kpis/goals',
                 },
             ]
         },
