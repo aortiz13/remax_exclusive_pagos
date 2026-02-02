@@ -13,9 +13,13 @@ import {
 import { FileText, Upload, Trash2, Eye, Download, Search, File } from 'lucide-react'
 import { toast } from 'sonner'
 
-export default function DocumentRepository() {
-    const { category } = useParams()
+export default function DocumentRepository({ category: propCategory }) {
+    const { category: paramCategory } = useParams()
     const { profile } = useAuth()
+
+    // Prioritize propCategory (from Tabs), fallback to paramCategory (direct URL)
+    const category = propCategory || paramCategory
+
     const [documents, setDocuments] = useState([])
     const [loading, setLoading] = useState(true)
     const [searchTerm, setSearchTerm] = useState('')
@@ -38,10 +42,14 @@ export default function DocumentRepository() {
     const [isPreviewOpen, setIsPreviewOpen] = useState(false)
 
     const categoryTitle = category === 'purchase' ? 'Formularios Tipo de Compraventa' :
-        category === 'rental' ? 'Formularios Tipo de Arriendo' : 'Documentos'
+        category === 'rental' ? 'Formularios Tipo de Arriendo' :
+            category === 'evaluations' ? 'Formatos Evaluaciones Comerciales' : // New Category
+                'Documentos'
 
     useEffect(() => {
-        fetchDocuments()
+        if (category) {
+            fetchDocuments()
+        }
     }, [category])
 
     const fetchDocuments = async () => {

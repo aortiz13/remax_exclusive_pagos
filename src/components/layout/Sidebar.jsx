@@ -81,15 +81,10 @@ export default function Sidebar() {
             title: 'DOCUMENTOS',
             items: [
                 {
-                    title: 'Formularios Compraventa',
+                    title: 'Ver Documentos',
                     icon: FileText,
-                    path: '/documents/purchase',
-                },
-                {
-                    title: 'Formularios Arriendo',
-                    icon: ClipboardList, // Or another icon
-                    path: '/documents/rental',
-                },
+                    path: '/documents',
+                }
             ]
         }
     ]
