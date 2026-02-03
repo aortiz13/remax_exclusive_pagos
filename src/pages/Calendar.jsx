@@ -318,6 +318,51 @@ export default function CalendarPage() {
         )
     }
 
+    // Customize DayPicker styles to fit container
+    const dayPickerStyles = `
+        .rdp { 
+            margin: 0; 
+            --rdp-cell-size: 30px; /* Smaller cells */
+            --rdp-accent-color: #0f172a; 
+            --rdp-background-color: #f1f5f9;
+        }
+        .rdp-month { width: 100%; }
+        .rdp-table { max-width: 100%; }
+        .rdp-day_selected:not([disabled]) { 
+            background-color: var(--rdp-accent-color); 
+            color: white;
+            font-weight: bold;
+        }
+        .rdp-button:hover:not([disabled]):not(.rdp-day_selected) { 
+            background-color: var(--rdp-background-color); 
+        }
+        .rdp-nav_button { width: 24px; height: 24px; }
+        .rdp-head_cell { font-size: 0.7rem; text-transform: uppercase; color: #64748b; font-weight: 600; }
+        .rdp-caption_label { font-size: 0.875rem; font-weight: 700; text-transform: capitalize; }
+        .rdp-day { font-size: 0.85rem; }
+    `
+
+    // Styles for Big Calendar to force full width time indicator
+    const bigCalendarStyles = `
+        .rbc-calendar { font-family: inherit; }
+        .rbc-header { padding: 12px 4px; font-weight: 600; font-size: 0.875rem; border-bottom: 1px solid #e2e8f0; text-transform: capitalize; }
+        .rbc-today { background-color: #f8fafc; }
+        .rbc-event { border-radius: 6px; }
+        .rbc-time-view, .rbc-month-view { border: 1px solid #e2e8f0; border-radius: 12px; }
+        .rbc-current-time-indicator { background-color: #ef4444; height: 2px; } 
+        .rbc-time-content .rbc-current-time-indicator { width: 100% !important; left: 0 !important; z-index: 10; pointer-events: none; }
+        .rbc-time-content .rbc-current-time-indicator::before { 
+            content: ''; 
+            position: absolute; 
+            left: -6px; 
+            top: -3px; 
+            width: 8px; 
+            height: 8px; 
+            background-color: #ef4444; 
+            border-radius: 50%; 
+        }
+    `
+
     return (
         <div className="container max-w-7xl mx-auto pb-12 h-[calc(100vh-100px)]">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-full">
@@ -337,21 +382,8 @@ export default function CalendarPage() {
                         <Plus className="w-5 h-5" /> Nueva Tarea
                     </Button>
 
-                    <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4 shadow-sm flex justify-center">
-                        <style>{`
-                            .rdp { margin: 0; --rdp-cell-size: 32px; --rdp-accent-color: #0f172a; --rdp-background-color: #f1f5f9; }
-                            .rdp-day_selected:not([disabled]) { 
-                                background-color: var(--rdp-accent-color); 
-                                color: white;
-                                font-weight: bold;
-                            }
-                            .rdp-button:hover:not([disabled]):not(.rdp-day_selected) { 
-                                background-color: var(--rdp-background-color); 
-                            }
-                            .rdp-nav_button { width: 24px; height: 24px; }
-                            .rdp-head_cell { font-size: 0.75rem; text-transform: uppercase; color: #64748b; font-weight: 600; }
-                            .rdp-caption_label { font-size: 0.875rem; font-weight: 700; text-transform: capitalize; }
-                         `}</style>
+                    <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4 shadow-sm flex justify-center overflow-x-hidden">
+                        <style>{dayPickerStyles}</style>
                         <DayPicker
                             mode="single"
                             selected={date}
@@ -390,25 +422,7 @@ export default function CalendarPage() {
                 <div className="lg:col-span-9 h-full flex flex-col">
                     <Card className="flex-1 border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col">
                         <CardContent className="p-0 flex-1 bg-white dark:bg-slate-950 p-6 flex flex-col">
-                            <style>{`
-                                .rbc-calendar { font-family: inherit; }
-                                .rbc-header { padding: 12px 4px; font-weight: 600; font-size: 0.875rem; border-bottom: 1px solid #e2e8f0; text-transform: capitalize; }
-                                .rbc-today { background-color: #f8fafc; }
-                                .rbc-event { border-radius: 6px; }
-                                .rbc-time-view, .rbc-month-view { border: 1px solid #e2e8f0; border-radius: 12px; }
-                                .rbc-current-time-indicator { background-color: #ef4444; height: 2px; } 
-                                .rbc-time-content .rbc-current-time-indicator { width: 100% !important; left: 0 !important; z-index: 10; pointer-events: none; }
-                                .rbc-time-content .rbc-current-time-indicator::before { 
-                                    content: ''; 
-                                    position: absolute; 
-                                    left: -6px; 
-                                    top: -3px; 
-                                    width: 8px; 
-                                    height: 8px; 
-                                    background-color: #ef4444; 
-                                    border-radius: 50%; 
-                                }
-                            `}</style>
+                            <style>{bigCalendarStyles}</style>
                             <DnDCalendar
                                 localizer={localizer}
                                 events={filteredEvents}
@@ -426,6 +440,13 @@ export default function CalendarPage() {
                                 onSelectSlot={handleSelectSlot}
                                 onSelectEvent={handleSelectEvent}
                                 culture='es'
+                                formats={{
+                                    dateFormat: 'D',
+                                    dayFormat: (date, culture, localizer) =>
+                                        localizer.format(date, 'ddd D', culture),
+                                    weekdayFormat: (date, culture, localizer) =>
+                                        localizer.format(date, 'ddd', culture),
+                                }}
                                 messages={{
                                     next: "Sig", previous: "Ant", today: "Hoy", month: "Mes",
                                     week: "Semana", day: "Día", agenda: "Agenda", date: "Fecha",
