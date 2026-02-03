@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../services/supabase'
-import { Calendar, momentLocalizer, Views } from 'react-big-calendar'
+import { Calendar, dateFnsLocalizer, Views } from 'react-big-calendar'
 import withDragAndDrop from 'react-big-calendar/lib/addons/dragAndDrop'
-import moment from 'moment'
-import 'moment/locale/es'
+import format from 'date-fns/format'
+import parse from 'date-fns/parse'
+import startOfWeek from 'date-fns/startOfWeek'
+import getDay from 'date-fns/getDay'
+import { es } from 'date-fns/locale'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
 import 'react-big-calendar/lib/addons/dragAndDrop/styles.css'
 import { Card, CardContent, Button, Checkbox, Label, Input, Textarea, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui'
@@ -12,11 +15,19 @@ import { ChevronLeft, ChevronRight, Filter, Plus, Clock, Calendar as CalendarIco
 import { toast } from 'sonner'
 import { DayPicker } from 'react-day-picker'
 import 'react-day-picker/dist/style.css'
-import { es } from 'date-fns/locale'
 
-// Setup moment localizer
-moment.locale('es')
-const localizer = momentLocalizer(moment)
+// Setup date-fns localizer
+const locales = {
+    'es': es,
+}
+
+const localizer = dateFnsLocalizer({
+    format,
+    parse,
+    startOfWeek,
+    getDay,
+    locales,
+})
 const DnDCalendar = withDragAndDrop(Calendar)
 
 export default function CalendarPage() {
@@ -39,14 +50,6 @@ export default function CalendarPage() {
         reminder: 'none'
     })
     const [isSaving, setIsSaving] = useState(false)
-
-    // Filters
-    const [filters, setFilters] = useState({
-        calls: true,
-        emails: true,
-        meetings: true,
-        others: true
-    })
 
     useEffect(() => {
         if (user) {
@@ -123,8 +126,8 @@ export default function CalendarPage() {
         setFormData({
             title: '',
             description: '',
-            start: moment(start).format('YYYY-MM-DDTHH:mm'),
-            end: moment(end).format('YYYY-MM-DDTHH:mm'),
+            start: format(start, "yyyy-MM-dd'T'HH:mm"),
+            end: format(end, "yyyy-MM-dd'T'HH:mm"),
             contactId: 'none',
             reminder: 'none'
         })
@@ -136,8 +139,8 @@ export default function CalendarPage() {
         setFormData({
             title: event.title || '',
             description: event.description || '',
-            start: moment(event.start).format('YYYY-MM-DDTHH:mm'),
-            end: moment(event.end).format('YYYY-MM-DDTHH:mm'),
+            start: format(event.start, "yyyy-MM-dd'T'HH:mm"),
+            end: format(event.end, "yyyy-MM-dd'T'HH:mm"),
             contactId: event.contactId || 'none',
             reminder: event.reminder ? event.reminder.toString() : 'none'
         })
@@ -263,15 +266,6 @@ export default function CalendarPage() {
         }
     }
 
-    // Filter Logic
-    const filteredEvents = events.filter(event => {
-        if (!filters.calls && event.type === 'call') return false
-        if (!filters.emails && event.type === 'email') return false
-        if (!filters.meetings && event.type === 'meeting') return false
-        if (!filters.others && event.type === 'other') return false
-        return true
-    })
-
     // Custom Components
     const CustomToolbar = (toolbar) => {
         const goToBack = () => {
@@ -298,7 +292,7 @@ export default function CalendarPage() {
                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={goToNext}><ChevronRight className="w-4 h-4" /></Button>
                     </div>
                     <h2 className="text-xl font-bold ml-2 capitalize">
-                        {moment(toolbar.date).format('MMMM YYYY')}
+                        {format(toolbar.date, 'MMMM yyyy', { locale: es })}
                     </h2>
                 </div>
                 <div className="flex items-center gap-2 bg-white dark:bg-slate-900 p-1 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm">
@@ -320,21 +314,21 @@ export default function CalendarPage() {
 
     // Customize DayPicker styles to fit container
     const dayPickerStyles = `
-        .rdp { 
-            margin: 0; 
+        .rdp {
+            margin: 0;
             --rdp-cell-size: 30px; /* Smaller cells */
-            --rdp-accent-color: #0f172a; 
+            --rdp-accent-color: #0f172a;
             --rdp-background-color: #f1f5f9;
         }
         .rdp-month { width: 100%; }
         .rdp-table { max-width: 100%; }
-        .rdp-day_selected:not([disabled]) { 
-            background-color: var(--rdp-accent-color); 
+        .rdp-day_selected:not([disabled]) {
+            background-color: var(--rdp-accent-color);
             color: white;
             font-weight: bold;
         }
-        .rdp-button:hover:not([disabled]):not(.rdp-day_selected) { 
-            background-color: var(--rdp-background-color); 
+        .rdp-button:hover:not([disabled]):not(.rdp-day_selected) {
+            background-color: var(--rdp-background-color);
         }
         .rdp-nav_button { width: 24px; height: 24px; }
         .rdp-head_cell { font-size: 0.7rem; text-transform: uppercase; color: #64748b; font-weight: 600; }
@@ -342,33 +336,49 @@ export default function CalendarPage() {
         .rdp-day { font-size: 0.85rem; }
     `
 
-    // Styles for Big Calendar to force full width time indicator
+    // Styles for Big Calendar to force full width time indicator and sticky headers
     const bigCalendarStyles = `
         .rbc-calendar { font-family: inherit; }
-        .rbc-header { padding: 12px 4px; font-weight: 600; font-size: 0.875rem; border-bottom: 1px solid #e2e8f0; text-transform: capitalize; }
+        .rbc-header {
+            padding: 12px 4px;
+            font-weight: 600;
+            font-size: 0.875rem;
+            border-bottom: 1px solid #e2e8f0;
+            text-transform: capitalize;
+            position: sticky;
+            top: 0;
+            background: white;
+            z-index: 20;
+        }
         .rbc-today { background-color: #f8fafc; }
         .rbc-event { border-radius: 6px; }
         .rbc-time-view, .rbc-month-view { border: 1px solid #e2e8f0; border-radius: 12px; }
-        .rbc-current-time-indicator { background-color: #ef4444; height: 2px; } 
+        .rbc-current-time-indicator { background-color: #ef4444; height: 2px; }
         .rbc-time-content .rbc-current-time-indicator { width: 100% !important; left: 0 !important; z-index: 10; pointer-events: none; }
-        .rbc-time-content .rbc-current-time-indicator::before { 
-            content: ''; 
-            position: absolute; 
-            left: -6px; 
-            top: -3px; 
-            width: 8px; 
-            height: 8px; 
-            background-color: #ef4444; 
-            border-radius: 50%; 
+        .rbc-time-content .rbc-current-time-indicator::before {
+            content: '';
+            position: absolute;
+            left: -6px;
+            top: -3px;
+            width: 8px;
+            height: 8px;
+            background-color: #ef4444;
+            border-radius: 50%;
+        }
+        .rbc-time-header {
+            position: sticky;
+            top: 0;
+            z-index: 20;
+            background: white;
         }
     `
 
     return (
         <div className="container max-w-7xl mx-auto pb-12 h-[calc(100vh-100px)]">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-full">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-full relative">
 
                 {/* Sidebar */}
-                <div className="lg:col-span-4 space-y-6">
+                <div className="lg:col-span-4 space-y-6 sticky top-4 self-start">
                     <div>
                         <h1 className="text-3xl font-display font-bold tracking-tight">Calendario</h1>
                         <p className="text-slate-500 text-sm">Gestiona tu agenda.</p>
@@ -394,28 +404,6 @@ export default function CalendarPage() {
                             fixedWeeks
                         />
                     </div>
-
-                    <Card className="border-slate-200 dark:border-slate-800 shadow-sm">
-                        <CardContent className="p-4 space-y-4">
-                            <Label className="text-xs font-semibold text-slate-500 uppercase flex items-center gap-2">
-                                <Filter className="w-3 h-3" /> Filtros
-                            </Label>
-                            <div className="space-y-3">
-                                {['calls', 'emails', 'meetings', 'others'].map(f => (
-                                    <div key={f} className="flex items-center space-x-2">
-                                        <Checkbox
-                                            id={f}
-                                            checked={filters[f]}
-                                            onCheckedChange={(c) => setFilters(p => ({ ...p, [f]: c }))}
-                                        />
-                                        <Label htmlFor={f} className="capitalize">
-                                            {f === 'calls' ? 'Llamadas' : f === 'emails' ? 'Correos' : f === 'meetings' ? 'Reuniones' : 'Otros'}
-                                        </Label>
-                                    </div>
-                                ))}
-                            </div>
-                        </CardContent>
-                    </Card>
                 </div>
 
                 {/* Main Calendar */}
@@ -425,7 +413,10 @@ export default function CalendarPage() {
                             <style>{bigCalendarStyles}</style>
                             <DnDCalendar
                                 localizer={localizer}
-                                events={filteredEvents}
+                                events={events.filter(event => {
+                                    // Keep existing filters logic just in case user wants it back later or for logic preservation
+                                    return true
+                                })}
                                 startAccessor="start"
                                 endAccessor="end"
                                 style={{ height: '100%' }}
@@ -440,13 +431,6 @@ export default function CalendarPage() {
                                 onSelectSlot={handleSelectSlot}
                                 onSelectEvent={handleSelectEvent}
                                 culture='es'
-                                formats={{
-                                    dateFormat: 'D',
-                                    dayFormat: (date, culture, localizer) =>
-                                        localizer.format(date, 'ddd D', culture),
-                                    weekdayFormat: (date, culture, localizer) =>
-                                        localizer.format(date, 'ddd', culture),
-                                }}
                                 messages={{
                                     next: "Sig", previous: "Ant", today: "Hoy", month: "Mes",
                                     week: "Semana", day: "Día", agenda: "Agenda", date: "Fecha",
