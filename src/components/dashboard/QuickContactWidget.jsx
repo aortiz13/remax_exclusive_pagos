@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, Input, Button, Label } from '
 import { UserPlus, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
-export default function QuickContactWidget() {
+export default function QuickContactWidget({ onComplete, isModal = false }) {
     const { user } = useAuth()
     const [loading, setLoading] = useState(false)
     const [formData, setFormData] = useState({
@@ -45,12 +45,78 @@ export default function QuickContactWidget() {
 
             toast.success('Contacto creado exitosamente')
             setFormData({ firstName: '', lastName: '', phone: '', email: '' })
+
+            if (onComplete) {
+                onComplete()
+            }
         } catch (error) {
             console.error('Error creating contact:', error)
             toast.error('Error al crear contacto')
         } finally {
             setLoading(false)
         }
+    }
+
+    const FormContent = (
+        <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                    <Label htmlFor="firstName" className="text-xs">Nombre *</Label>
+                    <Input
+                        id="firstName"
+                        name="firstName"
+                        value={formData.firstName}
+                        onChange={handleChange}
+                        placeholder="Ej: Juan"
+                        className="h-8"
+                    />
+                </div>
+                <div className="space-y-1">
+                    <Label htmlFor="lastName" className="text-xs">Apellido *</Label>
+                    <Input
+                        id="lastName"
+                        name="lastName"
+                        value={formData.lastName}
+                        onChange={handleChange}
+                        placeholder="Ej: Pérez"
+                        className="h-8"
+                    />
+                </div>
+            </div>
+
+            <div className="space-y-1">
+                <Label htmlFor="phone" className="text-xs">Teléfono</Label>
+                <Input
+                    id="phone"
+                    name="phone"
+                    value={formData.phone}
+                    onChange={handleChange}
+                    placeholder="+56 9..."
+                    className="h-8"
+                />
+            </div>
+
+            <div className="space-y-1">
+                <Label htmlFor="email" className="text-xs">Email</Label>
+                <Input
+                    id="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    placeholder="juan@ejemplo.com"
+                    className="h-8"
+                />
+            </div>
+
+            <Button type="submit" disabled={loading} className="w-full h-8" size="sm">
+                {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                Crear Contacto
+            </Button>
+        </form>
+    )
+
+    if (isModal) {
+        return FormContent
     }
 
     return (
@@ -62,61 +128,7 @@ export default function QuickContactWidget() {
                 </CardTitle>
             </CardHeader>
             <CardContent>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1">
-                            <Label htmlFor="firstName" className="text-xs">Nombre *</Label>
-                            <Input
-                                id="firstName"
-                                name="firstName"
-                                value={formData.firstName}
-                                onChange={handleChange}
-                                placeholder="Ej: Juan"
-                                className="h-8"
-                            />
-                        </div>
-                        <div className="space-y-1">
-                            <Label htmlFor="lastName" className="text-xs">Apellido *</Label>
-                            <Input
-                                id="lastName"
-                                name="lastName"
-                                value={formData.lastName}
-                                onChange={handleChange}
-                                placeholder="Ej: Pérez"
-                                className="h-8"
-                            />
-                        </div>
-                    </div>
-
-                    <div className="space-y-1">
-                        <Label htmlFor="phone" className="text-xs">Teléfono</Label>
-                        <Input
-                            id="phone"
-                            name="phone"
-                            value={formData.phone}
-                            onChange={handleChange}
-                            placeholder="+56 9..."
-                            className="h-8"
-                        />
-                    </div>
-
-                    <div className="space-y-1">
-                        <Label htmlFor="email" className="text-xs">Email</Label>
-                        <Input
-                            id="email"
-                            name="email"
-                            value={formData.email}
-                            onChange={handleChange}
-                            placeholder="juan@ejemplo.com"
-                            className="h-8"
-                        />
-                    </div>
-
-                    <Button type="submit" disabled={loading} className="w-full h-8" size="sm">
-                        {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                        Crear Contacto
-                    </Button>
-                </form>
+                {FormContent}
             </CardContent>
         </Card>
     )

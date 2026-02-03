@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../services/supabase'
-import { Button, Separator, AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui'
+import { Button, Separator, AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui'
 import { useNavigate } from 'react-router-dom'
-import { Trash2, Search, MapPin, Receipt, FileText, ArrowUpRight } from 'lucide-react'
+import { Trash2, Search, MapPin, Receipt, FileText, ArrowUpRight, UserPlus } from 'lucide-react'
 import { toast } from 'sonner'
 import { useDashboardTour } from '../hooks/useDashboardTour'
 import { motion } from 'framer-motion'
@@ -12,13 +12,8 @@ import QuickContactWidget from '../components/dashboard/QuickContactWidget'
 import DailyCalendarWidget from '../components/dashboard/DailyCalendarWidget'
 
 export default function Dashboard() {
-    const { user } = useAuth()
-    const [requests, setRequests] = useState([])
-    const [loading, setLoading] = useState(true)
-    const [searchTerm, setSearchTerm] = useState('')
-    const [requestToDelete, setRequestToDelete] = useState(null)
-    const navigate = useNavigate()
-    const { startTour } = useDashboardTour()
+    const [filterStatus, setFilterStatus] = useState('all') // 'all', 'pending', 'finalized'
+    const [isContactModalOpen, setIsContactModalOpen] = useState(false)
 
     useEffect(() => {
         startTour()
@@ -87,242 +82,244 @@ export default function Dashboard() {
         return new Date(dateString).toLocaleDateString('es-CL', {
             day: 'numeric',
             month: 'short',
-            year: 'numeric'
+            hour: '2-digit',
+            minute: '2-digit'
         })
     }
 
-    const getProgress = (step) => {
-        return Math.min((step / 5) * 100, 100)
-    }
-
     const filteredRequests = requests.filter(request => {
+        // Search Filter
         const searchLower = searchTerm.toLowerCase()
-        // Handle standard requests (direccion) and invoices (propiedadDireccion)
         const address = (request.data?.direccion || request.data?.propiedadDireccion || '').toLowerCase()
-
-        // Handle standard requests (arrendatario/dueño) and invoices (comprador/vendedor)
         const client = (
             request.data?.arrendatarioNombre ||
             request.data?.dueñoNombre ||
-            request.data?.comuna || // Include comuna too
+            request.data?.comuna ||
             request.data?.compradorNombre ||
             request.data?.vendedorNombre ||
             ''
         ).toLowerCase()
+        const matchesSearch = address.includes(searchLower) || client.includes(searchLower)
 
-        return address.includes(searchLower) || client.includes(searchLower)
+        // Status Filter
+        let matchesStatus = true
+        const status = request.status || 'draft'
+
+        if (filterStatus === 'pending') {
+            matchesStatus = status === 'submitted' || status === 'pendiente'
+        } else if (filterStatus === 'finalized') {
+            matchesStatus = status === 'realizado' || status === 'rechazado'
+        }
+
+        return matchesSearch && matchesStatus
     })
 
-    const container = {
-        hidden: { opacity: 0 },
-        show: {
-            opacity: 1,
-            transition: {
-                staggerChildren: 0.1
-            }
+    const getStatusBadge = (status) => {
+        switch (status) {
+            case 'realizado':
+                return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-600 text-white">Realizado</span>
+            case 'rechazado':
+                return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-600 text-white">Rechazado</span>
+            case 'submitted':
+            case 'pendiente':
+                return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-500 text-white">Pendiente</span>
+            case 'draft':
+            default:
+                return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-500 text-white">Borrador</span>
         }
-    }
-
-    const item = {
-        hidden: { opacity: 0, y: 20 },
-        show: { opacity: 1, y: 0 }
     }
 
     return (
         <div className="min-h-[calc(100vh-80px)] pb-12">
-            <div className="container max-w-7xl mx-auto space-y-8">
+            <div className="container max-w-7xl mx-auto space-y-6">
 
-                {/* Header Section */}
-                <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-2">
+                {/* Header Section with Global Search */}
+                <div className="flex flex-col md:flex-row items-center justify-between gap-4 py-4">
                     <div id="tour-welcome">
-                        <h1 className="text-4xl font-display font-bold tracking-tight text-slate-900 dark:text-white bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-600 dark:from-white dark:to-slate-400">
+                        <h1 className="text-3xl font-display font-bold tracking-tight text-slate-900 dark:text-white">
                             Panel de Control
                         </h1>
-                        <p className="text-slate-500 mt-2 text-lg">Gestiona tus operaciones inmobiliarias.</p>
-                    </div>
-                </div>
-
-                {/* New Widgets Section */}
-                <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="col-span-1 h-[400px]">
-                        <QuickContactWidget />
-                    </div>
-                    <div className="col-span-1 h-[400px]">
-                        <StickyNotesWidget />
-                    </div>
-                    <div className="col-span-1 h-[400px]">
-                        <DailyCalendarWidget />
-                    </div>
-                </section>
-
-                <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white pt-4">Accesos Rápidos</h2>
-
-                {/* Quick Actions Section (Legacy) */}
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.5 }}
-                    id="tour-new-request"
-                    className="grid grid-cols-1 md:grid-cols-3 gap-6"
-                >
-                    {/* Card 1: Link de Pago */}
-                    <div
-                        className="group relative overflow-hidden rounded-3xl bg-white dark:bg-slate-900 p-6 shadow-sm border border-slate-200 dark:border-slate-800 hover:shadow-2xl hover:shadow-blue-500/10 transition-all duration-300 cursor-pointer"
-                        onClick={() => navigate('/request/payment/new')}
-                    >
-                        <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <ArrowUpRight className="w-5 h-5 text-slate-400" />
-                        </div>
-                        <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-blue-500/5 rounded-full blur-3xl group-hover:bg-blue-500/10 transition-all" />
-
-                        <div className="relative z-10">
-                            <div className="h-12 w-12 rounded-2xl bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center mb-4 text-blue-600 dark:text-blue-400">
-                                <Receipt className="h-6 w-6" />
-                            </div>
-                            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">Link de Pago</h3>
-                            <p className="text-sm text-slate-500 dark:text-slate-400">Cálculo de arriendo y generación de link Webpay.</p>
-                        </div>
+                        <p className="text-slate-500 text-sm">Resumen de operaciones.</p>
                     </div>
 
-                    {/* Card 2: Redacción de Contrato */}
-                    <div
-                        className="group relative overflow-hidden rounded-3xl bg-white dark:bg-slate-900 p-6 shadow-sm border border-slate-200 dark:border-slate-800 hover:shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300 cursor-pointer"
-                        onClick={() => navigate('/request/contract/new')}
-                    >
-                        <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <ArrowUpRight className="w-5 h-5 text-slate-400" />
-                        </div>
-                        <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-indigo-500/5 rounded-full blur-3xl group-hover:bg-indigo-500/10 transition-all" />
-
-                        <div className="relative z-10">
-                            <div className="h-12 w-12 rounded-2xl bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center mb-4 text-indigo-600 dark:text-indigo-400">
-                                <FileText className="h-6 w-6" />
-                            </div>
-                            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">Redacción de Contrato</h3>
-                            <p className="text-sm text-slate-500 dark:text-slate-400">Solicitud de contratos de compraventa o arriendo.</p>
-                        </div>
-                    </div>
-
-                    {/* Card 3: Solicitud de Factura */}
-                    <div
-                        className="group relative overflow-hidden rounded-3xl bg-white dark:bg-slate-900 p-6 shadow-sm border border-slate-200 dark:border-slate-800 hover:shadow-2xl hover:shadow-emerald-500/10 transition-all duration-300 cursor-pointer"
-                        onClick={() => navigate('/request/invoice/new')}
-                    >
-                        <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <ArrowUpRight className="w-5 h-5 text-slate-400" />
-                        </div>
-                        <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-emerald-500/5 rounded-full blur-3xl group-hover:bg-emerald-500/10 transition-all" />
-
-                        <div className="relative z-10">
-                            <div className="h-12 w-12 rounded-2xl bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center mb-4 text-emerald-600 dark:text-emerald-400">
-                                <Receipt className="h-6 w-6" />
-                            </div>
-                            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">Solicitud de Factura</h3>
-                            <p className="text-sm text-slate-500 dark:text-slate-400">Solicitud de facturas</p>
-                        </div>
-                    </div>
-                </motion.div>
-
-                {/* Search and Filter Bar */}
-                <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white pt-4">Mis Solicitudes</h2>
-
-                <div id="tour-search" className="sticky top-20 z-20 backdrop-blur-xl bg-white/70 dark:bg-slate-900/70 rounded-2xl border border-white/20 shadow-lg p-2 flex items-center gap-2 transition-all">
-                    <div className="relative flex-1">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                    <div className="relative w-full md:w-96">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                         <input
                             type="text"
-                            placeholder="Buscar solicitudes..."
-                            className="w-full pl-11 pr-4 py-3 bg-transparent border-none text-sm focus:outline-none focus:ring-0 text-slate-900 placeholder:text-slate-400"
+                            placeholder="Buscar en todo..."
+                            className="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
                     </div>
                 </div>
 
-                {/* Content Grid */}
-                {loading ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {[1, 2, 3].map(i => (
-                            <div key={i} className="h-64 rounded-3xl bg-slate-100 dark:bg-slate-900 animate-pulse" />
-                        ))}
-                    </div>
-                ) : filteredRequests.length === 0 ? (
-                    <div className="text-center py-20">
-                        <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-slate-50 mb-6">
-                            <Search className="h-10 w-10 text-slate-300" />
-                        </div>
-                        <h3 className="text-xl font-bold text-slate-900 mb-2">No se encontraron solicitudes</h3>
-                        <p className="text-slate-500 mb-8 max-w-sm mx-auto">
-                            Comienza creando tu primera solicitud utilizando los accesos directos de arriba.
-                        </p>
-                    </div>
-                ) : (
-                    <motion.div
-                        variants={container}
-                        initial="hidden"
-                        animate="show"
-                        id="tour-requests-list"
-                        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-                    >
-                        {filteredRequests.map((request) => (
-                            <motion.div
-                                key={request.id}
-                                variants={item}
-                                onClick={() => resumeRequest(request.id)}
-                            >
-                                <div className="group h-full bg-white dark:bg-slate-900/50 backdrop-blur-sm rounded-3xl border border-slate-200 dark:border-slate-800 p-5 hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer relative overflow-hidden">
-                                    <div className="flex justify-between items-start mb-4">
-                                        <div className={`
-                                            px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider
-                                            ${request.status === 'realizado' ? 'bg-green-100 text-green-700' :
-                                                request.status === 'rechazado' ? 'bg-red-100 text-red-700' :
-                                                    request.status === 'submitted' || request.status === 'pendiente' ? 'bg-amber-100 text-amber-700' :
-                                                        'bg-red-100 text-red-700'}
-                                        `}>
-                                            {request.status === 'submitted' ? 'PENDIENTE' :
-                                                (!request.status || request.status === 'draft') ? 'BORRADOR' :
-                                                    request.status}
-                                        </div>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8 -mr-2 text-slate-300 hover:text-red-500 transition-colors" onClick={(e) => handleDeleteClick(request.id, e)}>
-                                            <Trash2 className="h-4 w-4" />
-                                        </Button>
-                                    </div>
+                <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+                    {/* Left Column: Main Content (3/4) */}
+                    <div className="lg:col-span-3 space-y-8">
 
-                                    <div className="mb-6">
-                                        <h4 className="font-bold text-lg text-slate-900 dark:text-white line-clamp-1 mb-1">
-                                            {request.data?.direccion || request.data?.propiedadDireccion || 'Nueva Solicitud'}
-                                        </h4>
-                                        <p className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-                                            <MapPin className="w-3.5 h-3.5" />
-                                            {request.data?.comuna || 'Ubicación pendiente'}
-                                        </p>
-                                    </div>
+                        {/* Quick Actions Row */}
+                        <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+                            <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Accesos Rápidos</h2>
+                            <div className="flex flex-wrap gap-4">
+                                {/* Primary Action: Contract */}
+                                <Button
+                                    size="lg"
+                                    className="h-12 px-6 shadow-lg shadow-indigo-500/20 bg-indigo-600 hover:bg-indigo-700 text-white transition-all transform hover:-translate-y-0.5"
+                                    onClick={() => navigate('/request/contract/new')}
+                                >
+                                    <FileText className="mr-2 h-5 w-5" />
+                                    Redacción de Contrato
+                                </Button>
 
-                                    <Separator className="mb-4 bg-slate-100 dark:bg-slate-800" />
+                                {/* Secondary Actions */}
+                                <Button
+                                    variant="outline"
+                                    size="lg"
+                                    className="h-12 px-6 border-slate-200 dark:border-slate-700 bg-transparent hover:bg-slate-50 dark:hover:bg-slate-800"
+                                    onClick={() => navigate('/request/payment/new')}
+                                >
+                                    <Receipt className="mr-2 h-5 w-5 text-blue-500" />
+                                    Link de Pago
+                                </Button>
 
-                                    <div className="flex items-center justify-between text-xs text-slate-500 font-medium">
-                                        <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800 px-2 py-1 rounded-md">
-                                            {request.type === 'invoice' ? <Receipt className="w-3 h-3" /> : <FileText className="w-3 h-3" />}
-                                            <span className="capitalize">{request.type === 'invoice' ? 'Factura' : 'Contrato'}</span>
-                                        </div>
-                                        <span>{formatDate(request.updated_at)}</span>
-                                    </div>
+                                <Button
+                                    variant="outline"
+                                    size="lg"
+                                    className="h-12 px-6 border-slate-200 dark:border-slate-700 bg-transparent hover:bg-slate-50 dark:hover:bg-slate-800"
+                                    onClick={() => navigate('/request/invoice/new')}
+                                >
+                                    <Receipt className="mr-2 h-5 w-5 text-emerald-500" />
+                                    Factura
+                                </Button>
 
-                                    {/* Progress Bar for Drafts */}
-                                    {request.status === 'draft' && (
-                                        <div className="mt-4 h-1 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                                            <div
-                                                className="h-full bg-primary transition-all duration-500 ease-out"
-                                                style={{ width: `${getProgress(request.step)}%` }}
-                                            />
-                                        </div>
-                                    )}
+                                <div className="ml-auto">
+                                    <Button
+                                        variant="secondary"
+                                        size="lg"
+                                        className="h-12 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-900 dark:text-white"
+                                        onClick={() => setIsContactModalOpen(true)}
+                                    >
+                                        <UserPlus className="mr-2 h-5 w-5" />
+                                        Nuevo Contacto
+                                    </Button>
                                 </div>
-                            </motion.div>
-                        ))}
-                    </motion.div>
-                )}
+                            </div>
+                        </div>
 
+                        {/* Requests Table Section */}
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                                <h2 className="text-xl font-bold text-slate-900 dark:text-white">Mis Solicitudes</h2>
+
+                                {/* Status Tabs */}
+                                <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
+                                    <button
+                                        onClick={() => setFilterStatus('all')}
+                                        className={`px-3 py-1 text-sm font-medium rounded-md transition-all ${filterStatus === 'all' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
+                                    >
+                                        Todas
+                                    </button>
+                                    <button
+                                        onClick={() => setFilterStatus('pending')}
+                                        className={`px-3 py-1 text-sm font-medium rounded-md transition-all ${filterStatus === 'pending' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
+                                    >
+                                        Pendientes
+                                    </button>
+                                    <button
+                                        onClick={() => setFilterStatus('finalized')}
+                                        className={`px-3 py-1 text-sm font-medium rounded-md transition-all ${filterStatus === 'finalized' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
+                                    >
+                                        Finalizadas
+                                    </button>
+                                </div>
+                            </div>
+
+                            <Card className="border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-sm text-left">
+                                        <thead className="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 text-xs uppercase text-slate-500 font-semibold">
+                                            <tr>
+                                                <th className="px-6 py-4">Tipo</th>
+                                                <th className="px-6 py-4">Descripción / Cliente</th>
+                                                <th className="px-6 py-4">Estado</th>
+                                                <th className="px-6 py-4">Fecha</th>
+                                                <th className="px-6 py-4 text-right">Acciones</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                            {loading ? (
+                                                <tr>
+                                                    <td colSpan="5" className="px-6 py-8 text-center text-slate-500">Cargando...</td>
+                                                </tr>
+                                            ) : filteredRequests.length === 0 ? (
+                                                <tr>
+                                                    <td colSpan="5" className="px-6 py-12 text-center">
+                                                        <div className="flex flex-col items-center justify-center text-slate-500">
+                                                            <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mb-3">
+                                                                <Search className="w-6 h-6 text-slate-300" />
+                                                            </div>
+                                                            <p>No se encontraron solicitudes</p>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ) : (
+                                                filteredRequests.map((request) => (
+                                                    <tr
+                                                        key={request.id}
+                                                        onClick={() => resumeRequest(request.id)}
+                                                        className="group hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors cursor-pointer"
+                                                    >
+                                                        <td className="px-6 py-4">
+                                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${request.type === 'invoice' ? 'bg-emerald-50 text-emerald-600' : 'bg-indigo-50 text-indigo-600'}`}>
+                                                                {request.type === 'invoice' ? <Receipt className="w-4 h-4" /> : <FileText className="w-4 h-4" />}
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-6 py-4">
+                                                            <div className="font-medium text-slate-900 dark:text-white">
+                                                                {request.data?.direccion || request.data?.propiedadDireccion || 'Nueva Solicitud'}
+                                                            </div>
+                                                            <div className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
+                                                                <MapPin className="w-3 h-3" />
+                                                                {request.data?.comuna || 'Ubicación pendiente'}
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-6 py-4">
+                                                            {getStatusBadge(request.status)}
+                                                        </td>
+                                                        <td className="px-6 py-4 text-slate-500">
+                                                            {formatDate(request.updated_at)}
+                                                        </td>
+                                                        <td className="px-6 py-4 text-right">
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-8 w-8 text-slate-400 hover:text-red-600 hover:bg-red-50"
+                                                                onClick={(e) => handleDeleteClick(request.id, e)}
+                                                            >
+                                                                <Trash2 className="w-4 h-4" />
+                                                            </Button>
+                                                        </td>
+                                                    </tr>
+                                                ))
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </Card>
+                        </div>
+                    </div>
+
+                    {/* Right Column: Sidebar (1/4) */}
+                    <div className="lg:col-span-1 space-y-6">
+                        <DailyCalendarWidget />
+                        <div className="sticky top-24">
+                            <StickyNotesWidget />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Delete Confirmation Modal */}
                 <AlertDialog open={!!requestToDelete} onOpenChange={(open) => !open && setRequestToDelete(null)}>
                     <AlertDialogContent>
                         <AlertDialogHeader>
@@ -339,6 +336,21 @@ export default function Dashboard() {
                         </AlertDialogFooter>
                     </AlertDialogContent>
                 </AlertDialog>
+
+                {/* New Contact Modal */}
+                <Dialog open={isContactModalOpen} onOpenChange={setIsContactModalOpen}>
+                    <DialogContent className="sm:max-w-[425px]">
+                        <DialogHeader>
+                            <DialogTitle>Nuevo Contacto</DialogTitle>
+                            <DialogDescription>
+                                Agrega un nuevo contacto rápidamente a tu CRM.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="mt-2">
+                            <QuickContactWidget onComplete={() => setIsContactModalOpen(false)} isModal={true} />
+                        </div>
+                    </DialogContent>
+                </Dialog>
             </div>
         </div>
     )
