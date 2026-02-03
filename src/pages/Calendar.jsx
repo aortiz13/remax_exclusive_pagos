@@ -339,9 +339,18 @@ export default function CalendarPage() {
 
                     <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4 shadow-sm flex justify-center">
                         <style>{`
-                            .rdp { margin: 0; }
-                            .rdp-day_selected { background-color: #0f172a !important; }
-                            .rdp-button:hover:not([disabled]) { background-color: #f1f5f9; }
+                            .rdp { margin: 0; --rdp-cell-size: 32px; --rdp-accent-color: #0f172a; --rdp-background-color: #f1f5f9; }
+                            .rdp-day_selected:not([disabled]) { 
+                                background-color: var(--rdp-accent-color); 
+                                color: white;
+                                font-weight: bold;
+                            }
+                            .rdp-button:hover:not([disabled]):not(.rdp-day_selected) { 
+                                background-color: var(--rdp-background-color); 
+                            }
+                            .rdp-nav_button { width: 24px; height: 24px; }
+                            .rdp-head_cell { font-size: 0.75rem; text-transform: uppercase; color: #64748b; font-weight: 600; }
+                            .rdp-caption_label { font-size: 0.875rem; font-weight: 700; text-transform: capitalize; }
                          `}</style>
                         <DayPicker
                             mode="single"
@@ -349,6 +358,8 @@ export default function CalendarPage() {
                             onSelect={(d) => d && setDate(d)}
                             locale={es}
                             className="p-0"
+                            showOutsideDays
+                            fixedWeeks
                         />
                     </div>
 
@@ -385,6 +396,18 @@ export default function CalendarPage() {
                                 .rbc-today { background-color: #f8fafc; }
                                 .rbc-event { border-radius: 6px; }
                                 .rbc-time-view, .rbc-month-view { border: 1px solid #e2e8f0; border-radius: 12px; }
+                                .rbc-current-time-indicator { background-color: #ef4444; height: 2px; } 
+                                .rbc-time-content .rbc-current-time-indicator { width: 100% !important; left: 0 !important; z-index: 10; pointer-events: none; }
+                                .rbc-time-content .rbc-current-time-indicator::before { 
+                                    content: ''; 
+                                    position: absolute; 
+                                    left: -6px; 
+                                    top: -3px; 
+                                    width: 8px; 
+                                    height: 8px; 
+                                    background-color: #ef4444; 
+                                    border-radius: 50%; 
+                                }
                             `}</style>
                             <DnDCalendar
                                 localizer={localizer}
@@ -402,6 +425,7 @@ export default function CalendarPage() {
                                 selectable
                                 onSelectSlot={handleSelectSlot}
                                 onSelectEvent={handleSelectEvent}
+                                culture='es'
                                 messages={{
                                     next: "Sig", previous: "Ant", today: "Hoy", month: "Mes",
                                     week: "Semana", day: "Día", agenda: "Agenda", date: "Fecha",
@@ -434,11 +458,15 @@ export default function CalendarPage() {
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label>Fecha/Hora Inicio *</Label>
-                                <Input
-                                    type="datetime-local"
-                                    value={formData.start}
-                                    onChange={e => setFormData({ ...formData, start: e.target.value })}
-                                />
+                                <div className="relative">
+                                    <Input
+                                        type="datetime-local"
+                                        value={formData.start}
+                                        onChange={e => setFormData({ ...formData, start: e.target.value })}
+                                        className="pr-8 block w-full"
+                                    />
+                                    {/* Fix for calendar icon overlap if native icon is hidden or misaligned */}
+                                </div>
                             </div>
                             <div className="space-y-2">
                                 <Label>Recordatorio</Label>
