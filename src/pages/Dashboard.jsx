@@ -10,6 +10,7 @@ import { motion } from 'framer-motion'
 import StickyNotesWidget from '../components/dashboard/StickyNotesWidget'
 import QuickContactWidget from '../components/dashboard/QuickContactWidget'
 import DailyCalendarWidget from '../components/dashboard/DailyCalendarWidget'
+import { cn } from '@/lib/utils'
 
 import GlobalSearch from '../components/dashboard/GlobalSearch'
 
