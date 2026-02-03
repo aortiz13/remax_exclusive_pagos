@@ -316,7 +316,7 @@ export default function CalendarPage() {
     const dayPickerStyles = `
         .rdp {
             margin: 0;
-            --rdp-cell-size: 30px; /* Smaller cells */
+            --rdp-cell-size: 32px;
             --rdp-accent-color: #0f172a;
             --rdp-background-color: #f1f5f9;
         }
@@ -336,20 +336,10 @@ export default function CalendarPage() {
         .rdp-day { font-size: 0.85rem; }
     `
 
-    // Styles for Big Calendar to force full width time indicator and sticky headers
+    // Styles for Big Calendar to force full width time indicator
     const bigCalendarStyles = `
         .rbc-calendar { font-family: inherit; }
-        .rbc-header {
-            padding: 12px 4px;
-            font-weight: 600;
-            font-size: 0.875rem;
-            border-bottom: 1px solid #e2e8f0;
-            text-transform: capitalize;
-            position: sticky;
-            top: 0;
-            background: white;
-            z-index: 20;
-        }
+        .rbc-header { padding: 12px 4px; font-weight: 600; font-size: 0.875rem; border-bottom: 1px solid #e2e8f0; text-transform: capitalize; }
         .rbc-today { background-color: #f8fafc; }
         .rbc-event { border-radius: 6px; }
         .rbc-time-view, .rbc-month-view { border: 1px solid #e2e8f0; border-radius: 12px; }
@@ -365,81 +355,72 @@ export default function CalendarPage() {
             background-color: #ef4444;
             border-radius: 50%;
         }
-        .rbc-time-header {
-            position: sticky;
-            top: 0;
-            z-index: 20;
-            background: white;
-        }
     `
 
     return (
-        <div className="container max-w-7xl mx-auto pb-12 h-[calc(100vh-100px)]">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-full relative">
+        <div className="w-full h-[calc(100vh-80px)] px-6 pb-6 flex gap-6 overflow-hidden">
+            {/* Sidebar - Fixed Width & Left Aligned */}
+            <div className="w-80 flex-none space-y-6 h-full overflow-y-auto pr-1">
+                <div>
+                    <h1 className="text-3xl font-display font-bold tracking-tight">Calendario</h1>
+                    <p className="text-slate-500 text-sm">Gestiona tu agenda.</p>
+                </div>
 
-                {/* Sidebar */}
-                <div className="lg:col-span-4 space-y-6 sticky top-4 self-start">
-                    <div>
-                        <h1 className="text-3xl font-display font-bold tracking-tight">Calendario</h1>
-                        <p className="text-slate-500 text-sm">Gestiona tu agenda.</p>
-                    </div>
+                <Button
+                    className="w-full justify-start gap-2"
+                    size="lg"
+                    onClick={() => handleSelectSlot({ start: new Date(), end: new Date() })}
+                >
+                    <Plus className="w-5 h-5" /> Nueva Tarea
+                </Button>
 
-                    <Button
-                        className="w-full justify-start gap-2"
-                        size="lg"
-                        onClick={() => handleSelectSlot({ start: new Date(), end: new Date() })}
-                    >
-                        <Plus className="w-5 h-5" /> Nueva Tarea
-                    </Button>
+                <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4 shadow-sm flex justify-center">
+                    <style>{dayPickerStyles}</style>
+                    <DayPicker
+                        mode="single"
+                        selected={date}
+                        onSelect={(d) => d && setDate(d)}
+                        locale={es}
+                        className="p-0"
+                        showOutsideDays
+                        fixedWeeks
+                    />
+                </div>
+            </div>
 
-                    <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4 shadow-sm flex justify-center overflow-x-hidden">
-                        <style>{dayPickerStyles}</style>
-                        <DayPicker
-                            mode="single"
-                            selected={date}
-                            onSelect={(d) => d && setDate(d)}
-                            locale={es}
-                            className="p-0"
-                            showOutsideDays
-                            fixedWeeks
+            {/* Main Calendar - Flex Grow */}
+            <div className="flex-1 h-full min-w-0">
+                <Card className="h-full border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col">
+                    <CardContent className="p-0 flex-1 bg-white dark:bg-slate-950 p-6 flex flex-col h-full overflow-hidden">
+                        <style>{bigCalendarStyles}</style>
+                        <DnDCalendar
+                            localizer={localizer}
+                            events={events.filter(event => {
+                                // Keep existing filters logic just in case user wants it back later
+                                return true
+                            })}
+                            startAccessor="start"
+                            endAccessor="end"
+                            style={{ height: '100%' }}
+                            view={view}
+                            onView={setView}
+                            date={date}
+                            onNavigate={setDate}
+                            components={{ toolbar: CustomToolbar }}
+                            eventPropGetter={eventStyleGetter}
+                            onEventDrop={onEventDrop}
+                            selectable
+                            onSelectSlot={handleSelectSlot}
+                            onSelectEvent={handleSelectEvent}
+                            culture='es'
+                            messages={{
+                                next: "Sig", previous: "Ant", today: "Hoy", month: "Mes",
+                                week: "Semana", day: "Día", agenda: "Agenda", date: "Fecha",
+                                time: "Hora", event: "Evento", noEventsInRange: "Sin eventos"
+                            }}
                         />
-                    </div>
-                </div>
-
-                {/* Main Calendar */}
-                <div className="lg:col-span-8 h-full flex flex-col">
-                    <Card className="flex-1 border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col">
-                        <CardContent className="p-0 flex-1 bg-white dark:bg-slate-950 p-6 flex flex-col">
-                            <style>{bigCalendarStyles}</style>
-                            <DnDCalendar
-                                localizer={localizer}
-                                events={events.filter(event => {
-                                    // Keep existing filters logic just in case user wants it back later or for logic preservation
-                                    return true
-                                })}
-                                startAccessor="start"
-                                endAccessor="end"
-                                style={{ height: '100%' }}
-                                view={view}
-                                onView={setView}
-                                date={date}
-                                onNavigate={setDate}
-                                components={{ toolbar: CustomToolbar }}
-                                eventPropGetter={eventStyleGetter}
-                                onEventDrop={onEventDrop}
-                                selectable
-                                onSelectSlot={handleSelectSlot}
-                                onSelectEvent={handleSelectEvent}
-                                culture='es'
-                                messages={{
-                                    next: "Sig", previous: "Ant", today: "Hoy", month: "Mes",
-                                    week: "Semana", day: "Día", agenda: "Agenda", date: "Fecha",
-                                    time: "Hora", event: "Evento", noEventsInRange: "Sin eventos"
-                                }}
-                            />
-                        </CardContent>
-                    </Card>
-                </div>
+                    </CardContent>
+                </Card>
             </div>
 
             {/* Create/Edit Modal */}
