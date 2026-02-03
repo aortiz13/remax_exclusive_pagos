@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../services/supabase'
-import { Button, Card, CardContent, CardHeader, CardTitle, CardDescription, Badge, Input, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, Separator, AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui'
+import { Button, Separator, AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui'
 import { useNavigate } from 'react-router-dom'
-import { PlusCircle, FileText, Trash2, Play, Search, MapPin, User, Calendar, MoreVertical, Building2, HelpCircle, Receipt, ArrowUpRight } from 'lucide-react'
+import { Trash2, Search, MapPin, Receipt, FileText, ArrowUpRight } from 'lucide-react'
 import { toast } from 'sonner'
 import { useDashboardTour } from '../hooks/useDashboardTour'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
+import StickyNotesWidget from '../components/dashboard/StickyNotesWidget'
+import QuickContactWidget from '../components/dashboard/QuickContactWidget'
+import DailyCalendarWidget from '../components/dashboard/DailyCalendarWidget'
 
 export default function Dashboard() {
     const { user } = useAuth()
@@ -126,7 +129,7 @@ export default function Dashboard() {
     }
 
     return (
-        <div className="min-h-[calc(100vh-80px)]">
+        <div className="min-h-[calc(100vh-80px)] pb-12">
             <div className="container max-w-7xl mx-auto space-y-8">
 
                 {/* Header Section */}
@@ -139,7 +142,22 @@ export default function Dashboard() {
                     </div>
                 </div>
 
-                {/* Quick Actions Section */}
+                {/* New Widgets Section */}
+                <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="col-span-1 h-[400px]">
+                        <QuickContactWidget />
+                    </div>
+                    <div className="col-span-1 h-[400px]">
+                        <StickyNotesWidget />
+                    </div>
+                    <div className="col-span-1 h-[400px]">
+                        <DailyCalendarWidget />
+                    </div>
+                </section>
+
+                <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white pt-4">Accesos Rápidos</h2>
+
+                {/* Quick Actions Section (Legacy) */}
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -206,6 +224,8 @@ export default function Dashboard() {
                 </motion.div>
 
                 {/* Search and Filter Bar */}
+                <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white pt-4">Mis Solicitudes</h2>
+
                 <div id="tour-search" className="sticky top-20 z-20 backdrop-blur-xl bg-white/70 dark:bg-slate-900/70 rounded-2xl border border-white/20 shadow-lg p-2 flex items-center gap-2 transition-all">
                     <div className="relative flex-1">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -242,7 +262,7 @@ export default function Dashboard() {
                         initial="hidden"
                         animate="show"
                         id="tour-requests-list"
-                        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-20"
+                        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
                     >
                         {filteredRequests.map((request) => (
                             <motion.div

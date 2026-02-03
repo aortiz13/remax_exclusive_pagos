@@ -23,6 +23,7 @@ import AdminKpiView from './components/kpi/AdminKpiView'
 import CRM from './pages/CRM'
 import ContactDetail from './components/crm/ContactDetail'
 import DocumentsHub from './pages/DocumentsHub'
+import CalendarPage from './pages/Calendar'
 import { Toaster } from 'sonner'
 
 // Protected Route Component
@@ -81,6 +82,12 @@ function App() {
             <Route path="/dashboard" element={
               <ProtectedRoute>
                 <Dashboard />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/calendar" element={
+              <ProtectedRoute>
+                <CalendarPage />
               </ProtectedRoute>
             } />
 

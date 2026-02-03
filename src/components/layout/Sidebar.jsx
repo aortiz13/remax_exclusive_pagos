@@ -19,7 +19,8 @@ import {
     Box,
     FileBarChart,
     Zap,
-    Shield
+    Shield,
+    Calendar
 } from 'lucide-react'
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
@@ -44,6 +45,11 @@ export default function Sidebar() {
                     title: 'Dashboard',
                     icon: LayoutDashboard,
                     path: '/dashboard',
+                },
+                {
+                    title: 'Calendario',
+                    icon: Calendar,
+                    path: '/calendar',
                 },
             ]
         },

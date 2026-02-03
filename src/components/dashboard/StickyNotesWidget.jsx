@@ -1,0 +1,170 @@
+import { useState, useEffect } from 'react'
+import { supabase } from '../../services/supabase'
+import { useAuth } from '../../context/AuthContext'
+import { Card, CardContent, CardHeader, CardTitle, Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Textarea } from '@/components/ui'
+import { Plus, MoreVertical, Trash2, Palette, Save } from 'lucide-react'
+import { toast } from 'sonner'
+import { motion, AnimatePresence } from 'framer-motion'
+
+const COLORS = [
+    { name: 'Yellow', value: 'bg-yellow-100 dark:bg-yellow-900/40', border: 'border-yellow-200 dark:border-yellow-800' },
+    { name: 'Blue', value: 'bg-blue-100 dark:bg-blue-900/40', border: 'border-blue-200 dark:border-blue-800' },
+    { name: 'Green', value: 'bg-green-100 dark:bg-green-900/40', border: 'border-green-200 dark:border-green-800' },
+    { name: 'Red', value: 'bg-red-100 dark:bg-red-900/40', border: 'border-red-200 dark:border-red-800' },
+    { name: 'Purple', value: 'bg-purple-100 dark:bg-purple-900/40', border: 'border-purple-200 dark:border-purple-800' },
+]
+
+export default function StickyNotesWidget() {
+    const { user } = useAuth()
+    const [notes, setNotes] = useState([])
+    const [loading, setLoading] = useState(true)
+
+    useEffect(() => {
+        if (user) fetchNotes()
+    }, [user])
+
+    const fetchNotes = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('sticky_notes')
+                .select('*')
+                .order('created_at', { ascending: false })
+
+            if (error) throw error
+            setNotes(data || [])
+        } catch (error) {
+            console.error('Error fetching notes:', error)
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    const createNote = async () => {
+        try {
+            const newNote = {
+                user_id: user.id,
+                content: '',
+                color: COLORS[0].value + '|' + COLORS[0].border, // Store both bg and border classes
+                position: { x: 0, y: 0 }
+            }
+
+            const { data, error } = await supabase
+                .from('sticky_notes')
+                .insert([newNote])
+                .select()
+                .single()
+
+            if (error) throw error
+            setNotes([data, ...notes])
+        } catch (error) {
+            console.error('Error creating note:', error)
+            toast.error('No se pudo crear la nota')
+        }
+    }
+
+    const updateNote = async (id, updates) => {
+        // Optimistic update
+        setNotes(prev => prev.map(n => n.id === id ? { ...n, ...updates } : n))
+
+        try {
+            const { error } = await supabase
+                .from('sticky_notes')
+                .update(updates)
+                .eq('id', id)
+
+            if (error) throw error
+        } catch (error) {
+            console.error('Error updating note:', error)
+            // Revert on error would be ideal, but simple error toast for now
+            toast.error('Error al guardar cambios')
+        }
+    }
+
+    const deleteNote = async (id) => {
+        try {
+            const { error } = await supabase
+                .from('sticky_notes')
+                .delete()
+                .eq('id', id)
+
+            if (error) throw error
+            setNotes(prev => prev.filter(n => n.id !== id))
+            toast.success('Nota eliminada')
+        } catch (error) {
+            console.error('Error deleting note:', error)
+            toast.error('Error al eliminar la nota')
+        }
+    }
+
+    return (
+        <Card className="h-full border-dashed border-2 shadow-none bg-transparent">
+            <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+                <CardTitle className="text-lg font-medium">Notas Rápidas</CardTitle>
+                <Button size="sm" variant="ghost" onClick={createNote} className="h-8 w-8 p-0 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full">
+                    <Plus className="h-4 w-4" />
+                </Button>
+            </CardHeader>
+            <CardContent className="h-[300px] overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-800">
+                <AnimatePresence>
+                    {notes.length === 0 && !loading ? (
+                        <div className="flex flex-col items-center justify-center h-full text-slate-400 text-sm italic">
+                            <p>No tienes notas.</p>
+                            <p>¡Crea una nueva!</p>
+                        </div>
+                    ) : (
+                        notes.map(note => {
+                            const [bgClass, borderClass] = (note.color || 'bg-yellow-100 dark:bg-yellow-900/40|border-yellow-200').split('|')
+                            return (
+                                <motion.div
+                                    key={note.id}
+                                    initial={{ opacity: 0, height: 0 }}
+                                    animate={{ opacity: 1, height: 'auto' }}
+                                    exit={{ opacity: 0, height: 0 }}
+                                    className={`relative p-3 rounded-xl border ${borderClass} ${bgClass} shadow-sm group transition-all`}
+                                >
+                                    <Textarea
+                                        value={note.content || ''}
+                                        onChange={(e) => updateNote(note.id, { content: e.target.value })}
+                                        placeholder="Escribe algo..."
+                                        className="min-h-[80px] bg-transparent border-none resize-none focus-visible:ring-0 p-0 text-sm text-slate-800 dark:text-slate-100 placeholder:text-slate-500/50"
+                                    />
+
+                                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button size="icon" variant="ghost" className="h-6 w-6 rounded-full hover:bg-black/5 dark:hover:bg-white/10">
+                                                    <Palette className="h-3 w-3 text-slate-500" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end">
+                                                {COLORS.map(color => (
+                                                    <DropdownMenuItem
+                                                        key={color.name}
+                                                        onClick={() => updateNote(note.id, { color: color.value + '|' + color.border })}
+                                                        className="gap-2"
+                                                    >
+                                                        <div className={`w-4 h-4 rounded-full ${color.value.split(' ')[0]} border border-slate-200`} />
+                                                        {color.name}
+                                                    </DropdownMenuItem>
+                                                ))}
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+
+                                        <Button
+                                            size="icon"
+                                            variant="ghost"
+                                            className="h-6 w-6 rounded-full hover:bg-red-500/10 hover:text-red-600"
+                                            onClick={() => deleteNote(note.id)}
+                                        >
+                                            <Trash2 className="h-3 w-3" />
+                                        </Button>
+                                    </div>
+                                </motion.div>
+                            )
+                        })
+                    )}
+                </AnimatePresence>
+            </CardContent>
+        </Card>
+    )
+}
