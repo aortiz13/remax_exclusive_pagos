@@ -11,6 +11,8 @@ import StickyNotesWidget from '../components/dashboard/StickyNotesWidget'
 import QuickContactWidget from '../components/dashboard/QuickContactWidget'
 import DailyCalendarWidget from '../components/dashboard/DailyCalendarWidget'
 
+import GlobalSearch from '../components/dashboard/GlobalSearch'
+
 export default function Dashboard() {
     const { user } = useAuth()
     const [requests, setRequests] = useState([])
@@ -50,12 +52,7 @@ export default function Dashboard() {
         }
     }
 
-    const handleDeleteClick = (id, e) => {
-        e?.stopPropagation()
-        setRequestToDelete(id)
-    }
-
-    const confirmDelete = async () => {
+    const deleteRequest = async () => {
         if (!requestToDelete) return
 
         try {
@@ -65,11 +62,12 @@ export default function Dashboard() {
                 .eq('id', requestToDelete)
 
             if (error) throw error
+
             setRequests(prev => prev.filter(r => r.id !== requestToDelete))
             toast.success('Solicitud eliminada')
         } catch (error) {
-            console.error('Error deleting request:', error)
-            toast.error('Error al eliminar la solicitud')
+            console.error('Error deleting:', error)
+            toast.error('Error al eliminar solicitud')
         } finally {
             setRequestToDelete(null)
         }
@@ -86,280 +84,270 @@ export default function Dashboard() {
         }
     }
 
-    const formatDate = (dateString) => {
-        return new Date(dateString).toLocaleDateString('es-CL', {
-            day: 'numeric',
-            month: 'short',
-            hour: '2-digit',
-            minute: '2-digit'
-        })
-    }
+    const filteredRequests = requests.filter(req => {
+        const matchesSearch = (
+            req.direccion?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            req.dueño_nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            req.comuna?.toLowerCase().includes(searchTerm.toLowerCase())
+        )
 
-    const filteredRequests = requests.filter(request => {
-        // Search Filter
-        const searchLower = searchTerm.toLowerCase()
-        const address = (request.data?.direccion || request.data?.propiedadDireccion || '').toLowerCase()
-        const client = (
-            request.data?.arrendatarioNombre ||
-            request.data?.dueñoNombre ||
-            request.data?.comuna ||
-            request.data?.compradorNombre ||
-            request.data?.vendedorNombre ||
-            ''
-        ).toLowerCase()
-        const matchesSearch = address.includes(searchLower) || client.includes(searchLower)
-
-        // Status Filter
-        let matchesStatus = true
-        const status = request.status || 'draft'
-
-        if (filterStatus === 'pending') {
-            matchesStatus = status === 'submitted' || status === 'pendiente'
-        } else if (filterStatus === 'finalized') {
-            matchesStatus = status === 'realizado' || status === 'rechazado'
-        }
-
-        return matchesSearch && matchesStatus
+        if (filterStatus === 'all') return matchesSearch
+        if (filterStatus === 'pending') return matchesSearch && req.status !== 'Finalizado'
+        if (filterStatus === 'finalized') return matchesSearch && req.status === 'Finalizado'
+        return matchesSearch
     })
 
-    const getStatusBadge = (status) => {
-        switch (status) {
-            case 'realizado':
-                return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-600 text-white">Realizado</span>
-            case 'rechazado':
-                return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-600 text-white">Rechazado</span>
-            case 'submitted':
-            case 'pendiente':
-                return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-500 text-white">Pendiente</span>
-            case 'draft':
-            default:
-                return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-500 text-white">Borrador</span>
+    const getStatusColor = (status) => {
+        switch (status?.toLowerCase()) {
+            case 'realizado': return 'bg-green-600 text-white hover:bg-green-700'
+            case 'borrador': return 'bg-slate-500 text-white hover:bg-slate-600'
+            case 'pendiente': return 'bg-amber-500 text-white hover:bg-amber-600'
+            default: return 'bg-blue-600 text-white hover:bg-blue-700'
         }
     }
 
-    return (
-        <div className="min-h-[calc(100vh-80px)] pb-12">
-            <div className="container max-w-7xl mx-auto space-y-6">
+    const getStatusLabel = (status) => {
+        if (!status) return 'Pendiente'
+        return status.charAt(0).toUpperCase() + status.slice(1)
+    }
 
-                {/* Header Section with Global Search */}
-                <div className="flex flex-col md:flex-row items-center justify-between gap-4 py-4">
-                    <div id="tour-welcome">
-                        <h1 className="text-3xl font-display font-bold tracking-tight text-slate-900 dark:text-white">
-                            Panel de Control
-                        </h1>
-                        <p className="text-slate-500 text-sm">Resumen de operaciones.</p>
+    const getPropertyIcon = (type) => {
+        switch (type?.toLowerCase()) {
+            case 'arriendo': return <Receipt className="w-4 h-4" />
+            case 'venta': return <FileText className="w-4 h-4" />
+            default: return <FileText className="w-4 h-4" />
+        }
+    }
+
+    // Colors for property icons
+    const getPropertyColor = (type) => {
+        switch (type?.toLowerCase()) {
+            case 'arriendo': return 'bg-purple-100 text-purple-600'
+            case 'venta': return 'bg-emerald-100 text-emerald-600'
+            default: return 'bg-blue-100 text-blue-600'
+        }
+    }
+
+    if (loading) {
+        return (
+            <div className="flex h-screen items-center justify-center bg-slate-50">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+        )
+    }
+
+    const quickActions = [
+        {
+            label: 'Redacción de Contrato',
+            icon: FileText,
+            path: '/contract-wizard',
+            primary: true
+        },
+        {
+            label: 'Link de Pago',
+            icon: Receipt,
+            path: '/payment-link',
+            primary: false
+        },
+        {
+            label: 'Factura',
+            icon: FileText,
+            path: '/invoice',
+            primary: false
+        },
+    ]
+
+    return (
+        <div className="p-4 md:p-8 max-w-[1600px] mx-auto space-y-8 bg-slate-50/50 min-h-screen">
+
+            {/* Header & Search */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                    <h1 className="text-2xl font-bold text-slate-900">Hola, {user?.user_metadata?.first_name || 'Agente'}</h1>
+                    <p className="text-slate-500">Aquí tienes el resumen de tus solicitudes</p>
+                </div>
+
+                <div className="w-full md:w-96 relative z-50">
+                    <GlobalSearch />
+                </div>
+            </div>
+
+            {/* Quick Actions Row */}
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-wrap items-center gap-3" data-tour="quick-actions">
+                <div className="mr-4 font-medium text-slate-700">Accesos Rápidos</div>
+                {quickActions.map((action, index) => (
+                    <Button
+                        key={index}
+                        variant={action.primary ? "default" : "outline"}
+                        className={cn(
+                            "gap-2",
+                            action.primary && "bg-indigo-600 hover:bg-indigo-700 text-white shadow-md border-transparent"
+                        )}
+                        onClick={() => navigate(action.path)}
+                    >
+                        <action.icon className="w-4 h-4" />
+                        {action.label}
+                    </Button>
+                ))}
+
+                <div className="h-6 w-px bg-slate-200 mx-2 hidden md:block" />
+
+                <Button
+                    variant="ghost"
+                    className="gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700"
+                    onClick={() => setIsContactModalOpen(true)}
+                >
+                    <UserPlus className="w-4 h-4" />
+                    Nuevo Contacto
+                </Button>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+
+                {/* Left Column: Requests Table (Half Width) */}
+                <div className="space-y-6" data-tour="requests-list">
+                    <div className="flex items-center justify-between">
+                        <h2 className="text-lg font-semibold text-slate-900">Mis Solicitudes</h2>
+                        <div className="flex bg-slate-100 p-1 rounded-lg">
+                            {['all', 'pending', 'finalized'].map(status => (
+                                <button
+                                    key={status}
+                                    onClick={() => setFilterStatus(status)}
+                                    className={cn(
+                                        "px-3 py-1.5 text-xs font-medium rounded-md transition-all",
+                                        filterStatus === status
+                                            ? "bg-white text-slate-900 shadow-sm"
+                                            : "text-slate-500 hover:text-slate-700"
+                                    )}
+                                >
+                                    {status === 'all' && 'Todas'}
+                                    {status === 'pending' && 'Pendientes'}
+                                    {status === 'finalized' && 'Finalizadas'}
+                                </button>
+                            ))}
+                        </div>
                     </div>
 
-                    <div className="relative w-full md:w-96">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                        <input
-                            type="text"
-                            placeholder="Buscar en todo..."
-                            className="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                        />
+                    <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                        <Table>
+                            <TableHeader>
+                                <TableRow className="bg-slate-50 hover:bg-slate-50">
+                                    <TableHead className="w-[50px]"></TableHead>
+                                    <TableHead>Descripción / Cliente</TableHead>
+                                    <TableHead>Estado</TableHead>
+                                    <TableHead className="hidden md:table-cell">Fecha</TableHead>
+                                    <TableHead className="text-right">Acciones</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {filteredRequests.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={5} className="h-24 text-center text-slate-500">
+                                            No se encontraron solicitudes
+                                        </TableCell>
+                                    </TableRow>
+                                ) : (
+                                    filteredRequests.map((req) => (
+                                        <TableRow
+                                            key={req.id}
+                                            className="hover:bg-slate-50/50 group cursor-pointer"
+                                            onClick={() => resumeRequest(req.id)}
+                                        >
+                                            <TableCell>
+                                                <div className={cn("w-8 h-8 rounded-md flex items-center justify-center", getPropertyColor(req.tipo_propiedad))}>
+                                                    {getPropertyIcon(req.tipo_propiedad)}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell>
+                                                <div className="flex flex-col">
+                                                    <span className="font-medium text-slate-900">
+                                                        {req.tipo_propiedad || 'Solicitud'} {req.comuna && `en ${req.comuna}`}
+                                                    </span>
+                                                    <div className="flex items-center gap-1 text-xs text-slate-500 mt-0.5">
+                                                        <MapPin className="w-3 h-3" />
+                                                        <span className="truncate max-w-[150px]">{req.direccion || 'Ubicación pendiente'}</span>
+                                                    </div>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell>
+                                                <span className={cn("px-2.5 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wide", getStatusColor(req.status))}>
+                                                    {getStatusLabel(req.status)}
+                                                </span>
+                                            </TableCell>
+                                            <TableCell className="hidden md:table-cell text-xs text-slate-500">
+                                                {new Date(req.created_at).toLocaleDateString()}
+                                            </TableCell>
+                                            <TableCell className="text-right">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-red-600 hover:bg-red-50"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation()
+                                                        setRequestToDelete(req.id)
+                                                    }}
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </Button>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                )}
+                            </TableBody>
+                        </Table>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-                    {/* Left Column: Main Content (3/4) */}
-                    <div className="lg:col-span-3 space-y-8">
-
-                        {/* Quick Actions Row */}
-                        <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
-                            <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Accesos Rápidos</h2>
-                            <div className="flex flex-wrap gap-4">
-                                {/* Primary Action: Contract */}
-                                <Button
-                                    size="lg"
-                                    className="h-12 px-6 shadow-lg shadow-indigo-500/20 bg-indigo-600 hover:bg-indigo-700 text-white transition-all transform hover:-translate-y-0.5"
-                                    onClick={() => navigate('/request/contract/new')}
-                                >
-                                    <FileText className="mr-2 h-5 w-5" />
-                                    Redacción de Contrato
-                                </Button>
-
-                                {/* Secondary Actions */}
-                                <Button
-                                    variant="outline"
-                                    size="lg"
-                                    className="h-12 px-6 border-slate-200 dark:border-slate-700 bg-transparent hover:bg-slate-50 dark:hover:bg-slate-800"
-                                    onClick={() => navigate('/request/payment/new')}
-                                >
-                                    <Receipt className="mr-2 h-5 w-5 text-blue-500" />
-                                    Link de Pago
-                                </Button>
-
-                                <Button
-                                    variant="outline"
-                                    size="lg"
-                                    className="h-12 px-6 border-slate-200 dark:border-slate-700 bg-transparent hover:bg-slate-50 dark:hover:bg-slate-800"
-                                    onClick={() => navigate('/request/invoice/new')}
-                                >
-                                    <Receipt className="mr-2 h-5 w-5 text-emerald-500" />
-                                    Factura
-                                </Button>
-
-                                <div className="ml-auto">
-                                    <Button
-                                        variant="secondary"
-                                        size="lg"
-                                        className="h-12 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-900 dark:text-white"
-                                        onClick={() => setIsContactModalOpen(true)}
-                                    >
-                                        <UserPlus className="mr-2 h-5 w-5" />
-                                        Nuevo Contacto
-                                    </Button>
-                                </div>
-                            </div>
+                {/* Right Column: Widgets (Half Width) */}
+                <div className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6" data-tour="widgets">
+                        {/* Calendar Widget */}
+                        <div className="md:col-span-2">
+                            <DailyCalendarWidget />
                         </div>
 
-                        {/* Requests Table Section */}
-                        <div className="space-y-4">
-                            <div className="flex items-center justify-between">
-                                <h2 className="text-xl font-bold text-slate-900 dark:text-white">Mis Solicitudes</h2>
-
-                                {/* Status Tabs */}
-                                <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
-                                    <button
-                                        onClick={() => setFilterStatus('all')}
-                                        className={`px-3 py-1 text-sm font-medium rounded-md transition-all ${filterStatus === 'all' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
-                                    >
-                                        Todas
-                                    </button>
-                                    <button
-                                        onClick={() => setFilterStatus('pending')}
-                                        className={`px-3 py-1 text-sm font-medium rounded-md transition-all ${filterStatus === 'pending' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
-                                    >
-                                        Pendientes
-                                    </button>
-                                    <button
-                                        onClick={() => setFilterStatus('finalized')}
-                                        className={`px-3 py-1 text-sm font-medium rounded-md transition-all ${filterStatus === 'finalized' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
-                                    >
-                                        Finalizadas
-                                    </button>
-                                </div>
-                            </div>
-
-                            <Card className="border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-                                <div className="overflow-x-auto">
-                                    <table className="w-full text-sm text-left">
-                                        <thead className="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 text-xs uppercase text-slate-500 font-semibold">
-                                            <tr>
-                                                <th className="px-6 py-4">Tipo</th>
-                                                <th className="px-6 py-4">Descripción / Cliente</th>
-                                                <th className="px-6 py-4">Estado</th>
-                                                <th className="px-6 py-4">Fecha</th>
-                                                <th className="px-6 py-4 text-right">Acciones</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                            {loading ? (
-                                                <tr>
-                                                    <td colSpan="5" className="px-6 py-8 text-center text-slate-500">Cargando...</td>
-                                                </tr>
-                                            ) : filteredRequests.length === 0 ? (
-                                                <tr>
-                                                    <td colSpan="5" className="px-6 py-12 text-center">
-                                                        <div className="flex flex-col items-center justify-center text-slate-500">
-                                                            <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mb-3">
-                                                                <Search className="w-6 h-6 text-slate-300" />
-                                                            </div>
-                                                            <p>No se encontraron solicitudes</p>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            ) : (
-                                                filteredRequests.map((request) => (
-                                                    <tr
-                                                        key={request.id}
-                                                        onClick={() => resumeRequest(request.id)}
-                                                        className="group hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors cursor-pointer"
-                                                    >
-                                                        <td className="px-6 py-4">
-                                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${request.type === 'invoice' ? 'bg-emerald-50 text-emerald-600' : 'bg-indigo-50 text-indigo-600'}`}>
-                                                                {request.type === 'invoice' ? <Receipt className="w-4 h-4" /> : <FileText className="w-4 h-4" />}
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-6 py-4">
-                                                            <div className="font-medium text-slate-900 dark:text-white">
-                                                                {request.data?.direccion || request.data?.propiedadDireccion || 'Nueva Solicitud'}
-                                                            </div>
-                                                            <div className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
-                                                                <MapPin className="w-3 h-3" />
-                                                                {request.data?.comuna || 'Ubicación pendiente'}
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-6 py-4">
-                                                            {getStatusBadge(request.status)}
-                                                        </td>
-                                                        <td className="px-6 py-4 text-slate-500">
-                                                            {formatDate(request.updated_at)}
-                                                        </td>
-                                                        <td className="px-6 py-4 text-right">
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className="h-8 w-8 text-slate-400 hover:text-red-600 hover:bg-red-50"
-                                                                onClick={(e) => handleDeleteClick(request.id, e)}
-                                                            >
-                                                                <Trash2 className="w-4 h-4" />
-                                                            </Button>
-                                                        </td>
-                                                    </tr>
-                                                ))
-                                            )}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </Card>
-                        </div>
-                    </div>
-
-                    {/* Right Column: Sidebar (1/4) */}
-                    <div className="lg:col-span-1 space-y-6">
-                        <DailyCalendarWidget />
-                        <div className="sticky top-24">
+                        {/* Sticky Notes Widget - Now Full Width in Column */}
+                        <div className="md:col-span-2 h-[400px]">
                             <StickyNotesWidget />
                         </div>
                     </div>
                 </div>
-
-                {/* Delete Confirmation Modal */}
-                <AlertDialog open={!!requestToDelete} onOpenChange={(open) => !open && setRequestToDelete(null)}>
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle>¿Eliminar solicitud?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                                Esta acción es irreversible. Se perderán todos los datos asociados.
-                            </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                            <AlertDialogAction onClick={confirmDelete} className="bg-red-600 hover:bg-red-700">
-                                Eliminar
-                            </AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
-
-                {/* New Contact Modal */}
-                <Dialog open={isContactModalOpen} onOpenChange={setIsContactModalOpen}>
-                    <DialogContent className="sm:max-w-[425px]">
-                        <DialogHeader>
-                            <DialogTitle>Nuevo Contacto</DialogTitle>
-                            <DialogDescription>
-                                Agrega un nuevo contacto rápidamente a tu CRM.
-                            </DialogDescription>
-                        </DialogHeader>
-                        <div className="mt-2">
-                            <QuickContactWidget onComplete={() => setIsContactModalOpen(false)} isModal={true} />
-                        </div>
-                    </DialogContent>
-                </Dialog>
             </div>
+
+            {/* Modals & Alerts */}
+            <AlertDialog open={!!requestToDelete} onOpenChange={() => setRequestToDelete(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Esta acción no se puede deshacer. La solicitud se eliminará permanentemente.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction onClick={deleteRequest} className="bg-red-600 hover:bg-red-700">
+                            Eliminar
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            <Dialog open={isContactModalOpen} onOpenChange={setIsContactModalOpen}>
+                <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                        <DialogTitle>Nuevo Contacto</DialogTitle>
+                        <DialogDescription>
+                            Agrega un nuevo contacto rápidamente a tu base de datos.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="mt-4">
+                        <QuickContactWidget
+                            isModal={true}
+                            onComplete={() => setIsContactModalOpen(false)}
+                        />
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     )
 }

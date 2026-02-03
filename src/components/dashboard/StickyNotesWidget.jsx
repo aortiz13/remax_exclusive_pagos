@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../../services/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { Card, CardContent, CardHeader, CardTitle, Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Textarea } from '@/components/ui'
-import { Plus, MoreVertical, Trash2, Palette, Save } from 'lucide-react'
+import { Plus, MoreVertical, Trash2, Palette, Save, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -13,6 +13,168 @@ const COLORS = [
     { name: 'Red', value: 'bg-red-100 dark:bg-red-900/40', border: 'border-red-200 dark:border-red-800' },
     { name: 'Purple', value: 'bg-purple-100 dark:bg-purple-900/40', border: 'border-purple-200 dark:border-purple-800' },
 ]
+
+function NoteItem({ note, onUpdate, onDelete }) {
+    const [content, setContent] = useState(note.content || '')
+    const [showMentions, setShowMentions] = useState(false)
+    const [mentionQuery, setMentionQuery] = useState('')
+    const [contacts, setContacts] = useState([])
+    const [mentionLoading, setMentionLoading] = useState(false)
+    const [cursorPos, setCursorPos] = useState(0)
+    const textareaRef = useRef(null)
+
+    // Sync local state with prop if it changes externally (rare, mainly for initial load)
+    useEffect(() => {
+        setContent(note.content || '')
+    }, [note.content])
+
+    const fetchContacts = async (query) => {
+        if (!query) {
+            setContacts([])
+            return
+        }
+        setMentionLoading(true)
+        try {
+            const { data, error } = await supabase
+                .from('contacts')
+                .select('id, first_name, last_name')
+                .ilike('first_name', `%${query}%`) // Simplified search for now
+                .limit(5)
+
+            if (error) throw error
+            setContacts(data || [])
+        } catch (error) {
+            console.error('Error searching contacts:', error)
+        } finally {
+            setMentionLoading(false)
+        }
+    }
+
+    const handleInput = (e) => {
+        const val = e.target.value
+        const newCursorPos = e.target.selectionStart
+        setContent(val)
+        onUpdate(note.id, { content: val }) // Optimistic/Auto-save
+
+        // Detect Mention
+        const textBeforeCursor = val.slice(0, newCursorPos)
+        const lastAt = textBeforeCursor.lastIndexOf('@')
+
+        if (lastAt !== -1) {
+            const query = textBeforeCursor.slice(lastAt + 1)
+            // Check if there are spaces, which might mean we are not typing a username anymore
+            // Allow one space for "First Last" names? Let's restrict to no spaces for simplicity first, or short logic
+            if (!query.includes('\n') && query.length < 20) {
+                setMentionQuery(query)
+                setShowMentions(true)
+                setCursorPos(lastAt)
+                fetchContacts(query)
+                return
+            }
+        }
+
+        setShowMentions(false)
+    }
+
+    const selectContact = async (contact) => {
+        const textBefore = content.slice(0, cursorPos)
+        const textAfter = content.slice(textareaRef.current.selectionStart)
+        const newContent = `${textBefore}${contact.first_name} ${contact.last_name} ${textAfter}`
+
+        setContent(newContent)
+        onUpdate(note.id, { content: newContent })
+        setShowMentions(false)
+
+        // Log Activity
+        try {
+            await supabase.from('contact_activities').insert([{
+                contact_id: contact.id,
+                type: 'note',
+                description: `Mencionado en una nota rápida: "${newContent.slice(0, 50)}..."`
+            }])
+            toast.success(`Mencionado: ${contact.first_name}`)
+        } catch (error) {
+            console.error('Error logging mention:', error)
+        }
+    }
+
+    const [bgClass, borderClass] = (note.color || 'bg-yellow-100 dark:bg-yellow-900/40|border-yellow-200').split('|')
+
+    return (
+        <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className={`relative p-3 rounded-xl border ${borderClass} ${bgClass} shadow-sm group transition-all`}
+        >
+            <div className="relative">
+                <Textarea
+                    ref={textareaRef}
+                    value={content}
+                    onChange={handleInput}
+                    placeholder="Escribe algo... Usa @ para mencionar"
+                    className="min-h-[80px] bg-transparent border-none resize-none focus-visible:ring-0 p-0 text-sm text-slate-800 dark:text-slate-100 placeholder:text-slate-500/50"
+                />
+
+                {/* Mention Popover */}
+                {showMentions && (
+                    <div className="absolute z-10 top-full left-0 mt-2 w-48 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
+                        {mentionLoading ? (
+                            <div className="p-2 text-xs text-slate-500 flex items-center justify-center">
+                                <Loader2 className="w-3 h-3 animate-spin mr-1" /> Buscando...
+                            </div>
+                        ) : contacts.length > 0 ? (
+                            <ul className="max-h-32 overflow-y-auto">
+                                {contacts.map(contact => (
+                                    <li
+                                        key={contact.id}
+                                        onClick={() => selectContact(contact)}
+                                        className="px-3 py-2 text-xs hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer text-slate-700 dark:text-slate-200"
+                                    >
+                                        {contact.first_name} {contact.last_name}
+                                    </li>
+                                ))}
+                            </ul>
+                        ) : (
+                            <div className="p-2 text-xs text-slate-500 text-center">No encontrado</div>
+                        )}
+                    </div>
+                )}
+            </div>
+
+            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button size="icon" variant="ghost" className="h-6 w-6 rounded-full hover:bg-black/5 dark:hover:bg-white/10">
+                            <Palette className="h-3 w-3 text-slate-500" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        {COLORS.map(color => (
+                            <DropdownMenuItem
+                                key={color.name}
+                                onClick={() => onUpdate(note.id, { color: color.value + '|' + color.border })}
+                                className="gap-2"
+                            >
+                                <div className={`w-4 h-4 rounded-full ${color.value.split(' ')[0]} border border-slate-200`} />
+                                {color.name}
+                            </DropdownMenuItem>
+                        ))}
+                    </DropdownMenuContent>
+                </DropdownMenu>
+
+                <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-6 w-6 rounded-full hover:bg-red-500/10 hover:text-red-600"
+                    onClick={() => onDelete(note.id)}
+                >
+                    <Trash2 className="h-3 w-3" />
+                </Button>
+            </div>
+        </motion.div>
+    )
+}
 
 export default function StickyNotesWidget() {
     const { user } = useAuth()
@@ -44,7 +206,7 @@ export default function StickyNotesWidget() {
             const newNote = {
                 user_id: user.id,
                 content: '',
-                color: COLORS[0].value + '|' + COLORS[0].border, // Store both bg and border classes
+                color: COLORS[0].value + '|' + COLORS[0].border,
                 position: { x: 0, y: 0 }
             }
 
@@ -63,7 +225,6 @@ export default function StickyNotesWidget() {
     }
 
     const updateNote = async (id, updates) => {
-        // Optimistic update
         setNotes(prev => prev.map(n => n.id === id ? { ...n, ...updates } : n))
 
         try {
@@ -75,7 +236,6 @@ export default function StickyNotesWidget() {
             if (error) throw error
         } catch (error) {
             console.error('Error updating note:', error)
-            // Revert on error would be ideal, but simple error toast for now
             toast.error('Error al guardar cambios')
         }
     }
@@ -104,64 +264,22 @@ export default function StickyNotesWidget() {
                     <Plus className="h-4 w-4" />
                 </Button>
             </CardHeader>
-            <CardContent className="h-[300px] overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-800">
+            <CardContent className="h-[calc(100%-60px)] overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-800">
                 <AnimatePresence>
                     {notes.length === 0 && !loading ? (
                         <div className="flex flex-col items-center justify-center h-full text-slate-400 text-sm italic">
                             <p>No tienes notas.</p>
-                            <p>¡Crea una nueva!</p>
+                            <p>¡Crea una nueva con +!</p>
                         </div>
                     ) : (
-                        notes.map(note => {
-                            const [bgClass, borderClass] = (note.color || 'bg-yellow-100 dark:bg-yellow-900/40|border-yellow-200').split('|')
-                            return (
-                                <motion.div
-                                    key={note.id}
-                                    initial={{ opacity: 0, height: 0 }}
-                                    animate={{ opacity: 1, height: 'auto' }}
-                                    exit={{ opacity: 0, height: 0 }}
-                                    className={`relative p-3 rounded-xl border ${borderClass} ${bgClass} shadow-sm group transition-all`}
-                                >
-                                    <Textarea
-                                        value={note.content || ''}
-                                        onChange={(e) => updateNote(note.id, { content: e.target.value })}
-                                        placeholder="Escribe algo..."
-                                        className="min-h-[80px] bg-transparent border-none resize-none focus-visible:ring-0 p-0 text-sm text-slate-800 dark:text-slate-100 placeholder:text-slate-500/50"
-                                    />
-
-                                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
-                                                <Button size="icon" variant="ghost" className="h-6 w-6 rounded-full hover:bg-black/5 dark:hover:bg-white/10">
-                                                    <Palette className="h-3 w-3 text-slate-500" />
-                                                </Button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end">
-                                                {COLORS.map(color => (
-                                                    <DropdownMenuItem
-                                                        key={color.name}
-                                                        onClick={() => updateNote(note.id, { color: color.value + '|' + color.border })}
-                                                        className="gap-2"
-                                                    >
-                                                        <div className={`w-4 h-4 rounded-full ${color.value.split(' ')[0]} border border-slate-200`} />
-                                                        {color.name}
-                                                    </DropdownMenuItem>
-                                                ))}
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
-
-                                        <Button
-                                            size="icon"
-                                            variant="ghost"
-                                            className="h-6 w-6 rounded-full hover:bg-red-500/10 hover:text-red-600"
-                                            onClick={() => deleteNote(note.id)}
-                                        >
-                                            <Trash2 className="h-3 w-3" />
-                                        </Button>
-                                    </div>
-                                </motion.div>
-                            )
-                        })
+                        notes.map(note => (
+                            <NoteItem
+                                key={note.id}
+                                note={note}
+                                onUpdate={updateNote}
+                                onDelete={deleteNote}
+                            />
+                        ))
                     )}
                 </AnimatePresence>
             </CardContent>
