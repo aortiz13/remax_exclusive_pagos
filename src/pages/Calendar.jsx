@@ -368,7 +368,7 @@ export default function CalendarPage() {
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-full">
 
                 {/* Sidebar */}
-                <div className="lg:col-span-3 space-y-6">
+                <div className="lg:col-span-4 space-y-6">
                     <div>
                         <h1 className="text-3xl font-display font-bold tracking-tight">Calendario</h1>
                         <p className="text-slate-500 text-sm">Gestiona tu agenda.</p>
@@ -419,7 +419,7 @@ export default function CalendarPage() {
                 </div>
 
                 {/* Main Calendar */}
-                <div className="lg:col-span-9 h-full flex flex-col">
+                <div className="lg:col-span-8 h-full flex flex-col">
                     <Card className="flex-1 border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col">
                         <CardContent className="p-0 flex-1 bg-white dark:bg-slate-950 p-6 flex flex-col">
                             <style>{bigCalendarStyles}</style>
