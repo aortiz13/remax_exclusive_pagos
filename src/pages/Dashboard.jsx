@@ -12,6 +12,14 @@ import QuickContactWidget from '../components/dashboard/QuickContactWidget'
 import DailyCalendarWidget from '../components/dashboard/DailyCalendarWidget'
 
 export default function Dashboard() {
+    const { user } = useAuth()
+    const [requests, setRequests] = useState([])
+    const [loading, setLoading] = useState(true)
+    const [searchTerm, setSearchTerm] = useState('')
+    const [requestToDelete, setRequestToDelete] = useState(null)
+    const navigate = useNavigate()
+    const { startTour } = useDashboardTour()
+
     const [filterStatus, setFilterStatus] = useState('all') // 'all', 'pending', 'finalized'
     const [isContactModalOpen, setIsContactModalOpen] = useState(false)
 
