@@ -8,7 +8,8 @@ import {
     Card, CardContent, CardHeader, CardTitle,
     Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
     Input, Label,
-    AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction, AlertDialogTrigger
+    AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction, AlertDialogTrigger,
+    Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from '@/components/ui'
 import { FileText, Upload, Trash2, Eye, Download, Search, File } from 'lucide-react'
 import { toast } from 'sonner'
@@ -29,6 +30,7 @@ export default function DocumentRepository({ category: propCategory }) {
     const [isUploadOpen, setIsUploadOpen] = useState(false)
     const [uploading, setUploading] = useState(false)
     const [selectedFiles, setSelectedFiles] = useState([]) // Array of { file, title }
+    const [uploadSubcategory, setUploadSubcategory] = useState('arriendo') // 'arriendo' | 'venta'
     const [isDragging, setIsDragging] = useState(false)
 
     // Rename State
@@ -145,6 +147,7 @@ export default function DocumentRepository({ category: propCategory }) {
                     .insert([{
                         title: finalTitle,
                         category: category,
+                        subcategory: category === 'evaluations' ? uploadSubcategory : null,
                         file_path: fileName,
                         file_type: fileExt,
                         file_size: item.file.size,
@@ -294,6 +297,22 @@ export default function DocumentRepository({ category: propCategory }) {
                                     <DialogTitle>Subir Documentos</DialogTitle>
                                 </DialogHeader>
                                 <div className="space-y-4 py-4">
+                                    {/* Subcategory Selector for Evaluations */}
+                                    {category === 'evaluations' && (
+                                        <div className="space-y-2">
+                                            <Label>Tipo de Evaluación</Label>
+                                            <Select value={uploadSubcategory} onValueChange={setUploadSubcategory}>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Selecciona el tipo" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="arriendo">Arriendo</SelectItem>
+                                                    <SelectItem value="venta">Venta</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    )}
+
                                     {/* Drag & Drop Zone */}
                                     <div
                                         className={`border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center transition-colors cursor-pointer ${isDragging ? 'border-primary bg-primary/5' : 'border-slate-200 hover:border-primary/50 hover:bg-slate-50'
@@ -460,160 +479,97 @@ export default function DocumentRepository({ category: propCategory }) {
                 </div>
             ) : (
                 <>
-                    {/* View: Gallery (Cards) */}
-                    {viewMode === 'gallery' && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {filteredDocs.map((doc) => (
-                                <Card key={doc.id} className="group hover:shadow-lg transition-all duration-300 border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm overflow-hidden">
-                                    <CardContent className="p-0">
-                                        <div className="p-6 flex items-start justify-between gap-4">
-                                            <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl text-blue-600 dark:text-blue-400">
-                                                <FileText className="w-6 h-6" />
-                                            </div>
-                                            {isAdmin && (
-                                                <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-                                                    <Button
-                                                        variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-blue-500"
-                                                        onClick={() => handleRenameClick(doc)}
-                                                    >
-                                                        <FileText className="w-4 h-4" />
-                                                    </Button>
-                                                    <AlertDialog>
-                                                        <AlertDialogTrigger asChild>
-                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-red-500">
-                                                                <Trash2 className="w-4 h-4" />
-                                                            </Button>
-                                                        </AlertDialogTrigger>
-                                                        <AlertDialogContent>
-                                                            <AlertDialogHeader>
-                                                                <AlertDialogTitle>¿Eliminar documento?</AlertDialogTitle>
-                                                                <AlertDialogDescription>Esta acción es irreversible.</AlertDialogDescription>
-                                                            </AlertDialogHeader>
-                                                            <AlertDialogFooter>
-                                                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                                                <AlertDialogAction onClick={() => handleDelete(doc.id, doc.file_path)} className="bg-red-500">Eliminar</AlertDialogAction>
-                                                            </AlertDialogFooter>
-                                                        </AlertDialogContent>
-                                                    </AlertDialog>
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        <div className="px-6 pb-2">
-                                            {/* Full Title Visibility: allow wrap */}
-                                            <h3 className="font-semibold text-slate-900 dark:text-white text-base leading-snug whitespace-normal break-words" title={doc.title}>
-                                                {doc.title}
-                                            </h3>
-                                            <p className="text-xs text-slate-500 mt-2">
-                                                {formatSize(doc.file_size)} • {formatDate(doc.created_at)}
-                                            </p>
-                                        </div>
-
-                                        <div className="p-4 bg-slate-50 dark:bg-slate-950/50 flex items-center gap-2 mt-2">
-                                            <Button
-                                                variant="outline" size="sm" className="flex-1 gap-2 hover:bg-white dark:hover:bg-slate-800"
-                                                onClick={() => handlePreview(doc)}
-                                            >
-                                                <Eye className="w-4 h-4" /> Ver
-                                            </Button>
-                                            <Button
-                                                variant="default" size="sm" className="flex-1 gap-2"
-                                                onClick={() => handleDownload(doc.file_path, doc.title)}
-                                            >
-                                                <Download className="w-4 h-4" /> Descargar
-                                            </Button>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            ))}
-                        </div>
-                    )}
-
-                    {/* View: Icons (Grid of small items) */}
-                    {viewMode === 'icons' && (
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                            {filteredDocs.map((doc) => (
-                                <div key={doc.id} className="group flex flex-col items-center p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 hover:shadow-md transition-all cursor-pointer relative" onClick={() => handlePreview(doc)}>
-                                    <div className="w-16 h-16 bg-blue-50 dark:bg-blue-900/20 rounded-lg flex items-center justify-center text-blue-500 mb-3">
-                                        <FileText className="w-8 h-8" />
-                                    </div>
-                                    <p className="text-sm font-medium text-center text-slate-900 dark:text-white w-full whitespace-normal break-words leading-tight">
-                                        {doc.title}
-                                    </p>
-
-                                    {/* Actions overlay for Icons view? Or Context Menu? Keep it simple: show on hover absolute */}
-                                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 bg-white/90 dark:bg-slate-900/90 rounded-md p-1 shadow-sm backdrop-blur-sm">
-                                        {isAdmin && (
-                                            <>
-                                                <button onClick={(e) => { e.stopPropagation(); handleRenameClick(doc) }} className="p-1 hover:text-blue-500"><FileText className="w-3 h-3" /></button>
-                                                <AlertDialog>
-                                                    <AlertDialogTrigger asChild>
-                                                        <button onClick={(e) => e.stopPropagation()} className="p-1 hover:text-red-500"><Trash2 className="w-3 h-3" /></button>
-                                                    </AlertDialogTrigger>
-                                                    <AlertDialogContent>
-                                                        <AlertDialogHeader>
-                                                            <AlertDialogTitle>¿Eliminar documento?</AlertDialogTitle>
-                                                        </AlertDialogHeader>
-                                                        <AlertDialogFooter>
-                                                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                                            <AlertDialogAction onClick={() => handleDelete(doc.id, doc.file_path)} className="bg-red-500">Eliminar</AlertDialogAction>
-                                                        </AlertDialogFooter>
-                                                    </AlertDialogContent>
-                                                </AlertDialog>
-                                            </>
-                                        )}
-                                        <button onClick={(e) => { e.stopPropagation(); handleDownload(doc.file_path, doc.title) }} className="p-1 hover:text-green-500"><Download className="w-3 h-3" /></button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-
-                    {/* View: List */}
-                    {viewMode === 'list' && (
-                        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
-                            <table className="w-full text-sm text-left">
-                                <thead className="bg-slate-50 dark:bg-slate-950 text-slate-500">
-                                    <tr>
-                                        <th className="px-4 py-3 font-medium">Nombre</th>
-                                        <th className="px-4 py-3 font-medium w-32">Fecha</th>
-                                        <th className="px-4 py-3 font-medium w-24">Tamaño</th>
-                                        <th className="px-4 py-3 font-medium w-32 text-right">Acciones</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                    {filteredDocs.map((doc) => (
-                                        <tr key={doc.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                                            <td className="px-4 py-3">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-blue-500">
-                                                        <FileText className="w-4 h-4" />
+                    {/* Helper to render a group of documents */}
+                    {(() => {
+                        const renderDocGroup = (docs) => (
+                            <>
+                                {/* View: Gallery (Cards) */}
+                                {viewMode === 'gallery' && (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                        {docs.map((doc) => (
+                                            <Card key={doc.id} className="group hover:shadow-lg transition-all duration-300 border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm overflow-hidden">
+                                                <CardContent className="p-0">
+                                                    <div className="p-6 flex items-start justify-between gap-4">
+                                                        <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl text-blue-600 dark:text-blue-400">
+                                                            <FileText className="w-6 h-6" />
+                                                        </div>
+                                                        {isAdmin && (
+                                                            <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                                                                <Button
+                                                                    variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-blue-500"
+                                                                    onClick={() => handleRenameClick(doc)}
+                                                                >
+                                                                    <FileText className="w-4 h-4" />
+                                                                </Button>
+                                                                <AlertDialog>
+                                                                    <AlertDialogTrigger asChild>
+                                                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-red-500">
+                                                                            <Trash2 className="w-4 h-4" />
+                                                                        </Button>
+                                                                    </AlertDialogTrigger>
+                                                                    <AlertDialogContent>
+                                                                        <AlertDialogHeader>
+                                                                            <AlertDialogTitle>¿Eliminar documento?</AlertDialogTitle>
+                                                                            <AlertDialogDescription>Esta acción es irreversible.</AlertDialogDescription>
+                                                                        </AlertDialogHeader>
+                                                                        <AlertDialogFooter>
+                                                                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                                            <AlertDialogAction onClick={() => handleDelete(doc.id, doc.file_path)} className="bg-red-500">Eliminar</AlertDialogAction>
+                                                                        </AlertDialogFooter>
+                                                                    </AlertDialogContent>
+                                                                </AlertDialog>
+                                                            </div>
+                                                        )}
                                                     </div>
-                                                    <span className="font-medium text-slate-900 dark:text-white whitespace-normal break-words max-w-md">
-                                                        {doc.title}
-                                                    </span>
+
+                                                    <div className="px-6 pb-2">
+                                                        <h3 className="font-semibold text-slate-900 dark:text-white text-base leading-snug whitespace-normal break-words" title={doc.title}>
+                                                            {doc.title}
+                                                        </h3>
+                                                        <p className="text-xs text-slate-500 mt-2">
+                                                            {formatSize(doc.file_size)} • {formatDate(doc.created_at)}
+                                                        </p>
+                                                    </div>
+
+                                                    <div className="p-4 bg-slate-50 dark:bg-slate-950/50 flex items-center gap-2 mt-2">
+                                                        <Button
+                                                            variant="outline" size="sm" className="flex-1 gap-2 hover:bg-white dark:hover:bg-slate-800"
+                                                            onClick={() => handlePreview(doc)}
+                                                        >
+                                                            <Eye className="w-4 h-4" /> Ver
+                                                        </Button>
+                                                        <Button
+                                                            variant="default" size="sm" className="flex-1 gap-2"
+                                                            onClick={() => handleDownload(doc.file_path, doc.title)}
+                                                        >
+                                                            <Download className="w-4 h-4" /> Descargar
+                                                        </Button>
+                                                    </div>
+                                                </CardContent>
+                                            </Card>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {/* View: Icons (Grid of small items) */}
+                                {viewMode === 'icons' && (
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                                        {docs.map((doc) => (
+                                            <div key={doc.id} className="group flex flex-col items-center p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 hover:shadow-md transition-all cursor-pointer relative" onClick={() => handlePreview(doc)}>
+                                                <div className="w-16 h-16 bg-blue-50 dark:bg-blue-900/20 rounded-lg flex items-center justify-center text-blue-500 mb-3">
+                                                    <FileText className="w-8 h-8" />
                                                 </div>
-                                            </td>
-                                            <td className="px-4 py-3 text-slate-500">{formatDate(doc.created_at)}</td>
-                                            <td className="px-4 py-3 text-slate-500">{formatSize(doc.file_size)}</td>
-                                            <td className="px-4 py-3 text-right">
-                                                <div className="flex items-center justify-end gap-1">
-                                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handlePreview(doc)} title="Ver">
-                                                        <Eye className="w-4 h-4 text-slate-400" />
-                                                    </Button>
-                                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDownload(doc.file_path, doc.title)} title="Descargar">
-                                                        <Download className="w-4 h-4 text-slate-400" />
-                                                    </Button>
+                                                <p className="text-sm font-medium text-center text-slate-900 dark:text-white w-full whitespace-normal break-words leading-tight">
+                                                    {doc.title}
+                                                </p>
+
+                                                <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 bg-white/90 dark:bg-slate-900/90 rounded-md p-1 shadow-sm backdrop-blur-sm">
                                                     {isAdmin && (
                                                         <>
-                                                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleRenameClick(doc)} title="Renombrar">
-                                                                <FileText className="w-4 h-4 text-slate-400" />
-                                                            </Button>
+                                                            <button onClick={(e) => { e.stopPropagation(); handleRenameClick(doc) }} className="p-1 hover:text-blue-500"><FileText className="w-3 h-3" /></button>
                                                             <AlertDialog>
                                                                 <AlertDialogTrigger asChild>
-                                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-red-400 hover:text-red-500">
-                                                                        <Trash2 className="w-4 h-4" />
-                                                                    </Button>
+                                                                    <button onClick={(e) => e.stopPropagation()} className="p-1 hover:text-red-500"><Trash2 className="w-3 h-3" /></button>
                                                                 </AlertDialogTrigger>
                                                                 <AlertDialogContent>
                                                                     <AlertDialogHeader>
@@ -627,14 +583,113 @@ export default function DocumentRepository({ category: propCategory }) {
                                                             </AlertDialog>
                                                         </>
                                                     )}
+                                                    <button onClick={(e) => { e.stopPropagation(); handleDownload(doc.file_path, doc.title) }} className="p-1 hover:text-green-500"><Download className="w-3 h-3" /></button>
                                                 </div>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {/* View: List */}
+                                {viewMode === 'list' && (
+                                    <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+                                        <table className="w-full text-sm text-left">
+                                            <thead className="bg-slate-50 dark:bg-slate-950 text-slate-500">
+                                                <tr>
+                                                    <th className="px-4 py-3 font-medium">Nombre</th>
+                                                    <th className="px-4 py-3 font-medium w-32">Fecha</th>
+                                                    <th className="px-4 py-3 font-medium w-24">Tamaño</th>
+                                                    <th className="px-4 py-3 font-medium w-32 text-right">Acciones</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                                {docs.map((doc) => (
+                                                    <tr key={doc.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                                                        <td className="px-4 py-3">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-blue-500">
+                                                                    <FileText className="w-4 h-4" />
+                                                                </div>
+                                                                <span className="font-medium text-slate-900 dark:text-white whitespace-normal break-words max-w-md">
+                                                                    {doc.title}
+                                                                </span>
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-4 py-3 text-slate-500">{formatDate(doc.created_at)}</td>
+                                                        <td className="px-4 py-3 text-slate-500">{formatSize(doc.file_size)}</td>
+                                                        <td className="px-4 py-3 text-right">
+                                                            <div className="flex items-center justify-end gap-1">
+                                                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handlePreview(doc)} title="Ver">
+                                                                    <Eye className="w-4 h-4 text-slate-400" />
+                                                                </Button>
+                                                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDownload(doc.file_path, doc.title)} title="Descargar">
+                                                                    <Download className="w-4 h-4 text-slate-400" />
+                                                                </Button>
+                                                                {isAdmin && (
+                                                                    <>
+                                                                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleRenameClick(doc)} title="Renombrar">
+                                                                            <FileText className="w-4 h-4 text-slate-400" />
+                                                                        </Button>
+                                                                        <AlertDialog>
+                                                                            <AlertDialogTrigger asChild>
+                                                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-red-400 hover:text-red-500">
+                                                                                    <Trash2 className="w-4 h-4" />
+                                                                                </Button>
+                                                                            </AlertDialogTrigger>
+                                                                            <AlertDialogContent>
+                                                                                <AlertDialogHeader>
+                                                                                    <AlertDialogTitle>¿Eliminar documento?</AlertDialogTitle>
+                                                                                </AlertDialogHeader>
+                                                                                <AlertDialogFooter>
+                                                                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                                                    <AlertDialogAction onClick={() => handleDelete(doc.id, doc.file_path)} className="bg-red-500">Eliminar</AlertDialogAction>
+                                                                                </AlertDialogFooter>
+                                                                            </AlertDialogContent>
+                                                                        </AlertDialog>
+                                                                    </>
+                                                                )}
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
+                            </>
+                        )
+
+                        if (category === 'evaluations') {
+                            // Split into Arriendo and Venta
+                            const arriendoDocs = filteredDocs.filter(d => !d.subcategory || d.subcategory === 'arriendo')
+                            const ventaDocs = filteredDocs.filter(d => d.subcategory === 'venta')
+
+                            return (
+                                <div className="space-y-8">
+                                    <section>
+                                        <h2 className="text-xl font-semibold mb-4 text-slate-800 dark:text-slate-200 border-l-4 border-blue-500 pl-3">
+                                            Formatos tipo de evaluaciones comerciales - Arriendo
+                                        </h2>
+                                        {arriendoDocs.length > 0 ? renderDocGroup(arriendoDocs) : (
+                                            <p className="text-muted-foreground italic pl-4">No hay documentos de Arriendo.</p>
+                                        )}
+                                    </section>
+
+                                    <section>
+                                        <h2 className="text-xl font-semibold mb-4 text-slate-800 dark:text-slate-200 border-l-4 border-green-500 pl-3">
+                                            Formatos tipo de evaluaciones comerciales - Venta
+                                        </h2>
+                                        {ventaDocs.length > 0 ? renderDocGroup(ventaDocs) : (
+                                            <p className="text-muted-foreground italic pl-4">No hay documentos de Venta.</p>
+                                        )}
+                                    </section>
+                                </div>
+                            )
+                        } else {
+                            // Standard single list for other categories
+                            return renderDocGroup(filteredDocs)
+                        }
+                    })()}
                 </>
             )}
 
