@@ -142,19 +142,19 @@ export default function Dashboard() {
             label: 'Redacción de Contrato',
             icon: FileText,
             path: '/contract-wizard',
-            primary: true
+            color: 'bg-indigo-600 hover:bg-indigo-700 text-white border-transparent'
         },
         {
             label: 'Link de Pago',
             icon: Receipt,
             path: '/payment-link',
-            primary: false
+            color: 'bg-emerald-600 hover:bg-emerald-700 text-white border-transparent'
         },
         {
             label: 'Factura',
             icon: FileText,
             path: '/invoice',
-            primary: false
+            color: 'bg-amber-600 hover:bg-amber-700 text-white border-transparent'
         },
     ]
 
@@ -173,41 +173,41 @@ export default function Dashboard() {
                 </div>
             </div>
 
-            {/* Quick Actions Row */}
-            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-wrap items-center gap-3" data-tour="quick-actions">
-                <div className="mr-4 font-medium text-slate-700">Accesos Rápidos</div>
-                {quickActions.map((action, index) => (
-                    <Button
-                        key={index}
-                        variant={action.primary ? "default" : "outline"}
-                        className={cn(
-                            "gap-2",
-                            action.primary && "bg-indigo-600 hover:bg-indigo-700 text-white shadow-md border-transparent"
-                        )}
-                        onClick={() => navigate(action.path)}
-                    >
-                        <action.icon className="w-4 h-4" />
-                        {action.label}
-                    </Button>
-                ))}
-
-                <div className="h-6 w-px bg-slate-200 mx-2 hidden md:block" />
-
-                <Button
-                    variant="ghost"
-                    className="gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700"
-                    onClick={() => setIsContactModalOpen(true)}
-                >
-                    <UserPlus className="w-4 h-4" />
-                    Nuevo Contacto
-                </Button>
-            </div>
-
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
 
-                {/* Left Column: Requests Table (Half Width) */}
+                {/* Left Column: Quick Actions & Requests Table */}
                 <div className="space-y-6" data-tour="requests-list">
-                    <div className="flex items-center justify-between">
+
+                    {/* Quick Actions Row - Now in Column */}
+                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-wrap items-center gap-3" data-tour="quick-actions">
+                        <div className="mr-2 font-medium text-slate-700 text-sm md:text-base">Accesos Rápidos</div>
+                        {quickActions.map((action, index) => (
+                            <Button
+                                key={index}
+                                className={cn(
+                                    "gap-2 shadow-sm transition-all",
+                                    action.color
+                                )}
+                                onClick={() => navigate(action.path)}
+                            >
+                                <action.icon className="w-4 h-4" />
+                                {action.label}
+                            </Button>
+                        ))}
+
+                        <div className="h-6 w-px bg-slate-200 mx-2 hidden md:block" />
+
+                        <Button
+                            variant="secondary"
+                            className="gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700"
+                            onClick={() => setIsContactModalOpen(true)}
+                        >
+                            <UserPlus className="w-4 h-4" />
+                            Nuevo Contacto
+                        </Button>
+                    </div>
+
+                    <div className="flex items-center justify-between mt-8">
                         <h2 className="text-lg font-semibold text-slate-900">Mis Solicitudes</h2>
                         <div className="flex bg-slate-100 p-1 rounded-lg">
                             {['all', 'pending', 'finalized'].map(status => (
