@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../services/supabase'
-import { Button, Separator, AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Card } from '@/components/ui'
+import { Button, Separator, AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Card, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui'
 import { useNavigate } from 'react-router-dom'
 import { Trash2, Search, MapPin, Receipt, FileText, ArrowUpRight, UserPlus } from 'lucide-react'
 import { toast } from 'sonner'
