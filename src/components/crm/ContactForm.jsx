@@ -272,10 +272,10 @@ const ContactForm = ({ contact, isOpen, onClose }) => {
                                             <DropdownMenuCheckboxItem
                                                 key={option}
                                                 checked={isChecked}
-                                                onSelect={(e) => e.preventDefault()}
-                                                onCheckedChange={(checked) => {
+                                                onSelect={(e) => {
+                                                    e.preventDefault()
                                                     let newNeeds = [...currentNeeds]
-                                                    if (checked) {
+                                                    if (!isChecked) {
                                                         newNeeds.push(option)
                                                     } else {
                                                         newNeeds = newNeeds.filter(n => n !== option)
