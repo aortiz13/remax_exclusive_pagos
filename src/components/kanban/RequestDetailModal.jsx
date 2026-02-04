@@ -7,7 +7,6 @@ import { FileText, Receipt, User, Building2, Calendar, ClipboardList } from 'luc
 
 export function RequestDetailModal({ request, isOpen, onClose }) {
     const [auditLogs, setAuditLogs] = useState([])
-    const [auditLogs, setAuditLogs] = useState([])
     const [loadingLogs, setLoadingLogs] = useState(false)
 
     // Completion State
@@ -77,12 +76,7 @@ export function RequestDetailModal({ request, isOpen, onClose }) {
             <p className="text-sm font-medium text-slate-900 dark:text-slate-100 break-words">{value || '-'}</p>
         </div>
     )
-    const Field = ({ label, value, className = "" }) => (
-        <div className={`space-y-1 ${className}`}>
-            <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">{label}</span>
-            <p className="text-sm font-medium text-slate-900 dark:text-slate-100 break-words">{value || '-'}</p>
-        </div>
-    )
+
 
     const uploadFiles = async (files, folder) => {
         const uploadedUrls = []
