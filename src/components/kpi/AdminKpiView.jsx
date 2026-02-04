@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../../services/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { toast } from 'sonner'
-import { Settings, Save, Search, Filter, Calendar as CalendarIcon, ArrowRightLeft } from 'lucide-react'
+import { Settings, Save, Search, Filter, Calendar as CalendarIcon, ArrowRightLeft, GripHorizontal } from 'lucide-react'
 import {
     Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -16,6 +16,34 @@ import { es } from 'date-fns/locale'
 
 import { BillingVsGoalChart, ConversionFunnelChart, ActivityScatterPlot, StockTrendChart } from './KPICharts'
 import { KPIMetricsCards } from './KPIMetricsCards'
+
+import { Responsive } from 'react-grid-layout'
+import 'react-grid-layout/css/styles.css'
+import 'react-resizable/css/styles.css'
+
+// Custom WidthProvider implementation to fix missing export
+const WidthProvider = (ComposedComponent) => ({ measureBeforeMount, ...props }) => {
+    const [width, setWidth] = useState(1200)
+    const elementRef = useRef(null)
+
+    useEffect(() => {
+        const observer = new ResizeObserver((entries) => {
+            if (entries[0]?.contentRect?.width) {
+                setWidth(entries[0].contentRect.width)
+            }
+        })
+        if (elementRef.current) observer.observe(elementRef.current)
+        return () => observer.disconnect()
+    }, [])
+
+    return (
+        <div ref={elementRef} className={props.className} style={{ ...props.style, width: '100%' }}>
+            <ComposedComponent {...props} width={width} />
+        </div>
+    )
+}
+
+const ResponsiveGridLayout = WidthProvider(Responsive)
 
 // Helper to format date range display
 const formatDateRange = (from, to) => {
@@ -60,6 +88,60 @@ export default function AdminKpiView() {
         monthly_closing: 1,
         monthly_billing_goal: 5000000 // New global billing goal
     })
+
+    // Layout configuration
+    // Default:
+    // 0: Financials (Top Left)
+    // 1: Funnel (Top Right)
+    // 2: Scatter (Bottom Left)
+    // 3: Stock (Bottom Right)
+    const defaultLayouts = {
+        lg: [
+            { i: 'financials', x: 0, y: 0, w: 6, h: 4 },
+            { i: 'funnel', x: 6, y: 0, w: 6, h: 4 },
+            { i: 'scatter', x: 0, y: 4, w: 6, h: 4 },
+            { i: 'stock', x: 6, y: 4, w: 6, h: 4 }
+        ],
+        md: [
+            { i: 'financials', x: 0, y: 0, w: 6, h: 4 },
+            { i: 'funnel', x: 6, y: 0, w: 6, h: 4 },
+            { i: 'scatter', x: 0, y: 4, w: 12, h: 4 },
+            { i: 'stock', x: 0, y: 8, w: 12, h: 4 }
+        ],
+        sm: [
+            { i: 'financials', x: 0, y: 0, w: 12, h: 4 },
+            { i: 'funnel', x: 0, y: 4, w: 12, h: 4 },
+            { i: 'scatter', x: 0, y: 8, w: 12, h: 4 },
+            { i: 'stock', x: 0, y: 12, w: 12, h: 4 }
+        ]
+    }
+
+    const [layouts, setLayouts] = useState(() => {
+        const saved = localStorage.getItem('kpi_dashboard_layout')
+        return saved ? JSON.parse(saved) : defaultLayouts
+    })
+
+    const onLayoutChange = (layout, layouts) => {
+        setLayouts(layouts)
+        localStorage.setItem('kpi_dashboard_layout', JSON.stringify(layouts))
+    }
+
+    // Toggle width helper
+    const toggleWidth = (id) => {
+        setLayouts(prev => {
+            const currentLayout = prev.lg || []
+            const item = currentLayout.find(l => l.i === id)
+            if (!item) return prev
+
+            const newWidth = item.w === 6 ? 12 : 6
+            const newLayout = currentLayout.map(l => l.i === id ? { ...l, w: newWidth } : l)
+
+            const newLayouts = { ...prev, lg: newLayout }
+            localStorage.setItem('kpi_dashboard_layout', JSON.stringify(newLayouts))
+            return newLayouts
+        })
+    }
+
 
     useEffect(() => {
         fetchAgents()
@@ -139,10 +221,10 @@ export default function AdminKpiView() {
             if (comparisonMode !== 'none') {
                 let prevStart, prevEnd
                 if (comparisonMode === 'mom') {
-                    // Previous period is same duration but shifted back by duration length? 
+                    // Previous period is same duration but shifted back by duration length?
                     // Usually MoM means Month vs Previous Month.
                     // If range is 6m, 'MoM' is ambiguous. Usually implies comparing vs previous PERIOD.
-                    // Let's assume comparisons work best for standard ranges or months. 
+                    // Let's assume comparisons work best for standard ranges or months.
                     // But standard logic: shift dates back by (End - Start).
                     const duration = end.getTime() - start.getTime()
                     prevEnd = new Date(start.getTime() - 86400000) // 1 day before start
@@ -407,53 +489,95 @@ export default function AdminKpiView() {
                     {/* Metrics Cards */}
                     <KPIMetricsCards metrics={{ ...dashboardMetrics, comparisonMode }} />
 
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Draggable Grid */}
+                    <ResponsiveGridLayout
+                        className="layout"
+                        layouts={layouts}
+                        breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
+                        cols={{ lg: 12, md: 12, sm: 12, xs: 4, xxs: 2 }}
+                        rowHeight={100}
+                        draggableHandle=".drag-handle"
+                        onLayoutChange={onLayoutChange}
+                        isResizable={true}
+                        isDraggable={true}
+                    >
                         {/* Financials */}
-                        <Card className="shadow-sm">
-                            <CardHeader>
-                                <CardTitle>Facturación vs Meta</CardTitle>
-                                <CardDescription>Rendimiento financiero mensual</CardDescription>
-                            </CardHeader>
-                            <CardContent className="pl-0">
+                        <div key="financials" className="bg-white rounded-lg shadow-sm border overflow-hidden">
+                            <div className="flex justify-between items-center p-6 pb-2 drag-handle cursor-grab active:cursor-grabbing border-b bg-slate-50/50">
+                                <div className="space-y-1">
+                                    <h3 className="text-lg font-semibold leading-none tracking-tight">Facturación vs Meta</h3>
+                                    <p className="text-sm text-muted-foreground">Rendimiento financiero mensual</p>
+                                </div>
+                                <div className="flex gap-2">
+                                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => toggleWidth('financials')} title="Cambiar ancho">
+                                        <ArrowRightLeft className="h-3 w-3 text-slate-400" />
+                                    </Button>
+                                    <GripHorizontal className="h-4 w-4 text-slate-400" />
+                                </div>
+                            </div>
+                            <div className="p-0 h-[calc(100%-80px)]">
                                 <BillingVsGoalChart data={chartsData.financials} />
-                            </CardContent>
-                        </Card>
+                            </div>
+                        </div>
 
                         {/* Funnel */}
-                        <Card className="shadow-sm">
-                            <CardHeader>
-                                <CardTitle>Embudo de Conversión</CardTitle>
-                                <CardDescription>Salud del proceso comercial</CardDescription>
-                            </CardHeader>
-                            <CardContent className="pl-0">
+                        <div key="funnel" className="bg-white rounded-lg shadow-sm border overflow-hidden">
+                            <div className="flex justify-between items-center p-6 pb-2 drag-handle cursor-grab active:cursor-grabbing border-b bg-slate-50/50">
+                                <div className="space-y-1">
+                                    <h3 className="text-lg font-semibold leading-none tracking-tight">Embudo de Conversión</h3>
+                                    <p className="text-sm text-muted-foreground">Salud del proceso comercial</p>
+                                </div>
+                                <div className="flex gap-2">
+                                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => toggleWidth('funnel')} title="Cambiar ancho">
+                                        <ArrowRightLeft className="h-3 w-3 text-slate-400" />
+                                    </Button>
+                                    <GripHorizontal className="h-4 w-4 text-slate-400" />
+                                </div>
+                            </div>
+                            <div className="p-0 h-[calc(100%-80px)]">
                                 <ConversionFunnelChart data={chartsData.funnel} />
-                            </CardContent>
-                        </Card>
+                            </div>
+                        </div>
 
                         {/* Scatter Plot */}
-                        <Card className="shadow-sm col-span-1 lg:col-span-2">
-                            <CardHeader>
-                                <CardTitle>Matriz Esfuerzo vs Resultado</CardTitle>
-                                <CardDescription>
-                                    Identificación de High Performers. Tamaño = Performance Score.
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent className="pl-0 h-[400px]">
+                        <div key="scatter" className="bg-white rounded-lg shadow-sm border overflow-hidden">
+                            <div className="flex justify-between items-center p-6 pb-2 drag-handle cursor-grab active:cursor-grabbing border-b bg-slate-50/50">
+                                <div className="space-y-1">
+                                    <h3 className="text-lg font-semibold leading-none tracking-tight">Matriz Esfuerzo vs Resultado</h3>
+                                    <p className="text-sm text-muted-foreground">Identificación de High Performers</p>
+                                </div>
+                                <div className="flex gap-2">
+                                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => toggleWidth('scatter')} title="Cambiar ancho">
+                                        <ArrowRightLeft className="h-3 w-3 text-slate-400" />
+                                    </Button>
+                                    <GripHorizontal className="h-4 w-4 text-slate-400" />
+                                </div>
+                            </div>
+                            <div className="p-0 h-[calc(100%-80px)]">
                                 <ActivityScatterPlot data={chartsData.scatter} />
-                            </CardContent>
-                        </Card>
+                            </div>
+                        </div>
 
                         {/* Stock Trend */}
-                        <Card className="shadow-sm">
-                            <CardHeader>
-                                <CardTitle>Tendencia de Cartera</CardTitle>
-                                <CardDescription>Evolución del stock de propiedades y rotación</CardDescription>
-                            </CardHeader>
-                            <CardContent className="pl-0">
+                        <div key="stock" className="bg-white rounded-lg shadow-sm border overflow-hidden">
+                            <div className="flex justify-between items-center p-6 pb-2 drag-handle cursor-grab active:cursor-grabbing border-b bg-slate-50/50">
+                                <div className="space-y-1">
+                                    <h3 className="text-lg font-semibold leading-none tracking-tight">Tendencia de Cartera</h3>
+                                    <p className="text-sm text-muted-foreground">Stock vs Ventas</p>
+                                </div>
+                                <div className="flex gap-2">
+                                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => toggleWidth('stock')} title="Cambiar ancho">
+                                        <ArrowRightLeft className="h-3 w-3 text-slate-400" />
+                                    </Button>
+                                    <GripHorizontal className="h-4 w-4 text-slate-400" />
+                                </div>
+                            </div>
+                            <div className="p-0 h-[calc(100%-80px)]">
                                 <StockTrendChart data={chartsData.stock} />
-                            </CardContent>
-                        </Card>
-                    </div>
+                            </div>
+                        </div>
+
+                    </ResponsiveGridLayout>
 
                 </TabsContent>
 
