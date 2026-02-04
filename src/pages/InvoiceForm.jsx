@@ -4,9 +4,10 @@ import { useAuth } from '../context/AuthContext'
 import { supabase } from '../services/supabase'
 import { toast } from 'sonner'
 import { Button, Input, Label, Card, CardHeader, CardTitle, CardContent, CardDescription, Textarea } from '@/components/ui'
-import { ArrowLeft, Save, Send, Receipt, User, Building2, FileText, ChevronRight, ChevronLeft } from 'lucide-react'
+import { ArrowLeft, Save, Send, Receipt, User, Building2, FileText, ChevronRight, ChevronLeft, Users, UserPlus } from 'lucide-react'
 import Stepper from '../components/layout/Stepper'
 import { motion, AnimatePresence } from 'framer-motion'
+import * as XLSX from 'xlsx';
 
 export default function InvoiceForm() {
     const { id } = useParams()
@@ -17,27 +18,38 @@ export default function InvoiceForm() {
     const [currentStep, setCurrentStep] = useState(1)
 
     const [formData, setFormData] = useState({
+        // Identificación
+        operationSide: '', // 'both', 'seller', 'buyer'
+
         // Vendedor
         vendedorNombre: '',
         vendedorRut: '',
         vendedorDireccion: '',
         vendedorEmail: '',
+        vendedorTelefono: '',
+
         // Comprador
         compradorNombre: '',
         compradorRut: '',
         compradorDireccion: '',
         compradorEmail: '',
+        compradorTelefono: '',
+
         // Propiedad & Transacción
         propiedadDireccion: '',
-        montoComision: '',
+        remaxCode: '',
+        montoHonorariosNeto: '', // Fee amount without tax
+        montoHonorariosIVA: '', // 19% of net
+        montoHonorariosBruto: '', // Total
         notas: ''
     })
 
     const steps = [
-        { id: 1, label: 'Vendedor' },
-        { id: 2, label: 'Comprador' },
-        { id: 3, label: 'Propiedad' },
-        { id: 4, label: 'Resumen' },
+        { id: 1, label: 'Identificación' },
+        { id: 2, label: 'Vendedor' },
+        { id: 3, label: 'Comprador' },
+        { id: 4, label: 'Operación' },
+        { id: 5, label: 'Resumen' },
     ]
 
     useEffect(() => {
@@ -72,16 +84,35 @@ export default function InvoiceForm() {
         return '$ ' + new Intl.NumberFormat('es-CL').format(number)
     }
 
+    const unformatCurrency = (value) => {
+        if (!value) return 0
+        return parseInt(value.replace(/\D/g, ''), 10)
+    }
+
     const handleChange = (e) => {
         const { name, value } = e.target
 
-        if (name === 'montoComision') {
-            // Apply currency formatting
+        if (name === 'montoHonorariosNeto') {
             const formatted = formatCurrency(value)
-            setFormData(prev => ({ ...prev, [name]: formatted }))
+            const numericValue = unformatCurrency(value)
+
+            // Calculate tax and gross
+            const iva = Math.round(numericValue * 0.19)
+            const bruto = numericValue + iva
+
+            setFormData(prev => ({
+                ...prev,
+                [name]: formatted,
+                montoHonorariosIVA: formatCurrency(iva.toString()),
+                montoHonorariosBruto: formatCurrency(bruto.toString())
+            }))
         } else {
             setFormData(prev => ({ ...prev, [name]: value }))
         }
+    }
+
+    const handleSelectSide = (side) => {
+        setFormData(prev => ({ ...prev, operationSide: side }))
     }
 
     const saveRequest = async (status = 'draft', nextStepVal = null) => {
@@ -125,15 +156,11 @@ export default function InvoiceForm() {
                 toast.success('Solicitud enviada exitosamente')
                 navigate('/dashboard')
             } else {
-                // Handle navigation for new records immediately
                 if (!id && requestData) {
-                    // Update URL to include the new ID
-                    // This will trigger the useEffect to fetch data and set step/form data again
                     navigate(`/request/invoice/${requestData.id}`, { replace: true })
                 }
 
                 if (!nextStepVal) {
-                    // Only show toast if explicitly saving draft, not intermediate step auto-save
                     toast.success('Borrador guardado')
                 }
             }
@@ -147,30 +174,37 @@ export default function InvoiceForm() {
     }
 
     const sendWebhook = async (requestData) => {
-        // We'll use exceljs to create a buffer/blob
-        // Since we can't import exceljs in browser without issues sometimes depending on build, 
-        // we'll assume it's working or use a dynamic import if needed. 
-        // package.json has "exceljs": "^4.4.0".
-
         try {
             const ExcelJS = await import('exceljs');
             const workbook = new ExcelJS.Workbook();
             const worksheet = workbook.addWorksheet('Solicitud Factura');
 
+            const sideLabel = {
+                'both': 'Ambas Puntas',
+                'seller': 'Solo Vendedor',
+                'buyer': 'Solo Comprador'
+            }[formData.operationSide] || formData.operationSide;
+
             // Define columns
             worksheet.columns = [
                 { header: 'Solicitud', key: 'solicitud', width: 15 },
                 { header: 'Agente', key: 'agente', width: 25 },
+                { header: 'Operación', key: 'operationSide', width: 20 },
                 { header: 'Vendedor', key: 'vendedor', width: 25 },
                 { header: 'RUT Vendedor', key: 'vendedorRut', width: 15 },
                 { header: 'Email Vendedor', key: 'vendedorEmail', width: 25 },
+                { header: 'Teléfono Vendedor', key: 'vendedorTelefono', width: 20 },
                 { header: 'Dirección Vendedor', key: 'vendedorDireccion', width: 30 },
                 { header: 'Comprador', key: 'comprador', width: 25 },
                 { header: 'RUT Comprador', key: 'compradorRut', width: 15 },
                 { header: 'Email Comprador', key: 'compradorEmail', width: 25 },
+                { header: 'Teléfono Comprador', key: 'compradorTelefono', width: 20 },
                 { header: 'Dirección Comprador', key: 'compradorDireccion', width: 30 },
                 { header: 'Dirección Propiedad', key: 'propiedad', width: 30 },
-                { header: 'Monto Comisión', key: 'comision', width: 15 },
+                { header: 'Código REMAX', key: 'remaxCode', width: 15 },
+                { header: 'Honorarios Neto', key: 'neto', width: 15 },
+                { header: 'IVA (19%)', key: 'iva', width: 15 },
+                { header: 'Honorarios Total', key: 'bruto', width: 15 },
                 { header: 'Notas', key: 'notas', width: 30 },
                 { header: 'ID Interno', key: 'id', width: 36 },
                 { header: 'Fecha', key: 'fecha', width: 20 },
@@ -180,16 +214,22 @@ export default function InvoiceForm() {
             worksheet.addRow({
                 solicitud: 'factura',
                 agente: `${profile?.first_name || ''} ${profile?.last_name || ''}`,
+                operationSide: sideLabel,
                 vendedor: formData.vendedorNombre,
                 vendedorRut: formData.vendedorRut,
                 vendedorEmail: formData.vendedorEmail,
+                vendedorTelefono: formData.vendedorTelefono,
                 vendedorDireccion: formData.vendedorDireccion,
                 comprador: formData.compradorNombre,
                 compradorRut: formData.compradorRut,
                 compradorEmail: formData.compradorEmail,
+                compradorTelefono: formData.compradorTelefono,
                 compradorDireccion: formData.compradorDireccion,
                 propiedad: formData.propiedadDireccion,
-                comision: formData.montoComision,
+                remaxCode: formData.remaxCode,
+                neto: formData.montoHonorariosNeto,
+                iva: formData.montoHonorariosIVA,
+                bruto: formData.montoHonorariosBruto,
                 notas: formData.notas,
                 id: requestData.id,
                 fecha: new Date().toLocaleDateString('es-CL')
@@ -207,7 +247,7 @@ export default function InvoiceForm() {
             }
             const base64File = window.btoa(binary);
 
-            // Construct JSON Payload (matching structure of RequestForm)
+            // Construct JSON Payload
             const payload = {
                 solicitud: 'factura',
                 agente: {
@@ -217,7 +257,12 @@ export default function InvoiceForm() {
                     telefono: profile?.phone || ''
                 },
                 excel_base64: base64File,
-                filename: `solicitud_factura_${requestData.id}.xlsx`
+                filename: `solicitud_factura_${requestData.id}.xlsx`,
+                // Extra fields in JSON as requested by user
+                data: {
+                    ...formData,
+                    operationSideLabel: sideLabel
+                }
             };
 
             await fetch('https://workflow.remax-exclusive.cl/webhook/boleto_de_pago', {
@@ -234,6 +279,7 @@ export default function InvoiceForm() {
     }
 
     const nextStep = () => {
+        // Validation could be added here
         const next = Math.min(currentStep + 1, steps.length)
         setCurrentStep(next)
         saveRequest('draft', next)
@@ -257,7 +303,7 @@ export default function InvoiceForm() {
 
     return (
         <div className="min-h-screen bg-slate-50/50 dark:bg-slate-950/50 pb-20">
-            {/* Top Stepper Area - Matching RequestForm layout */}
+            {/* Top Stepper Area */}
             <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-lg border-b border-slate-200 dark:border-slate-800 sticky top-16 z-20 px-4 py-6 mb-8 shadow-sm">
                 <div className="max-w-4xl mx-auto">
                     <Stepper currentStep={currentStep} steps={steps} />
@@ -286,7 +332,8 @@ export default function InvoiceForm() {
 
                     <div className="relative min-h-[500px]">
                         <AnimatePresence mode="wait">
-                            {/* Step 1: Vendedor */}
+
+                            {/* Step 1: Identificación de Puntas */}
                             {currentStep === 1 && (
                                 <motion.div
                                     key="step1"
@@ -300,36 +347,58 @@ export default function InvoiceForm() {
                                         <CardHeader className="bg-slate-50/50 dark:bg-slate-900/50 border-b border-slate-100 dark:border-slate-800 pb-6">
                                             <div className="flex items-center gap-3">
                                                 <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                                                    <User className="h-5 w-5 text-primary" />
+                                                    <Users className="h-5 w-5 text-primary" />
                                                 </div>
                                                 <div>
-                                                    <CardTitle className="text-xl">Datos del Vendedor</CardTitle>
-                                                    <CardDescription>Información del propietario actual.</CardDescription>
+                                                    <CardTitle className="text-xl">Identificación de las Partes</CardTitle>
+                                                    <CardDescription>Selecciona a quién se emitirá la factura.</CardDescription>
                                                 </div>
                                             </div>
                                         </CardHeader>
                                         <CardContent className="space-y-6 pt-8 p-6 md:p-8">
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                                <div className="space-y-2 md:col-span-2">
-                                                    <Label htmlFor="vendedorNombre" className="text-slate-900 dark:text-slate-200">Nombre Completo</Label>
-                                                    <Input className="h-11 bg-white dark:bg-slate-950" id="vendedorNombre" name="vendedorNombre" value={formData.vendedorNombre} onChange={handleChange} placeholder="Ej: María González" />
+                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                                <div
+                                                    className={`cursor-pointer rounded-xl border-2 p-6 flex flex-col items-center justify-center gap-4 hover:bg-slate-50 dark:hover:bg-slate-900 transition-all ${formData.operationSide === 'both' ? 'border-primary bg-primary/5' : 'border-slate-200 dark:border-slate-800'}`}
+                                                    onClick={() => handleSelectSide('both')}
+                                                >
+                                                    <div className="h-12 w-12 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">
+                                                        <Users className="h-6 w-6" />
+                                                    </div>
+                                                    <div className="text-center">
+                                                        <h3 className="font-semibold text-slate-900 dark:text-slate-100">Ambas Puntas</h3>
+                                                        <p className="text-xs text-slate-500 mt-1">Vendedor y Comprador</p>
+                                                    </div>
                                                 </div>
-                                                <div className="space-y-2">
-                                                    <Label htmlFor="vendedorRut" className="text-slate-900 dark:text-slate-200">RUT</Label>
-                                                    <Input className="h-11 bg-white dark:bg-slate-950" id="vendedorRut" name="vendedorRut" value={formData.vendedorRut} onChange={handleChange} placeholder="Ej: 9.876.543-2" />
+
+                                                <div
+                                                    className={`cursor-pointer rounded-xl border-2 p-6 flex flex-col items-center justify-center gap-4 hover:bg-slate-50 dark:hover:bg-slate-900 transition-all ${formData.operationSide === 'seller' ? 'border-primary bg-primary/5' : 'border-slate-200 dark:border-slate-800'}`}
+                                                    onClick={() => handleSelectSide('seller')}
+                                                >
+                                                    <div className="h-12 w-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center">
+                                                        <User className="h-6 w-6" />
+                                                    </div>
+                                                    <div className="text-center">
+                                                        <h3 className="font-semibold text-slate-900 dark:text-slate-100">Solo Vendedor</h3>
+                                                        <p className="text-xs text-slate-500 mt-1">Propietario/Arrendador</p>
+                                                    </div>
                                                 </div>
-                                                <div className="space-y-2">
-                                                    <Label htmlFor="vendedorEmail" className="text-slate-900 dark:text-slate-200">Correo Electrónico</Label>
-                                                    <Input className="h-11 bg-white dark:bg-slate-950" id="vendedorEmail" name="vendedorEmail" type="email" value={formData.vendedorEmail} onChange={handleChange} placeholder="Ej: maria@ejemplo.com" />
-                                                </div>
-                                                <div className="space-y-2 md:col-span-2">
-                                                    <Label htmlFor="vendedorDireccion" className="text-slate-900 dark:text-slate-200">Dirección Domicilio</Label>
-                                                    <Input className="h-11 bg-white dark:bg-slate-950" id="vendedorDireccion" name="vendedorDireccion" value={formData.vendedorDireccion} onChange={handleChange} placeholder="Ej: Calle Falsa 456, Providencia" />
+
+                                                <div
+                                                    className={`cursor-pointer rounded-xl border-2 p-6 flex flex-col items-center justify-center gap-4 hover:bg-slate-50 dark:hover:bg-slate-900 transition-all ${formData.operationSide === 'buyer' ? 'border-primary bg-primary/5' : 'border-slate-200 dark:border-slate-800'}`}
+                                                    onClick={() => handleSelectSide('buyer')}
+                                                >
+                                                    <div className="h-12 w-12 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center">
+                                                        <UserPlus className="h-6 w-6" />
+                                                    </div>
+                                                    <div className="text-center">
+                                                        <h3 className="font-semibold text-slate-900 dark:text-slate-100">Solo Comprador</h3>
+                                                        <p className="text-xs text-slate-500 mt-1">Cliente/Arrendatario</p>
+                                                    </div>
                                                 </div>
                                             </div>
 
                                             <div className="flex justify-end pt-6 mt-4 border-t border-slate-100 dark:border-slate-800">
-                                                <Button onClick={nextStep} className="pl-6 pr-4 h-11 text-base">
+                                                <Button onClick={nextStep} disabled={!formData.operationSide} className="pl-6 pr-4 h-11 text-base">
                                                     Siguiente
                                                     <ChevronRight className="ml-2 h-4 w-4" />
                                                 </Button>
@@ -339,7 +408,7 @@ export default function InvoiceForm() {
                                 </motion.div>
                             )}
 
-                            {/* Step 2: Comprador */}
+                            {/* Step 2: Vendedor */}
                             {currentStep === 2 && (
                                 <motion.div
                                     key="step2"
@@ -356,7 +425,68 @@ export default function InvoiceForm() {
                                                     <User className="h-5 w-5 text-primary" />
                                                 </div>
                                                 <div>
-                                                    <CardTitle className="text-xl">Datos del Comprador</CardTitle>
+                                                    <CardTitle className="text-xl">Datos del Vendedor / Arrendador</CardTitle>
+                                                    <CardDescription>Información del propietario actual.</CardDescription>
+                                                </div>
+                                            </div>
+                                        </CardHeader>
+                                        <CardContent className="space-y-6 pt-8 p-6 md:p-8">
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                <div className="space-y-2 md:col-span-2">
+                                                    <Label htmlFor="vendedorNombre">Nombre Completo</Label>
+                                                    <Input className="h-11 bg-white dark:bg-slate-950" id="vendedorNombre" name="vendedorNombre" value={formData.vendedorNombre} onChange={handleChange} placeholder="Ej: María González" />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="vendedorRut">RUT</Label>
+                                                    <Input className="h-11 bg-white dark:bg-slate-950" id="vendedorRut" name="vendedorRut" value={formData.vendedorRut} onChange={handleChange} placeholder="Ej: 9.876.543-2" />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="vendedorEmail">Correo Electrónico</Label>
+                                                    <Input className="h-11 bg-white dark:bg-slate-950" id="vendedorEmail" name="vendedorEmail" type="email" value={formData.vendedorEmail} onChange={handleChange} placeholder="Ej: maria@ejemplo.com" />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="vendedorTelefono">Teléfono</Label>
+                                                    <Input className="h-11 bg-white dark:bg-slate-950" id="vendedorTelefono" name="vendedorTelefono" value={formData.vendedorTelefono} onChange={handleChange} placeholder="Ej: +569 1234 5678" />
+                                                </div>
+                                                <div className="space-y-2 md:col-span-2">
+                                                    <Label htmlFor="vendedorDireccion">Dirección Domicilio</Label>
+                                                    <Input className="h-11 bg-white dark:bg-slate-950" id="vendedorDireccion" name="vendedorDireccion" value={formData.vendedorDireccion} onChange={handleChange} placeholder="Ej: Calle Falsa 456, Providencia" />
+                                                </div>
+                                            </div>
+
+                                            <div className="flex justify-between pt-6 mt-4 border-t border-slate-100 dark:border-slate-800">
+                                                <Button variant="outline" onClick={prevStep} className="h-11 px-6">
+                                                    <ChevronLeft className="mr-2 h-4 w-4" />
+                                                    Atrás
+                                                </Button>
+                                                <Button onClick={nextStep} className="pl-6 pr-4 h-11 text-base">
+                                                    Siguiente
+                                                    <ChevronRight className="ml-2 h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                </motion.div>
+                            )}
+
+                            {/* Step 3: Comprador */}
+                            {currentStep === 3 && (
+                                <motion.div
+                                    key="step3"
+                                    variants={stepVariants}
+                                    initial="hidden"
+                                    animate="visible"
+                                    exit="exit"
+                                    transition={{ duration: 0.3 }}
+                                >
+                                    <Card className="glass-card overflow-hidden border-0 shadow-xl ring-1 ring-slate-200 dark:ring-slate-800">
+                                        <CardHeader className="bg-slate-50/50 dark:bg-slate-900/50 border-b border-slate-100 dark:border-slate-800 pb-6">
+                                            <div className="flex items-center gap-3">
+                                                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                                                    <UserPlus className="h-5 w-5 text-primary" />
+                                                </div>
+                                                <div>
+                                                    <CardTitle className="text-xl">Datos del Comprador / Arrendatario</CardTitle>
                                                     <CardDescription>Información de quien adquiere la propiedad.</CardDescription>
                                                 </div>
                                             </div>
@@ -374,6 +504,10 @@ export default function InvoiceForm() {
                                                 <div className="space-y-2">
                                                     <Label htmlFor="compradorEmail">Correo Electrónico</Label>
                                                     <Input className="h-11 bg-white dark:bg-slate-950" id="compradorEmail" name="compradorEmail" type="email" value={formData.compradorEmail} onChange={handleChange} placeholder="Ej: juan@ejemplo.com" />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="compradorTelefono">Teléfono</Label>
+                                                    <Input className="h-11 bg-white dark:bg-slate-950" id="compradorTelefono" name="compradorTelefono" value={formData.compradorTelefono} onChange={handleChange} placeholder="Ej: +569 9876 5432" />
                                                 </div>
                                                 <div className="space-y-2 md:col-span-2">
                                                     <Label htmlFor="compradorDireccion">Dirección Domicilio</Label>
@@ -396,10 +530,10 @@ export default function InvoiceForm() {
                                 </motion.div>
                             )}
 
-                            {/* Step 3: Propiedad */}
-                            {currentStep === 3 && (
+                            {/* Step 4: Propiedad (Operación) */}
+                            {currentStep === 4 && (
                                 <motion.div
-                                    key="step3"
+                                    key="step4"
                                     variants={stepVariants}
                                     initial="hidden"
                                     animate="visible"
@@ -414,29 +548,54 @@ export default function InvoiceForm() {
                                                 </div>
                                                 <div>
                                                     <CardTitle className="text-xl">Datos de la Operación</CardTitle>
-                                                    <CardDescription>Detalles del inmueble y comisión.</CardDescription>
+                                                    <CardDescription>Detalles del inmueble y honorarios.</CardDescription>
                                                 </div>
                                             </div>
                                         </CardHeader>
                                         <CardContent className="space-y-6 pt-8 p-6 md:p-8">
                                             <div className="space-y-2">
-                                                <Label htmlFor="propiedadDireccion">Dirección de la Propiedad Vendida</Label>
-                                                <Input className="h-11 bg-white dark:bg-slate-950" id="propiedadDireccion" name="propiedadDireccion" value={formData.propiedadDireccion} onChange={handleChange} placeholder="Dirección del inmueble objeto de la venta" />
+                                                <Label htmlFor="propiedadDireccion">Dirección de la Propiedad</Label>
+                                                <Input className="h-11 bg-white dark:bg-slate-950" id="propiedadDireccion" name="propiedadDireccion" value={formData.propiedadDireccion} onChange={handleChange} placeholder="Dirección del inmueble" />
                                             </div>
+
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                                 <div className="space-y-2">
-                                                    <Label htmlFor="montoComision">Monto Comisión</Label>
+                                                    <Label htmlFor="remaxCode">Código REMAX</Label>
+                                                    <Input className="h-11 bg-white dark:bg-slate-950" id="remaxCode" name="remaxCode" value={formData.remaxCode} onChange={handleChange} placeholder="Ej: 123456789" />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="montoHonorariosNeto">Honorarios (Neto)</Label>
                                                     <Input
                                                         className="h-11 bg-white dark:bg-slate-950 font-medium text-lg"
-                                                        id="montoComision"
-                                                        name="montoComision"
-                                                        value={formData.montoComision}
+                                                        id="montoHonorariosNeto"
+                                                        name="montoHonorariosNeto"
+                                                        value={formData.montoHonorariosNeto}
                                                         onChange={handleChange}
-                                                        placeholder="Ej: $ 500.000"
+                                                        placeholder="Ej: $ 500.000 (Sin IVA)"
                                                         maxLength={15}
                                                     />
+                                                    <p className="text-xs text-slate-500">Ingresa el monto sin IVA, el cálculo es automático.</p>
                                                 </div>
                                             </div>
+
+                                            {/* Desglose Honorarios */}
+                                            {formData.montoHonorariosNeto && (
+                                                <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-4 border border-slate-100 dark:border-slate-800 grid grid-cols-3 gap-4">
+                                                    <div>
+                                                        <span className="text-xs text-slate-500 uppercase font-semibold">Neto</span>
+                                                        <div className="text-lg font-medium">{formData.montoHonorariosNeto}</div>
+                                                    </div>
+                                                    <div>
+                                                        <span className="text-xs text-slate-500 uppercase font-semibold">IVA (19%)</span>
+                                                        <div className="text-lg font-medium text-slate-600 dark:text-slate-400">{formData.montoHonorariosIVA}</div>
+                                                    </div>
+                                                    <div>
+                                                        <span className="text-xs text-slate-500 uppercase font-semibold">Total</span>
+                                                        <div className="text-lg font-bold text-emerald-600">{formData.montoHonorariosBruto}</div>
+                                                    </div>
+                                                </div>
+                                            )}
+
                                             <div className="space-y-2">
                                                 <Label htmlFor="notas">Notas Adicionales (Opcional)</Label>
                                                 <Textarea className="bg-white dark:bg-slate-950 resize-none h-32" id="notas" name="notas" value={formData.notas} onChange={handleChange} placeholder="Cualquier detalle relevante para la facturación..." />
@@ -457,10 +616,10 @@ export default function InvoiceForm() {
                                 </motion.div>
                             )}
 
-                            {/* Step 4: Resumen */}
-                            {currentStep === 4 && (
+                            {/* Step 5: Resumen */}
+                            {currentStep === 5 && (
                                 <motion.div
-                                    key="step4"
+                                    key="step5"
                                     variants={stepVariants}
                                     initial="hidden"
                                     animate="visible"
@@ -481,12 +640,30 @@ export default function InvoiceForm() {
                                         </CardHeader>
                                         <CardContent className="space-y-8 pt-8 p-6 md:p-8">
                                             <div className="space-y-6">
+
+                                                <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 p-6">
+                                                    <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100 border-b border-slate-200 dark:border-slate-800 pb-3 flex items-center gap-2 mb-4">
+                                                        <Users className="w-4 h-4 text-purple-500" />
+                                                        Operación
+                                                    </h3>
+                                                    <div className="text-sm">
+                                                        <span className="block text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wide">Tipo</span>
+                                                        <span className="font-medium text-slate-900 dark:text-slate-200">
+                                                            {{
+                                                                'both': 'Ambas Puntas',
+                                                                'seller': 'Solo Vendedor',
+                                                                'buyer': 'Solo Comprador'
+                                                            }[formData.operationSide] || formData.operationSide}
+                                                        </span>
+                                                    </div>
+                                                </div>
+
                                                 <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 p-6 space-y-4">
                                                     <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100 border-b border-slate-200 dark:border-slate-800 pb-3 flex items-center gap-2">
                                                         <User className="w-4 h-4 text-primary" />
                                                         Datos del Vendedor
                                                     </h3>
-                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
                                                         <div>
                                                             <span className="block text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wide">Nombre</span>
                                                             <span className="font-medium text-slate-900 dark:text-slate-200">{formData.vendedorNombre}</span>
@@ -495,15 +672,19 @@ export default function InvoiceForm() {
                                                             <span className="block text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wide">RUT</span>
                                                             <span className="font-medium text-slate-900 dark:text-slate-200">{formData.vendedorRut}</span>
                                                         </div>
+                                                        <div>
+                                                            <span className="block text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wide">Teléfono</span>
+                                                            <span className="font-medium text-slate-900 dark:text-slate-200">{formData.vendedorTelefono}</span>
+                                                        </div>
                                                     </div>
                                                 </div>
 
                                                 <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 p-6 space-y-4">
                                                     <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100 border-b border-slate-200 dark:border-slate-800 pb-3 flex items-center gap-2">
-                                                        <User className="w-4 h-4 text-blue-500" />
+                                                        <UserPlus className="w-4 h-4 text-amber-500" />
                                                         Datos del Comprador
                                                     </h3>
-                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
                                                         <div>
                                                             <span className="block text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wide">Nombre</span>
                                                             <span className="font-medium text-slate-900 dark:text-slate-200">{formData.compradorNombre}</span>
@@ -511,6 +692,10 @@ export default function InvoiceForm() {
                                                         <div>
                                                             <span className="block text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wide">RUT</span>
                                                             <span className="font-medium text-slate-900 dark:text-slate-200">{formData.compradorRut}</span>
+                                                        </div>
+                                                        <div>
+                                                            <span className="block text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wide">Teléfono</span>
+                                                            <span className="font-medium text-slate-900 dark:text-slate-200">{formData.compradorTelefono}</span>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -520,14 +705,19 @@ export default function InvoiceForm() {
                                                         <Building2 className="w-4 h-4 text-emerald-500" />
                                                         Datos de la Operación
                                                     </h3>
-                                                    <div className="grid grid-cols-1 gap-4 text-sm">
-                                                        <div>
+                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                                                        <div className="sm:col-span-2">
                                                             <span className="block text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wide">Dirección Propiedad</span>
                                                             <span className="font-medium text-slate-900 dark:text-slate-200">{formData.propiedadDireccion}</span>
                                                         </div>
                                                         <div>
-                                                            <span className="block text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wide">Monto Comisión</span>
-                                                            <span className="font-bold text-lg text-emerald-600 dark:text-emerald-400">{formData.montoComision}</span>
+                                                            <span className="block text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wide">Código REMAX</span>
+                                                            <span className="font-medium text-slate-900 dark:text-slate-200">{formData.remaxCode}</span>
+                                                        </div>
+                                                        <div>
+                                                            <span className="block text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wide">Honorarios Total</span>
+                                                            <span className="font-bold text-lg text-emerald-600 dark:text-emerald-400">{formData.montoHonorariosBruto}</span>
+                                                            <span className="text-xs text-slate-500 block">({formData.montoHonorariosNeto} + IVA)</span>
                                                         </div>
                                                     </div>
                                                 </div>
