@@ -133,7 +133,7 @@ function FileUploadField({ label, name, accept, multiple = false }) {
     )
 }
 
-function PartyForm({ typeLabel, index, prefix, initialData = {}, onRemove, isRemovable }) {
+function PartyForm({ typeLabel, index, prefix, initialData = {}, onRemove, isRemovable, hideLaborData = false }) {
     const [personType, setPersonType] = useState('natural') // natural | juridica
 
     // Helper to get value
@@ -211,18 +211,20 @@ function PartyForm({ typeLabel, index, prefix, initialData = {}, onRemove, isRem
                     <DateField label="Fecha Nacimiento" name={`${prefix}_nacimiento`} defaultValue={getValue('nacimiento')} />
                     <Field label="Correo" name={`${prefix}_email`} type="email" defaultValue={getValue('email')} required />
                     <Field label="Teléfono" name={`${prefix}_telefono`} defaultValue={getValue('telefono')} required />
+                    <Field label="Profesión" name={`${prefix}_ocupacion`} defaultValue={getValue('ocupacion')} />
                     <Field label="Domicilio Particular" name={`${prefix}_direccion`} className="md:col-span-3" defaultValue={getValue('direccion')} />
 
-                    <div className="md:col-span-3 bg-white p-4 rounded border mt-2">
-                        <Label className="uppercase text-xs font-bold text-slate-400 mb-4 block">Datos Laborales (Obligatorio)</Label>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <Field label="Ocupación" name={`${prefix}_ocupacion`} defaultValue={getValue('ocupacion')} />
-                            <Field label="Empleador" name={`${prefix}_empleador`} defaultValue={getValue('empleador')} required />
-                            <Field label="RUT Empleador" name={`${prefix}_empleador_rut`} defaultValue={getValue('empleador_rut')} />
-                            <Field label="Teléfono Laboral" name={`${prefix}_telefono_lab`} defaultValue={getValue('telefono_lab')} />
-                            <Field label="Dirección Laboral" name={`${prefix}_direccion_lab`} className="md:col-span-2" defaultValue={getValue('direccion_lab')} />
+                    {!hideLaborData && (
+                        <div className="md:col-span-3 bg-white p-4 rounded border mt-2">
+                            <Label className="uppercase text-xs font-bold text-slate-400 mb-4 block">Datos Laborales (Obligatorio)</Label>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <Field label="Empleador" name={`${prefix}_empleador`} defaultValue={getValue('empleador')} required />
+                                <Field label="RUT Empleador" name={`${prefix}_empleador_rut`} defaultValue={getValue('empleador_rut')} />
+                                <Field label="Teléfono Laboral" name={`${prefix}_telefono_lab`} defaultValue={getValue('telefono_lab')} />
+                                <Field label="Dirección Laboral" name={`${prefix}_direccion_lab`} className="md:col-span-2" defaultValue={getValue('direccion_lab')} />
+                            </div>
                         </div>
-                    </div>
+                    )}
                 </div>
             ) : (
                 <div className="space-y-4">
@@ -251,7 +253,7 @@ function PartyForm({ typeLabel, index, prefix, initialData = {}, onRemove, isRem
     )
 }
 
-function PartyArraySection({ title, typeLabel, prefixRoot, initialData = {} }) {
+function PartyArraySection({ title, typeLabel, prefixRoot, initialData = {}, hideLaborData = false }) {
     // Determine initial count based on data or default to 1
     // Simple check: do we have a second entry?
     // We assume sequential indices 1, 2, 3...
@@ -294,6 +296,7 @@ function PartyArraySection({ title, typeLabel, prefixRoot, initialData = {} }) {
                         initialData={initialData}
                         onRemove={() => removeParty(id)}
                         isRemovable={ids.length > 1}
+                        hideLaborData={hideLaborData}
                     />
                 ))}
 
@@ -604,6 +607,7 @@ function BuySellFormLogic({ user, profile, navigate, initialData = {}, requestId
                             typeLabel="Vendedor"
                             prefixRoot="vendedor"
                             initialData={initialData}
+                            hideLaborData={true}
                         />
                         <div className="border-t pt-6"></div>
                         <PartyArraySection
@@ -611,6 +615,7 @@ function BuySellFormLogic({ user, profile, navigate, initialData = {}, requestId
                             typeLabel="Comprador"
                             prefixRoot="comprador"
                             initialData={initialData}
+                            hideLaborData={true}
                         />
                     </div>
                 </CardSection>
@@ -649,7 +654,7 @@ function BuySellFormLogic({ user, profile, navigate, initialData = {}, requestId
                         )}
                     </div>
 
-                    <h4 className="text-sm font-medium mb-4 text-slate-700 mt-6 md:mt-8 bg-slate-100/50 p-2 rounded">Datos Bancarios para Vale Vista/Transferencia</h4>
+                    <h4 className="text-sm font-medium mb-4 text-slate-700 mt-6 md:mt-8 bg-slate-100/50 p-2 rounded">Datos Bancarios</h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-4 p-4 bg-slate-50 rounded-lg border relative">
                             <span className="absolute top-2 right-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Vendedor</span>
@@ -661,11 +666,12 @@ function BuySellFormLogic({ user, profile, navigate, initialData = {}, requestId
                             </div>
                         </div>
                         <div className="space-y-4 p-4 bg-slate-50 rounded-lg border relative">
-                            <span className="absolute top-2 right-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Comprador (Devolución)</span>
+                            <span className="absolute top-2 right-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Comprador</span>
                             <div className="grid grid-cols-1 gap-4">
                                 <Field label="Banco" name="comprador_banco" defaultValue={initialData.comprador_banco} />
                                 <Field label="N° Cuenta" name="comprador_cuenta" defaultValue={initialData.comprador_cuenta} />
                                 <Field label="Correo" name="comprador_correo_banco" type="email" defaultValue={initialData.comprador_correo_banco} />
+                                <Field label="Teléfono" name="comprador_telefono_banco" defaultValue={initialData.comprador_telefono_banco} />
                             </div>
                         </div>
                     </div>

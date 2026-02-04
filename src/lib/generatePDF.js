@@ -111,15 +111,17 @@ export const generatePDF = async (formData) => {
                 addField('Email', formData.get(`${prefix}_email`));
                 addField('Teléfono', formData.get(`${prefix}_telefono`));
                 addField('Dirección', formData.get(`${prefix}_direccion`));
+                addField('Profesión/Ocupación', formData.get(`${prefix}_ocupacion`));
 
-                // Laboral (Specific to Lease usually, but harmless if empty for others)
-                addField('Ocupación', formData.get(`${prefix}_ocupacion`));
-                addField('Empleador', formData.get(`${prefix}_empleador`));
-                addField('RUT Empleador', formData.get(`${prefix}_empleador_rut`));
-                addField('Cargo', formData.get(`${prefix}_cargo`));
-                addField('Antigüedad', formData.get(`${prefix}_antiguedad`));
-                addField('Tel. Laboral', formData.get(`${prefix}_telefono_lab`));
-                addField('Dir. Laboral', formData.get(`${prefix}_direccion_lab`));
+                // Laboral (Specific to Lease only)
+                if (type === 'arriendo') {
+                    addField('Empleador', formData.get(`${prefix}_empleador`));
+                    addField('RUT Empleador', formData.get(`${prefix}_empleador_rut`));
+                    addField('Cargo', formData.get(`${prefix}_cargo`));
+                    addField('Antigüedad', formData.get(`${prefix}_antiguedad`));
+                    addField('Tel. Laboral', formData.get(`${prefix}_telefono_lab`));
+                    addField('Dir. Laboral', formData.get(`${prefix}_direccion_lab`));
+                }
             }
         });
     }
@@ -226,6 +228,7 @@ export const generatePDF = async (formData) => {
         addField('Banco', formData.get('comprador_banco'));
         addField('N° Cuenta', formData.get('comprador_cuenta'));
         addField('Email', formData.get('comprador_correo_banco'));
+        addField('Teléfono', formData.get('comprador_telefono_banco'));
     }
 
     addSection('NOTAS / OBSERVACIONES');
