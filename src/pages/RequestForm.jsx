@@ -243,7 +243,7 @@ export default function RequestForm() {
     return (
         <div className="min-h-screen bg-slate-50/50 dark:bg-slate-950/50 pb-20">
             {/* Top Stepper Area */}
-            <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-30 px-4 py-8 mb-8 shadow-sm">
+            <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 py-6 mb-8">
                 <div className="max-w-4xl mx-auto">
                     <Stepper currentStep={currentStep} steps={currentSteps} />
                     <div className="text-center mt-2 text-xs font-semibold text-muted-foreground uppercase tracking-widest">

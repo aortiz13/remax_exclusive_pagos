@@ -303,7 +303,7 @@ export default function InvoiceForm() {
     return (
         <div className="min-h-screen bg-slate-50/50 dark:bg-slate-950/50 pb-20">
             {/* Top Stepper Area */}
-            <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-lg border-b border-slate-200 dark:border-slate-800 sticky top-16 z-20 px-4 py-6 mb-8 shadow-sm">
+            <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 py-6 mb-8">
                 <div className="max-w-4xl mx-auto">
                     <Stepper currentStep={currentStep} steps={steps} />
                 </div>
