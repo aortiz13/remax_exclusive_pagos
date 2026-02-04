@@ -189,6 +189,7 @@ export const generatePDF = async (formData) => {
         addField('Rol', formData.get('rol_propiedad'));
         addField('Tipo', formData.get('tipo_propiedad'));
         addField('Comuna', formData.get('comuna'));
+        addField('Dirección', formData.get('direccion_propiedad'));
 
         const moneda = formData.get('moneda_venta') === 'uf' ? 'UF' : 'CLP';
         addField(`Valor Venta (${moneda})`, formData.get('valor_venta'));
@@ -196,14 +197,17 @@ export const generatePDF = async (formData) => {
         printPartySection('3. VENDEDOR(ES)', 'vendedor');
         printPartySection('4. COMPRADOR(ES)', 'comprador');
 
-        addSection('5. ACUERDOS');
+        addSection('5. ACUERDOS PARA PROMESA');
         addField('Forma de Pago', formData.get('forma_pago') === 'credito' ? 'Crédito Hipotecario' : 'Contado');
 
         if (formData.get('forma_pago') === 'credito') {
-            addField('Monto Pie', formData.get('monto_pie'));
-            addField('Monto Financiar', formData.get('monto_financiar'));
+            addField('Monto Pie (UF)', formData.get('monto_pie'));
+            addField('Monto Financiar (Banco) (UF)', formData.get('monto_financiar'));
+        } else {
+            // Contado - Show Reserve
+            const monedaReserva = formData.get('moneda_reserva') === 'uf' ? 'UF' : 'CLP';
+            addField(`Monto Reserva (${monedaReserva})`, formData.get('monto_reserva'));
         }
-        addField('Monto Reserva', formData.get('monto_reserva'));
 
         // Bank Data
         y += 5;
@@ -220,9 +224,8 @@ export const generatePDF = async (formData) => {
         doc.text('Datos Bancarios Comprador:', margin, y);
         y += 5;
         addField('Banco', formData.get('comprador_banco'));
-        addField('Ejecutivo', formData.get('comprador_ejecutivo'));
+        addField('N° Cuenta', formData.get('comprador_cuenta'));
         addField('Email', formData.get('comprador_correo_banco'));
-        addField('Teléfono', formData.get('comprador_telefono_banco'));
     }
 
     addSection('NOTAS / OBSERVACIONES');

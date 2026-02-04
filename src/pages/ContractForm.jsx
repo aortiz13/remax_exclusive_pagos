@@ -186,7 +186,28 @@ function PartyForm({ typeLabel, index, prefix, initialData = {}, onRemove, isRem
                     <Field label="Apellidos" name={`${prefix}_apellidos`} defaultValue={getValue('apellidos')} required />
                     <Field label="RUT / Pasaporte" name={`${prefix}_rut`} defaultValue={getValue('rut')} required />
                     <Field label="Nacionalidad" name={`${prefix}_nacionalidad`} defaultValue={getValue('nacionalidad')} />
-                    <Field label="Estado Civil" name={`${prefix}_civil`} defaultValue={getValue('civil')} />
+
+                    {typeLabel === 'Vendedor' ? (
+                        <div className="space-y-2">
+                            <Label htmlFor={`${prefix}_civil`} className="text-xs font-semibold uppercase text-slate-500">Estado Civil</Label>
+                            <select
+                                id={`${prefix}_civil`}
+                                name={`${prefix}_civil`}
+                                defaultValue={getValue('civil')}
+                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                            >
+                                <option value="">Seleccione...</option>
+                                <option value="Soltero">Soltero</option>
+                                <option value="Casado Bajo comunidad Conyugal">Casado Bajo comunidad Conyugal</option>
+                                <option value="Casado con Separación de Bienes">Casado con Separación de Bienes</option>
+                                <option value="Viudo">Viudo</option>
+                                <option value="Divorciado">Divorciado</option>
+                            </select>
+                        </div>
+                    ) : (
+                        <Field label="Estado Civil" name={`${prefix}_civil`} defaultValue={getValue('civil')} />
+                    )}
+
                     <DateField label="Fecha Nacimiento" name={`${prefix}_nacimiento`} defaultValue={getValue('nacimiento')} />
                     <Field label="Correo" name={`${prefix}_email`} type="email" defaultValue={getValue('email')} required />
                     <Field label="Teléfono" name={`${prefix}_telefono`} defaultValue={getValue('telefono')} required />
@@ -409,6 +430,7 @@ function BuySellFormLogic({ user, profile, navigate, initialData = {}, requestId
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [currency, setCurrency] = useState(initialData?.moneda_venta || 'clp')
     const [paymentMethod, setPaymentMethod] = useState(initialData?.forma_pago || 'contado')
+    const [reservationCurrency, setReservationCurrency] = useState(initialData?.moneda_reserva || 'clp')
 
     const handleSubmit = async (e) => {
         e.preventDefault()
@@ -447,6 +469,7 @@ function BuySellFormLogic({ user, profile, navigate, initialData = {}, requestId
             formData.append('tipo_solicitud', 'compraventa')
             formData.append('moneda_venta', currency)
             formData.append('forma_pago', paymentMethod)
+            formData.append('moneda_reserva', reservationCurrency)
 
             // Remove empty files & Re-append valid ones handled by webhookData below
             // ... (structure below handles this)
@@ -552,6 +575,7 @@ function BuySellFormLogic({ user, profile, navigate, initialData = {}, requestId
                         <Field label="ROL Propiedad" name="rol_propiedad" placeholder="940-146" defaultValue={initialData.rol_propiedad} />
                         <Field label="Tipo de Propiedad" name="tipo_propiedad" placeholder="Departamento, Casa..." defaultValue={initialData.tipo_propiedad} />
                         <Field label="Comuna" name="comuna" placeholder="Las Condes" defaultValue={initialData.comuna} />
+                        <Field label="Dirección de la Propiedad" name="direccion_propiedad" className="md:col-span-2" defaultValue={initialData.direccion_propiedad} />
 
                         <div className="space-y-2">
                             <Label>Moneda de Venta</Label>
@@ -591,7 +615,7 @@ function BuySellFormLogic({ user, profile, navigate, initialData = {}, requestId
                     </div>
                 </CardSection>
 
-                <CardSection title="4. Forma de Pago y Acuerdos">
+                <CardSection title="Acuerdos para Promesa">
                     <div className="mb-6 space-y-2">
                         <Label>Forma de Pago</Label>
                         <select
@@ -605,14 +629,24 @@ function BuySellFormLogic({ user, profile, navigate, initialData = {}, requestId
                         </select>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6 animate-in fade-in">
-                        {paymentMethod === 'credito' && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 animate-in fade-in">
+                        {paymentMethod === 'credito' ? (
                             <>
-                                <Field label="Monto del Pie" name="monto_pie" placeholder="$ / UF" defaultValue={initialData.monto_pie} required />
-                                <Field label="Monto a Financiar (Hipoteca)" name="monto_financiar" placeholder="$ / UF" defaultValue={initialData.monto_financiar} required />
+                                <Field label="Monto del Pie (UF)" name="monto_pie" placeholder="UF" defaultValue={initialData.monto_pie} required />
+                                <Field label="Monto a Financiar (Banco) - UF" name="monto_financiar" placeholder="UF" defaultValue={initialData.monto_financiar} required />
                             </>
+                        ) : (
+                            <div className="space-y-2">
+                                <Label>Monto Reserva / Vale Vista</Label>
+                                <div className="flex gap-2">
+                                    <div className="flex bg-white rounded-md border p-1 h-10 items-center w-32 shrink-0">
+                                        <button type="button" onClick={() => setReservationCurrency('clp')} className={`flex-1 text-xs font-medium h-full rounded transition-colors ${reservationCurrency === 'clp' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-100'}`}>CLP</button>
+                                        <button type="button" onClick={() => setReservationCurrency('uf')} className={`flex-1 text-xs font-medium h-full rounded transition-colors ${reservationCurrency === 'uf' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-100'}`}>UF</button>
+                                    </div>
+                                    <Input name="monto_reserva" placeholder={reservationCurrency === 'clp' ? "$" : "UF"} defaultValue={initialData.monto_reserva} className="flex-1" />
+                                </div>
+                            </div>
                         )}
-                        <Field label="Monto Reserva / Vale Vista" name="monto_reserva" placeholder="$" defaultValue={initialData.monto_reserva} />
                     </div>
 
                     <h4 className="text-sm font-medium mb-4 text-slate-700 mt-6 md:mt-8 bg-slate-100/50 p-2 rounded">Datos Bancarios para Vale Vista/Transferencia</h4>
@@ -621,8 +655,9 @@ function BuySellFormLogic({ user, profile, navigate, initialData = {}, requestId
                             <span className="absolute top-2 right-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Vendedor</span>
                             <div className="grid grid-cols-1 gap-4">
                                 <Field label="Banco" name="vendedor_banco" defaultValue={initialData.vendedor_banco} />
-                                <Field label="N° Cuenta / Vale Vista" name="vendedor_cuenta" defaultValue={initialData.vendedor_cuenta} />
-                                <Field label="Correo Confirmación" name="vendedor_correo_banco" type="email" defaultValue={initialData.vendedor_correo_banco} />
+                                <Field label="Ejecutivo" name="vendedor_ejecutivo" defaultValue={initialData.vendedor_ejecutivo} />
+                                <Field label="Correo" name="vendedor_correo_banco" type="email" defaultValue={initialData.vendedor_correo_banco} />
+                                <Field label="Teléfono" name="vendedor_telefono_banco" defaultValue={initialData.vendedor_telefono_banco} />
                             </div>
                         </div>
                         <div className="space-y-4 p-4 bg-slate-50 rounded-lg border relative">
