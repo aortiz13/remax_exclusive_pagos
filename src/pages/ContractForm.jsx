@@ -407,22 +407,34 @@ export default function ContractForm() {
 
 function BuySellFormLogic({ user, profile, navigate, initialData = {}, requestId = null }) {
     const [isSubmitting, setIsSubmitting] = useState(false)
+    const [currency, setCurrency] = useState(initialData?.moneda_venta || 'clp')
+    const [paymentMethod, setPaymentMethod] = useState(initialData?.forma_pago || 'contado')
 
     const handleSubmit = async (e) => {
         e.preventDefault()
         const formData = new FormData(e.currentTarget)
 
-        // Validation
-        const dominio = formData.get('dominio_vigente')
-        const gp = formData.get('gp_certificado')
+        // Validation - Files
+        const dominio = formData.getAll('dominio_vigente[]')
+        const gp = formData.getAll('gp_certificado[]')
 
-        if (!dominio || (dominio instanceof File && dominio.size === 0)) {
-            toast.error('Debes adjuntar el Dominio Vigente.')
-            return
+        // Check helper
+        const hasValidFile = (files) => files && files.length > 0 && files.some(f => f.size > 0);
+
+        if (!hasValidFile(dominio)) {
+            const singleDom = formData.get('dominio_vigente')
+            if (!singleDom || singleDom.size === 0) {
+                toast.error('Debes adjuntar al menos un archivo de Dominio Vigente.')
+                return
+            }
         }
-        if (!gp || (gp instanceof File && gp.size === 0)) {
-            toast.error('Debes adjuntar el Certificado de Hipotecas y Gravámenes.')
-            return
+
+        if (!hasValidFile(gp)) {
+            const singleGp = formData.get('gp_certificado')
+            if (!singleGp || singleGp.size === 0) {
+                toast.error('Debes adjuntar al menos un archivo de GP (Hipotecas y Gravámenes).')
+                return
+            }
         }
 
         setIsSubmitting(true)
@@ -433,15 +445,11 @@ function BuySellFormLogic({ user, profile, navigate, initialData = {}, requestId
             formData.append('agente_email', user.email)
             formData.append('agente_telefono', profile?.phone || '')
             formData.append('tipo_solicitud', 'compraventa')
+            formData.append('moneda_venta', currency)
+            formData.append('forma_pago', paymentMethod)
 
-            // Remove empty files
-            const fileFields = ['dominio_vigente', 'gp_certificado']
-            fileFields.forEach(field => {
-                const file = formData.get(field)
-                if (file instanceof File && file.size === 0) {
-                    formData.delete(field)
-                }
-            })
+            // Remove empty files & Re-append valid ones handled by webhookData below
+            // ... (structure below handles this)
 
             // Generate Excel
             const excelBlob = await generateExcel(formData)
@@ -458,12 +466,17 @@ function BuySellFormLogic({ user, profile, navigate, initialData = {}, requestId
                 }
             })
             // Append Files (Binary)
-            // Re-append valid files from original formData
-            const binaryFileFields = ['dominio_vigente', 'gp_certificado']
-            binaryFileFields.forEach(field => {
-                const file = formData.get(field)
-                if (file instanceof File && file.size > 0) {
-                    webhookData.append(field, file)
+            // Handle multiple files correctly for webhook
+            const fileFields = ['dominio_vigente', 'gp_certificado', 'otros_documentos']
+            fileFields.forEach(field => {
+                // Try both array syntax and plain syntax to catch all
+                const filesArray = formData.getAll(`${field}[]`).length > 0 ? formData.getAll(`${field}[]`) : formData.getAll(field);
+                if (filesArray.length > 0) {
+                    filesArray.forEach(file => {
+                        if (file instanceof File && file.size > 0) {
+                            webhookData.append(`${field}[]`, file)
+                        }
+                    })
                 }
             })
 
@@ -539,12 +552,28 @@ function BuySellFormLogic({ user, profile, navigate, initialData = {}, requestId
                         <Field label="ROL Propiedad" name="rol_propiedad" placeholder="940-146" defaultValue={initialData.rol_propiedad} />
                         <Field label="Tipo de Propiedad" name="tipo_propiedad" placeholder="Departamento, Casa..." defaultValue={initialData.tipo_propiedad} />
                         <Field label="Comuna" name="comuna" placeholder="Las Condes" defaultValue={initialData.comuna} />
-                        <Field label="Valor de Venta (Pesos)" name="valor_venta_pesos" placeholder="$ 198.000.000" defaultValue={initialData.valor_venta_pesos} />
-                        <Field label="Valor Referencial (UF)" name="valor_venta_uf" placeholder="UF 5.000" defaultValue={initialData.valor_venta_uf} />
+
+                        <div className="space-y-2">
+                            <Label>Moneda de Venta</Label>
+                            <div className="flex bg-white rounded-md border p-1 h-10 items-center">
+                                <button type="button" onClick={() => setCurrency('clp')} className={`flex-1 text-sm font-medium h-full rounded transition-colors ${currency === 'clp' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-100'}`}>CLP ($)</button>
+                                <button type="button" onClick={() => setCurrency('uf')} className={`flex-1 text-sm font-medium h-full rounded transition-colors ${currency === 'uf' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-100'}`}>UF</button>
+                            </div>
+                        </div>
+
+                        <Field
+                            label={`Valor de Venta (${currency === 'clp' ? '$' : 'UF'})`}
+                            name="valor_venta"
+                            placeholder={currency === 'clp' ? "$ 198.000.000" : "UF 5.000"}
+                            defaultValue={initialData.valor_venta}
+                        />
                     </div>
                 </CardSection>
 
                 <CardSection title="3. Información de las Partes">
+                    <p className="text-sm text-slate-500 mb-4 bg-blue-50 p-3 rounded border border-blue-100">
+                        <span className="font-semibold text-blue-700">Importante:</span> Ingrese todos los vendedores y compradores involucrados.
+                    </p>
                     <div className="space-y-8">
                         <PartyArraySection
                             title="Vendedores"
@@ -562,32 +591,73 @@ function BuySellFormLogic({ user, profile, navigate, initialData = {}, requestId
                     </div>
                 </CardSection>
 
-                <CardSection title="4. Acuerdos para Promesa">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                        <Field label="Monto del Pie" name="monto_pie" placeholder="$" defaultValue={initialData.monto_pie} />
-                        <Field label="Monto a Financiar" name="monto_financiar" placeholder="$" defaultValue={initialData.monto_financiar} />
-                        <Field label="Monto Contado" name="monto_contado" placeholder="$" defaultValue={initialData.monto_contado} />
+                <CardSection title="4. Forma de Pago y Acuerdos">
+                    <div className="mb-6 space-y-2">
+                        <Label>Forma de Pago</Label>
+                        <select
+                            name="forma_pago_selector"
+                            value={paymentMethod}
+                            onChange={(e) => setPaymentMethod(e.target.value)}
+                            className="flex h-10 w-full md:w-1/3 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                        >
+                            <option value="contado">Al Contado</option>
+                            <option value="credito">Con Crédito Hipotecario</option>
+                        </select>
                     </div>
-                    <h4 className="text-sm font-medium mb-4 text-slate-700">Datos Bancarios (Vendedor)</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 p-4 bg-slate-50 rounded-lg border">
-                        <Field label="Banco" name="vendedor_banco" defaultValue={initialData.vendedor_banco} />
-                        <Field label="Ejecutivo" name="vendedor_ejecutivo" defaultValue={initialData.vendedor_ejecutivo} />
-                        <Field label="Correo" name="vendedor_correo_banco" type="email" defaultValue={initialData.vendedor_correo_banco} />
-                        <Field label="Teléfono" name="vendedor_telefono_banco" defaultValue={initialData.vendedor_telefono_banco} />
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6 animate-in fade-in">
+                        {paymentMethod === 'credito' && (
+                            <>
+                                <Field label="Monto del Pie" name="monto_pie" placeholder="$ / UF" defaultValue={initialData.monto_pie} required />
+                                <Field label="Monto a Financiar (Hipoteca)" name="monto_financiar" placeholder="$ / UF" defaultValue={initialData.monto_financiar} required />
+                            </>
+                        )}
+                        <Field label="Monto Reserva / Vale Vista" name="monto_reserva" placeholder="$" defaultValue={initialData.monto_reserva} />
                     </div>
-                    <h4 className="text-sm font-medium mb-4 text-slate-700">Datos Bancarios (Comprador)</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-slate-50 rounded-lg border">
-                        <Field label="Banco" name="comprador_banco" defaultValue={initialData.comprador_banco} />
-                        <Field label="Ejecutivo" name="comprador_ejecutivo" defaultValue={initialData.comprador_ejecutivo} />
-                        <Field label="Correo" name="comprador_correo_banco" type="email" defaultValue={initialData.comprador_correo_banco} />
-                        <Field label="Teléfono" name="comprador_telefono_banco" defaultValue={initialData.comprador_telefono_banco} />
+
+                    <h4 className="text-sm font-medium mb-4 text-slate-700 mt-6 md:mt-8 bg-slate-100/50 p-2 rounded">Datos Bancarios para Vale Vista/Transferencia</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-4 p-4 bg-slate-50 rounded-lg border relative">
+                            <span className="absolute top-2 right-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Vendedor</span>
+                            <div className="grid grid-cols-1 gap-4">
+                                <Field label="Banco" name="vendedor_banco" defaultValue={initialData.vendedor_banco} />
+                                <Field label="N° Cuenta / Vale Vista" name="vendedor_cuenta" defaultValue={initialData.vendedor_cuenta} />
+                                <Field label="Correo Confirmación" name="vendedor_correo_banco" type="email" defaultValue={initialData.vendedor_correo_banco} />
+                            </div>
+                        </div>
+                        <div className="space-y-4 p-4 bg-slate-50 rounded-lg border relative">
+                            <span className="absolute top-2 right-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Comprador (Devolución)</span>
+                            <div className="grid grid-cols-1 gap-4">
+                                <Field label="Banco" name="comprador_banco" defaultValue={initialData.comprador_banco} />
+                                <Field label="N° Cuenta" name="comprador_cuenta" defaultValue={initialData.comprador_cuenta} />
+                                <Field label="Correo" name="comprador_correo_banco" type="email" defaultValue={initialData.comprador_correo_banco} />
+                            </div>
+                        </div>
                     </div>
                 </CardSection>
 
-                <CardSection title="5. Documentación Adjunta">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <FileUploadField label="Dominio Vigente" name="dominio_vigente" accept="application/pdf,image/*" />
-                        <FileUploadField label="GP (Hip. y Grav.)" name="gp_certificado" accept="application/pdf,image/*" />
+                <CardSection title="5. Documentación Adjunta (Obligatoria)">
+                    <div className="grid grid-cols-1 gap-6">
+                        <FileUploadField
+                            label="Dominio Vigente (Archivos PDF/Imágenes)"
+                            name="dominio_vigente"
+                            accept=".pdf,image/*,.doc,.docx"
+                            multiple
+                        />
+                        <FileUploadField
+                            label="Certificado GP (Hipotecas y Grav.)"
+                            name="gp_certificado"
+                            accept=".pdf,image/*,.doc,.docx"
+                            multiple
+                        />
+                        <div className="pt-4 border-t mt-4">
+                            <FileUploadField
+                                label="Otros Documentos (Opcional - Poderes, Escrituras, etc.)"
+                                name="otros_documentos"
+                                accept=".pdf,image/*,.doc,.docx,.xls,.xlsx"
+                                multiple
+                            />
+                        </div>
                     </div>
                 </CardSection>
 
@@ -693,16 +763,22 @@ function LeaseFormLogic({ user, profile, navigate, initialData = {}, requestId =
             }
 
             // Append Files
-            const appendFiles = (fieldName) => {
-                const files = formData.getAll(fieldName);
+            const appendFiles = (baseFieldName) => {
+                // Check both "name" and "name[]" to be safe
+                const files = formData.getAll(baseFieldName).length > 0
+                    ? formData.getAll(baseFieldName)
+                    : formData.getAll(`${baseFieldName}[]`);
+
                 files.forEach((file) => {
                     if (file instanceof File && file.size > 0) {
-                        webhookData.append(fieldName, file);
+                        // We append with the base name (common in webhooks) or array syntax if preferred
+                        // Let's use array syntax for destination to ensure lists are clear
+                        webhookData.append(`${baseFieldName}[]`, file);
                     }
                 });
             }
-            appendFiles('dominio_vigente[]')
-            appendFiles('otros_documentos[]')
+            appendFiles('dominio_vigente')
+            appendFiles('otros_documentos')
 
             // Append Generated PDF
             webhookData.append('detalles solicitud.pdf', pdfBlob, 'detalles solicitud.pdf')

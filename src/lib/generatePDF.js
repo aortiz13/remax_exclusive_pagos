@@ -189,16 +189,21 @@ export const generatePDF = async (formData) => {
         addField('Rol', formData.get('rol_propiedad'));
         addField('Tipo', formData.get('tipo_propiedad'));
         addField('Comuna', formData.get('comuna'));
-        addField('Valor Venta (Pesos)', formData.get('valor_venta_pesos'));
-        addField('Valor Venta (UF)', formData.get('valor_venta_uf'));
+
+        const moneda = formData.get('moneda_venta') === 'uf' ? 'UF' : 'CLP';
+        addField(`Valor Venta (${moneda})`, formData.get('valor_venta'));
 
         printPartySection('3. VENDEDOR(ES)', 'vendedor');
         printPartySection('4. COMPRADOR(ES)', 'comprador');
 
         addSection('5. ACUERDOS');
-        addField('Monto Pie', formData.get('monto_pie'));
-        addField('Monto Financiar', formData.get('monto_financiar'));
-        addField('Monto Contado', formData.get('monto_contado'));
+        addField('Forma de Pago', formData.get('forma_pago') === 'credito' ? 'Crédito Hipotecario' : 'Contado');
+
+        if (formData.get('forma_pago') === 'credito') {
+            addField('Monto Pie', formData.get('monto_pie'));
+            addField('Monto Financiar', formData.get('monto_financiar'));
+        }
+        addField('Monto Reserva', formData.get('monto_reserva'));
 
         // Bank Data
         y += 5;
