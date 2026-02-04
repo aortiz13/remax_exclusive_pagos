@@ -44,7 +44,12 @@ export default function Dashboard() {
                 .order('updated_at', { ascending: false })
 
             if (error) throw error
-            setRequests(data)
+            // Flatten the data structure since details are inside the 'data' column
+            const flattenedRequests = data.map(req => ({
+                ...req,
+                ...(req.data || {})
+            }))
+            setRequests(flattenedRequests)
         } catch (error) {
             console.error('Error loading requests:', error)
             toast.error('Error al cargar solicitudes')
@@ -173,10 +178,10 @@ export default function Dashboard() {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
 
                 {/* Left Column: Quick Actions & Requests Table */}
-                <div className="space-y-6" data-tour="requests-list">
+                <div className="space-y-6 lg:col-span-2" data-tour="requests-list">
 
                     {/* Quick Actions Row - Now in Column */}
                     <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-wrap items-center gap-3" data-tour="quick-actions">
