@@ -174,7 +174,7 @@ export default function Dashboard() {
                 </div>
 
                 <div className="w-full md:w-96 relative z-50">
-                    <GlobalSearch />
+                    {/* <GlobalSearch /> - Temporarily hidden per user request */}
                 </div>
             </div>
 
