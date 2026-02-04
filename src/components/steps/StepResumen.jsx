@@ -63,30 +63,30 @@ export default function StepResumen({ data, onUpdate, onBack, onComplete }) {
           pdf_base64: pdfRaw // Send raw base64
         }
       } else {
-        -
-          // COMPRAVENTA Payload
-          payload = {
+
+        // COMPRAVENTA Payload
+        payload = {
           tipo_solicitud: 'compraventa',
-            agente: {
+          agente: {
             nombre: data.agenteNombre,
-              apellido: data.agenteApellido,
-                email: data.agenteEmail,
+            apellido: data.agenteApellido,
+            email: data.agenteEmail,
           },
           fecha: new Date().toISOString().split('T')[0],
-            propiedad: {
+          propiedad: {
             direccion: data.direccion,
-              comuna: data.comuna,
-                tipo: data.tipoPropiedad
+            comuna: data.comuna,
+            tipo: data.tipoPropiedad
           },
           vendedor: {
             nombre: data.vendedorNombre,
-              rut: data.vendedorRut,
-                email: data.vendedorEmail
+            rut: data.vendedorRut,
+            email: data.vendedorEmail
           },
           comprador: {
             nombre: data.compradorNombre,
-              rut: data.compradorRut,
-                email: data.compradorEmail
+            rut: data.compradorRut,
+            email: data.compradorEmail
           },
           financiero: {
             monto_comision: data.montoComision
