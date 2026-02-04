@@ -7,7 +7,6 @@ import { Button, Input, Label, Card, CardHeader, CardTitle, CardContent, CardDes
 import { ArrowLeft, Save, Send, Receipt, User, Building2, FileText, ChevronRight, ChevronLeft, Users, UserPlus } from 'lucide-react'
 import Stepper from '../components/layout/Stepper'
 import { motion, AnimatePresence } from 'framer-motion'
-import * as XLSX from 'xlsx';
 
 export default function InvoiceForm() {
     const { id } = useParams()
