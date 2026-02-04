@@ -877,58 +877,85 @@ function LeaseFormLogic({ user, profile, navigate, initialData = {}, requestId =
                 // Determine Person Types for Owner/Tenant to correctly mapped fields.
                 // Assuming "Arrendador 1" and "Arrendatario 1" are the primaries.
 
+                // Fetch UF if needed for conversion
+                let finalCanon = formData.get('canon_arriendo') || '0'
+                let finalMoneda = currency // 'clp' or 'uf'
+
+                if (currency === 'uf') {
+                    try {
+                        const ufRes = await fetch('https://mindicador.cl/api/uf')
+                        const ufData = await ufRes.json()
+                        const valorUF = ufData.serie && ufData.serie[0] ? ufData.serie[0].valor : null
+
+                        if (valorUF) {
+                            // Parse canon (handle comma/dot)
+                            const canonStr = finalCanon.toString()
+                            const canonNum = parseFloat(canonStr.replace(/\./g, '').replace(',', '.'))
+                            if (!isNaN(canonNum)) {
+                                finalCanon = Math.round(canonNum * valorUF)
+                                finalMoneda = 'clp' // Switch to CLP for the Payment Request
+                            }
+                        }
+                    } catch (errUF) {
+                        console.error("Error fetching UF for auto-draft conversion:", errUF)
+                        // Fallback: keep as UF
+                    }
+                }
+
                 const draftData = {
-                    tipoSolicitud: 'arriendo', // Must match RequestForm logic
+                    tipo_solicitud: 'arriendo', // snake_case consistent with DB/Form
 
                     // Agent
-                    agenteNombre: profile?.first_name || '',
-                    agenteApellido: profile?.last_name || '',
-                    agenteEmail: user.email,
-                    agenteTelefono: profile?.phone || '',
+                    agente_nombre: profile?.first_name || '',
+                    agente_apellido: profile?.last_name || '',
+                    agente_email: user.email,
+                    agente_telefono: profile?.phone || '',
 
                     // Property
-                    direccion: formData.get('direccion_propiedad') || '',
+                    direccion_propiedad: formData.get('direccion_propiedad') || '',
                     comuna: formData.get('comuna') || '',
-                    tipoPropiedad: formData.get('tipo_propiedad') || '',
-                    rol: formData.get('rol_propiedad') || '',
+                    tipo_propiedad: formData.get('tipo_propiedad') || '',
+                    rol_propiedad: formData.get('rol_propiedad') || '',
 
-                    // Tenant (Arrendatario) - Mapping from index 1
-                    arrendatarioNombre: formData.get('arrendatario_1_nombres') || formData.get('arrendatario_1_juridica_razon') || '',
-                    arrendatarioApellido: formData.get('arrendatario_1_apellidos') || '', // Empty if Juridica
-                    arrendatarioRut: formData.get('arrendatario_1_rut') || formData.get('arrendatario_1_juridica_rut') || '',
-                    arrendatarioEmail: formData.get('arrendatario_1_email') || formData.get('arrendatario_1_juridica_rep_email') || '',
-                    arrendatarioTelefono: formData.get('arrendatario_1_telefono') || formData.get('arrendatario_1_juridica_telefono') || '',
+                    // Tenant (Arrendatario) - Mapping from index 1 - Use snake_case keys for initialData loading in target form
+                    arrendatario_nombre: formData.get('arrendatario_1_nombres') || formData.get('arrendatario_1_juridica_razon') || '',
+                    arrendatario_apellido: formData.get('arrendatario_1_apellidos') || '', // Empty if Juridica
+                    arrendatario_rut: formData.get('arrendatario_1_rut') || formData.get('arrendatario_1_juridica_rut') || '',
+                    arrendatario_email: formData.get('arrendatario_1_email') || formData.get('arrendatario_1_juridica_rep_email') || '',
+                    arrendatario_telefono: formData.get('arrendatario_1_telefono') || formData.get('arrendatario_1_juridica_telefono') || '',
+
                     // New Address Fields for Payment Link
-                    arrendatarioDireccion: formData.get('arrendatario_1_direccion') || formData.get('arrendatario_1_juridica_direccion') || '',
-                    arrendatarioComuna: '', // Not explicitly collected in ContractForm separate from address, user can edit in draft
+                    arrendatario_direccion: formData.get('arrendatario_1_direccion') || formData.get('arrendatario_1_juridica_direccion') || '',
 
-                    // Owner (Dueño) - Mapping from index 1
-                    dueñoNombre: (formData.get('arrendador_1_nombres') ? `${formData.get('arrendador_1_nombres')} ${formData.get('arrendador_1_apellidos')}` : formData.get('arrendador_1_juridica_razon')) || '',
-                    dueñoRut: formData.get('arrendador_1_rut') || formData.get('arrendador_1_juridica_rut') || '',
-                    dueñoDireccion: formData.get('arrendador_1_direccion') || formData.get('arrendador_1_juridica_direccion') || '',
-                    dueñoComuna: '', // User will fill
+                    // Owner (Dueño/Arrendador)
+                    arrendador_nombre: (formData.get('arrendador_1_nombres') ? `${formData.get('arrendador_1_nombres')} ${formData.get('arrendador_1_apellidos')}` : formData.get('arrendador_1_juridica_razon')) || '',
+                    arrendador_rut: formData.get('arrendador_1_rut') || formData.get('arrendador_1_juridica_rut') || '',
+                    arrendador_email: formData.get('arrendador_1_email') || formData.get('arrendador_1_juridica_rep_email') || '',
+                    arrendador_telefono: formData.get('arrendador_1_telefono') || formData.get('arrendador_1_juridica_telefono') || '',
+                    arrendador_direccion: formData.get('arrendador_1_direccion') || formData.get('arrendador_1_juridica_direccion') || '',
+                    arrendador_comuna: '',
 
                     // Financials
-                    canon: formData.get('canon_arriendo') || '0',
-                    moneda: currency, // 'clp' or 'uf'
+                    canon_arriendo: finalCanon,
+                    moneda_arriendo: finalMoneda, // 'clp' (converted) or 'uf'
 
                     // Logic fields
-                    conAdministracion: conAdministracion,
-                    adminComisionPorcentaje: conAdministracion ? (formData.get('admin_comision_porcentaje') || '') : '',
+                    con_administracion: conAdministracion ? 'SI' : 'NO',
+                    admin_comision_porcentaje: conAdministracion ? (formData.get('admin_comision_porcentaje') || '') : '',
 
-                    montoSeguro: conRestitucion ? (formData.get('monto_seguro_restitucion') || '') : '',
+                    con_restitucion: conRestitucion ? 'SI' : 'NO',
+                    monto_seguro_restitucion: conRestitucion ? (formData.get('monto_seguro_restitucion') || '') : '',
 
                     // Special Conditions -> Notes
-                    condicionesEspeciales: formData.get('notas') || '',
-                    chkCondicionesEspeciales: !!formData.get('notas'), // Toggle on if notes exist
+                    condiciones_especiales: formData.get('notas') || '',
+                    chk_condiciones_especiales: !!formData.get('notas'), // Toggle on if notes exist
                 }
 
                 // Insert Draft
                 const { error: draftError } = await supabase.from('requests').insert({
                     user_id: user.id,
                     status: 'draft',
-                    step: 1, // Start at step 1 or maybe further if we want? Step 1 is general info.
-                    // Note: RequestForm loads data into state. We need to ensure logic handles partial data.
+                    step: 1,
                     data: draftData,
                     created_at: new Date()
                 })
@@ -1137,5 +1164,3 @@ function LeaseFormLogic({ user, profile, navigate, initialData = {}, requestId =
         </form >
     )
 }
-
-
