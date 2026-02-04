@@ -6,7 +6,7 @@ import { Card, CardContent, Button } from '@/components/ui'
 import { CheckCircle2, FileText, Send, ArrowLeft, Loader2, User, Building, Wallet, Download } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
-export default function StepResumen({ data, onBack, onComplete }) {
+export default function StepResumen({ data, onUpdate, onBack, onComplete }) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [success, setSuccess] = useState(false)
   const navigate = useNavigate()
@@ -39,41 +39,54 @@ export default function StepResumen({ data, onBack, onComplete }) {
             apellido: data.arrendatarioApellido,
             rut: data.arrendatarioRut,
             email: data.arrendatarioEmail,
-            telefono: data.arrendatarioTelefono
+            telefono: data.arrendatarioTelefono,
+            direccion: data.arrendatarioDireccion,
+            comuna: data.arrendatarioComuna
           },
-          dueño: { nombre: data.dueñoNombre, rut: data.dueñoRut, banco: data.bancoNombre },
+          dueño: {
+            nombre: data.dueñoNombre,
+            rut: data.dueñoRut,
+            banco: data.bancoNombre,
+            direccion: data.dueñoDireccion,
+            comuna: data.dueñoComuna
+          },
           financiero: {
             total_cancelar: calculations.totalCancelar,
             total_recibir: calculations.totalRecibir,
             honorarios: calculations.totalComision,
-            administracion: calculations.totalAdmin
+            administracion: calculations.totalAdmin,
+            uf_valor: calculations.ufUsed,
+            ingreso_manual: data.ingresoManual,
+            fee_alert: data.feeAlertTriggered
           },
+          fecha_envio_link: data.fechaEnvioLink,
           pdf_base64: pdfRaw // Send raw base64
         }
       } else {
-        // COMPRAVENTA Payload
-        payload = {
+        -
+          // COMPRAVENTA Payload
+          payload = {
           tipo_solicitud: 'compraventa',
-          agente: {
+            agente: {
             nombre: data.agenteNombre,
-            apellido: data.agenteApellido,
-            email: data.agenteEmail,
+              apellido: data.agenteApellido,
+                email: data.agenteEmail,
           },
           fecha: new Date().toISOString().split('T')[0],
-          propiedad: {
+            propiedad: {
             direccion: data.direccion,
-            comuna: data.comuna,
-            tipo: data.tipoPropiedad
+              comuna: data.comuna,
+                tipo: data.tipoPropiedad
           },
           vendedor: {
             nombre: data.vendedorNombre,
-            rut: data.vendedorRut,
-            email: data.vendedorEmail
+              rut: data.vendedorRut,
+                email: data.vendedorEmail
           },
           comprador: {
             nombre: data.compradorNombre,
-            rut: data.compradorRut,
-            email: data.compradorEmail
+              rut: data.compradorRut,
+                email: data.compradorEmail
           },
           financiero: {
             monto_comision: data.montoComision
@@ -170,6 +183,7 @@ export default function StepResumen({ data, onBack, onComplete }) {
               </div>
             </div>
 
+
             {isArriendo ? (
               <div className="bg-slate-50 dark:bg-slate-900/50 rounded-xl p-5 space-y-4 border border-slate-100 dark:border-slate-800">
                 <div className="flex items-center gap-2 text-primary font-semibold border-b border-slate-200 dark:border-slate-700 pb-2 mb-2">
@@ -210,6 +224,26 @@ export default function StepResumen({ data, onBack, onComplete }) {
                 </div>
               </div>
             )}
+
+            {/* Detalles de Envío */}
+            <div className="bg-blue-50 dark:bg-blue-900/10 rounded-xl p-5 space-y-4 border border-blue-100 dark:border-blue-900/30">
+              <div className="flex items-center gap-2 text-blue-800 dark:text-blue-300 font-semibold border-b border-blue-200 dark:border-blue-800 pb-2 mb-2">
+                <Send className="w-4 h-4" /> Detalles de Envío
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  ¿Cuándo enviar este link de pago?
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ej: Inmediatamente, El próximo Lunes, 5 de Marzo..."
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  value={data.fechaEnvioLink || ''}
+                  onChange={(e) => onUpdate('fechaEnvioLink', e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">Indique cuándo desea que administración envíe el link.</p>
+              </div>
+            </div>
 
           </div>
 

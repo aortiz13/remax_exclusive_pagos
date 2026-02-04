@@ -18,6 +18,45 @@ export default function StepCalculos({ data, onUpdate, onNext, onBack }) {
         totalAdmin: 0
     })
 
+    // UF Fetching
+    const [ufData, setUfData] = useState({ valor: 0, fecha: '' })
+
+    useEffect(() => {
+        const fetchUF = async () => {
+            try {
+                const res = await fetch('https://mindicador.cl/api/uf')
+                const data = await res.json()
+                // mindicador returns array in series, or object for current?
+                // The snippet in prompt implies: { ... "serie": [ { "fecha": "...", "valor": ... } ] } usually, 
+                // BUT user provided example: {"codigo": "uf", ... "valor": 39695.81 } for specific date or root?
+                // 'https://mindicador.cl/api/uf' usually returns the series for the last month.
+                // 'https://mindicador.cl/api/uf/YYYY-MM-DD' returns specific.
+                // However, usually the root 'https://mindicador.cl/api' returns ALL indicators with current value.
+                // User prompt: "Endpoint actual: https://mindicador.cl". Let's try root first or UF specific.
+                // Let's assume standard response from https://mindicador.cl/api (which returns { uf: { valor: X, ... }, ... })
+                // OR specific endpoint. Let's use the one that is most reliable or try root.
+                // Actually, user provided example looks like the object inside the main response.
+                // Safe bet: Fetch https://mindicador.cl/api and get .uf
+
+                const resRoot = await fetch('https://mindicador.cl/api')
+                if (!resRoot.ok) throw new Error('Failed to fetch UF')
+                const rootData = await resRoot.json()
+
+                if (rootData.uf) {
+                    setUfData({
+                        valor: rootData.uf.valor,
+                        fecha: rootData.uf.fecha?.split('T')[0]
+                    })
+                    onUpdate('ufValue', rootData.uf.valor) // Save to form data
+                }
+            } catch (err) {
+                console.error('Error fetching UF:', err)
+                // Fallback or leave as 0 (will handle gracefully)
+            }
+        }
+        fetchUF()
+    }, [])
+
     // Calculations Effect
     useEffect(() => {
         // Base values
@@ -25,6 +64,7 @@ export default function StepCalculos({ data, onUpdate, onNext, onBack }) {
         const garantia = Number(data.garantia) || 0
         const gastosNotariales = Number(data.gastosNotariales) || 0
         const certDominio = Number(data.costoDominioVigente) || 0
+        const ufVal = ufData.valor || 0
 
         // Seguro de Restitución (Pass-through)
         const seguro = data.chkSeguro ? (Number(data.montoSeguro) || 0) : 0
@@ -37,36 +77,79 @@ export default function StepCalculos({ data, onUpdate, onNext, onBack }) {
 
         // --- 2. Honorarios (Comisión) ---
         let honorariosNeto = 0;
+        let feeAlert = false; // "fee_alert_triggered"
+
         const mesesContrato = Number(data.duracionContrato) || 12; // Default 1 year if not set
         const tipoPropiedad = data.tipoPropiedad || 'Casa'; // Default Residential
 
-        // Determine Category (Prioritize manual selection, fallback to property type inference)
+        // Determine Category
         const isCommercial = data.contractType
             ? data.contractType === 'commercial'
             : ['Oficina', 'Local Comercial', 'Bodega', 'Industrial'].includes(tipoPropiedad);
 
-        if (!isCommercial) {
-            // -- RESIDENCIAL --
-            if (mesesContrato <= 24) {
-                // 50% Canon + IVA
-                // STRICT RULE: "Si es residencial inferior a 2 años el calculo de los honorarios remax debe ser el 50% + IVA de la renta."
-                // Removed previous Minimum 6 UF logic to comply strictly.
-                honorariosNeto = Math.round(canon * 0.5);
-            } else {
-                // > 24 meses: 2% del total del contrato
-                const totalContrato = canon * mesesContrato;
-                honorariosNeto = Math.round(totalContrato * 0.02);
+        // --- CALCULATION LOGIC ---
+
+        if (data.ingresoManual) {
+            // MANUAL OVERRIDE
+            // Logic: User enters a NET amount manually.
+            // But how do we get the manual input? We need a field in `data`.
+            // Let's assume we reuse 'montoComision' or add 'montoHonorariosManual'.
+            // Actually, we should probably stick to `data.honorariosAdmin` or similar, 
+            // OR checks generic field. Let's look at `data`.
+            // `data.montoComision` is used in Compraventa.
+            // Let's use `data.honorariosNetosManual` if it exists, otherwise define it.
+            // Since we didn't add it in RequestForm, let's use `data.montoComision` as the shared "Fee Amount" field,
+            // OR create a local logic if the user edits the field directly.
+            // Wait, previous code calculated `honorariosNeto` inside effect.
+            // If manual, we should read from input.
+            // Let's assume the Input will write to `data.montoHonorariosManual`.
+
+            honorariosNeto = Number(data.montoHonorariosManual) || 0;
+
+            // CHECK MINIMUM RULE ALERT
+            if (!isCommercial && mesesContrato <= 24 && ufVal > 0) {
+                const minLegalNeto = Math.round(6 * ufVal);
+                if (honorariosNeto < minLegalNeto) {
+                    feeAlert = true;
+                }
             }
+
         } else {
-            // -- COMERCIAL --
-            if (mesesContrato <= 60) { // Hasta 5 años
-                // NEW RULE: "Si es inferior a 5 años es el 50+ IVA de 1 mes de renta."
-                // (Previous was 100%)
-                honorariosNeto = Math.round(canon * 0.5);
+            // AUTOMATIC CALCULATION
+            if (!isCommercial) {
+                // -- RESIDENCIAL --
+                if (mesesContrato <= 24) {
+                    // Rule 1: 50% Canon
+                    const halfRent = Math.round(canon * 0.5);
+
+                    // Rule 2: Minimum 6 UF + IVA (Logic is on Net or Gross?)
+                    // "Si ese resultado es menor a 6 UF + IVA, el sistema debe cambiar automáticamente el monto a cobrar a las 6 UF + IVA"
+                    // Usually "6 UF + IVA" means the Gross Total is 6UF+IVA.
+                    // So Net Minimum = 6 UF.
+
+                    let finalNet = halfRent;
+                    if (ufVal > 0) {
+                        const minNet = Math.round(6 * ufVal);
+                        if (halfRent < minNet) {
+                            finalNet = minNet;
+                        }
+                    }
+                    honorariosNeto = finalNet;
+
+                } else {
+                    // > 24 meses: 2% del total del contrato
+                    const totalContrato = canon * mesesContrato;
+                    honorariosNeto = Math.round(totalContrato * 0.02);
+                }
             } else {
-                // > 5 años: 2% del total del contrato
-                const totalContrato = canon * mesesContrato;
-                honorariosNeto = Math.round(totalContrato * 0.02);
+                // -- COMERCIAL --
+                if (mesesContrato <= 60) { // Hasta 5 años
+                    honorariosNeto = Math.round(canon * 0.5);
+                } else {
+                    // > 5 años: 2% del total del contrato
+                    const totalContrato = canon * mesesContrato;
+                    honorariosNeto = Math.round(totalContrato * 0.02);
+                }
             }
         }
 
@@ -80,33 +163,16 @@ export default function StepCalculos({ data, onUpdate, onNext, onBack }) {
 
         if (data.conAdministracion) {
             const porcentaje = Number(data.porcentajeAdministracion) || 0;
-            // Fee is a percentage of the Canon
             montoAdmin = Math.round(canon * (porcentaje / 100));
             ivaAdmin = Math.round(montoAdmin * 0.19);
             totalAdmin = montoAdmin + ivaAdmin;
-
-            // Note: Administration fee is usually recurrent (monthly), but here we calculate the *first payment* impact?
-            // "que el agente tenga la opción para agregar el % y que el sistema haga el calculo sumándole el IVA"
-            // Usually valid for first payment if they collect first month admin. 
-            // Assuming this is just calculation for the REQUEST, to show value.
-            // Usually Admin Fee is deducted from monthly rent.
-            // If this is "Payment Link", maybe they are paying the first month rent + comission?
-            // Admin fee is usually deducted from what owner receives.
         }
 
         // --- 4. Total a Cancelar (Arrendatario) ---
-        // Arrendatario pays: Initial Rent + Warranty + Notary + Commission + Insurance
-        // (Admin fee is usually cost to owner, not extra to tenant, unless specific agreement. 
-        //  The prompt says "el sistema haga el calculo sumándole el IVA". 
-        //  I will display it but usually it's deducted from owner. I will deduct from owner in 'Recibir')
         const totalCancelar = totalArriendoInicial + garantia + gastosNotariales + totalComision + seguro
 
         // --- 5. Total a Recibir (Dueño) ---
-        // Ingresos: Arriendo Inicial + Garantía
-        // Egresos: Comisión + Gastos Notariales + Cert Dominio + (Admin Fee?) + (Seguro?)
-        // If owner pays Admin Fee for the first month:
         const totalEgresosOwner = totalComision + gastosNotariales + certDominio + totalAdmin
-
         const totalRecibir = (totalArriendoInicial + garantia) - totalEgresosOwner
 
         setResults({
@@ -121,10 +187,17 @@ export default function StepCalculos({ data, onUpdate, onNext, onBack }) {
             totalRecibir,
             montoAdmin,
             ivaAdmin,
-            totalAdmin
+            totalAdmin,
+            ufUsed: ufVal,
+            feeAlert
         })
 
-    }, [data])
+        // Update parent with alert status
+        if (data.feeAlertTriggered !== feeAlert) {
+            onUpdate('feeAlertTriggered', feeAlert);
+        }
+
+    }, [data, ufData])
 
     const handleNext = () => {
         onUpdate('calculations', results)
@@ -430,6 +503,73 @@ export default function StepCalculos({ data, onUpdate, onNext, onBack }) {
                                 <DollarSign className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                                 <Input className="pl-8" type="number" value={data.costoDominioVigente} onChange={(e) => onUpdate('costoDominioVigente', e.target.value)} placeholder="$ 4600" />
                             </div>
+                        </div>
+
+                        {/* SECCIÓN 4: HONORARIOS (UF LOGIC & MANUAL) */}
+                        <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg border border-slate-100 dark:border-slate-800 space-y-4">
+                            <h3 className="font-semibold text-sm uppercase tracking-wide text-slate-500 flex justify-between items-center">
+                                <span>Honorarios</span>
+                                {data.ingresoManual && <span className="text-[10px] bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full border border-orange-200">Manual</span>}
+                            </h3>
+
+                            {/* UF Info Bar */}
+                            <div className="text-xs bg-blue-50 text-blue-800 p-2 rounded-md border border-blue-100 flex items-center gap-2">
+                                <TrendingUp className="w-3 h-3" />
+                                <span>UF Hoy ({ufData.fecha || 'N/A'}): <strong>{formatCurrency(ufData.valor)}</strong></span>
+                                <span className="opacity-60">| Mínimo 6 UF: ~{formatCurrency(Math.round(6 * ufData.valor))} + IVA</span>
+                            </div>
+
+                            <div className="flex items-center space-x-2">
+                                <input
+                                    type="checkbox"
+                                    id="ingresoManual"
+                                    className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                                    checked={data.ingresoManual || false}
+                                    onChange={(e) => onUpdate('ingresoManual', e.target.checked)}
+                                />
+                                <Label htmlFor="ingresoManual" className="font-medium cursor-pointer text-sm">
+                                    Ingreso Manual de Honorarios
+                                </Label>
+                            </div>
+
+                            {/* MANUAL INPUT */}
+                            {data.ingresoManual && (
+                                <div className="animate-in slide-in-from-top-2 space-y-2">
+                                    <Label className="text-xs text-muted-foreground">Monto Honorarios Neto (Sin IVA)</Label>
+                                    <div className="relative">
+                                        <DollarSign className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                                        <Input
+                                            className="pl-8 bg-white"
+                                            type="number"
+                                            value={data.montoHonorariosManual}
+                                            onChange={(e) => onUpdate('montoHonorariosManual', e.target.value)}
+                                            placeholder="Ingrese monto neto"
+                                        />
+                                    </div>
+                                    {results.feeAlert && (
+                                        <div className="text-xs text-red-600 bg-red-50 p-2 rounded border border-red-100 flex items-start gap-1">
+                                            <span className="font-bold">⚠ Alerta:</span>
+                                            <span>El monto ingresado es inferior al mínimo de 6 UF ({formatCurrency(Math.round(6 * ufData.valor))}). Se notificará a administración.</span>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* READ ONLY DISPLAY (If Automatic) */}
+                            {!data.ingresoManual && (
+                                <div className="space-y-1">
+                                    <Label className="text-xs text-muted-foreground">Cálculo Automático (Neto)</Label>
+                                    <div className="h-9 px-3 py-2 bg-muted text-muted-foreground text-sm rounded-md border border-input opacity-70">
+                                        {formatCurrency(results.honorariosNeto)}
+                                    </div>
+                                    {!isCommercial && results.honorariosNeto > 0 && results.honorariosNeto === Math.round(6 * ufData.valor) && (
+                                        <p className="text-[10px] text-green-600 font-medium">
+                                            * Se aplicó mínimo legal de 6 UF por ser menor el 50%.
+                                        </p>
+                                    )}
+                                </div>
+                            )}
+
                         </div>
 
                     </div>

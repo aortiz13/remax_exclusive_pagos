@@ -26,9 +26,22 @@ const ACCOUNT_TYPES = [
 ]
 
 export default function StepDueñoBanco({ data, onUpdate, onNext, onBack }) {
-    const isOwnerComplete = data.dueñoNombre && data.dueñoRut && data.dueñoEmail
-    const isBankComplete = data.bancoNombre && data.bancoTipoCuenta && data.bancoNroCuenta && data.bancoRutTitular
-    const isComplete = isOwnerComplete && isBankComplete
+    // Conditional Logic for "Puntas"
+    const isOwnerRequired = data.arriendoRole !== 'Arrendatario' // If role is Arrendatario only, Owner is optional
+
+    // Validation
+    const isOwnerDataValid =
+        !isOwnerRequired ||
+        (data.dueñoNombre && data.dueñoRut && data.dueñoEmail && data.dueñoDireccion && data.dueñoComuna)
+
+    const isBankComplete =
+        !isOwnerRequired || // If Owner not required, Bank probably not either?
+        // Actually, if we are "Punta Arrendatario", we might not have owner's bank details?
+        // Logic constraint: "dejar en blanco los datos de la contraparte". 
+        // So yes, if Owner is optional, Bank is optional.
+        (data.bancoNombre && data.bancoTipoCuenta && data.bancoNroCuenta && data.bancoRutTitular)
+
+    const isComplete = isOwnerDataValid && isBankComplete
 
     // Check if initial value is "Other" (not in list and not empty)
     const [showOther, setShowOther] = React.useState(
@@ -44,55 +57,86 @@ export default function StepDueñoBanco({ data, onUpdate, onNext, onBack }) {
         onUpdate(field, val)
     }
 
+    // Skip section if not required? Or just Show it as Optional?
+    // "Flexibilidad en datos... permitir dejar en blanco" -> Show inputs but remove 'required' prop.
+
     return (
         <Card className="max-w-2xl mx-auto border-0 shadow-none sm:border sm:shadow-sm">
             <CardContent className="pt-6">
+                {!isOwnerRequired && (
+                    <div className="mb-6 p-4 bg-yellow-50 text-yellow-800 rounded-md text-sm border border-yellow-200">
+                        <strong>Información Opcional:</strong> Has seleccionado "Punta Arrendatario", por lo que estos datos no son obligatorios.
+                    </div>
+                )}
                 <form onSubmit={handleSubmit} className="space-y-8">
 
                     {/* Owner Section */}
                     <div className="space-y-4">
                         <div className="flex items-center gap-2 pb-2 border-b">
                             <User className="w-5 h-5 text-primary" />
-                            <h2 className="text-lg font-semibold text-foreground">Datos del Propietario</h2>
+                            <h2 className="text-lg font-semibold text-foreground">
+                                Datos del Propietario
+                                {!isOwnerRequired && <span className="text-sm font-normal text-muted-foreground ml-2">(Opcional)</span>}
+                            </h2>
                         </div>
 
+                        {/* ROW 1: Name, RUT */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                <Label>Nombre Completo</Label>
+                                <Label>Nombre Completo {isOwnerRequired && '*'}</Label>
                                 <Input
                                     value={data.dueñoNombre}
                                     onChange={(e) => onUpdate('dueñoNombre', e.target.value)}
-                                    required
+                                    required={isOwnerRequired}
                                     autoFocus
                                     placeholder="Nombre Apellido"
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label>RUT</Label>
+                                <Label>RUT {isOwnerRequired && '*'}</Label>
                                 <Input
                                     value={data.dueñoRut}
                                     onChange={(e) => handleRutChange('dueñoRut', e.target.value)}
                                     placeholder="12.345.678-9"
-                                    required
+                                    required={isOwnerRequired}
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label>Email</Label>
+                                <Label>Email {isOwnerRequired && '*'}</Label>
                                 <Input
                                     type="email"
                                     value={data.dueñoEmail}
                                     onChange={(e) => onUpdate('dueñoEmail', e.target.value)}
-                                    required
+                                    required={isOwnerRequired}
                                     placeholder="nombre@ejemplo.com"
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label>Teléfono <span className="text-muted-foreground font-normal text-xs">(Opcional)</span></Label>
+                                <Label>Teléfono</Label>
                                 <Input
                                     type="tel"
                                     value={data.dueñoTelefono}
                                     onChange={(e) => onUpdate('dueñoTelefono', e.target.value)}
                                     placeholder="56 9 ..."
+                                />
+                            </div>
+                            {/* New Address Fields */}
+                            <div className="space-y-2 md:col-span-2">
+                                <Label>Dirección Particular {isOwnerRequired && '*'}</Label>
+                                <Input
+                                    value={data.dueñoDireccion}
+                                    onChange={(e) => onUpdate('dueñoDireccion', e.target.value)}
+                                    placeholder="Calle, Número, Depto"
+                                    required={isOwnerRequired}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Comuna Particular {isOwnerRequired && '*'}</Label>
+                                <Input
+                                    value={data.dueñoComuna}
+                                    onChange={(e) => onUpdate('dueñoComuna', e.target.value)}
+                                    placeholder="Ej: Las Condes"
+                                    required={isOwnerRequired}
                                 />
                             </div>
                         </div>
@@ -127,7 +171,7 @@ export default function StepDueñoBanco({ data, onUpdate, onNext, onBack }) {
                                             onUpdate('bancoNombre', val) // Set selected bank
                                         }
                                     }}
-                                    required
+                                    required={isOwnerRequired}
                                 >
                                     <option value="">Seleccionar...</option>
                                     {BANKS.map(b => <option key={b} value={b}>{b}</option>)}
@@ -143,40 +187,40 @@ export default function StepDueñoBanco({ data, onUpdate, onNext, onBack }) {
                                         value={data.bancoNombre}
                                         onChange={(e) => onUpdate('bancoNombre', e.target.value)}
                                         placeholder="Ingrese nombre del banco"
-                                        required
+                                        required={isOwnerRequired}
                                         autoFocus
                                     />
                                 </div>
                             )}
 
                             <div className="space-y-2">
-                                <Label>Tipo de Cuenta</Label>
+                                <Label>Tipo de Cuenta {isOwnerRequired && '*'}</Label>
                                 <select
                                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                                     value={data.bancoTipoCuenta}
                                     onChange={(e) => onUpdate('bancoTipoCuenta', e.target.value)}
-                                    required
+                                    required={isOwnerRequired}
                                 >
                                     <option value="">Seleccionar...</option>
                                     {ACCOUNT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                                 </select>
                             </div>
                             <div className="space-y-2">
-                                <Label>Número de Cuenta</Label>
+                                <Label>Número de Cuenta {isOwnerRequired && '*'}</Label>
                                 <Input
                                     value={data.bancoNroCuenta}
                                     onChange={(e) => onUpdate('bancoNroCuenta', e.target.value)}
-                                    required
+                                    required={isOwnerRequired}
                                     placeholder="12345678"
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label>RUT Titular</Label>
+                                <Label>RUT Titular {isOwnerRequired && '*'}</Label>
                                 <Input
                                     value={data.bancoRutTitular}
                                     onChange={(e) => handleRutChange('bancoRutTitular', e.target.value)}
                                     placeholder="Si es distinto al dueño"
-                                    required
+                                    required={isOwnerRequired}
                                 />
                             </div>
                         </div>
