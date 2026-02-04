@@ -13,6 +13,8 @@ import DailyCalendarWidget from '../components/dashboard/DailyCalendarWidget'
 import { cn } from '@/lib/utils'
 
 import GlobalSearch from '../components/dashboard/GlobalSearch'
+import KpiDataEntry from '../components/kpi/KpiDataEntry'
+import { Activity } from 'lucide-react'
 
 export default function Dashboard() {
     const { user } = useAuth()
@@ -25,6 +27,7 @@ export default function Dashboard() {
 
     const [filterStatus, setFilterStatus] = useState('all') // 'all', 'pending', 'finalized'
     const [isContactModalOpen, setIsContactModalOpen] = useState(false)
+    const [isKpiModalOpen, setIsKpiModalOpen] = useState(false)
 
     useEffect(() => {
         startTour()
@@ -163,6 +166,18 @@ export default function Dashboard() {
             path: '/invoice',
             color: 'bg-amber-600 hover:bg-amber-700 text-white border-transparent'
         },
+        {
+            label: 'Factura',
+            icon: FileText,
+            path: '/invoice',
+            color: 'bg-amber-600 hover:bg-amber-700 text-white border-transparent'
+        },
+        {
+            label: 'Carga Rápida KPI',
+            icon: Activity,
+            action: () => setIsKpiModalOpen(true),
+            color: 'bg-rose-600 hover:bg-rose-700 text-white border-transparent'
+        },
     ]
 
     return (
@@ -195,7 +210,7 @@ export default function Dashboard() {
                                     "gap-2 shadow-sm transition-all",
                                     action.color
                                 )}
-                                onClick={() => navigate(action.path)}
+                                onClick={() => action.action ? action.action() : navigate(action.path)}
                             >
                                 <action.icon className="w-4 h-4" />
                                 {action.label}
@@ -352,6 +367,23 @@ export default function Dashboard() {
                         <QuickContactWidget
                             isModal={true}
                             onComplete={() => setIsContactModalOpen(false)}
+                        />
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={isKpiModalOpen} onOpenChange={setIsKpiModalOpen}>
+                <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle>Carga de KPI</DialogTitle>
+                        <DialogDescription>
+                            Registra tu actividad (Diaria, Semanal o Mensual).
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="mt-4">
+                        <KpiDataEntry
+                            defaultTab="daily"
+                            onClose={() => setIsKpiModalOpen(false)}
                         />
                     </div>
                 </DialogContent>

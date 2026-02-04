@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { BarChart3, ClipboardList, Target } from 'lucide-react'
 import KpiOverview from './KpiOverview'
-import WeeklyKpiForm from './WeeklyKpiForm'
+import KpiDataEntry from './KpiDataEntry'
 import AgentGoalsForm from './AgentGoalsForm'
 
 const KpiDashboard = () => {
@@ -24,7 +24,7 @@ const KpiDashboard = () => {
                     </TabsTrigger>
                     <TabsTrigger value="entry" className="flex items-center gap-2">
                         <ClipboardList className="h-4 w-4" />
-                        Carga Semanal
+                        Carga de Datos
                     </TabsTrigger>
                     <TabsTrigger value="goals" className="flex items-center gap-2">
                         <Target className="h-4 w-4" />
@@ -37,7 +37,9 @@ const KpiDashboard = () => {
                 </TabsContent>
 
                 <TabsContent value="entry" className="mt-6 border-none p-0 outline-none">
-                    <WeeklyKpiForm />
+                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                        <KpiDataEntry />
+                    </div>
                 </TabsContent>
 
                 <TabsContent value="goals" className="mt-6 border-none p-0 outline-none">

@@ -1,0 +1,233 @@
+import { useState, useEffect } from 'react'
+import { supabase } from '../../services/supabase'
+import { useAuth } from '../../context/AuthContext'
+import { toast } from 'sonner'
+import { Calendar, Save, Loader2, ArrowLeft, ArrowRight } from 'lucide-react'
+import { format, startOfWeek, startOfMonth, addDays, addWeeks, addMonths, subDays, subWeeks, subMonths, isSameDay } from 'date-fns'
+import { es } from 'date-fns/locale'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Card, CardContent, CardHeader, CardTitle, Button, Input } from '@/components/ui'
+import { cn } from '@/lib/utils'
+
+export default function KpiDataEntry({ defaultTab = 'weekly', onClose }) {
+    const { user } = useAuth()
+    const [periodType, setPeriodType] = useState(defaultTab) // 'daily', 'weekly', 'monthly'
+    const [selectedDate, setSelectedDate] = useState(new Date())
+    const [loading, setLoading] = useState(false)
+    const [saving, setSaving] = useState(false)
+
+    // Form State
+    const initialFormState = {
+        conversations_started: 0,
+        relational_coffees: 0,
+        sales_interviews: 0,
+        buying_interviews: 0,
+        commercial_evaluations: 0,
+        new_listings: 0,
+        active_portfolio: 0,
+        price_reductions: 0,
+        portfolio_visits: 0,
+        buyer_visits: 0,
+        offers_in_negotiation: 0,
+        signed_promises: 0,
+        billing_primary: 0,
+        referrals_count: 0,
+        billing_secondary: 0,
+    }
+    const [formData, setFormData] = useState(initialFormState)
+
+    // Sync selectedDate based on period type to ensure it aligns (e.g. Monday for Weekly)
+    useEffect(() => {
+        let alignedDate = selectedDate
+        if (periodType === 'weekly') {
+            alignedDate = startOfWeek(selectedDate, { weekStartsOn: 1 })
+        } else if (periodType === 'monthly') {
+            alignedDate = startOfMonth(selectedDate)
+        }
+        if (alignedDate.getTime() !== selectedDate.getTime()) {
+            setSelectedDate(alignedDate)
+        }
+    }, [periodType])
+
+    useEffect(() => {
+        if (user) fetchData()
+    }, [user, selectedDate, periodType])
+
+    const fetchData = async () => {
+        setLoading(true)
+        try {
+            const dateStr = format(selectedDate, 'yyyy-MM-dd')
+
+            const { data, error } = await supabase
+                .from('kpi_records')
+                .select('*')
+                .eq('agent_id', user.id)
+                .eq('period_type', periodType)
+                .eq('date', dateStr)
+                .single()
+
+            if (error && error.code !== 'PGRST116') throw error
+
+            if (data) {
+                const { id, agent_id, period_type, date, created_at, ...metrics } = data
+                setFormData(metrics)
+            } else {
+                setFormData(initialFormState)
+            }
+        } catch (error) {
+            console.error('Error fetching data:', error)
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    const handleSave = async (e) => {
+        e.preventDefault()
+        setSaving(true)
+        try {
+            const dateStr = format(selectedDate, 'yyyy-MM-dd')
+
+            // Check existence
+            const { data: existing } = await supabase
+                .from('kpi_records')
+                .select('id')
+                .eq('agent_id', user.id)
+                .eq('period_type', periodType)
+                .eq('date', dateStr)
+                .single()
+
+            let error
+            if (existing) {
+                const { error: updateError } = await supabase
+                    .from('kpi_records')
+                    .update(formData)
+                    .eq('id', existing.id)
+                error = updateError
+            } else {
+                const { error: insertError } = await supabase
+                    .from('kpi_records')
+                    .insert([{
+                        agent_id: user.id,
+                        period_type: periodType,
+                        date: dateStr,
+                        ...formData
+                    }])
+                error = insertError
+            }
+
+            if (error) throw error
+            toast.success('Datos guardados')
+            if (onClose) onClose()
+        } catch (error) {
+            console.error('Error saving:', error)
+            toast.error('Error al guardar')
+        } finally {
+            setSaving(false)
+        }
+    }
+
+    const changeDate = (direction) => {
+        if (periodType === 'daily') setSelectedDate(prev => direction === 'next' ? addDays(prev, 1) : subDays(prev, 1))
+        if (periodType === 'weekly') setSelectedDate(prev => direction === 'next' ? addWeeks(prev, 1) : subWeeks(prev, 1))
+        if (periodType === 'monthly') setSelectedDate(prev => direction === 'next' ? addMonths(prev, 1) : subMonths(prev, 1))
+    }
+
+    const getDateLabel = () => {
+        if (periodType === 'daily') return format(selectedDate, "EEEE d 'de' MMMM", { locale: es })
+        if (periodType === 'weekly') return `Semana del ${format(selectedDate, "d 'de' MMMM", { locale: es })}`
+        if (periodType === 'monthly') return format(selectedDate, "MMMM yyyy", { locale: es })
+    }
+
+    return (
+        <div className="space-y-6">
+            {!onClose && (
+                <div className="flex items-center justify-between">
+                    <h2 className="text-2xl font-bold text-slate-800">Carga de Datos</h2>
+                    <Tabs value={periodType} onValueChange={setPeriodType}>
+                        <TabsList>
+                            <TabsTrigger value="daily">Diaria</TabsTrigger>
+                            <TabsTrigger value="weekly">Semanal</TabsTrigger>
+                            <TabsTrigger value="monthly">Mensual</TabsTrigger>
+                        </TabsList>
+                    </Tabs>
+                </div>
+            )}
+
+            {/* Date Navigator */}
+            <div className="flex items-center justify-between bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                <Button variant="ghost" size="icon" onClick={() => changeDate('prev')}>
+                    <ArrowLeft className="w-5 h-5" />
+                </Button>
+                <div className="flex items-center gap-2 font-medium text-slate-700 capitalize">
+                    <Calendar className="w-5 h-5 text-primary" />
+                    <span>{getDateLabel()}</span>
+                </div>
+                <Button variant="ghost" size="icon" onClick={() => changeDate('next')}>
+                    <ArrowRight className="w-5 h-5" />
+                </Button>
+            </div>
+
+            <form onSubmit={handleSave} className="space-y-6">
+                {/* Form Sections (Reuse same structure as WeeklyKpiForm but generic) */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {/* Activity */}
+                    <Card>
+                        <CardHeader><CardTitle className="text-base text-blue-600">Gestión</CardTitle></CardHeader>
+                        <CardContent className="space-y-4">
+                            <InputKpi label="Inicios de Conversación" name="conversations_started" state={formData} setState={setFormData} />
+                            <InputKpi label="Cafés Relacionales" name="relational_coffees" state={formData} setState={setFormData} />
+                            <InputKpi label="Entrevistas Venta (Prelisting)" name="sales_interviews" state={formData} setState={setFormData} />
+                            <InputKpi label="Entrevistas Compra (Prebuying)" name="buying_interviews" state={formData} setState={setFormData} />
+                            <InputKpi label="Evaluaciones Comerciales" name="commercial_evaluations" state={formData} setState={setFormData} />
+                        </CardContent>
+                    </Card>
+
+                    {/* Results */}
+                    <Card>
+                        <CardHeader><CardTitle className="text-base text-green-600">Resultados</CardTitle></CardHeader>
+                        <CardContent className="space-y-4">
+                            <InputKpi label="Captaciones Nuevas" name="new_listings" state={formData} setState={setFormData} />
+                            <InputKpi label="Cartera Activa" name="active_portfolio" state={formData} setState={setFormData} />
+                            <InputKpi label="Bajas de Precio" name="price_reductions" state={formData} setState={setFormData} />
+                            <InputKpi label="Visitas Propiedades" name="portfolio_visits" state={formData} setState={setFormData} />
+                            <InputKpi label="Visitas Compradores" name="buyer_visits" state={formData} setState={setFormData} />
+                            <InputKpi label="Ofertas Negociación" name="offers_in_negotiation" state={formData} setState={setFormData} />
+                            <InputKpi label="Promesas Firmadas" name="signed_promises" state={formData} setState={setFormData} />
+                        </CardContent>
+                    </Card>
+
+                    {/* Billing */}
+                    <Card>
+                        <CardHeader><CardTitle className="text-base text-purple-600">Facturación & Referidos</CardTitle></CardHeader>
+                        <CardContent className="space-y-4">
+                            <InputKpi label="Facturación Principal ($)" name="billing_primary" state={formData} setState={setFormData} type="number" step="0.01" />
+                            <InputKpi label="Referidos" name="referrals_count" state={formData} setState={setFormData} />
+                            <InputKpi label="Facturación Secundaria ($)" name="billing_secondary" state={formData} setState={setFormData} type="number" step="0.01" />
+                        </CardContent>
+                    </Card>
+                </div>
+
+                <div className="flex justify-end sticky bottom-4 z-10">
+                    <Button type="submit" size="lg" disabled={saving || loading} className="shadow-xl">
+                        {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                        Guardar {periodType === 'daily' ? 'Día' : periodType === 'weekly' ? 'Semana' : 'Mes'}
+                    </Button>
+                </div>
+            </form>
+        </div>
+    )
+}
+
+const InputKpi = ({ label, name, state, setState, type = "number", step = "1" }) => (
+    <div className="space-y-1">
+        <label className="text-xs font-medium text-slate-500 uppercase">{label}</label>
+        <Input
+            type={type}
+            step={step}
+            min="0"
+            value={state[name]}
+            onChange={(e) => setState(prev => ({ ...prev, [name]: e.target.value === '' ? 0 : Number(e.target.value) }))}
+            className="font-mono text-right"
+        />
+    </div>
+)
