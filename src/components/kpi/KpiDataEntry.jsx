@@ -56,26 +56,99 @@ export default function KpiDataEntry({ defaultTab = 'weekly', onClose }) {
     const fetchData = async () => {
         setLoading(true)
         try {
-            const dateStr = format(selectedDate, 'yyyy-MM-dd')
-
-            const { data, error } = await supabase
-                .from('kpi_records')
-                .select('*')
-                .eq('agent_id', user.id)
-                .eq('period_type', periodType)
-                .eq('date', dateStr)
-                .single()
-
-            if (error && error.code !== 'PGRST116') throw error
-
-            if (data) {
-                const { id, agent_id, period_type, date, created_at, ...metrics } = data
-                setFormData(metrics)
+            // Determine date range based on periodType
+            let startDate, endDate
+            if (periodType === 'weekly') {
+                startDate = format(startOfWeek(selectedDate, { weekStartsOn: 1 }), 'yyyy-MM-dd')
+                endDate = format(addDays(new Date(startDate), 6), 'yyyy-MM-dd')
+            } else if (periodType === 'monthly') {
+                startDate = format(startOfMonth(selectedDate), 'yyyy-MM-dd')
+                endDate = format(addMonths(new Date(startDate), 1), 'yyyy-MM-dd') // Query < first day of next month
             } else {
-                setFormData(initialFormState)
+                startDate = format(selectedDate, 'yyyy-MM-dd')
+                endDate = startDate
             }
+
+            // For DAILY: Fetch single record as before
+            if (periodType === 'daily') {
+                const { data, error } = await supabase
+                    .from('kpi_records')
+                    .select('*')
+                    .eq('agent_id', user.id)
+                    .eq('period_type', 'daily')
+                    .eq('date', startDate)
+                    .single()
+
+                if (error && error.code !== 'PGRST116') throw error
+
+                if (data) {
+                    const { id, agent_id, period_type, date, created_at, ...metrics } = data
+                    setFormData(metrics)
+                } else {
+                    setFormData(initialFormState)
+                }
+            }
+            // For WEEKLY / MONTHLY: Aggregate DAILY records
+            else {
+                // First, check if there is an explicit record for this period (manual override)
+                const { data: manualData, error: manualError } = await supabase
+                    .from('kpi_records')
+                    .select('*')
+                    .eq('agent_id', user.id)
+                    .eq('period_type', periodType)
+                    .eq('date', startDate)
+                    .single()
+
+                if (manualError && manualError.code !== 'PGRST116') throw manualError
+
+                // If manual record exists, prioritize it? Or show sum? 
+                // User asked for "automatic weighting", so aggregation is likely expected.
+                // However, let's fetch daily records to aggregate.
+
+                let query = supabase
+                    .from('kpi_records')
+                    .select('*')
+                    .eq('agent_id', user.id)
+                    .eq('period_type', 'daily')
+                    .gte('date', startDate)
+
+                if (periodType === 'monthly') {
+                    // For monthly, it's safer to use strict inequality for the next month start if we used that logic
+                    // But here we can just checks dates within the month
+                    query = query.lt('date', endDate)
+                } else {
+                    // Weekly
+                    query = query.lte('date', endDate)
+                }
+
+                const { data: dailyRecords, error: dailyError } = await query
+                if (dailyError) throw dailyError
+
+                // Calculate sums
+                const aggregated = { ...initialFormState }
+                if (dailyRecords && dailyRecords.length > 0) {
+                    dailyRecords.forEach(record => {
+                        Object.keys(initialFormState).forEach(key => {
+                            aggregated[key] += (record[key] || 0)
+                        })
+                    })
+                }
+
+                // If manual Data exists and has values > aggregated, maybe use that?
+                // For now, let's strictly follow "automatic weighting" -> Display Aggregated Data.
+                // If user wants to "Save" this week, it will create/update the weekly record.
+
+                // If we also want to support "Manual Weekly Entry" that is completely separate from daily:
+                // We could check if aggregated is all 0, then show manualData.
+                // But mixing them is confusing. 
+                // Let's defaulted to aggregated totals.
+
+                setFormData(aggregated)
+            }
+
         } catch (error) {
             console.error('Error fetching data:', error)
+            toast.error('Error al cargar datos')
         } finally {
             setLoading(false)
         }
