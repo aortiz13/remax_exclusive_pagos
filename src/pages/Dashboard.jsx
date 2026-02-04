@@ -101,14 +101,16 @@ export default function Dashboard() {
         )
 
         if (filterStatus === 'all') return matchesSearch
-        if (filterStatus === 'pending') return matchesSearch && req.status !== 'Finalizado'
-        if (filterStatus === 'finalized') return matchesSearch && req.status === 'Finalizado'
+        if (filterStatus === 'pending') return matchesSearch && req.status !== 'Finalizado' && req.status !== 'realizado' && req.status !== 'Realizado'
+        if (filterStatus === 'finalized') return matchesSearch && (req.status === 'Finalizado' || req.status === 'realizado' || req.status === 'Realizado')
+        if (filterStatus === 'draft') return matchesSearch && (req.status === 'draft' || req.status === 'borrador')
         return matchesSearch
     })
 
     const getStatusColor = (status) => {
         switch (status?.toLowerCase()) {
-            case 'realizado': return 'bg-green-600 text-white hover:bg-green-700'
+            case 'realizado':
+            case 'finalizado': return 'bg-green-600 text-white hover:bg-green-700'
             case 'borrador':
             case 'draft': return 'bg-red-600 text-white hover:bg-red-700'
             case 'pendiente': return 'bg-amber-500 text-white hover:bg-amber-600'
@@ -232,7 +234,7 @@ export default function Dashboard() {
                     <div className="flex items-center justify-between mt-8">
                         <h2 className="text-lg font-semibold text-slate-900">Mis Solicitudes</h2>
                         <div className="flex bg-slate-100 p-1 rounded-lg">
-                            {['all', 'pending', 'finalized'].map(status => (
+                            {['all', 'pending', 'finalized', 'draft'].map(status => (
                                 <button
                                     key={status}
                                     onClick={() => setFilterStatus(status)}
@@ -246,6 +248,7 @@ export default function Dashboard() {
                                     {status === 'all' && 'Todas'}
                                     {status === 'pending' && 'Pendientes'}
                                     {status === 'finalized' && 'Finalizadas'}
+                                    {status === 'draft' && 'Borrador'}
                                 </button>
                             ))}
                         </div>
