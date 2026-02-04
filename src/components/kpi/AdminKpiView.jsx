@@ -61,6 +61,7 @@ export default function AdminKpiView() {
     // Filters
     const [dateRange, setDateRange] = useState('6m') // '3m', '6m', '1y', 'ytd', 'custom'
     const [customDate, setCustomDate] = useState({ from: undefined, to: undefined })
+    const [tempDate, setTempDate] = useState({ from: undefined, to: undefined }) // Temp state for calendar
     const [comparisonMode] = useState('none') // Fixed to none
     const [isCustomDateOpen, setIsCustomDateOpen] = useState(false)
 
@@ -415,7 +416,10 @@ export default function AdminKpiView() {
                     </Select>
 
                     {dateRange === 'custom' && (
-                        <Popover open={isCustomDateOpen} onOpenChange={setIsCustomDateOpen}>
+                        <Popover open={isCustomDateOpen} onOpenChange={(open) => {
+                            if (open) setTempDate(customDate) // Sync when opening
+                            setIsCustomDateOpen(open)
+                        }}>
                             <PopoverTrigger asChild>
                                 <Button
                                     variant="outline"
@@ -425,16 +429,26 @@ export default function AdminKpiView() {
                                     {formatDateRange(customDate.from, customDate.to)}
                                 </Button>
                             </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0" align="start">
-                                <Calendar
-                                    initialFocus
-                                    mode="range"
-                                    defaultMonth={customDate.from}
-                                    selected={customDate}
-                                    onSelect={setCustomDate}
-                                    numberOfMonths={2}
-                                    locale={es}
-                                />
+                            <PopoverContent className="w-auto p-0" align="center">
+                                <div className="scale-90 origin-top">
+                                    <Calendar
+                                        initialFocus
+                                        mode="range"
+                                        defaultMonth={tempDate?.from}
+                                        selected={tempDate}
+                                        onSelect={setTempDate}
+                                        numberOfMonths={2}
+                                        locale={es}
+                                    />
+                                    <div className="p-3 border-t flex justify-end">
+                                        <Button size="sm" onClick={() => {
+                                            setCustomDate(tempDate)
+                                            setIsCustomDateOpen(false)
+                                        }}>
+                                            OK
+                                        </Button>
+                                    </div>
+                                </div>
                             </PopoverContent>
                         </Popover>
                     )}
