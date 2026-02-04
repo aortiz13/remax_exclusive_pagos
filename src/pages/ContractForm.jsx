@@ -727,6 +727,8 @@ function LeaseFormLogic({ user, profile, navigate, initialData = {}, requestId =
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [currency, setCurrency] = useState(initialData?.moneda_arriendo || 'clp')
 
+    const [conRestitucion, setConRestitucion] = useState(initialData?.con_restitucion === 'SI')
+
     useEffect(() => {
         if (currency === 'uf') {
             const reajusteSelect = document.querySelector('select[name="reajuste"]')
@@ -779,7 +781,7 @@ function LeaseFormLogic({ user, profile, navigate, initialData = {}, requestId =
             // Explicitly set checkboxes/booleans
             formData.set('tiene_fiador', hasGuarantor ? 'si' : 'no')
             formData.set('con_administracion', conAdministracion ? 'SI' : 'NO')
-            formData.set('con_restitucion', formData.get('con_restitucion') ? 'SI' : 'NO')
+            formData.set('con_restitucion', conRestitucion ? 'SI' : 'NO')
             formData.set('moneda_arriendo', currency)
 
             // Remove empty/zero size files from potential arrays
@@ -870,6 +872,78 @@ function LeaseFormLogic({ user, profile, navigate, initialData = {}, requestId =
 
             if (error) throw error
 
+            // --- AUTO-DRAFT CREATION START ---
+            try {
+                // Determine Person Types for Owner/Tenant to correctly mapped fields.
+                // Assuming "Arrendador 1" and "Arrendatario 1" are the primaries.
+
+                const draftData = {
+                    tipoSolicitud: 'arriendo', // Must match RequestForm logic
+
+                    // Agent
+                    agenteNombre: profile?.first_name || '',
+                    agenteApellido: profile?.last_name || '',
+                    agenteEmail: user.email,
+                    agenteTelefono: profile?.phone || '',
+
+                    // Property
+                    direccion: formData.get('direccion_propiedad') || '',
+                    comuna: formData.get('comuna') || '',
+                    tipoPropiedad: formData.get('tipo_propiedad') || '',
+                    rol: formData.get('rol_propiedad') || '',
+
+                    // Tenant (Arrendatario) - Mapping from index 1
+                    arrendatarioNombre: formData.get('arrendatario_1_nombres') || formData.get('arrendatario_1_juridica_razon') || '',
+                    arrendatarioApellido: formData.get('arrendatario_1_apellidos') || '', // Empty if Juridica
+                    arrendatarioRut: formData.get('arrendatario_1_rut') || formData.get('arrendatario_1_juridica_rut') || '',
+                    arrendatarioEmail: formData.get('arrendatario_1_email') || formData.get('arrendatario_1_juridica_rep_email') || '',
+                    arrendatarioTelefono: formData.get('arrendatario_1_telefono') || formData.get('arrendatario_1_juridica_telefono') || '',
+                    // New Address Fields for Payment Link
+                    arrendatarioDireccion: formData.get('arrendatario_1_direccion') || formData.get('arrendatario_1_juridica_direccion') || '',
+                    arrendatarioComuna: '', // Not explicitly collected in ContractForm separate from address, user can edit in draft
+
+                    // Owner (Dueño) - Mapping from index 1
+                    dueñoNombre: (formData.get('arrendador_1_nombres') ? `${formData.get('arrendador_1_nombres')} ${formData.get('arrendador_1_apellidos')}` : formData.get('arrendador_1_juridica_razon')) || '',
+                    dueñoRut: formData.get('arrendador_1_rut') || formData.get('arrendador_1_juridica_rut') || '',
+                    dueñoDireccion: formData.get('arrendador_1_direccion') || formData.get('arrendador_1_juridica_direccion') || '',
+                    dueñoComuna: '', // User will fill
+
+                    // Financials
+                    canon: formData.get('canon_arriendo') || '0',
+                    moneda: currency, // 'clp' or 'uf'
+
+                    // Logic fields
+                    conAdministracion: conAdministracion,
+                    adminComisionPorcentaje: conAdministracion ? (formData.get('admin_comision_porcentaje') || '') : '',
+
+                    montoSeguro: conRestitucion ? (formData.get('monto_seguro_restitucion') || '') : '',
+
+                    // Special Conditions -> Notes
+                    condicionesEspeciales: formData.get('notas') || '',
+                    chkCondicionesEspeciales: !!formData.get('notas'), // Toggle on if notes exist
+                }
+
+                // Insert Draft
+                const { error: draftError } = await supabase.from('requests').insert({
+                    user_id: user.id,
+                    status: 'draft',
+                    step: 1, // Start at step 1 or maybe further if we want? Step 1 is general info.
+                    // Note: RequestForm loads data into state. We need to ensure logic handles partial data.
+                    data: draftData,
+                    created_at: new Date()
+                })
+
+                if (draftError) {
+                    console.error("Error creating auto-draft:", draftError)
+                } else {
+                    toast.info("Se ha generado un borrador de Link de Pago automáticamente.")
+                }
+
+            } catch (draftErr) {
+                console.error("Auto-draft exception:", draftErr)
+            }
+            // --- AUTO-DRAFT CREATION END ---
+
             toast.success(requestId ? 'Solicitud actualizada exitosamente.' : 'Solicitud de arriendo enviada exitosamente.')
             navigate('/dashboard')
 
@@ -933,9 +1007,45 @@ function LeaseFormLogic({ user, profile, navigate, initialData = {}, requestId =
                             <Label htmlFor="con_administracion" className="font-medium cursor-pointer text-slate-700">Con Administración (Edificio/Condominio)</Label>
                         </div>
                         <div className="flex items-center space-x-2 border p-3 rounded-md bg-white">
-                            <input type="checkbox" id="con_restitucion" name="con_restitucion" className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary" defaultChecked={initialData.con_restitucion === 'SI'} />
+                            <input
+                                type="checkbox"
+                                id="con_restitucion"
+                                name="con_restitucion"
+                                className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary"
+                                checked={conRestitucion}
+                                onChange={(e) => setConRestitucion(e.target.checked)}
+                            />
                             <Label htmlFor="con_restitucion" className="font-medium cursor-pointer text-slate-700">Con Restitución</Label>
                         </div>
+                    </div>
+
+                    {/* NEW FIELDS ROW */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                        {conAdministracion && (
+                            <div className="animate-in fade-in slide-in-from-top-2">
+                                <Field
+                                    label="% Comisión Administración (Sin IVA)"
+                                    name="admin_comision_porcentaje"
+                                    placeholder="Ej. 7"
+                                    type="number"
+                                    step="0.1"
+                                    defaultValue={initialData.admin_comision_porcentaje}
+                                    required
+                                />
+                                <p className="text-xs text-muted-foreground mt-1">Se usará para pre-llenar la solicitud de pago.</p>
+                            </div>
+                        )}
+                        {conRestitucion && (
+                            <div className="animate-in fade-in slide-in-from-top-2">
+                                <Field
+                                    label={`Monto Seguro Restitución (${currency === 'clp' ? '$' : 'UF'})`}
+                                    name="monto_seguro_restitucion"
+                                    placeholder={currency === 'clp' ? "$ 150.000" : "UF 5"}
+                                    defaultValue={initialData.monto_seguro_restitucion}
+                                />
+                                <p className="text-xs text-muted-foreground mt-1">Se usará para pre-llenar la solicitud de pago.</p>
+                            </div>
+                        )}
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4 border-t">
