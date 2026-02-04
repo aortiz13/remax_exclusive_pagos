@@ -187,7 +187,7 @@ function PartyForm({ typeLabel, index, prefix, initialData = {}, onRemove, isRem
                     <Field label="RUT / Pasaporte" name={`${prefix}_rut`} defaultValue={getValue('rut')} required />
                     <Field label="Nacionalidad" name={`${prefix}_nacionalidad`} defaultValue={getValue('nacionalidad')} />
 
-                    {typeLabel === 'Vendedor' ? (
+                    {['Vendedor', 'Comprador'].includes(typeLabel) ? (
                         <div className="space-y-2">
                             <Label htmlFor={`${prefix}_civil`} className="text-xs font-semibold uppercase text-slate-500">Estado Civil</Label>
                             <select
@@ -669,7 +669,7 @@ function BuySellFormLogic({ user, profile, navigate, initialData = {}, requestId
                             <span className="absolute top-2 right-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Comprador</span>
                             <div className="grid grid-cols-1 gap-4">
                                 <Field label="Banco" name="comprador_banco" defaultValue={initialData.comprador_banco} />
-                                <Field label="N° Cuenta" name="comprador_cuenta" defaultValue={initialData.comprador_cuenta} />
+                                <Field label="Ejecutivo" name="comprador_ejecutivo" defaultValue={initialData.comprador_ejecutivo} />
                                 <Field label="Correo" name="comprador_correo_banco" type="email" defaultValue={initialData.comprador_correo_banco} />
                                 <Field label="Teléfono" name="comprador_telefono_banco" defaultValue={initialData.comprador_telefono_banco} />
                             </div>

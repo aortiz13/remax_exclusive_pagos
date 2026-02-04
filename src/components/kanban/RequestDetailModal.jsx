@@ -162,12 +162,12 @@ export function RequestDetailModal({ request, isOpen, onClose }) {
                 new_status: 'realizado'
             })
 
-            alert('Solicitud completada y enviada con éxito.')
+            toast.success('Solicitud completada y enviada con éxito.')
             onClose()
             window.location.reload() // Or trigger parent refresh
         } catch (error) {
             console.error('Error completing request:', error)
-            alert('Error al completar la solicitud: ' + error.message)
+            toast.error('Error al completar la solicitud: ' + error.message)
         } finally {
             setIsCompleting(false)
         }
