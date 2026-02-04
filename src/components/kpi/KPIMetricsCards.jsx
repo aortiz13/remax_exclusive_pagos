@@ -6,35 +6,48 @@ export function KPIMetricsCards({ metrics }) {
     // metrics: { totalBilling, avgTicket, conversionRate, activeAgents, ... }
 
     const formatCurrency = (val) => new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(val || 0)
+    const formatPercent = (val) => `${(val || 0).toFixed(1)}%`
+
+    const getTrendItem = (value, delta, label, showComp) => {
+        if (!showComp) return { trend: 'neutral', desc: label }
+        const trend = delta > 0 ? 'up' : delta < 0 ? 'down' : 'neutral'
+        const sign = delta > 0 ? '+' : ''
+        return { trend, desc: `${sign}${delta.toFixed(1)}% vs periodo anterior` }
+    }
+
+    const billingTrend = getTrendItem(metrics.totalBilling, metrics.billingDelta, "Ingresos totales", metrics.showComparison)
+    const ticketTrend = getTrendItem(metrics.avgTicket, metrics.ticketDelta, "Promedio por cierre", metrics.showComparison)
+    const agentTrend = getTrendItem(metrics.activeAgents, metrics.agentsDelta, "Con actividad reciente", metrics.showComparison)
+    const convTrend = getTrendItem(metrics.conversionRate, metrics.conversionDelta, "Meta: > 40%", metrics.showComparison)
 
     const items = [
         {
             title: "Facturación Total",
             value: formatCurrency(metrics.totalBilling),
             icon: DollarSign,
-            description: "+20.1% vs mes anterior",
-            trend: "up"
+            description: billingTrend.desc,
+            trend: billingTrend.trend
         },
         {
             title: "Ticket Promedio",
             value: formatCurrency(metrics.avgTicket),
             icon: Activity,
-            description: "Promedio por cierre",
-            trend: "neutral"
+            description: ticketTrend.desc,
+            trend: ticketTrend.trend
         },
         {
             title: "Conv. Entrevista > Cap",
-            value: `${(metrics.conversionRate || 0).toFixed(1)}%`,
+            value: formatPercent(metrics.conversionRate),
             icon: Percent,
-            description: "Meta: > 40%",
-            trend: (metrics.conversionRate || 0) > 40 ? "up" : "down"
+            description: convTrend.desc,
+            trend: convTrend.trend
         },
         {
             title: "Agentes Activos",
             value: metrics.activeAgents || 0,
             icon: Users,
-            description: "Con actividad últ. 30 días",
-            trend: "up"
+            description: agentTrend.desc,
+            trend: agentTrend.trend
         }
     ]
 
