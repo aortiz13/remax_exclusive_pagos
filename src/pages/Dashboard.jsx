@@ -106,7 +106,8 @@ export default function Dashboard() {
     const getStatusColor = (status) => {
         switch (status?.toLowerCase()) {
             case 'realizado': return 'bg-green-600 text-white hover:bg-green-700'
-            case 'borrador': return 'bg-slate-500 text-white hover:bg-slate-600'
+            case 'borrador':
+            case 'draft': return 'bg-red-600 text-white hover:bg-red-700'
             case 'pendiente': return 'bg-amber-500 text-white hover:bg-amber-600'
             default: return 'bg-blue-600 text-white hover:bg-blue-700'
         }
@@ -114,6 +115,7 @@ export default function Dashboard() {
 
     const getStatusLabel = (status) => {
         if (!status) return 'Pendiente'
+        if (status.toLowerCase() === 'draft') return 'BORRADOR'
         return status.charAt(0).toUpperCase() + status.slice(1)
     }
 
@@ -287,7 +289,7 @@ export default function Dashboard() {
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
-                                                    className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-red-600 hover:bg-red-50"
+                                                    className="text-slate-400 hover:text-red-600 hover:bg-red-50"
                                                     onClick={(e) => {
                                                         e.stopPropagation()
                                                         setRequestToDelete(req.id)
