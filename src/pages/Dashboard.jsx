@@ -167,25 +167,19 @@ export default function Dashboard() {
         {
             label: 'Redacción de Contrato',
             icon: FileText,
-            path: '/contract-wizard',
+            path: '/request/contract/new',
             color: 'bg-indigo-600 hover:bg-indigo-700 text-white border-transparent'
         },
         {
             label: 'Link de Pago',
             icon: Receipt,
-            path: '/payment-link',
+            path: '/request/payment/new',
             color: 'bg-emerald-600 hover:bg-emerald-700 text-white border-transparent'
         },
         {
             label: 'Factura',
             icon: FileText,
-            path: '/invoice',
-            color: 'bg-amber-600 hover:bg-amber-700 text-white border-transparent'
-        },
-        {
-            label: 'Factura',
-            icon: FileText,
-            path: '/invoice',
+            path: '/request/invoice/new',
             color: 'bg-amber-600 hover:bg-amber-700 text-white border-transparent'
         },
         {
