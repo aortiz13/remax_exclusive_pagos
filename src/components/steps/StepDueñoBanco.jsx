@@ -35,11 +35,8 @@ export default function StepDueñoBanco({ data, onUpdate, onNext, onBack }) {
         (data.dueñoNombre && data.dueñoRut && data.dueñoEmail && data.dueñoDireccion && data.dueñoComuna)
 
     const isBankComplete =
-        !isOwnerRequired || // If Owner not required, Bank probably not either?
-        // Actually, if we are "Punta Arrendatario", we might not have owner's bank details?
-        // Logic constraint: "dejar en blanco los datos de la contraparte". 
-        // So yes, if Owner is optional, Bank is optional.
-        (data.bancoNombre && data.bancoTipoCuenta && data.bancoNroCuenta && data.bancoRutTitular)
+        !isOwnerRequired ||
+        (data.bancoNombre && data.bancoTipoCuenta && data.bancoNroCuenta)
 
     const isComplete = isOwnerDataValid && isBankComplete
 
@@ -215,12 +212,11 @@ export default function StepDueñoBanco({ data, onUpdate, onNext, onBack }) {
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label>RUT Titular {isOwnerRequired && '*'}</Label>
+                                <Label>RUT Titular</Label>
                                 <Input
                                     value={data.bancoRutTitular}
                                     onChange={(e) => handleRutChange('bancoRutTitular', e.target.value)}
                                     placeholder="Si es distinto al dueño"
-                                    required={isOwnerRequired}
                                 />
                             </div>
                         </div>
