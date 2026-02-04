@@ -94,10 +94,24 @@ export default function Dashboard() {
     }
 
     const filteredRequests = requests.filter(req => {
+        if (!searchTerm) {
+            if (filterStatus === 'all') return true
+            if (filterStatus === 'pending') return req.status !== 'Finalizado' && req.status !== 'realizado' && req.status !== 'Realizado'
+            if (filterStatus === 'finalized') return req.status === 'Finalizado' || req.status === 'realizado' || req.status === 'Realizado'
+            if (filterStatus === 'draft') return req.status === 'draft' || req.status === 'borrador'
+            return true
+        }
+
+        const term = searchTerm.toLowerCase()
         const matchesSearch = (
-            req.direccion?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            req.dueño_nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            req.comuna?.toLowerCase().includes(searchTerm.toLowerCase())
+            req.direccion?.toLowerCase().includes(term) ||
+            req.propiedadDireccion?.toLowerCase().includes(term) ||
+            req.dueño_nombre?.toLowerCase().includes(term) ||
+            req.vendedorNombre?.toLowerCase().includes(term) ||
+            req.compradorNombre?.toLowerCase().includes(term) ||
+            req.comuna?.toLowerCase().includes(term) ||
+            req.type?.toLowerCase().includes(term) ||
+            req.tipoSolicitud?.toLowerCase().includes(term)
         )
 
         if (filterStatus === 'all') return matchesSearch
