@@ -61,7 +61,7 @@ export default function AdminKpiView() {
     // Filters
     const [dateRange, setDateRange] = useState('6m') // '3m', '6m', '1y', 'ytd', 'custom'
     const [customDate, setCustomDate] = useState({ from: undefined, to: undefined })
-    const [comparisonMode, setComparisonMode] = useState('none') // 'none', 'mom', 'yoy'
+    const [comparisonMode] = useState('none') // Fixed to none
     const [isCustomDateOpen, setIsCustomDateOpen] = useState(false)
 
     // Data States
@@ -433,27 +433,13 @@ export default function AdminKpiView() {
                                     selected={customDate}
                                     onSelect={setCustomDate}
                                     numberOfMonths={2}
+                                    locale={es}
                                 />
                             </PopoverContent>
                         </Popover>
                     )}
 
-                    <div className="h-6 w-px bg-slate-200" />
 
-                    {/* Comparison Switch Toggle as Select */}
-                    <div className="flex items-center gap-2 px-2">
-                        <ArrowRightLeft className="w-4 h-4 text-slate-400" />
-                        <Select value={comparisonMode} onValueChange={setComparisonMode}>
-                            <SelectTrigger className="w-[160px] border-0 focus:ring-0 h-9">
-                                <SelectValue placeholder="Comparativa" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="none">Sin Comparar</SelectItem>
-                                <SelectItem value="mom">Mes (MoM)</SelectItem>
-                                <SelectItem value="yoy">Año (YoY)</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
 
                     <div className="h-6 w-px bg-slate-200" />
 
