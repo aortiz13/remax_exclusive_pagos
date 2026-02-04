@@ -7,34 +7,35 @@ export function KPIMetricsCards({ metrics }) {
 
     const formatCurrency = (val) => new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(val || 0)
 
+
     const items = [
         {
             title: "Facturación Total",
             value: formatCurrency(metrics.totalBilling),
             icon: DollarSign,
-            description: "+20.1% vs mes anterior",
-            trend: "up"
+            description: metrics.billingTrend ? `${metrics.billingTrend > 0 ? '+' : ''}${metrics.billingTrend.toFixed(1)}% vs anterior` : "Ingresos totales",
+            trend: metrics.billingTrend > 0 ? "up" : metrics.billingTrend < 0 ? "down" : "neutral"
         },
         {
             title: "Ticket Promedio",
             value: formatCurrency(metrics.avgTicket),
             icon: Activity,
-            description: "Promedio por cierre",
-            trend: "neutral"
+            description: metrics.ticketTrend ? `${metrics.ticketTrend > 0 ? '+' : ''}${metrics.ticketTrend.toFixed(1)}% vs anterior` : "Promedio por cierre",
+            trend: metrics.ticketTrend > 0 ? "up" : metrics.ticketTrend < 0 ? "down" : "neutral"
         },
         {
             title: "Conv. Entrevista > Cap",
             value: `${(metrics.conversionRate || 0).toFixed(1)}%`,
             icon: Percent,
-            description: "Meta: > 40%",
-            trend: (metrics.conversionRate || 0) > 40 ? "up" : "down"
+            description: metrics.conversionTrend ? `${metrics.conversionTrend > 0 ? '+' : ''}${metrics.conversionTrend.toFixed(1)}% vs anterior` : "Meta: > 40%",
+            trend: metrics.conversionRate > 40 ? "up" : "neutral"
         },
         {
             title: "Agentes Activos",
             value: metrics.activeAgents || 0,
             icon: Users,
-            description: "Con actividad últ. 30 días",
-            trend: "up"
+            description: metrics.agentsTrend ? `${metrics.agentsTrend > 0 ? '+' : ''}${metrics.agentsTrend.toFixed(1)}% vs anterior` : "Con actividad últ. 30 días",
+            trend: metrics.agentsTrend > 0 ? "up" : metrics.agentsTrend < 0 ? "down" : "neutral"
         }
     ]
 

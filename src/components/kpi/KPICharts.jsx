@@ -91,30 +91,58 @@ export function ConversionFunnelChart({ data = [] }) {
 }
 
 export function ActivityScatterPlot({ data = [] }) {
-    // Data: { name: 'Agent Name', effort: 50 (activities), result: 2 (captures/sales) }
+    // Data: { name: 'Agent Name', effort: 50, result: 2, score: 100 }
+    // Score = Effort * Result or custom metric
+
+    // Calculate domain for Z axis to normalize sizes
+    const zMax = Math.max(...data.map(d => d.score || 0), 10)
+
     return (
         <ResponsiveContainer width="100%" height={300}>
             <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
-                <XAxis type="number" dataKey="effort" name="Actividad (Esfuerzo)" unit=" acc" fontSize={12} />
-                <YAxis type="number" dataKey="result" name="Resultados (Cierres/Cap)" unit=" und" fontSize={12} />
+                <XAxis
+                    type="number"
+                    dataKey="effort"
+                    name="Esfuerzo (Actividades)"
+                    unit=""
+                    fontSize={12}
+                    label={{ value: 'Esfuerzo (Actividades)', position: 'insideBottom', offset: -10, fontSize: 12, fill: '#64748b' }}
+                />
+                <YAxis
+                    type="number"
+                    dataKey="result"
+                    name="Resultados (Cierres/Cap)"
+                    unit=""
+                    fontSize={12}
+                    label={{ value: 'Resultados (Negocios)', angle: -90, position: 'insideLeft', fontSize: 12, fill: '#64748b' }}
+                />
+                <ZAxis type="number" dataKey="score" range={[60, 400]} name="Score" />
                 <Tooltip cursor={{ strokeDasharray: '3 3' }} content={({ active, payload }) => {
                     if (active && payload && payload.length) {
                         const data = payload[0].payload
                         return (
-                            <div className="bg-white p-2 border border-slate-200 shadow-sm rounded text-xs">
-                                <p className="font-bold">{data.name}</p>
-                                <p>Esfuerzo: {data.effort}</p>
-                                <p>Resultados: {data.result}</p>
+                            <div className="bg-white p-3 border border-slate-200 shadow-md rounded-lg text-xs z-50">
+                                <p className="font-bold text-slate-800 mb-1">{data.name}</p>
+                                <div className="space-y-1 text-slate-600">
+                                    <p>Esfuerzo: <span className="font-semibold text-blue-600">{data.effort}</span></p>
+                                    <p>Resultados: <span className="font-semibold text-green-600">{data.result}</span></p>
+                                    <p>Performance Score: <span className="font-semibold">{data.score}</span></p>
+                                </div>
                             </div>
                         )
                     }
                     return null
                 }} />
                 <Scatter name="Agentes" data={data} fill="#8884d8">
-                    {data.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.result > 2 && entry.effort > 20 ? '#22c55e' : entry.result < 1 && entry.effort > 30 ? '#ef4444' : '#6366f1'} />
-                    ))}
+                    {data.map((entry, index) => {
+                        // Top Performer logic: High Result AND High Effort (or just high Result?)
+                        // User said "Start size proportional to effort vs result to identify top performers"
+                        // Let's assume Top Performer is top 20% score? Or absolute threshold?
+                        // Let's use color differentiation based on result/effort ratio or absolute result
+                        const isTop = entry.result >= 4; // Absolute threshold example
+                        return <Cell key={`cell-${index}`} fill={isTop ? '#16a34a' : '#6366f1'} />
+                    })}
                 </Scatter>
             </ScatterChart>
         </ResponsiveContainer>

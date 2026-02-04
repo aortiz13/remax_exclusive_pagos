@@ -1,30 +1,44 @@
-
 import { useState, useEffect } from 'react'
 import { supabase } from '../../services/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { toast } from 'sonner'
-import { Settings, Save, Search, Filter, Download } from 'lucide-react'
+import { Settings, Save, Search, Filter, Calendar as CalendarIcon, ArrowRightLeft } from 'lucide-react'
 import {
     Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
     Tabs, TabsContent, TabsList, TabsTrigger,
-    Button, Input, Card, CardHeader, CardTitle, CardContent, CardDescription
+    Button, Input, Card, CardHeader, CardTitle, CardContent, CardDescription,
+    Popover, PopoverContent, PopoverTrigger,
+    Calendar, Label, Switch, Badge
 } from "@/components/ui"
-import { format, subMonths, startOfMonth, endOfMonth, eachMonthOfInterval, isSameMonth } from 'date-fns'
+import { format, subMonths, startOfMonth, endOfMonth, eachMonthOfInterval, isSameMonth, subYears, isWithinInterval, startOfDay, endOfDay } from 'date-fns'
 import { es } from 'date-fns/locale'
 
 import { BillingVsGoalChart, ConversionFunnelChart, ActivityScatterPlot, StockTrendChart } from './KPICharts'
 import { KPIMetricsCards } from './KPIMetricsCards'
+
+// Helper to format date range display
+const formatDateRange = (from, to) => {
+    if (!from) return 'Seleccionar fechas'
+    if (!to) return `${format(from, 'dd/MM/yyyy')} - ...`
+    return `${format(from, 'dd/MM/yyyy')} - ${format(to, 'dd/MM/yyyy')}`
+}
 
 export default function AdminKpiView() {
     const { user } = useAuth()
     const [loading, setLoading] = useState(false)
     const [agents, setAgents] = useState([])
     const [selectedAgent, setSelectedAgent] = useState('all')
-    const [dateRange, setDateRange] = useState('6m') // '3m', '6m', '1y', 'ytd'
+
+    // Filters
+    const [dateRange, setDateRange] = useState('6m') // '3m', '6m', '1y', 'ytd', 'custom'
+    const [customDate, setCustomDate] = useState({ from: undefined, to: undefined })
+    const [comparisonMode, setComparisonMode] = useState('none') // 'none', 'mom', 'yoy'
+    const [isCustomDateOpen, setIsCustomDateOpen] = useState(false)
 
     // Data States
-    const [kpiData, setKpiData] = useState([]) // Raw rows for table
+    const [kpiData, setKpiData] = useState([])
+    const [prevKpiData, setPrevKpiData] = useState([]) // For comparisons
     const [dashboardMetrics, setDashboardMetrics] = useState({
         totalBilling: 0,
         avgTicket: 0,
@@ -53,8 +67,9 @@ export default function AdminKpiView() {
     }, [])
 
     useEffect(() => {
+        if (dateRange === 'custom' && (!customDate.from || !customDate.to)) return
         fetchData()
-    }, [selectedAgent, dateRange])
+    }, [selectedAgent, dateRange, customDate, comparisonMode])
 
     const fetchAgents = async () => {
         try {
@@ -79,24 +94,36 @@ export default function AdminKpiView() {
         } catch (e) { console.error(e) }
     }
 
+    const calculateDateRange = () => {
+        const now = new Date()
+        let start, end = now
+
+        if (dateRange === 'custom') {
+            start = customDate.from
+            end = customDate.to || now
+        } else if (dateRange === '3m') start = subMonths(now, 3)
+        else if (dateRange === '6m') start = subMonths(now, 6)
+        else if (dateRange === '1y') start = subMonths(now, 12)
+        else if (dateRange === 'ytd') start = startOfMonth(new Date(now.getFullYear(), 0, 1))
+
+        return { start, end }
+    }
+
     const fetchData = async () => {
         setLoading(true)
         try {
-            // Calculate date range
-            const now = new Date()
-            let startDate = subMonths(now, 6)
-            if (dateRange === '3m') startDate = subMonths(now, 3)
-            if (dateRange === '1y') startDate = subMonths(now, 12)
-            if (dateRange === 'ytd') startDate = startOfMonth(new Date(now.getFullYear(), 0, 1))
+            const { start, end } = calculateDateRange()
+            if (!start) return // Safety check
 
-            // Fetch KPI Records
+            // 1. Fetch Current Period Data
             let query = supabase
                 .from('kpi_records')
                 .select(`
                     *,
                     profiles:agent_id (first_name, last_name)
                 `)
-                .gte('date', format(startDate, 'yyyy-MM-dd'))
+                .gte('date', format(start, 'yyyy-MM-dd'))
+                .lte('date', format(end, 'yyyy-MM-dd'))
                 .order('date', { ascending: false })
 
             if (selectedAgent !== 'all') {
@@ -105,9 +132,40 @@ export default function AdminKpiView() {
 
             const { data, error } = await query
             if (error) throw error
-
             setKpiData(data || [])
-            processDashboardData(data || [], startDate, now)
+
+            // 2. Fetch Comparison Data if enabled
+            let prevData = []
+            if (comparisonMode !== 'none') {
+                let prevStart, prevEnd
+                if (comparisonMode === 'mom') {
+                    // Previous period is same duration but shifted back by duration length? 
+                    // Usually MoM means Month vs Previous Month.
+                    // If range is 6m, 'MoM' is ambiguous. Usually implies comparing vs previous PERIOD.
+                    // Let's assume comparisons work best for standard ranges or months. 
+                    // But standard logic: shift dates back by (End - Start).
+                    const duration = end.getTime() - start.getTime()
+                    prevEnd = new Date(start.getTime() - 86400000) // 1 day before start
+                    prevStart = new Date(prevEnd.getTime() - duration)
+                } else { // YoY
+                    prevStart = subYears(start, 1)
+                    prevEnd = subYears(end, 1)
+                }
+
+                let prevQuery = supabase
+                    .from('kpi_records')
+                    .select('*') // Don't need profiles
+                    .gte('date', format(prevStart, 'yyyy-MM-dd'))
+                    .lte('date', format(prevEnd, 'yyyy-MM-dd'))
+
+                if (selectedAgent !== 'all') prevQuery = prevQuery.eq('agent_id', selectedAgent)
+
+                const { data: pData } = await prevQuery
+                prevData = pData || []
+            }
+            setPrevKpiData(prevData)
+
+            processDashboardData(data || [], prevData, start, end)
 
         } catch (error) {
             console.error('Error fetching KPI data:', error)
@@ -117,17 +175,43 @@ export default function AdminKpiView() {
         }
     }
 
-    const processDashboardData = (records, startDate, endDate) => {
-        // 1. Financials (Billing vs Goal)
+    const processDashboardData = (currentRecords, prevRecords, startDate, endDate) => {
+        // --- Metrics Cards Calculation ---
+        const calcMetrics = (records) => {
+            const totalBilling = records.reduce((sum, r) => sum + (r.billing_primary || 0) + (r.billing_secondary || 0), 0)
+            const closings = records.reduce((sum, r) => sum + (r.signed_promises || 0), 0)
+            const interviews = records.reduce((sum, r) => sum + (r.sales_interviews || 0) + (r.buying_interviews || 0), 0)
+            const captures = records.reduce((sum, r) => sum + (r.new_listings || 0), 0)
+
+            // Active agents: Users with at least 1 record in the current period
+            const uniqueAgents = new Set(records.map(r => r.agent_id))
+
+            return {
+                totalBilling,
+                avgTicket: closings > 0 ? totalBilling / closings : 0,
+                conversionRate: interviews > 0 ? (captures / interviews) * 100 : 0,
+                activeAgents: uniqueAgents.size
+            }
+        }
+
+        const currentMetrics = calcMetrics(currentRecords)
+        const prevMetrics = calcMetrics(prevRecords)
+
+        // Enhance metrics with trends
+        const metricsWithTrends = {
+            ...currentMetrics,
+            billingTrend: comparisonMode !== 'none' ? ((currentMetrics.totalBilling - prevMetrics.totalBilling) / (prevMetrics.totalBilling || 1)) * 100 : 0,
+            ticketTrend: comparisonMode !== 'none' ? ((currentMetrics.avgTicket - prevMetrics.avgTicket) / (prevMetrics.avgTicket || 1)) * 100 : 0,
+            conversionTrend: comparisonMode !== 'none' ? (currentMetrics.conversionRate - prevMetrics.conversionRate) : 0, // Absolute % diff
+            agentsTrend: comparisonMode !== 'none' ? ((currentMetrics.activeAgents - prevMetrics.activeAgents) / (prevMetrics.activeAgents || 1)) * 100 : 0
+        }
+        setDashboardMetrics(metricsWithTrends)
+
+        // --- Financials Chart ---
         const months = eachMonthOfInterval({ start: startDate, end: endDate })
         const financialsData = months.map(month => {
-            const monthRecords = records.filter(r => isSameMonth(new Date(r.date), month))
+            const monthRecords = currentRecords.filter(r => isSameMonth(new Date(r.date), month))
             const totalBilling = monthRecords.reduce((sum, r) => sum + (r.billing_primary || 0) + (r.billing_secondary || 0), 0)
-
-            // Goal scaling: if 'all' agents, multiply goal by num agents (approx) or keep global? 
-            // Let's assume global goal is per agent, so if 'all', we sum them up? 
-            // For simplicity, let's just show raw numbers.
-
             return {
                 name: format(month, 'MMM', { locale: es }),
                 billing: totalBilling,
@@ -135,8 +219,8 @@ export default function AdminKpiView() {
             }
         })
 
-        // 2. Funnel (Aggregated)
-        const funnelTotals = records.reduce((acc, r) => ({
+        // --- Funnel Chart ---
+        const funnelTotals = currentRecords.reduce((acc, r) => ({
             conversations: acc.conversations + (r.conversations_started || 0),
             interviews: acc.interviews + (r.sales_interviews || 0) + (r.buying_interviews || 0),
             captures: acc.captures + (r.new_listings || 0),
@@ -150,73 +234,50 @@ export default function AdminKpiView() {
             { name: 'Cierres', value: funnelTotals.closings }
         ]
 
-        // 3. Scatter (Effort vs Result) - Only meaningful when viewing 'all' agents
+        // --- Scatter Plot (Enhanced) ---
         const agentStats = {}
-        records.forEach(r => {
+        currentRecords.forEach(r => {
             const agentId = r.agent_id
             const name = r.profiles ? `${r.profiles.first_name || ''} ${r.profiles.last_name || ''}` : 'Unknown'
             if (!agentStats[agentId]) agentStats[agentId] = { name, effort: 0, result: 0 }
 
-            // Effort = Conversations + Interviews + Coffees
             agentStats[agentId].effort += (r.conversations_started || 0) + (r.sales_interviews || 0) + (r.relational_coffees || 0)
-            // Result = Captures + Closings
             agentStats[agentId].result += (r.new_listings || 0) + (r.signed_promises || 0)
         })
-        const scatterData = Object.values(agentStats)
 
-        // 4. Stock Trend (Stock vs In/Out)
+        // Calculate Score for Size:
+        // Score = Effort + (Result * 10). Emphasize results heavily for "Top Performer" visual weight.
+        const scatterData = Object.values(agentStats).map(stat => ({
+            ...stat,
+            score: stat.effort + (stat.result * 15) // Tuning weight
+        }))
+
+        // --- Stock Trend Chart ---
         const stockData = months.map(month => {
-            const monthRecords = records.filter(r => isSameMonth(new Date(r.date), month))
-            // Use daily records max, or sum of weekly? 
-            // Ideally we want the snapshot of active_portfolio at end of month or avg. 
-            // Let's take the MAX active_portfolio reported in that month as a proxy.
-            const maxStock = monthRecords.reduce((max, r) => Math.max(max, r.active_portfolio || 0), 0)
-            const newListings = monthRecords.reduce((sum, r) => sum + (r.new_listings || 0), 0)
-            const sold = monthRecords.reduce((sum, r) => sum + (r.signed_promises || 0), 0) // Should be 'sold' but promise is proxy
-
-            return {
-                name: format(month, 'MMM', { locale: es }),
-                stock: maxStock, // This is tricky aggregation, sum if 'all'? No, stock is state. Sum of agents stocks.
-                new: newListings,
-                sold: sold
-            }
-        })
-
-        // Correct Stock Sum logic for 'all' agents:
-        // We need to sum the max stock of EACH agent for that month.
-        if (selectedAgent === 'all') {
-            stockData.forEach((point, idx) => {
-                const month = months[idx]
-                const recordsInMonth = records.filter(r => isSameMonth(new Date(r.date), month))
-                const uniqueAgents = [...new Set(recordsInMonth.map(r => r.agent_id))]
+            if (selectedAgent === 'all') {
+                const recordsInMonth = currentRecords.filter(r => isSameMonth(new Date(r.date), month))
+                const uniqueAgentsInMonth = [...new Set(recordsInMonth.map(r => r.agent_id))]
                 let totalStock = 0
-                uniqueAgents.forEach(aid => {
+                uniqueAgentsInMonth.forEach(aid => {
                     const agentRecords = recordsInMonth.filter(r => r.agent_id === aid)
-                    // Take last reported stock
                     const lastRecord = agentRecords.sort((a, b) => new Date(b.date) - new Date(a.date))[0]
                     if (lastRecord) totalStock += (lastRecord.active_portfolio || 0)
                 })
-                point.stock = totalStock
-            })
-        }
-
-
-        // 5. Metrics Cards
-        const totalBilling = records.reduce((sum, r) => sum + (r.billing_primary || 0) + (r.billing_secondary || 0), 0)
-        const totalClosings = funnelTotals.closings
-        const avgTicket = totalClosings > 0 ? totalBilling / totalClosings : 0
-        const conversionRate = funnelTotals.interviews > 0 ? (funnelTotals.captures / funnelTotals.interviews) * 100 : 0
-
-        // Active agents: Users with at least 1 record in last 30 days
-        const last30Days = new Date()
-        last30Days.setDate(last30Days.getDate() - 30)
-        const activeAgentIds = new Set(records.filter(r => new Date(r.date) > last30Days).map(r => r.agent_id))
-
-        setDashboardMetrics({
-            totalBilling,
-            avgTicket,
-            conversionRate,
-            activeAgents: activeAgentIds.size
+                const newListings = recordsInMonth.reduce((sum, r) => sum + (r.new_listings || 0), 0)
+                const sold = recordsInMonth.reduce((sum, r) => sum + (r.signed_promises || 0), 0)
+                return {
+                    name: format(month, 'MMM', { locale: es }),
+                    stock: totalStock,
+                    new: newListings,
+                    sold: sold
+                }
+            } else {
+                const monthRecords = currentRecords.filter(r => isSameMonth(new Date(r.date), month))
+                const maxStock = monthRecords.reduce((max, r) => Math.max(max, r.active_portfolio || 0), 0)
+                const newListings = monthRecords.reduce((sum, r) => sum + (r.new_listings || 0), 0)
+                const sold = monthRecords.reduce((sum, r) => sum + (r.signed_promises || 0), 0)
+                return { name: format(month, 'MMM', { locale: es }), stock: maxStock, new: newListings, sold: sold }
+            }
         })
 
         setChartsData({
@@ -255,9 +316,11 @@ export default function AdminKpiView() {
                     <p className="text-slate-500">Visión estratégica y operativa del negocio</p>
                 </div>
 
-                <div className="flex items-center gap-3 bg-white p-2 rounded-lg shadow-sm border">
+                <div className="flex flex-wrap items-center gap-3 bg-white p-2 rounded-lg shadow-sm border">
+
+                    {/* Period Filter */}
                     <Select value={dateRange} onValueChange={setDateRange}>
-                        <SelectTrigger className="w-[140px] border-0 focus:ring-0">
+                        <SelectTrigger className="w-[180px] border-0 focus:ring-0">
                             <SelectValue placeholder="Periodo" />
                         </SelectTrigger>
                         <SelectContent>
@@ -265,8 +328,50 @@ export default function AdminKpiView() {
                             <SelectItem value="6m">Últimos 6 meses</SelectItem>
                             <SelectItem value="1y">Último año</SelectItem>
                             <SelectItem value="ytd">Año a la fecha (YTD)</SelectItem>
+                            <SelectItem value="custom">Personalizado...</SelectItem>
                         </SelectContent>
                     </Select>
+
+                    {dateRange === 'custom' && (
+                        <Popover open={isCustomDateOpen} onOpenChange={setIsCustomDateOpen}>
+                            <PopoverTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    className="h-9 justify-start text-left font-normal"
+                                >
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {formatDateRange(customDate.from, customDate.to)}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                                <Calendar
+                                    initialFocus
+                                    mode="range"
+                                    defaultMonth={customDate.from}
+                                    selected={customDate}
+                                    onSelect={setCustomDate}
+                                    numberOfMonths={2}
+                                />
+                            </PopoverContent>
+                        </Popover>
+                    )}
+
+                    <div className="h-6 w-px bg-slate-200" />
+
+                    {/* Comparison Switch Toggle as Select */}
+                    <div className="flex items-center gap-2 px-2">
+                        <ArrowRightLeft className="w-4 h-4 text-slate-400" />
+                        <Select value={comparisonMode} onValueChange={setComparisonMode}>
+                            <SelectTrigger className="w-[160px] border-0 focus:ring-0 h-9">
+                                <SelectValue placeholder="Comparativa" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="none">Sin Comparar</SelectItem>
+                                <SelectItem value="mom">Mes (MoM)</SelectItem>
+                                <SelectItem value="yoy">Año (YoY)</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
 
                     <div className="h-6 w-px bg-slate-200" />
 
@@ -300,7 +405,7 @@ export default function AdminKpiView() {
                 <TabsContent value="dashboard" className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
 
                     {/* Metrics Cards */}
-                    <KPIMetricsCards metrics={dashboardMetrics} />
+                    <KPIMetricsCards metrics={{ ...dashboardMetrics, comparisonMode }} />
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         {/* Financials */}
@@ -325,13 +430,15 @@ export default function AdminKpiView() {
                             </CardContent>
                         </Card>
 
-                        {/* Scatter Plot (Only specific if viewing All, or single bubble if agent) */}
-                        <Card className="shadow-sm">
+                        {/* Scatter Plot */}
+                        <Card className="shadow-sm col-span-1 lg:col-span-2">
                             <CardHeader>
                                 <CardTitle>Matriz Esfuerzo vs Resultado</CardTitle>
-                                <CardDescription>Identificación de High Performers</CardDescription>
+                                <CardDescription>
+                                    Identificación de High Performers. Tamaño = Performance Score.
+                                </CardDescription>
                             </CardHeader>
-                            <CardContent className="pl-0">
+                            <CardContent className="pl-0 h-[400px]">
                                 <ActivityScatterPlot data={chartsData.scatter} />
                             </CardContent>
                         </Card>
