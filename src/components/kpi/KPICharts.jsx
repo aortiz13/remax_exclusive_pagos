@@ -17,7 +17,8 @@ import {
     Cell,
     ScatterChart,
     Scatter,
-    ZAxis
+    ZAxis,
+    LabelList
 } from 'recharts'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui"
 
