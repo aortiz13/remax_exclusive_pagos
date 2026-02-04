@@ -117,7 +117,7 @@ export function RequestDetailModal({ request, isOpen, onClose }) {
                 request_id: request.id,
                 agente_nombre: request.data?.agente?.nombre || request.data?.agenteNombre || request.user?.first_name,
                 agente_email: request.data?.agente?.email || request.data?.agenteEmail || request.user?.email,
-                tipo_solicitud: request.type || request.data?.contract_type,
+                tipo_solicitud: (request.data?.contract_type === 'buy-sell' ? 'Compraventa' : request.data?.contract_type === 'lease' ? 'Arriendo' : 'Contrato'),
                 contexto_solicitud: request.data?.direccion || request.data?.propiedadDireccion || request.data?.direccion_propiedad || request.data?.vendedorNombre || request.data?.arrendador_nombres || "Solicitud Genérica",
                 notas: completionNotes,
                 contratos: contractUrls,
