@@ -263,8 +263,8 @@ const ContactForm = ({ contact, isOpen, onClose }) => {
                                         )}
                                     </Button>
                                 </DropdownMenuTrigger>
-                                <DropdownMenuContent className="w-56" align="start">
-                                    {['Comprar', 'Arrendar', 'Invertir', 'Vender', 'Otro'].map((option) => {
+                                <DropdownMenuContent className="w-56 z-[200]" align="start">
+                                    {['Comprar', 'Vender', 'Arrendar', 'Administrar Arriendo', 'Otro'].map((option) => {
                                         const currentNeeds = formData.need ? formData.need.split(',').map(s => s.trim()) : []
                                         const isChecked = currentNeeds.includes(option)
 
