@@ -57,10 +57,15 @@ export default function Sidebar() {
             title: 'INDICADORES',
             items: [
                 {
-                    title: 'KPIs',
+                    title: 'Mis KPIs',
                     icon: BarChart3,
                     path: '/kpis/dashboard',
                 },
+                ...(profile?.role === 'admin' ? [{
+                    title: 'Dashboard CEO',
+                    icon: FileBarChart,
+                    path: '/admin/kpis',
+                }] : [])
             ]
         },
         {
@@ -102,7 +107,6 @@ export default function Sidebar() {
             items: [
                 { title: 'Administración', icon: Users, path: '/admin/invites' },
                 { title: 'Solicitudes', icon: FileText, path: '/admin/requests' },
-                { title: 'KPIs Agentes', icon: BarChart3, path: '/admin/kpis' },
             ]
         })
     }
