@@ -7,7 +7,27 @@ import { FileText, Receipt, User, Building2, Calendar, ClipboardList } from 'luc
 
 export function RequestDetailModal({ request, isOpen, onClose }) {
     const [auditLogs, setAuditLogs] = useState([])
+    const [auditLogs, setAuditLogs] = useState([])
     const [loadingLogs, setLoadingLogs] = useState(false)
+
+    // Completion State
+    const [contractFiles, setContractFiles] = useState([])
+    const [attachmentFiles, setAttachmentFiles] = useState([])
+    const [completionNotes, setCompletionNotes] = useState('')
+    const [isCompleting, setIsCompleting] = useState(false)
+    const [isAdmin, setIsAdmin] = useState(false)
+
+    useEffect(() => {
+        // Check if user is admin (simplified check, ideally from context)
+        const checkAdmin = async () => {
+            const { data: { user } } = await supabase.auth.getUser()
+            if (user) {
+                const { data } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+                setIsAdmin(data?.role === 'admin')
+            }
+        }
+        checkAdmin()
+    }, [])
 
     useEffect(() => {
         if (isOpen && request) {
@@ -57,7 +77,106 @@ export function RequestDetailModal({ request, isOpen, onClose }) {
             <p className="text-sm font-medium text-slate-900 dark:text-slate-100 break-words">{value || '-'}</p>
         </div>
     )
+    const Field = ({ label, value, className = "" }) => (
+        <div className={`space-y-1 ${className}`}>
+            <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">{label}</span>
+            <p className="text-sm font-medium text-slate-900 dark:text-slate-100 break-words">{value || '-'}</p>
+        </div>
+    )
 
+    const uploadFiles = async (files, folder) => {
+        const uploadedUrls = []
+        for (const file of files) {
+            const fileExt = file.name.split('.').pop()
+            const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`
+            const filePath = `${request.id}/${folder}/${fileName}`
+
+            const { error: uploadError } = await supabase.storage
+                .from('contracts')
+                .upload(filePath, file)
+
+            if (uploadError) throw uploadError
+
+            const { data: { publicUrl } } = supabase.storage
+                .from('contracts')
+                .getPublicUrl(filePath)
+
+            uploadedUrls.push({ name: file.name, url: publicUrl })
+        }
+        return uploadedUrls
+    }
+
+    const handleComplete = async () => {
+        if (contractFiles.length === 0) {
+            alert('Por favor adjunta al menos un archivo de contrato.')
+            return
+        }
+
+        setIsCompleting(true)
+        try {
+            // 1. Upload Files
+            const contractUrls = await uploadFiles(Array.from(contractFiles), 'contracts')
+            const attachmentUrls = await uploadFiles(Array.from(attachmentFiles), 'attachments')
+
+            // 2. Prepare Webhook Payload
+            const payload = {
+                request_id: request.id,
+                agente_nombre: request.data?.agente?.nombre || request.data?.agenteNombre || request.user?.first_name,
+                agente_email: request.data?.agente?.email || request.data?.agenteEmail || request.user?.email,
+                tipo_solicitud: request.type || request.data?.contract_type,
+                notas: completionNotes,
+                contratos: contractUrls,
+                adjuntos: attachmentUrls,
+                admin_email: 'departamento.legal@remax-exclusive.cl' // Or current user email
+            }
+
+            // 3. Send Webhook
+            const webhookRes = await fetch('https://workflow.remax-exclusive.cl/webhook/enviar-contrato', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+
+            if (!webhookRes.ok) throw new Error('Error enviando notificación al agente via Webhook')
+
+            // 4. Update Request Status & Data
+            const { error: updateError } = await supabase
+                .from('requests')
+                .update({
+                    status: 'realizado',
+                    data: {
+                        ...request.data,
+                        completion_data: {
+                            completed_at: new Date().toISOString(),
+                            notes: completionNotes,
+                            contracts: contractUrls,
+                            attachments: attachmentUrls
+                        }
+                    }
+                })
+                .eq('id', request.id)
+
+            if (updateError) throw updateError
+
+            // 5. Audit Log
+            const { data: { user } } = await supabase.auth.getUser()
+            await supabase.from('request_audit_logs').insert({
+                request_id: request.id,
+                actor_id: user.id,
+                previous_status: request.status,
+                new_status: 'realizado'
+            })
+
+            alert('Solicitud completada y enviada con éxito.')
+            onClose()
+            window.location.reload() // Or trigger parent refresh
+        } catch (error) {
+            console.error('Error completing request:', error)
+            alert('Error al completar la solicitud: ' + error.message)
+        } finally {
+            setIsCompleting(false)
+        }
+    }
     const Section = ({ title, icon: Icon, children }) => (
         <div className="space-y-3 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-100 dark:border-slate-800">
             <h3 className="text-sm font-semibold text-slate-900 dark:text-white flex items-center gap-2">
@@ -186,6 +305,66 @@ export function RequestDetailModal({ request, isOpen, onClose }) {
                             )}
                         </Section>
                     </div>
+
+                    {/* Admin Completion Section */}
+                    {isAdmin && request.status !== 'realizado' && (
+                        <div className="lg:col-span-2 mt-8 pt-8 border-t border-slate-200 dark:border-slate-800">
+                            <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                                <FileText className="h-5 w-5 text-primary" />
+                                Completar Solicitud y Enviar
+                            </h3>
+                            <div className="bg-slate-50 dark:bg-slate-900/50 p-6 rounded-lg border border-slate-200 dark:border-slate-800 space-y-6">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                                        Contrato Redactado (Obligatorio)
+                                    </label>
+                                    <input
+                                        type="file"
+                                        multiple
+                                        className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+                                        onChange={(e) => setContractFiles(e.target.files)}
+                                    />
+                                    <p className="text-xs text-slate-400 mt-1">Sube el contrato final en PDF o Word.</p>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                                        Adjuntos Adicionales (Opcional)
+                                    </label>
+                                    <input
+                                        type="file"
+                                        multiple
+                                        className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+                                        onChange={(e) => setAttachmentFiles(e.target.files)}
+                                    />
+                                    <p className="text-xs text-slate-400 mt-1">Instrucciones notariales, borradores, etc.</p>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                                        Notas / Instrucciones al Agente
+                                    </label>
+                                    <textarea
+                                        className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                        placeholder="Ej: Estimado agente, adjunto contrato para revisión. Recuerda..."
+                                        value={completionNotes}
+                                        onChange={(e) => setCompletionNotes(e.target.value)}
+                                    />
+                                </div>
+
+                                <div className="flex justify-end">
+                                    <button
+                                        onClick={handleComplete}
+                                        disabled={isCompleting}
+                                        className="bg-primary text-white px-6 py-2 rounded-md text-sm font-medium hover:bg-primary/90 disabled:opacity-50 flex items-center gap-2"
+                                    >
+                                        {isCompleting ? 'Enviando...' : 'Completar y Enviar'}
+                                        {!isCompleting && <ClipboardList className="h-4 w-4" />}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Right Column: Audit Timeline */}
                     <div className="lg:col-span-1 border-t lg:border-t-0 lg:border-l border-slate-200 dark:border-slate-800 lg:pl-6 pt-6 lg:pt-0">
