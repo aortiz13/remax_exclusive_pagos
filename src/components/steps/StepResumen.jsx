@@ -59,7 +59,8 @@ export default function StepResumen({ data, onUpdate, onBack, onComplete }) {
             ingreso_manual: data.ingresoManual,
             fee_alert: data.feeAlertTriggered
           },
-          fecha_envio_link: data.fechaEnvioLink,
+          condiciones_especiales: data.chkCondicionesEspeciales ? data.condicionesEspeciales : '', // ADDED
+          fecha_envio_link: data.fechaEnvioLink || 'No especificada', // OPTIONAL DEFAULT
           pdf_base64: pdfRaw // Send raw base64
         }
       } else {
@@ -225,6 +226,23 @@ export default function StepResumen({ data, onUpdate, onBack, onComplete }) {
               </div>
             )}
 
+            {/* Agent Details */}
+            <div className="bg-slate-50 dark:bg-slate-900/50 rounded-xl p-5 space-y-4 border border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2 text-primary font-semibold border-b border-slate-200 dark:border-slate-700 pb-2 mb-2">
+                <User className="w-4 h-4" /> Agente
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <span className="text-xs uppercase text-muted-foreground font-semibold">Nombre</span>
+                  <p className="font-medium text-sm truncate">{data.agenteNombre} {data.agenteApellido}</p>
+                </div>
+                <div>
+                  <span className="text-xs uppercase text-muted-foreground font-semibold">Contacto</span>
+                  <p className="text-xs text-muted-foreground truncate">{data.agenteEmail}</p>
+                </div>
+              </div>
+            </div>
+
             {/* Detalles de Envío */}
             <div className="bg-blue-50 dark:bg-blue-900/10 rounded-xl p-5 space-y-4 border border-blue-100 dark:border-blue-900/30">
               <div className="flex items-center gap-2 text-blue-800 dark:text-blue-300 font-semibold border-b border-blue-200 dark:border-blue-800 pb-2 mb-2">
@@ -232,7 +250,7 @@ export default function StepResumen({ data, onUpdate, onBack, onComplete }) {
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                  ¿Cuándo enviar este link de pago?
+                  ¿Cuándo enviar este link de pago? <span className="text-muted-foreground font-normal">(Opcional)</span>
                 </label>
                 <input
                   type="text"
@@ -241,9 +259,21 @@ export default function StepResumen({ data, onUpdate, onBack, onComplete }) {
                   value={data.fechaEnvioLink || ''}
                   onChange={(e) => onUpdate('fechaEnvioLink', e.target.value)}
                 />
-                <p className="text-xs text-muted-foreground">Indique cuándo desea que administración envíe el link.</p>
+                <p className="text-xs text-muted-foreground">Si se deja vacío, se asumirá envío inmediato.</p>
               </div>
             </div>
+
+            {/* Condiciones Especiales Summary */}
+            {data.chkCondicionesEspeciales && (
+              <div className="bg-yellow-50 dark:bg-yellow-900/10 rounded-xl p-5 space-y-2 border border-yellow-100 dark:border-yellow-900/30">
+                <div className="flex items-center gap-2 text-yellow-800 dark:text-yellow-300 font-semibold mb-1">
+                  <FileText className="w-4 h-4" /> Condiciones Especiales
+                </div>
+                <p className="text-sm text-yellow-900/80 dark:text-yellow-100/80 italic">
+                  "{data.condicionesEspeciales}"
+                </p>
+              </div>
+            )}
 
           </div>
 

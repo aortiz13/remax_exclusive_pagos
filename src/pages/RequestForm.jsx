@@ -83,6 +83,8 @@ export default function RequestForm() {
         ufValue: '', // Store the UF value used for calculation
         ingresoManual: false, // For manual fee override
         feeAlertTriggered: false, // If manual fee is below minimum
+        chkCondicionesEspeciales: false, // New: Special conditions toggle
+        condicionesEspeciales: '', // New: Special conditions text
     })
 
     // Load Request if ID exists

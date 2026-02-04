@@ -570,6 +570,37 @@ export default function StepCalculos({ data, onUpdate, onNext, onBack }) {
                                 </div>
                             )}
 
+
+                        </div>
+
+                        {/* SECCIÓN 5: CONDICIONES ESPECIALES */}
+                        <div className="bg-yellow-50 dark:bg-yellow-900/10 p-4 rounded-lg border border-yellow-100 dark:border-yellow-900/30 space-y-3">
+                            <div className="flex items-center space-x-2">
+                                <input
+                                    type="checkbox"
+                                    id="chkCondicionesEspeciales"
+                                    className="h-4 w-4 rounded border-gray-300 text-yellow-600 focus:ring-yellow-600"
+                                    checked={data.chkCondicionesEspeciales || false}
+                                    onChange={(e) => onUpdate('chkCondicionesEspeciales', e.target.checked)}
+                                />
+                                <Label htmlFor="chkCondicionesEspeciales" className="font-medium cursor-pointer flex items-center gap-2 text-yellow-900 dark:text-yellow-300">
+                                    <ShieldCheck className="w-4 h-4" /> Condiciones Especiales
+                                </Label>
+                            </div>
+
+                            {data.chkCondicionesEspeciales && (
+                                <div className="animate-in slide-in-from-top-2">
+                                    <Label className="text-xs text-muted-foreground mb-1.5 block">
+                                        Detalle de condiciones (ej. primeros meses diferidos, gastos extra)
+                                    </Label>
+                                    <textarea
+                                        className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                        placeholder="Ingrese aquí las condiciones especiales..."
+                                        value={data.condicionesEspeciales || ''}
+                                        onChange={(e) => onUpdate('condicionesEspeciales', e.target.value)}
+                                    />
+                                </div>
+                            )}
                         </div>
 
                     </div>
