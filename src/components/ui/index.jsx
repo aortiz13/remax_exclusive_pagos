@@ -239,7 +239,7 @@ AvatarFallback.displayName = AvatarPrimitive.Fallback.displayName
 
 // DROPDOWN MENU
 import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu"
-import { Check, ChevronRight, Circle, ChevronDown, ChevronUp } from "lucide-react"
+import { Check, ChevronRight, Circle, ChevronDown, ChevronUp, ChevronLeft } from "lucide-react"
 
 const DropdownMenu = DropdownMenuPrimitive.Root
 
@@ -1155,7 +1155,7 @@ export {
 
 // CALENDAR
 import { DayPicker } from "react-day-picker"
-import { ChevronLeft, ChevronRight } from "lucide-react"
+
 
 const Calendar = ({ className, classNames, showOutsideDays = true, ...props }) => {
     return (
