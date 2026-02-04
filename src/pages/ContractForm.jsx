@@ -49,17 +49,7 @@ function DateField({ label, name, defaultValue, ...rest }) {
         <div className="space-y-2">
             <div className="flex items-center justify-between">
                 <Label htmlFor={name} className="text-xs font-semibold uppercase text-slate-500">{label}</Label>
-                <div className="flex items-center space-x-2">
-                    <input
-                        type="checkbox"
-                        id={`${name}_nodate`}
-                        name={`${name}_nodate`}
-                        className="h-3 w-3 rounded border-slate-300"
-                        checked={noDate}
-                        onChange={(e) => setNoDate(e.target.checked)}
-                    />
-                    <Label htmlFor={`${name}_nodate`} className="text-[10px] text-slate-500 font-normal cursor-pointer select-none">Sin Fecha</Label>
-                </div>
+
             </div>
             <Input
                 id={name}
@@ -67,8 +57,8 @@ function DateField({ label, name, defaultValue, ...rest }) {
                 type="date"
                 defaultValue={defaultValue}
                 disabled={noDate}
-                required={!noDate && rest.required}
-                className={noDate ? "bg-slate-100 text-slate-400" : ""}
+                required={rest.required}
+                className=""
             />
         </div>
     )
@@ -626,6 +616,14 @@ function LeaseFormLogic({ user, profile, navigate, initialData = {}, requestId =
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [currency, setCurrency] = useState(initialData?.moneda_arriendo || 'clp')
 
+    useEffect(() => {
+        if (currency === 'uf') {
+            const reajusteSelect = document.querySelector('select[name="reajuste"]')
+            if (reajusteSelect) reajusteSelect.value = 'sin_reajuste'
+        }
+    }, [currency])
+
+
     const handleSubmit = async (e) => {
         e.preventDefault()
         const formData = new FormData(e.currentTarget)
@@ -800,6 +798,7 @@ function LeaseFormLogic({ user, profile, navigate, initialData = {}, requestId =
                             </select>
                         </div>
 
+
                         <Field label="Documenta con Cheque (SI/NO)" name="documenta_cheque" placeholder="SI/NO" defaultValue={initialData.documenta_cheque} />
                         <Field label="Cuenta para Transferencia" name="cuenta_transferencia" className="md:col-span-2" placeholder="Banco, Tipo Cta, Número, RUT" defaultValue={initialData.cuenta_transferencia} />
                     </div>
@@ -833,17 +832,19 @@ function LeaseFormLogic({ user, profile, navigate, initialData = {}, requestId =
                         <Field label="N° Cliente Luz" name="cliente_luz" defaultValue={initialData.cliente_luz} required={conAdministracion} />
                         <Field label="N° Cliente Gas" name="cliente_gas" defaultValue={initialData.cliente_gas} required={conAdministracion} />
                     </div>
-                    {conAdministracion && (
-                        <div className="bg-blue-50/50 p-4 rounded-lg border border-blue-100 mt-4">
-                            <h4 className="text-xs font-bold text-blue-600 uppercase mb-3">Contacto Administración</h4>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <Field label="Nombre Contacto" name="admin_contacto_nombre" defaultValue={initialData.admin_contacto_nombre} required />
-                                <Field label="Teléfono" name="admin_contacto_telefono" defaultValue={initialData.admin_contacto_telefono} required />
-                                <Field label="Email" name="admin_contacto_email" type="email" defaultValue={initialData.admin_contacto_email} required />
+                    {
+                        conAdministracion && (
+                            <div className="bg-blue-50/50 p-4 rounded-lg border border-blue-100 mt-4">
+                                <h4 className="text-xs font-bold text-blue-600 uppercase mb-3">Contacto Administración</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <Field label="Nombre Contacto" name="admin_contacto_nombre" defaultValue={initialData.admin_contacto_nombre} required />
+                                    <Field label="Teléfono" name="admin_contacto_telefono" defaultValue={initialData.admin_contacto_telefono} required />
+                                    <Field label="Email" name="admin_contacto_email" type="email" defaultValue={initialData.admin_contacto_email} required />
+                                </div>
                             </div>
-                        </div>
-                    )}
-                </CardSection>
+                        )
+                    }
+                </CardSection >
 
                 <PartyArraySection
                     title="2. Arrendador (Propietario)"
@@ -886,9 +887,9 @@ function LeaseFormLogic({ user, profile, navigate, initialData = {}, requestId =
                 </CardSection>
 
                 <CardSection title="5. Documentación Adjunta">
-                    <FileUploadField label="Dominio Vigente" name="dominio_vigente" accept="application/pdf,image/*" multiple={true} />
+                    <FileUploadField label="Dominio Vigente" name="dominio_vigente" accept=".pdf,image/*,.doc,.docx,.xls,.xlsx,.csv" multiple={true} />
                     <div className="pt-4"></div>
-                    <FileUploadField label="Otros Documentos (Opcional)" name="otros_documentos" accept="application/pdf,image/*" multiple={true} />
+                    <FileUploadField label="Otros Documentos (Opcional)" name="otros_documentos" accept=".pdf,image/*,.doc,.docx,.xls,.xlsx,.csv" multiple={true} />
                 </CardSection>
 
                 <CardSection title="6. Notas Adicionales">
@@ -905,8 +906,8 @@ function LeaseFormLogic({ user, profile, navigate, initialData = {}, requestId =
                         </CardContent>
                     </Card>
                 </div>
-            </div>
-        </form>
+            </div >
+        </form >
     )
 }
 
