@@ -174,7 +174,7 @@ export default function Sidebar() {
                         whileHover={{ scale: 1.05 }}
                     >
                         <img
-                            src="https://res.cloudinary.com/dhzmkxbek/image/upload/v1769611638/ChatGPT_Image_28_ene_2026_11_47_11_a.m._n41jc4.png"
+                            src="https://res.cloudinary.com/dhzmkxbek/image/upload/v1770205777/Globo_REMAX_sin_fondo_PNG_xiqr1a.png"
                             alt="RE/MAX Exclusive"
                             className="h-8 w-auto object-contain"
                         />
