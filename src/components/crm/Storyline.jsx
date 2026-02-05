@@ -1,5 +1,6 @@
 
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../services/supabase'
 import { User, Home, Link as LinkIcon, Edit, PlusCircle, FileText, CheckCircle2 } from 'lucide-react'
 import { Badge } from '@/components/ui'
@@ -15,6 +16,7 @@ const ACTION_ICONS = {
 }
 
 const Storyline = ({ propertyId, contactId }) => {
+    const navigate = useNavigate()
     const [activities, setActivities] = useState([])
     const [loading, setLoading] = useState(true)
 
@@ -102,11 +104,43 @@ const Storyline = ({ propertyId, contactId }) => {
                             )}
 
                             {/* Entity Link/Chip */}
-                            <div className="mt-1 flex gap-2">
-                                <span className="text-[10px] bg-blue-50 text-blue-700 px-2 py-0.5 rounded border border-blue-100 flex items-center gap-1">
-                                    {activity.entity_type === 'Propiedad' ? <Home className="w-3 h-3" /> : <User className="w-3 h-3" />}
-                                    {activity.entity_type}
-                                </span>
+                            {/* Entity Link/Chip */}
+                            <div className="mt-1 flex flex-wrap gap-2">
+                                {activity.property_id && (
+                                    <span
+                                        className="text-[10px] bg-blue-50 text-blue-700 px-2 py-0.5 rounded border border-blue-200 flex items-center gap-1 cursor-pointer hover:bg-blue-100 transition-colors"
+                                        onClick={(e) => {
+                                            e.stopPropagation()
+                                            navigate(`/crm/property/${activity.property_id}`)
+                                        }}
+                                        title="Ver Propiedad"
+                                    >
+                                        <Home className="w-3 h-3" />
+                                        Propiedad
+                                    </span>
+                                )}
+
+                                {activity.contact_id && (
+                                    <span
+                                        className="text-[10px] bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded border border-emerald-200 flex items-center gap-1 cursor-pointer hover:bg-emerald-100 transition-colors"
+                                        onClick={(e) => {
+                                            e.stopPropagation()
+                                            navigate(`/crm/contact/${activity.contact_id}`)
+                                        }}
+                                        title="Ver Contacto"
+                                    >
+                                        <User className="w-3 h-3" />
+                                        Contacto
+                                    </span>
+                                )}
+
+                                {/* Fallback if no specific IDs but entity_type is set (e.g. legacy or other types) */}
+                                {!activity.property_id && !activity.contact_id && activity.entity_type && (
+                                    <span className="text-[10px] bg-gray-100 text-gray-700 px-2 py-0.5 rounded border border-gray-200 flex items-center gap-1">
+                                        {activity.entity_type === 'Propiedad' ? <Home className="w-3 h-3" /> : <User className="w-3 h-3" />}
+                                        {activity.entity_type}
+                                    </span>
+                                )}
                             </div>
                         </div>
                     </div>
