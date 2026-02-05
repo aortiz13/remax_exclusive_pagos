@@ -20,7 +20,9 @@ import {
     FileBarChart,
     Zap,
     Shield,
-    Calendar
+    Shield,
+    Calendar,
+    MapPin
 } from 'lucide-react'
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
@@ -75,6 +77,11 @@ export default function Sidebar() {
                     title: 'Contactos & Tareas',
                     icon: Users,
                     path: '/crm',
+                },
+                {
+                    title: 'Mapa Propiedades',
+                    icon: MapPin,
+                    path: '/crm/map',
                 },
             ]
         },

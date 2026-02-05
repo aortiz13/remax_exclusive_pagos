@@ -25,7 +25,7 @@ import {
     Label,
     Progress
 } from '@/components/ui'
-import PropertyMap from '../crm/PropertyMap'
+
 
 export default function KpiOverview() {
     const { user } = useAuth()
@@ -309,10 +309,7 @@ export default function KpiOverview() {
                     </div>
                 </div>
             </div>
-            {/* Property Map Module */}
-            <div className="w-full">
-                <PropertyMap />
-            </div>
+
         </div>
     )
 }

@@ -23,6 +23,7 @@ import AdminKpiView from './components/kpi/AdminKpiView'
 import CRM from './pages/CRM'
 import ContactDetail from './components/crm/ContactDetail'
 import PropertyDetail from './components/crm/PropertyDetail'
+import PropertyMapPage from './pages/PropertyMapPage'
 import DocumentsHub from './pages/DocumentsHub'
 import CalendarPage from './pages/Calendar'
 import { Toaster } from 'sonner'
@@ -172,6 +173,12 @@ function App() {
             <Route path="/crm/property/:id" element={
               <ProtectedRoute>
                 <PropertyDetail />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/crm/map" element={
+              <ProtectedRoute>
+                <PropertyMapPage />
               </ProtectedRoute>
             } />
 
