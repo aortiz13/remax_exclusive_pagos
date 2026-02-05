@@ -21,11 +21,20 @@ import {
     SelectTrigger,
     SelectValue,
     Badge,
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
 } from "@/components/ui"
-import { Plus, Search, MoreHorizontal, Home, MapPin, GripHorizontal, Columns, ExternalLink } from 'lucide-react'
+import { Plus, Search, MoreHorizontal, Home, MapPin, GripHorizontal, Columns, ExternalLink, Trash2 } from 'lucide-react'
 import { supabase } from '../../services/supabase'
 import PropertyQuickView from './PropertyQuickView'
 import PropertyForm from './PropertyForm'
+import { toast } from 'sonner'
 import {
     DndContext,
     closestCenter,
@@ -76,6 +85,11 @@ const PropertyList = () => {
     const [isFormOpen, setIsFormOpen] = useState(false)
     const [isQuickViewOpen, setIsQuickViewOpen] = useState(false)
     const [selectedProperty, setSelectedProperty] = useState(null)
+
+    // Delete State
+    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+    const [propertyToDelete, setPropertyToDelete] = useState(null)
+    const [isDeleting, setIsDeleting] = useState(false)
 
     // Column State
     const [columns, setColumns] = useState([
@@ -156,6 +170,47 @@ const PropertyList = () => {
         setSelectedProperty(null)
         if (action === 'refresh') {
             fetchProperties()
+        }
+    }
+
+    const confirmDelete = (property) => {
+        setPropertyToDelete(property)
+        setIsDeleteDialogOpen(true)
+    }
+
+    const handleDelete = async () => {
+        if (!propertyToDelete) return
+
+        setIsDeleting(true)
+        try {
+            // 1. Delete associated tasks manually (NO ACTION constraint)
+            const { error: tasksError } = await supabase
+                .from('crm_tasks')
+                .delete()
+                .eq('property_id', propertyToDelete.id)
+
+            if (tasksError) throw tasksError
+
+            // 2. Delete the property (Contacts/Logs will CASCADE)
+            const { error: propertyError } = await supabase
+                .from('properties')
+                .delete()
+                .eq('id', propertyToDelete.id)
+
+            if (propertyError) throw propertyError
+
+            toast.success('Propiedad eliminada correctamente')
+
+            // Remove from local state
+            setProperties(prev => prev.filter(p => p.id !== propertyToDelete.id))
+
+        } catch (error) {
+            console.error('Error deleting property:', error)
+            toast.error('Error al eliminar la propiedad')
+        } finally {
+            setIsDeleting(false)
+            setIsDeleteDialogOpen(false)
+            setPropertyToDelete(null)
         }
     }
 
@@ -252,6 +307,16 @@ const PropertyList = () => {
                                     setSelectedProperty(property)
                                     setIsFormOpen(true)
                                 }}>Editar</DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                    className="text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-900/50"
+                                    onClick={(e) => {
+                                        e.stopPropagation()
+                                        confirmDelete(property)
+                                    }}
+                                >
+                                    Eliminar
+                                </DropdownMenuItem>
                             </DropdownMenuContent>
                         </DropdownMenu>
                     </div>
@@ -387,6 +452,34 @@ const PropertyList = () => {
                     }}
                 />
             )}
+
+            {/* Delete Warning Dialog */}
+            <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>¿Estás seguro de que quieres eliminar esta propiedad?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Esta acción es permanente. Se eliminará la propiedad <strong>{propertyToDelete?.address}</strong> y todas sus tareas asociadas.
+                            <br /><br />
+                            <strong className="text-red-500 font-semibold">Nota Importante:</strong> Los contactos vinculados a esta propiedad
+                            <strong> NO SE BORRARÁN</strong> de tu base de datos, simplemente se desvincularán de aquí.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={(e) => {
+                                e.preventDefault()
+                                handleDelete()
+                            }}
+                            disabled={isDeleting}
+                            className="bg-red-600 hover:bg-red-700 text-white"
+                        >
+                            {isDeleting ? 'Eliminando...' : 'Sí, Eliminar'}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     )
 }
