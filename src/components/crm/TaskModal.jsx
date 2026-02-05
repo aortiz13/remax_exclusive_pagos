@@ -21,6 +21,7 @@ const TaskModal = ({ task, contactId, isOpen, onClose }) => {
     const [contacts, setContacts] = useState([])
     const [formData, setFormData] = useState({
         contact_id: contactId || '',
+        property_id: '',
         action: '',
         description: '',
         execution_date: '',
@@ -32,13 +33,14 @@ const TaskModal = ({ task, contactId, isOpen, onClose }) => {
             fetchContacts()
         }
         if (task) {
-            const dateObj = new Date(task.execution_date)
+            const dateObj = task.execution_date ? new Date(task.execution_date) : new Date()
             setFormData({
-                contact_id: task.contact_id,
-                action: task.action,
+                contact_id: task.contact_id || contactId || '',
+                property_id: task.property_id || '',
+                action: task.action || '',
                 description: task.description || '',
-                execution_date: task.execution_date.split('T')[0],
-                execution_time: dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                execution_date: task.execution_date ? task.execution_date.split('T')[0] : '',
+                execution_time: task.execution_date ? dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
             })
         }
     }, [isOpen, contactId, task])
@@ -63,6 +65,7 @@ const TaskModal = ({ task, contactId, isOpen, onClose }) => {
 
             const dataToSave = {
                 contact_id: formData.contact_id || contactId,
+                property_id: formData.property_id || null,
                 agent_id: profile?.id || user?.id,
                 action: formData.action,
                 description: formData.description,
