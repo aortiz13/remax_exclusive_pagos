@@ -8,6 +8,7 @@ import { useAuth } from '../../context/AuthContext'
 import { toast } from 'sonner'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui"
+import AddressAutocomplete from "@/components/ui/AddressAutocomplete"
 import { cn } from "@/lib/utils"
 import { Check, ChevronsUpDown } from "lucide-react"
 
@@ -161,14 +162,18 @@ const PropertyForm = ({ property, isOpen, onClose }) => {
                         </div>
                         <div className="space-y-2 lg:col-span-2">
                             <label className="text-sm font-medium">Dirección</label>
-                            <Input
-                                name="address"
+                            <AddressAutocomplete
                                 value={formData.address}
-                                onChange={handleChange}
-                                placeholder="Calle y número..."
-                                required
+                                onChange={(val) => setFormData(prev => ({ ...prev, address: val }))}
+                                onSelectAddress={(data) => {
+                                    setFormData(prev => ({
+                                        ...prev,
+                                        address: data.address,
+                                        commune: data.commune || prev.commune // Auto-fill commune
+                                    }))
+                                }}
                             />
-                            <p className="text-xs text-muted-foreground">La dirección se guardará tal cual se escribe.</p>
+                            <p className="text-xs text-muted-foreground">La dirección se guardará tal cual, con soporte de Google Maps.</p>
                         </div>
                         <div className="space-y-2">
                             <label className="text-sm font-medium">Comuna</label>
