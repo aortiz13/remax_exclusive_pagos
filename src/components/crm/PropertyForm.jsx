@@ -93,8 +93,11 @@ const PropertyForm = ({ property, isOpen, onClose }) => {
         setLoading(true)
 
         try {
+            // Create a clean copy of the data, excluding joined relations or UI-only fields
+            const { contacts, id, ...cleanData } = formData;
+
             const dataToSave = {
-                ...formData,
+                ...cleanData,
                 agent_id: user?.id, // Ensure agent_id is set
                 m2_total: formData.m2_total || null,
                 m2_built: formData.m2_built || null,
