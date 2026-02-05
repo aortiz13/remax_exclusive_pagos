@@ -90,25 +90,66 @@ serve(async (req) => {
                 latitude = loc.coordinates[1];
             }
 
-            // --- IMPROVED TYPE CLASSIFICATION ---
+            // --- TIERED TYPE CLASSIFICATION ---
             let propertyType = 'Departamento'; // Default
-            const pTypeUID = getVal(p, 'PropertyTypeUID');
-            const titleUpper = title.toUpperCase();
+            let operationType = 'venta'; // Default
+            let statusArr = ['Publicada', 'En Venta']; // Default status
 
-            // 1. UID Mapping (Verified from logs)
+            const pTypeUID = getVal(p, 'PropertyTypeUID');
+
+            // Try to get explicit name from API
+            const propTypeVal = getVal(p, 'PropertyType');
+            const propTypeName = typeof propTypeVal === 'string' ? propTypeVal : (getVal(propTypeVal, 'PropertyTypeName') || '');
+
+            const titleUpper = title.toUpperCase();
+            const descUpper = desc.toUpperCase();
+            const typeNameUpper = propTypeName.toUpperCase();
+
+            // 1. Initial Mapping by UID (Verified)
             if (pTypeUID === 194) propertyType = 'Departamento';
             else if (pTypeUID === 202) propertyType = 'Casa';
             else if (pTypeUID === 13) propertyType = 'Comercial';
             else if (pTypeUID === 19) propertyType = 'Terreno';
 
-            // 2. Title Overrides (Safer than description)
-            if (titleUpper.includes('CASA') || titleUpper.includes('CHALET')) propertyType = 'Casa';
-            else if (titleUpper.includes('DEPARTAMENTO') || titleUpper.includes('DPTO')) propertyType = 'Departamento';
-            else if (titleUpper.includes('TERRENO') || titleUpper.includes('PARCELA') || titleUpper.includes('SITIO')) propertyType = 'Terreno';
-            else if (titleUpper.includes('OFICINA')) propertyType = 'Oficina';
-            else if (titleUpper.includes('LOCAL') || (titleUpper.includes('COMERCIAL') && !titleUpper.includes('CENTRO'))) propertyType = 'Comercial';
-            else if (titleUpper.includes('ESTACIONAMIENTO')) propertyType = 'Estacionamiento';
-            else if (titleUpper.includes('BODEGA')) propertyType = 'Bodega';
+            // 2. PARSE FROM URL (Primary source now as per user request)
+            if (sourceUrl) {
+                const urlLower = sourceUrl.toLowerCase();
+                const urlParts = urlLower.split('/');
+                const propIndex = urlParts.indexOf('propiedades');
+
+                if (propIndex !== -1 && urlParts.length > propIndex + 2) {
+                    const urlType = urlParts[propIndex + 1];
+                    const urlOp = urlParts[propIndex + 2];
+
+                    const typeMap: any = {
+                        'oficina': 'Oficina',
+                        'departamento': 'Departamento',
+                        'casa': 'Casa',
+                        'terreno': 'Terreno',
+                        'comercial': 'Comercial',
+                        'bodega': 'Bodega',
+                        'estacionamiento': 'Estacionamiento'
+                    };
+                    if (typeMap[urlType]) propertyType = typeMap[urlType];
+
+                    if (urlOp === 'venta') {
+                        operationType = 'venta';
+                        statusArr = ['Publicada', 'En Venta'];
+                    } else if (urlOp === 'arriendo' || urlOp === 'rent') {
+                        operationType = 'arriendo';
+                        statusArr = ['Publicada'];
+                    }
+                }
+            }
+
+            // 3. Fallback Keyword Search (If URL didn't yield a specific type or matched default)
+            if (propertyType === 'Departamento' && !sourceUrl?.toLowerCase().includes('departamento')) {
+                const combined = `${titleUpper} ${descUpper} ${typeNameUpper}`;
+                if (combined.includes('OFICINA')) propertyType = 'Oficina';
+                else if (combined.includes('LOCAL') || combined.includes('COMERCIAL')) propertyType = 'Comercial';
+                else if (combined.includes('TERRENO')) propertyType = 'Terreno';
+                else if (combined.includes('CASA')) propertyType = 'Casa';
+            }
 
             // Image URL
             let imageUrl = null;
@@ -125,6 +166,7 @@ serve(async (req) => {
                 source_url: sourceUrl || `https://www.remax.cl/`,
                 title: title || 'Propiedad sin título',
                 property_type: propertyType,
+                operation_type: operationType,
                 address: address,
                 m2_total: Math.round(m2_total),
                 m2_built: Math.round(m2_built),
@@ -134,7 +176,7 @@ serve(async (req) => {
                 latitude,
                 longitude,
                 agent_id: agentId,
-                status: ['Publicada', 'En Venta'],
+                status: statusArr,
                 price: getVal(p, 'ListingPrice'),
                 currency: getVal(p, 'ListingCurrency'),
                 image_url: imageUrl

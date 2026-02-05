@@ -97,7 +97,7 @@ const AdminPropertyImport = () => {
                 address: p.address,
                 commune: p.address.split(',')[1]?.trim() || 'Santiago', // Simple heuristic
                 property_type: p.property_type,
-                operation_type: 'Venta',
+                operation_type: p.operation_type || 'venta',
                 price: p.price || 0,
                 currency: p.currency || 'CLP',
                 bedrooms: p.bedrooms,
@@ -108,8 +108,7 @@ const AdminPropertyImport = () => {
                 listing_link: p.source_url,
                 latitude: p.latitude,
                 longitude: p.longitude,
-                status: ['Publicada', 'En Venta'],
-                status: ['Publicada', 'En Venta'],
+                status: p.status || ['Publicada', 'En Venta'],
                 source: 'remax',
                 agent_id: user?.id,
                 created_at: new Date().toISOString(),
