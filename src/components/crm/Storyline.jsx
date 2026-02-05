@@ -91,15 +91,39 @@ const Storyline = ({ propertyId, contactId }) => {
                                 </span>
                             </div>
 
-                            <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                            <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 whitespace-pre-wrap">
                                 {activity.description}
                             </h4>
 
                             {/* Detailed Context if Any */}
                             {activity.details && Object.keys(activity.details).length > 0 && (
-                                <div className="mt-2 text-xs bg-gray-50 dark:bg-gray-800 p-2 rounded border text-gray-600 dark:text-gray-300">
-                                    {/* Simple key-value rendering or specifically formatting changes */}
-                                    {JSON.stringify(activity.details).slice(0, 100)}
+                                <div className="mt-2 text-[11px] bg-gray-50 dark:bg-gray-800/50 p-2 rounded border border-gray-100 dark:border-gray-800 text-gray-600 dark:text-gray-400 space-y-1">
+                                    {Object.entries(activity.details).map(([key, value]) => {
+                                        // Skip internal or redundant keys
+                                        if (key === 'id') return null
+
+                                        let displayValue = value
+                                        let displayKey = key.charAt(0).toUpperCase() + key.slice(1)
+
+                                        // Custom formatting for specific keys
+                                        if (key === 'date') {
+                                            displayValue = new Date(value).toLocaleString('es-CL', {
+                                                dateStyle: 'medium',
+                                                timeStyle: 'short'
+                                            })
+                                            displayKey = 'Fecha Programada'
+                                        }
+
+                                        if (key === 'address') displayKey = 'Dirección'
+                                        if (key === 'role') displayKey = 'Rol'
+
+                                        return (
+                                            <div key={key} className="flex gap-2">
+                                                <span className="font-semibold text-gray-400 shrink-0">{displayKey}:</span>
+                                                <span className="truncate">{String(displayValue)}</span>
+                                            </div>
+                                        )
+                                    })}
                                 </div>
                             )}
 
