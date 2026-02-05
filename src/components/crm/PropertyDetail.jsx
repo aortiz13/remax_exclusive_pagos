@@ -23,6 +23,8 @@ const PropertyDetail = () => {
     const [isTaskModalOpen, setIsTaskModalOpen] = useState(false)
     const [selectedTask, setSelectedTask] = useState(null)
     const [isAddParticipantOpen, setIsAddParticipantOpen] = useState(false)
+    const [note, setNote] = useState('')
+    const [noteLoading, setNoteLoading] = useState(false)
 
     useEffect(() => {
         fetchProperty()
@@ -97,6 +99,29 @@ const PropertyDetail = () => {
         if (!confirm('¿Estás seguro?')) return;
         await supabase.from('property_contacts').delete().eq('id', participantId)
         fetchParticipants()
+    }
+
+    const handleAddNote = async () => {
+        if (!note.trim()) return
+        try {
+            setNoteLoading(true)
+
+            await logActivity({
+                property_id: id,
+                action: 'Nota',
+                entity_type: 'Propiedad',
+                entity_id: id,
+                description: note
+            })
+
+            toast.success('Nota agregada')
+            setNote('')
+        } catch (error) {
+            console.error('Error adding note:', error)
+            toast.error('Error al agregar nota')
+        } finally {
+            setNoteLoading(false)
+        }
     }
 
 
@@ -255,7 +280,23 @@ const PropertyDetail = () => {
                             )}
                         </TabsContent>
 
-                        <TabsContent value="activity" className="py-4">
+                        <TabsContent value="activity" className="py-4 space-y-6">
+                            {/* Add Note Section */}
+                            <div className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-lg border space-y-3">
+                                <label className="text-sm font-medium">Agregar Nota / Observación</label>
+                                <textarea
+                                    className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                    placeholder="Escribe aquí detalles de una visita o nota importante sobre la propiedad..."
+                                    value={note}
+                                    onChange={(e) => setNote(e.target.value)}
+                                />
+                                <div className="flex justify-end">
+                                    <Button size="sm" onClick={handleAddNote} disabled={noteLoading || !note.trim()}>
+                                        {noteLoading ? 'Guardando...' : 'Guardar Nota'}
+                                    </Button>
+                                </div>
+                            </div>
+
                             <Storyline propertyId={id} />
                         </TabsContent>
                     </Tabs>
