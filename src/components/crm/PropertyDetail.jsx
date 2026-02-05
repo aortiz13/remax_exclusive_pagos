@@ -32,11 +32,44 @@ const PropertyDetail = () => {
     const [participantToDelete, setParticipantToDelete] = useState(null)
     const [isDeletingParticipant, setIsDeletingParticipant] = useState(false)
 
+    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+    const [isDeleting, setIsDeleting] = useState(false)
+
     useEffect(() => {
         fetchProperty()
         fetchTasks()
         fetchParticipants()
     }, [id])
+
+    const handleDeleteProperty = async () => {
+        setIsDeleting(true)
+        try {
+            // 1. Delete associated tasks manually (NO ACTION constraint)
+            const { error: tasksError } = await supabase
+                .from('crm_tasks')
+                .delete()
+                .eq('property_id', id)
+
+            if (tasksError) throw tasksError
+
+            // 2. Delete the property (Contacts/Logs will CASCADE)
+            const { error: propertyError } = await supabase
+                .from('properties')
+                .delete()
+                .eq('id', id)
+
+            if (propertyError) throw propertyError
+
+            toast.success('Propiedad eliminada correctamente')
+            navigate('/properties')
+        } catch (error) {
+            console.error('Error deleting property:', error)
+            toast.error('Error al eliminar la propiedad')
+        } finally {
+            setIsDeleting(false)
+            setIsDeleteDialogOpen(false)
+        }
+    }
 
     const fetchProperty = async () => {
         try {
@@ -194,6 +227,14 @@ const PropertyDetail = () => {
                     }}>
                         <Plus className="w-4 h-4 mr-2" />
                         Nueva Tarea
+                    </Button>
+                    <Button
+                        variant="destructive"
+                        size="icon"
+                        className="bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/40 border-0"
+                        onClick={() => setIsDeleteDialogOpen(true)}
+                    >
+                        <Trash2 className="w-4 h-4" />
                     </Button>
                 </div>
             </div>
@@ -478,6 +519,35 @@ const PropertyDetail = () => {
                     }
                 }}
             />
+
+            {/* Delete Property Warning Dialog */}
+            <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>¿Estás seguro de que quieres eliminar esta propiedad?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Esta acción es permanente. Se eliminará la propiedad y todas sus tareas asociadas.
+                            <br /><br />
+                            <strong className="text-red-500 font-semibold">Nota Importante:</strong> Los contactos vinculados a esta propiedad
+                            <strong> NO SE BORRARÁN</strong> de tu base de datos, simplemente se desvincularán de aquí.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={(e) => {
+                                e.preventDefault()
+                                handleDeleteProperty()
+                            }}
+                            disabled={isDeleting}
+                            className="bg-red-600 hover:bg-red-700 text-white"
+                        >
+                            {isDeleting ? 'Eliminando...' : 'Sí, Eliminar'}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
             <AlertDialog open={isDeleteParticipantOpen} onOpenChange={setIsDeleteParticipantOpen}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
