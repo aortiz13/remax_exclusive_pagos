@@ -41,7 +41,9 @@ const PropertyForm = ({ property, isOpen, onClose }) => {
         m2_built: '',
         bedrooms: '',
         bathrooms: '',
-        documentation_link: ''
+        documentation_link: '',
+        latitude: null,
+        longitude: null
     })
 
     const PROPERTY_TYPES = ['Departamento', 'Casa', 'Oficina', 'Terreno', 'Bodega', 'Estacionamiento', 'Comercial', 'Otro']
@@ -172,7 +174,9 @@ const PropertyForm = ({ property, isOpen, onClose }) => {
                                     setFormData(prev => ({
                                         ...prev,
                                         address: data.address,
-                                        commune: data.commune || prev.commune // Auto-fill commune
+                                        commune: data.commune || prev.commune, // Auto-fill commune
+                                        latitude: data.lat,
+                                        longitude: data.lng
                                     }))
                                 }}
                             />
