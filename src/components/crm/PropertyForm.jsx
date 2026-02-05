@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { Button, Input, Textarea, Select, Label, Switch, Checkbox, Badge } from '@/components/ui'
-import { X, Save, Search } from 'lucide-react'
-import { X, Save, Search, Plus } from 'lucide-react'
+import { X, Save, Search, Plus, Check, ChevronsUpDown } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { supabase } from '../../services/supabase'
 import { useAuth } from '../../context/AuthContext'
@@ -12,7 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui"
 import AddressAutocomplete from "@/components/ui/AddressAutocomplete"
 import ContactForm from './ContactForm'
 import { cn } from "@/lib/utils"
-import { Check, ChevronsUpDown } from "lucide-react"
+
 
 
 const Section = ({ title, children }) => (
