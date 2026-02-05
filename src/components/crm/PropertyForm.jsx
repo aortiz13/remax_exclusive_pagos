@@ -114,6 +114,7 @@ const PropertyForm = ({ property, isOpen, onClose }) => {
             }
 
             let savedProperty = null;
+            let queryError = null;
 
             if (property?.id) {
                 const { data, error: updateError } = await supabase
@@ -123,7 +124,7 @@ const PropertyForm = ({ property, isOpen, onClose }) => {
                     .select()
                     .single()
                 savedProperty = data;
-                error = updateError;
+                queryError = updateError;
             } else {
                 const { data, error: insertError } = await supabase
                     .from('properties')
@@ -131,10 +132,10 @@ const PropertyForm = ({ property, isOpen, onClose }) => {
                     .select()
                     .single()
                 savedProperty = data;
-                error = insertError;
+                queryError = insertError;
             }
 
-            if (error) throw error
+            if (queryError) throw queryError
 
             // Log activity
             if (savedProperty) {

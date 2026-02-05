@@ -65,7 +65,6 @@ const Layout = ({ children }) => {
         <main className="flex-1 overflow-y-auto scroll-smooth p-4 md:p-8 w-full max-w-7xl mx-auto">
           {children}
         </main>
-        <Toaster position="top-right" richColors theme="light" closeButton className="font-sans" />
       </div>
     </div>
   )
@@ -188,8 +187,6 @@ function App() {
               </ProtectedRoute>
             } />
 
-
-
             <Route path="/documents" element={
               <ProtectedRoute>
                 <DocumentsHub />
@@ -223,6 +220,7 @@ function App() {
           </Routes>
         </Layout>
       </Router>
+      <Toaster position="top-right" richColors theme="light" closeButton className="font-sans" />
     </AuthProvider>
   )
 }
