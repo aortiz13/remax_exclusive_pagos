@@ -215,13 +215,33 @@ const PropertyDetail = () => {
                     </div>
 
                     {/* Tabs for Details, Docs, Notes */}
-                    <Tabs defaultValue="details" className="w-full">
+                    <Tabs defaultValue="activity" className="w-full">
                         <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent">
+                            <TabsTrigger value="activity" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2">Actividad</TabsTrigger>
                             <TabsTrigger value="details" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2">Detalles</TabsTrigger>
                             <TabsTrigger value="notes" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2">Notas</TabsTrigger>
                             <TabsTrigger value="links" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2">Enlaces</TabsTrigger>
-                            <TabsTrigger value="activity" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2">Actividad</TabsTrigger>
                         </TabsList>
+
+                        <TabsContent value="activity" className="py-4 space-y-6">
+                            {/* Add Note Section */}
+                            <div className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-lg border space-y-3">
+                                <label className="text-sm font-medium">Agregar Nota / Observación</label>
+                                <textarea
+                                    className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                    placeholder="Escribe aquí detalles de una visita o nota importante sobre la propiedad..."
+                                    value={note}
+                                    onChange={(e) => setNote(e.target.value)}
+                                />
+                                <div className="flex justify-end">
+                                    <Button size="sm" onClick={handleAddNote} disabled={noteLoading || !note.trim()}>
+                                        {noteLoading ? 'Guardando...' : 'Guardar Nota'}
+                                    </Button>
+                                </div>
+                            </div>
+
+                            <Storyline propertyId={id} />
+                        </TabsContent>
 
                         <TabsContent value="details" className="py-4 space-y-4">
                             <div className="bg-white dark:bg-gray-900 rounded-xl border p-4">
@@ -280,24 +300,6 @@ const PropertyDetail = () => {
                             )}
                         </TabsContent>
 
-                        <TabsContent value="activity" className="py-4 space-y-6">
-                            {/* Add Note Section */}
-                            <div className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-lg border space-y-3">
-                                <label className="text-sm font-medium">Agregar Nota / Observación</label>
-                                <textarea
-                                    className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                    placeholder="Escribe aquí detalles de una visita o nota importante sobre la propiedad..."
-                                    value={note}
-                                    onChange={(e) => setNote(e.target.value)}
-                                />
-                                <div className="flex justify-end">
-                                    <Button size="sm" onClick={handleAddNote} disabled={noteLoading || !note.trim()}>
-                                        {noteLoading ? 'Guardando...' : 'Guardar Nota'}
-                                    </Button>
-                                </div>
-                            </div>
-
-                            <Storyline propertyId={id} />
                         </TabsContent>
                     </Tabs>
 
@@ -404,7 +406,7 @@ const PropertyDetail = () => {
                     if (refresh) fetchParticipants()
                 }}
             />
-        </div>
+        </div >
     )
 }
 
