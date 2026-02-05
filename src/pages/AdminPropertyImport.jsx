@@ -1,23 +1,67 @@
-import { useState } from 'react'
-import { Button, Input, Checkbox } from '@/components/ui'
+import { useState, useEffect } from 'react'
+import { Button, Checkbox, Badge } from '@/components/ui'
 import { supabase } from '../services/supabase'
 import { useAuth } from '../context/AuthContext'
 import { toast } from 'sonner'
-import { Loader2, Download, Search, CheckCircle, ExternalLink } from 'lucide-react'
+import { Loader2, Download, Search, CheckCircle, ExternalLink, Users } from 'lucide-react'
 
 const AdminPropertyImport = () => {
     const { user } = useAuth()
-    const [agentId, setAgentId] = useState('1028061013') // Default for easier testing
     const [loading, setLoading] = useState(false)
+    const [agents, setAgents] = useState([])
+    const [selectedAgents, setSelectedAgents] = useState([])
     const [scannedProperties, setScannedProperties] = useState([])
     const [selectedProperties, setSelectedProperties] = useState({})
     const [existingLinks, setExistingLinks] = useState(new Set())
     const [importing, setImporting] = useState(false)
 
+    useEffect(() => {
+        fetchAgents()
+    }, [])
+
+    const fetchAgents = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('profiles')
+                .select('id, first_name, last_name, remax_agent_id')
+                .not('remax_agent_id', 'is', null)
+                .order('first_name')
+
+            if (data) {
+                setAgents(data)
+                // Optional: Select all by default or none? Let's select none.
+            }
+        } catch (error) {
+            console.error('Error fetching agents:', error)
+        }
+    }
+
+    const toggleAgent = (agentId) => {
+        setSelectedAgents(prev =>
+            prev.includes(agentId)
+                ? prev.filter(id => id !== agentId)
+                : [...prev, agentId]
+        )
+    }
+
+    const toggleAllAgents = () => {
+        if (selectedAgents.length === agents.length) {
+            setSelectedAgents([])
+        } else {
+            setSelectedAgents(agents.map(a => a.remax_agent_id))
+        }
+    }
+
     const handleScan = async (e) => {
         e.preventDefault()
+        if (selectedAgents.length === 0) {
+            toast.warning('Selecciona al menos un agente')
+            return
+        }
+
         setLoading(true)
         setScannedProperties([])
+
         try {
             const { data: { session } } = await supabase.auth.getSession()
 
@@ -26,57 +70,85 @@ const AdminPropertyImport = () => {
                 return
             }
 
-            const { data, error } = await supabase.functions.invoke('import-remax-listings', {
-                body: { agentId },
-                headers: {
-                    Authorization: `Bearer ${session.access_token}`
+            let allProperties = []
+            let errors = 0
+
+            // Process sequentially to be nice to the API/Edge Function
+            for (const agentId of selectedAgents) {
+                try {
+                    const { data, error } = await supabase.functions.invoke('import-remax-listings', {
+                        body: { agentId },
+                        headers: {
+                            Authorization: `Bearer ${session.access_token}`
+                        }
+                    })
+
+                    if (error) throw error
+
+                    if (data.success && Array.isArray(data.properties)) {
+                        // Find the agent profile to attach name if needed (optional context)
+                        const agentProfile = agents.find(a => a.remax_agent_id === agentId)
+
+                        const propsWithAgent = data.properties.map(p => ({
+                            ...p,
+                            agent_name: agentProfile ? `${agentProfile.first_name} ${agentProfile.last_name}` : 'Desconocido',
+                            // Ensure agent_id is correctly set from the function or fallback
+                            agent_id: data.agentId || agentProfile?.id
+                        }))
+
+                        allProperties = [...allProperties, ...propsWithAgent]
+                    } else {
+                        console.error(`Error scanning agent ${agentId}:`, data.error)
+                        errors++
+                    }
+                } catch (err) {
+                    console.error(`Failed to scan agent ${agentId}`, err)
+                    errors++
+                }
+            }
+
+            if (allProperties.length === 0) {
+                if (errors > 0) toast.error('No se pudieron obtener propiedades. Revisa la consola.')
+                else toast.info('No se encontraron propiedades para los agentes seleccionados.')
+                setLoading(false)
+                return
+            }
+
+            setScannedProperties(allProperties)
+
+            // Check for duplicates in DB
+            const urls = allProperties.map(p => p.source_url).filter(Boolean)
+            let foundLinks = new Set()
+
+            if (urls.length > 0) {
+                // Batch check might be too large, strictly we might want to chunk this
+                // But generally 100-200 urls is fine for supabase `in` query
+                const { data: existingData } = await supabase
+                    .from('properties')
+                    .select('listing_link')
+                    .in('listing_link', urls)
+
+                if (existingData) {
+                    existingData.forEach(item => foundLinks.add(item.listing_link))
+                }
+            }
+            setExistingLinks(foundLinks)
+
+            // Select only non-duplicates by default
+            const allSelected = {}
+            allProperties.forEach((p, idx) => {
+                if (!foundLinks.has(p.source_url)) {
+                    allSelected[idx] = true
                 }
             })
+            setSelectedProperties(allSelected)
 
-            if (error) throw error
-
-            if (data.success) {
-                setScannedProperties(data.properties)
-
-                // Check for duplicates in DB
-                const urls = data.properties.map(p => p.source_url).filter(Boolean)
-                let foundLinks = new Set()
-
-                if (urls.length > 0) {
-                    const { data: existingData } = await supabase
-                        .from('properties')
-                        .select('listing_link')
-                        .in('listing_link', urls)
-
-                    if (existingData) {
-                        existingData.forEach(item => foundLinks.add(item.listing_link))
-                    }
-                }
-                setExistingLinks(foundLinks)
-
-                // Select only non-duplicates by default
-                const allSelected = {}
-                data.properties.forEach((p, idx) => {
-                    if (!foundLinks.has(p.source_url)) {
-                        allSelected[idx] = true
-                    }
-                })
-                setSelectedProperties(allSelected)
-
-                const duplicateCount = data.properties.filter(p => foundLinks.has(p.source_url)).length
-                if (duplicateCount > 0) {
-                    toast.success(`Se encontraron ${data.properties.length} propiedades (${duplicateCount} ya importadas)`)
-                } else {
-                    toast.success(`Se encontraron ${data.properties.length} propiedades nuevas`)
-                }
-
-            } else {
-                toast.error('No se pudieron obtener propiedades: ' + data.error)
-            }
+            const duplicateCount = allProperties.filter(p => foundLinks.has(p.source_url)).length
+            toast.success(`Escaneo completo: ${allProperties.length} propiedades encontradas (${duplicateCount} ya existen)`)
 
         } catch (error) {
             console.error('Scan error:', error)
-            toast.error('Error al escanear propiedades')
+            toast.error('Error general al escanear propiedades')
         } finally {
             setLoading(false)
         }
@@ -93,27 +165,37 @@ const AdminPropertyImport = () => {
             }
 
             // Transform data for DB if needed (schema matching)
-            const dbProperties = propertiesToImport.map(p => ({
-                address: p.address,
-                commune: p.address.split(',')[1]?.trim() || 'Santiago', // Simple heuristic
-                property_type: p.property_type,
-                operation_type: p.operation_type || 'venta',
-                price: p.price || 0,
-                currency: p.currency || 'CLP',
-                bedrooms: p.bedrooms,
-                bathrooms: p.bathrooms,
-                m2_total: p.m2_total,
-                m2_built: p.m2_built,
-                notes: p.description,
-                listing_link: p.source_url,
-                latitude: p.latitude,
-                longitude: p.longitude,
-                status: p.status || ['Publicada', 'En Venta'],
-                source: 'remax',
-                agent_id: user?.id,
-                created_at: new Date().toISOString(),
-                image_url: p.image_url // Save image url
-            }))
+            const dbProperties = propertiesToImport.map(p => {
+                // IMPORTANT: We must map the RE/MAX Agent ID back to our internal User/Profile ID
+                // The edge function returns 'agent_id' as the RE/MAX ID (e.g. 1028061013)
+                // We need to find the UUID of that user in our profiles table.
+
+                // Note: In handleScan I added logic to try and attach info. 
+                // Let's ensure we find the correct internal UUID.
+                const profile = agents.find(a => a.remax_agent_id == p.agent_id)
+
+                return {
+                    address: p.address,
+                    commune: p.address.split(',')[1]?.trim() || 'Santiago',
+                    property_type: p.property_type,
+                    operation_type: p.operation_type || 'venta',
+                    price: p.price || 0,
+                    currency: p.currency || 'CLP',
+                    bedrooms: p.bedrooms,
+                    bathrooms: p.bathrooms,
+                    m2_total: p.m2_total,
+                    m2_built: p.m2_built,
+                    notes: p.description,
+                    listing_link: p.source_url,
+                    latitude: p.latitude,
+                    longitude: p.longitude,
+                    status: p.status || ['Publicada', 'En Venta'],
+                    source: 'remax',
+                    agent_id: profile ? profile.id : user?.id, // Fallback to current user if mapped profile not found
+                    created_at: new Date().toISOString(),
+                    image_url: p.image_url
+                }
+            })
 
             const { error } = await supabase
                 .from('properties')
@@ -137,25 +219,54 @@ const AdminPropertyImport = () => {
         <div className="p-6 max-w-7xl mx-auto">
             <div className="mb-8">
                 <h1 className="text-2xl font-bold mb-2">Importar Propiedades RE/MAX</h1>
-                <p className="text-gray-500">Escanea el perfil público de un agente para importar sus propiedades automáticamente.</p>
+                <p className="text-gray-500">Selecciona los agentes para escanear sus propiedades públicas e importarlas masivamente.</p>
             </div>
 
-            {/* Scan Form */}
+            {/* Agent Selection */}
             <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow mb-8">
-                <form onSubmit={handleScan} className="flex gap-4 items-end">
-                    <div className="flex-1 max-w-xs">
-                        <label className="block text-sm font-medium mb-1">ID Agente RE/MAX</label>
-                        <Input
-                            value={agentId}
-                            onChange={(e) => setAgentId(e.target.value)}
-                            placeholder="Ej: 1028061013"
-                        />
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="font-semibold flex items-center gap-2">
+                        <Users className="w-5 h-5" />
+                        Agentes RE/MAX Disponibles ({agents.length})
+                    </h3>
+                    <div className="space-x-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={toggleAllAgents}
+                        >
+                            {selectedAgents.length === agents.length ? 'Deseleccionar todos' : 'Seleccionar todos'}
+                        </Button>
+                        <Button onClick={handleScan} disabled={loading || selectedAgents.length === 0}>
+                            {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Search className="w-4 h-4 mr-2" />}
+                            {loading ? 'Escaneando...' : `Escanear Seleccionados (${selectedAgents.length})`}
+                        </Button>
                     </div>
-                    <Button type="submit" disabled={loading} className="min-w-[120px]">
-                        {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Search className="w-4 h-4 mr-2" />}
-                        {loading ? 'Escaneando...' : 'Escanear'}
-                    </Button>
-                </form>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[300px] overflow-y-auto p-1">
+                    {agents.map(agent => (
+                        <div
+                            key={agent.id}
+                            className={`flex items-center space-x-3 p-3 rounded-lg border transition-colors cursor-pointer ${selectedAgents.includes(agent.remax_agent_id) ? 'bg-blue-50 border-blue-200 dark:bg-blue-900/20' : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}
+                            onClick={() => toggleAgent(agent.remax_agent_id)}
+                        >
+                            <Checkbox
+                                checked={selectedAgents.includes(agent.remax_agent_id)}
+                                onCheckedChange={() => toggleAgent(agent.remax_agent_id)}
+                            />
+                            <div className="text-sm">
+                                <p className="font-medium">{agent.first_name} {agent.last_name}</p>
+                                <p className="text-xs text-gray-500">ID: {agent.remax_agent_id}</p>
+                            </div>
+                        </div>
+                    ))}
+                    {agents.length === 0 && (
+                        <div className="col-span-full text-center py-8 text-gray-500">
+                            No se encontraron agentes con ID RE/MAX configurado.
+                        </div>
+                    )}
+                </div>
             </div>
 
             {/* Results */}
@@ -188,6 +299,7 @@ const AdminPropertyImport = () => {
                                         />
                                     </th>
                                     <th className="p-4">Img</th>
+                                    <th className="p-4">Agente</th>
                                     <th className="p-4">Propiedad</th>
                                     <th className="p-4">Tipo</th>
                                     <th className="p-4">Características</th>
@@ -215,21 +327,28 @@ const AdminPropertyImport = () => {
                                                 <img src={p.image_url} alt="Portada" className="w-16 h-12 object-cover rounded shadow-sm border" />
                                             )}
                                         </td>
-                                        <td className="p-4 font-medium max-w-[300px] truncate" title={p.title}>
+                                        <td className="p-4">
+                                            <Badge variant="outline" className="text-xs whitespace-nowrap">
+                                                {p.agent_name}
+                                            </Badge>
+                                        </td>
+                                        <td className="p-4 font-medium max-w-[250px] truncate" title={p.title}>
                                             {p.title}
                                             {existingLinks.has(p.source_url) && (
                                                 <span className="ml-2 inline-flex items-center rounded-md bg-yellow-50 px-2 py-1 text-xs font-medium text-yellow-700 ring-1 ring-inset ring-yellow-600/20">
                                                     Ya importada
                                                 </span>
                                             )}
-                                            <div className="text-xs text-gray-500 truncate">{p.description?.substring(0, 50)}...</div>
+                                            <div className="text-xs text-gray-500 truncate">{p.description?.substring(0, 40)}...</div>
                                         </td>
-                                        <td className="p-4 text-sm">{p.property_type}</td>
+                                        <td className="p-4 text-sm whitespace-nowrap">
+                                            {p.property_type}<br />
+                                            <span className="text-xs text-gray-500 capitalize">{p.operation_type}</span>
+                                        </td>
                                         <td className="p-4 text-sm">
-                                            <div className="flex gap-2">
-                                                <span className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-xs">{p.m2_total} m²</span>
-                                                <span className="bg-green-100 text-green-800 px-2 py-0.5 rounded text-xs">{p.bedrooms} Dorm</span>
-                                                <span className="bg-purple-100 text-purple-800 px-2 py-0.5 rounded text-xs">{p.bathrooms} Baños</span>
+                                            <div className="flex flex-col gap-1">
+                                                <span className="text-xs bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded w-fit">{p.m2_total} m²</span>
+                                                <span className="text-xs bg-green-50 text-green-700 px-1.5 py-0.5 rounded w-fit">{p.bedrooms}D / {p.bathrooms}B</span>
                                             </div>
                                         </td>
                                         <td className="p-4 text-sm">
