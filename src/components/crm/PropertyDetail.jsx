@@ -113,6 +113,15 @@ const PropertyDetail = () => {
 
             if (error) throw error
 
+            // If the deleted participant was the Owner, clear owner_id in the properties table
+            if (participantToDelete.role === 'Dueño') {
+                await supabase
+                    .from('properties')
+                    .update({ owner_id: null })
+                    .eq('id', id)
+                fetchProperty()
+            }
+
             toast.success('Relacionado eliminado correctamente')
             fetchParticipants()
         } catch (error) {
