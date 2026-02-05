@@ -6,6 +6,10 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '../../services/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { toast } from 'sonner'
+import { Check, ChevronsUpDown } from "lucide-react"
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui"
+import { cn } from "@/lib/utils"
 
 const Section = ({ title, children }) => (
     <div className="mb-6">
@@ -19,6 +23,10 @@ const Section = ({ title, children }) => (
 const ContactForm = ({ contact, isOpen, onClose }) => {
     const { profile, user } = useAuth()
     const [loading, setLoading] = useState(false)
+    const [properties, setProperties] = useState([])
+    const [openPropertySelect, setOpenPropertySelect] = useState(false)
+    const [selectedPropertyId, setSelectedPropertyId] = useState(null)
+
     const [formData, setFormData] = useState({
         first_name: '',
         last_name: '',
@@ -58,7 +66,30 @@ const ContactForm = ({ contact, isOpen, onClose }) => {
                 next_contact_date: contact.next_contact_date ? contact.next_contact_date.split('T')[0] : ''
             })
         }
+        fetchProperties()
     }, [contact])
+
+    const fetchProperties = async () => {
+        try {
+            const { data } = await supabase.from('properties').select('id, address, commune')
+            setProperties(data || [])
+
+            // Try to find if this contact is already an owner of a property (just taking the first found for now)
+            if (contact?.id) {
+                const { data: ownedProps } = await supabase
+                    .from('properties')
+                    .select('id')
+                    .eq('owner_id', contact.id)
+                    .limit(1)
+
+                if (ownedProps && ownedProps.length > 0) {
+                    setSelectedPropertyId(ownedProps[0].id)
+                }
+            }
+        } catch (error) {
+            console.error('Error fetching properties', error)
+        }
+    }
 
     const handleChange = (e) => {
         const { name, value } = e.target
@@ -81,24 +112,46 @@ const ContactForm = ({ contact, isOpen, onClose }) => {
             if (!dataToSave.last_contact_date) dataToSave.last_contact_date = null;
             if (!dataToSave.next_contact_date) dataToSave.next_contact_date = null;
 
-            let error;
-            if (contact?.id) {
+            if (!contact?.id) {
+                // Create
+                const { data: newContactData, error: insertError } = await supabase
+                    .from('contacts')
+                    .insert([dataToSave])
+                    .select()
+                    .single()
+
+                if (insertError) throw insertError
+
+                // If property selected, update property owner
+                if (selectedPropertyId && newContactData) {
+                    await supabase
+                        .from('properties')
+                        .update({ owner_id: newContactData.id })
+                        .eq('id', selectedPropertyId)
+                }
+
+                toast.success('Contacto creado')
+                onClose(newContactData)
+            } else {
+                // Update
                 const { error: updateError } = await supabase
                     .from('contacts')
                     .update(dataToSave)
                     .eq('id', contact.id)
-                error = updateError;
-            } else {
-                const { error: insertError } = await supabase
-                    .from('contacts')
-                    .insert([dataToSave])
-                error = insertError;
+                if (updateError) throw updateError
+
+                // If property selected, update property owner
+                if (selectedPropertyId) {
+                    await supabase
+                        .from('properties')
+                        .update({ owner_id: contact.id })
+                        .eq('id', selectedPropertyId)
+                }
+
+                toast.success('Contacto actualizado')
+                onClose({ ...dataToSave, id: contact.id })
             }
 
-            if (error) throw error
-
-            toast.success(contact ? 'Contacto actualizado' : 'Contacto creado')
-            onClose(true) // refresh
         } catch (error) {
             console.error('Error saving contact:', error)
             toast.error('Error al guardar contacto')
@@ -110,224 +163,209 @@ const ContactForm = ({ contact, isOpen, onClose }) => {
     if (!isOpen) return null
 
     return createPortal(
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
-            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => onClose(false)} />
-            <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col relative z-50 border border-gray-200 dark:border-gray-800"
-            >
-                <div className="p-4 border-b flex justify-between items-center bg-gray-50 dark:bg-gray-800/50">
-                    <h2 className="text-xl font-bold">{contact ? 'Editar Contacto' : 'Nuevo Contacto'}</h2>
-                    <Button variant="ghost" size="icon" onClick={() => onClose(false)}>
-                        <X className="w-5 h-5" />
-                    </Button>
+        <AnimatePresence>
+            {isOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col"
+                    >
+                        <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/50">
+                            <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                                {contact ? 'Editar Contacto' : 'Nuevo Contacto'}
+                            </h2>
+                            <Button variant="ghost" size="icon" onClick={() => onClose()} className="rounded-full hover:bg-slate-200 dark:hover:bg-slate-800">
+                                <X className="h-5 w-5 text-gray-500" />
+                            </Button>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
+                            <form id="contact-form" onSubmit={handleSubmit} className="space-y-6">
+
+                                {/* Section: Información Principal */}
+                                <Section title="Información General">
+                                    <div className="space-y-2">
+                                        <Label>Nombre <span className="text-red-500">*</span></Label>
+                                        <Input name="first_name" value={formData.first_name} onChange={handleChange} required placeholder="Juan" />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Apellido <span className="text-red-500">*</span></Label>
+                                        <Input name="last_name" value={formData.last_name} onChange={handleChange} required placeholder="Pérez" />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Fuente (Origen)</Label>
+                                        <Select name="source" value={formData.source} onValueChange={(val) => setFormData(prev => ({ ...prev, source: val }))}>
+                                            <option value="">Seleccionar...</option>
+                                            <option value="Referido">Referido</option>
+                                            <option value="Portal">Portal Inmobiliario</option>
+                                            <option value="Redes Sociales">Redes Sociales</option>
+                                            <option value="Web">Web</option>
+                                            <option value="Llamado">Llamado Directo</option>
+                                            <option value="Otro">Otro</option>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Estado</Label>
+                                        <Select name="status" value={formData.status} onValueChange={(val) => setFormData(prev => ({ ...prev, status: val }))}>
+                                            <option value="Activo">Activo</option>
+                                            <option value="Inactivo">Inactivo</option>
+                                            <option value="Archivado">Archivado</option>
+                                            <option value="En Seguimiento">En Seguimiento</option>
+                                            <option value="Cliente">Cliente (Cerrado)</option>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Necesidad</Label>
+                                        <Select name="need" value={formData.need} onValueChange={(val) => setFormData(prev => ({ ...prev, need: val }))}>
+                                            <option value="Comprar">Comprar</option>
+                                            <option value="Vender">Vender</option>
+                                            <option value="Arrendar">Arrendar</option>
+                                            <option value="Invertir">Invertir</option>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Email</Label>
+                                        <Input type="email" name="email" value={formData.email} onChange={handleChange} placeholder="juan@ejemplo.com" />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Teléfono</Label>
+                                        <Input type="tel" name="phone" value={formData.phone} onChange={handleChange} placeholder="+56 9 1234 5678" />
+                                    </div>
+                                </Section>
+
+                                {/* Section: Ubicación */}
+                                <Section title="Ubicación y Propiedad">
+                                    <div className="space-y-2">
+                                        <Label>Barrio / Comuna</Label>
+                                        <Input name="barrio_comuna" value={formData.barrio_comuna || formData.comuna} onChange={handleChange} />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Dirección Particular</Label>
+                                        <Input name="address" value={formData.address} onChange={handleChange} placeholder="Calle 123, Depto 4" />
+                                    </div>
+
+                                    {/* Propiedad Asignada (Dueño) */}
+                                    <div className="space-y-2">
+                                        <Label>Propiedad (Dueño)</Label>
+                                        <Popover open={openPropertySelect} onOpenChange={setOpenPropertySelect}>
+                                            <PopoverTrigger asChild>
+                                                <Button
+                                                    variant="outline"
+                                                    role="combobox"
+                                                    aria-expanded={openPropertySelect}
+                                                    className="w-full justify-between"
+                                                >
+                                                    {selectedPropertyId
+                                                        ? properties.find((p) => p.id === selectedPropertyId)?.address
+                                                        : "Asignar propiedad..."}
+                                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                </Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-[300px] p-0">
+                                                <Command>
+                                                    <CommandInput placeholder="Buscar propiedad..." />
+                                                    <CommandList>
+                                                        <CommandEmpty>No encontrada.</CommandEmpty>
+                                                        <CommandGroup>
+                                                            {properties.map((prop) => (
+                                                                <CommandItem
+                                                                    key={prop.id}
+                                                                    value={prop.address} // Filter by address
+                                                                    onSelect={() => {
+                                                                        setSelectedPropertyId(prop.id)
+                                                                        setOpenPropertySelect(false)
+                                                                    }}
+                                                                >
+                                                                    <Check
+                                                                        className={cn("mr-2 h-4 w-4", selectedPropertyId === prop.id ? "opacity-100" : "opacity-0")}
+                                                                    />
+                                                                    {prop.address}
+                                                                </CommandItem>
+                                                            ))}
+                                                        </CommandGroup>
+                                                    </CommandList>
+                                                </Command>
+                                            </PopoverContent>
+                                        </Popover>
+                                        <p className="text-[10px] text-muted-foreground">Este contacto quedará registrado como dueño de la propiedad seleccionada.</p>
+                                    </div>
+                                </Section>
+
+                                {/* Section: Detalles Personales */}
+                                <Section title="Detalles Personales">
+                                    <div className="space-y-2">
+                                        <Label>Fecha Nacimiento</Label>
+                                        <Input type="date" name="dob" value={formData.dob} onChange={handleChange} />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Profesión</Label>
+                                        <Input name="profession" value={formData.profession} onChange={handleChange} />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Ocupación</Label>
+                                        <Input name="occupation" value={formData.occupation} onChange={handleChange} />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Sexo</Label>
+                                        <Select name="sex" value={formData.sex} onValueChange={(val) => setFormData(prev => ({ ...prev, sex: val }))}>
+                                            <option value="">Seleccionar...</option>
+                                            <option value="Masculino">Masculino</option>
+                                            <option value="Femenino">Femenino</option>
+                                            <option value="Otro">Otro</option>
+                                        </Select>
+                                    </div>
+                                </Section>
+
+                                {/* Section: Clasificación y Seguimiento */}
+                                <Section title="Clasificación">
+                                    <div className="space-y-2">
+                                        <Label>Rating (Calidad)</Label>
+                                        <Select name="rating" value={formData.rating} onValueChange={(val) => setFormData(prev => ({ ...prev, rating: val }))}>
+                                            <option value="">Seleccionar...</option>
+                                            <option value="A+">A+ (Listo para comprar/vender)</option>
+                                            <option value="A">A (30-60 días)</option>
+                                            <option value="B">B (60-90 días)</option>
+                                            <option value="C">C (Largo plazo)</option>
+                                            <option value="D">D (Descartado/Frío)</option>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Pareto (80/20)</Label>
+                                        <Select name="rating_80_20" value={formData.rating_80_20} onValueChange={(val) => setFormData(prev => ({ ...prev, rating_80_20: val }))}>
+                                            <option value="">Seleccionar...</option>
+                                            <option value="20%">20% (Mejores Clientes)</option>
+                                            <option value="80%">80% (Resto)</option>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Último Contacto</Label>
+                                        <Input type="date" name="last_contact_date" value={formData.last_contact_date} onChange={handleChange} />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Próximo Contacto</Label>
+                                        <Input type="date" name="next_contact_date" value={formData.next_contact_date} onChange={handleChange} />
+                                    </div>
+                                    <div className="col-span-2 space-y-2">
+                                        <Label>Observaciones</Label>
+                                        <Textarea name="observations" value={formData.observations} onChange={handleChange} rows={3} />
+                                    </div>
+                                </Section>
+
+                            </form>
+                        </div>
+
+                        <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 flex justify-end gap-2">
+                            <Button variant="outline" onClick={() => onClose()}>Cancelar</Button>
+                            <Button type="submit" form="contact-form" disabled={loading} className="bg-primary text-white hover:bg-primary/90">
+                                {loading ? 'Guardando...' : <><Save className="w-4 h-4 mr-2" /> Guardar</>}
+                            </Button>
+                        </div>
+                    </motion.div>
                 </div>
-
-                <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 scroll-smooth">
-                    <Section title="Información Personal">
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium">Nombre</label>
-                            <Input name="first_name" value={formData.first_name} onChange={handleChange} required />
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium">Apellido</label>
-                            <Input name="last_name" value={formData.last_name} onChange={handleChange} required />
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium">Sexo</label>
-                            <select
-                                name="sex"
-                                value={formData.sex}
-                                onChange={handleChange}
-                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                            >
-                                <option value="">Seleccionar</option>
-                                <option value="Masculino">Masculino</option>
-                                <option value="Femenino">Femenino</option>
-                                <option value="Otro">Otro</option>
-                            </select>
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium">Fecha de Nacimiento</label>
-                            <Input type="date" name="dob" value={formData.dob} onChange={handleChange} />
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium">Religión</label>
-                            <Input name="religion" value={formData.religion} onChange={handleChange} />
-                        </div>
-                    </Section>
-
-                    <Section title="Información Laboral & Familiar">
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium">Profesión</label>
-                            <Input name="profession" value={formData.profession} onChange={handleChange} />
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium">Ocupación</label>
-                            <Input name="occupation" value={formData.occupation} onChange={handleChange} />
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium">Padre/Madre</label>
-                            <select
-                                name="parent_status"
-                                value={formData.parent_status}
-                                onChange={handleChange}
-                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                            >
-                                <option value="No">No</option>
-                                <option value="Si">Si</option>
-                                <option value="Otro">Otro</option>
-                            </select>
-                        </div>
-                        {formData.parent_status !== 'No' && (
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium">Detalle Padre/Madre</label>
-                                <Input name="parent_notes" value={formData.parent_notes} onChange={handleChange} placeholder="Detalles..." />
-                            </div>
-                        )}
-                        <div className="space-y-2 md:col-span-2">
-                            <label className="text-sm font-medium">Grupo Familiar</label>
-                            <Textarea name="family_group" value={formData.family_group} onChange={handleChange} placeholder="Información sobre la familia..." />
-                        </div>
-                    </Section>
-
-                    <Section title="Contacto & Ubicación">
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium">Teléfono</label>
-                            <Input name="phone" value={formData.phone} onChange={handleChange} />
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium">Correo</label>
-                            <Input type="email" name="email" value={formData.email} onChange={handleChange} />
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium">Barrio/Comuna</label>
-                            <Input name="barrio_comuna" value={formData.barrio_comuna || formData.comuna} onChange={handleChange} />
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium">Domicilio</label>
-                            <Input name="address" value={formData.address} onChange={handleChange} />
-                        </div>
-                    </Section>
-
-                    <Section title="Detalles & Clasificación">
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium">Fuente</label>
-                            <Input name="source" value={formData.source} onChange={handleChange} placeholder="Ej: Portales, Referido..." />
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium">Detalle Fuente</label>
-                            <Input name="source_detail" value={formData.source_detail} onChange={handleChange} />
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium">Calificación (A+)</label>
-                            <Input name="rating" value={formData.rating} onChange={handleChange} />
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium">Calificación 80/20</label>
-                            <Input name="rating_80_20" value={formData.rating_80_20} onChange={handleChange} />
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium">Estado</label>
-                            <select
-                                name="status"
-                                value={formData.status}
-                                onChange={handleChange}
-                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                            >
-                                <option value="Activo">Activo</option>
-                                <option value="Inactivo">Inactivo</option>
-                            </select>
-                        </div>
-                        <div className="space-y-2 md:col-span-2">
-                            <label className="text-sm font-medium">Sobre la persona</label>
-                            <Textarea name="about" value={formData.about} onChange={handleChange} placeholder="Hobbies, gustos, club, etc..." className="min-h-[100px]" />
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium">Necesidad</label>
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="outline" className="w-full justify-start font-normal">
-                                        {formData.need ? (
-                                            <div className="flex flex-wrap gap-1">
-                                                {formData.need.split(',').map((n, i) => (
-                                                    <span key={i} className="bg-slate-100 text-slate-800 text-xs px-2 py-0.5 rounded-full dark:bg-slate-800 dark:text-slate-300">
-                                                        {n.trim()}
-                                                    </span>
-                                                ))}
-                                            </div>
-                                        ) : (
-                                            <span className="text-muted-foreground">Seleccionar necesidades...</span>
-                                        )}
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent className="w-56 z-[200]" align="start">
-                                    {['Comprar', 'Vender', 'Arrendar', 'Administrar Arriendo', 'Otro'].map((option) => {
-                                        const currentNeeds = formData.need ? formData.need.split(',').map(s => s.trim()) : []
-                                        const isChecked = currentNeeds.includes(option)
-
-                                        return (
-                                            <DropdownMenuCheckboxItem
-                                                key={option}
-                                                checked={isChecked}
-                                                onSelect={(e) => {
-                                                    e.preventDefault()
-                                                    let newNeeds = [...currentNeeds]
-                                                    if (!isChecked) {
-                                                        newNeeds.push(option)
-                                                    } else {
-                                                        newNeeds = newNeeds.filter(n => n !== option)
-                                                    }
-                                                    setFormData(prev => ({ ...prev, need: newNeeds.join(', ') }))
-                                                }}
-                                            >
-                                                {option}
-                                            </DropdownMenuCheckboxItem>
-                                        )
-                                    })}
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                        </div>
-                        {formData.need?.includes('Otro') && (
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium">Otra Necesidad (Detalle)</label>
-                                <Input name="need_other" value={formData.need_other} onChange={handleChange} />
-                            </div>
-                        )}
-                    </Section>
-
-                    <Section title="Planificación & Seguimiento">
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium">Fecha Ultimo Contacto</label>
-                            <Input type="date" name="last_contact_date" value={formData.last_contact_date} onChange={handleChange} />
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium">Próxima Fecha Contacto</label>
-                            <Input type="date" name="next_contact_date" value={formData.next_contact_date} onChange={handleChange} />
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium">Acción</label>
-                            <Input name="current_action" value={formData.current_action} onChange={handleChange} />
-                        </div>
-                        <div className="space-y-2 md:col-span-2">
-                            <label className="text-sm font-medium">Observaciones</label>
-                            <Textarea name="observations" value={formData.observations} onChange={handleChange} />
-                        </div>
-                    </Section>
-
-                </form>
-
-                <div className="p-4 border-t bg-gray-50 dark:bg-gray-800/50 flex justify-end gap-2">
-                    <Button variant="outline" onClick={() => onClose(false)}>Cancelar</Button>
-                    <Button onClick={handleSubmit} disabled={loading} className="gap-2">
-                        <Save className="w-4 h-4" />
-                        {loading ? 'Guardando...' : 'Guardar Contacto'}
-                    </Button>
-                </div>
-            </motion.div>
-        </div>,
+            )}
+        </AnimatePresence>,
         document.body
     )
 }

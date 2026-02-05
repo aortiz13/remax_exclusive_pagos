@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { Button, Input, Textarea, Select, Label, Switch, Checkbox, Badge } from '@/components/ui'
 import { X, Save, Search } from 'lucide-react'
+import { X, Save, Search, Plus } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { supabase } from '../../services/supabase'
 import { useAuth } from '../../context/AuthContext'
@@ -9,6 +10,7 @@ import { toast } from 'sonner'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui"
 import AddressAutocomplete from "@/components/ui/AddressAutocomplete"
+import ContactForm from './ContactForm'
 import { cn } from "@/lib/utils"
 import { Check, ChevronsUpDown } from "lucide-react"
 
@@ -27,6 +29,7 @@ const PropertyForm = ({ property, isOpen, onClose }) => {
     const [loading, setLoading] = useState(false)
     const [contacts, setContacts] = useState([])
     const [openOwnerSelect, setOpenOwnerSelect] = useState(false)
+    const [isContactFormOpen, setIsContactFormOpen] = useState(false)
 
     const [formData, setFormData] = useState({
         property_type: 'Departamento',
@@ -213,6 +216,16 @@ const PropertyForm = ({ property, isOpen, onClose }) => {
                                         <CommandList>
                                             <CommandEmpty>No encontrado.</CommandEmpty>
                                             <CommandGroup>
+                                                <CommandItem
+                                                    onSelect={() => {
+                                                        setOpenOwnerSelect(false)
+                                                        setIsContactFormOpen(true)
+                                                    }}
+                                                    className="font-medium text-primary cursor-pointer border-b mb-1 pb-1"
+                                                >
+                                                    <Plus className="mr-2 h-4 w-4" />
+                                                    Crear nuevo contacto
+                                                </CommandItem>
                                                 {contacts.map((contact) => (
                                                     <CommandItem
                                                         key={contact.id}
