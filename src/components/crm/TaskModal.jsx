@@ -6,14 +6,7 @@ import { motion } from 'framer-motion'
 import { supabase } from '../../services/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { toast } from 'sonner'
-// import {
-//     Command,
-//     CommandEmpty,
-//     CommandGroup,
-//     CommandInput,
-//     CommandItem,
-// } from "@/components/ui/command" // If available, otherwise simple select
-// Since I don't know if command is available, I'll use a simple select with search logic
+import { logActivity } from '../../services/activityService'
 
 const TaskModal = ({ task, contactId, isOpen, onClose }) => {
     const { profile, user } = useAuth()
@@ -94,12 +87,15 @@ const TaskModal = ({ task, contactId, isOpen, onClose }) => {
 
                 // Also add activity log if new task
                 if (!error) {
-                    await supabase.from('contact_activities').insert([{
+                    await logActivity({
+                        action: 'Tarea',
+                        entity_type: 'Tarea', // Or link to contact/prop
+                        entity_id: dataToSave.contact_id || dataToSave.property_id,
+                        description: `Tarea creada: ${dataToSave.action}`,
+                        details: { date: dateTime.toISOString() },
                         contact_id: dataToSave.contact_id,
-                        agent_id: dataToSave.agent_id,
-                        type: 'task_created',
-                        description: `Tarea creada: ${dataToSave.action} para ${dateTime.toLocaleString()}`
-                    }])
+                        property_id: dataToSave.property_id
+                    })
                 }
             }
 

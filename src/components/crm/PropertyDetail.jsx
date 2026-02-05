@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import TaskModal from './TaskModal'
 import AddParticipantModal from './AddParticipantModal'
 import Storyline from './Storyline'
+import { logActivity } from '../../services/activityService'
 
 const PropertyDetail = () => {
     const { id } = useParams()
@@ -77,6 +78,18 @@ const PropertyDetail = () => {
         // Optimistic
         setTasks(prev => prev.map(t => t.id === taskId ? { ...t, completed: !currentStatus } : t))
         await supabase.from('crm_tasks').update({ completed: !currentStatus }).eq('id', taskId)
+
+        if (!currentStatus) {
+            const task = tasks.find(t => t.id === taskId)
+            await logActivity({
+                action: 'Tarea',
+                entity_type: 'Propiedad',
+                entity_id: id,
+                description: `Tarea completada: ${task?.action}`,
+                property_id: id,
+                contact_id: task?.contact_id
+            })
+        }
     }
 
     // Placeholder for deleting participant
