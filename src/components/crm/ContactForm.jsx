@@ -196,7 +196,12 @@ const ContactForm = ({ contact, isOpen, onClose }) => {
                                     </div>
                                     <div className="space-y-2">
                                         <Label>Fuente (Origen)</Label>
-                                        <Select name="source" value={formData.source} onValueChange={(val) => setFormData(prev => ({ ...prev, source: val }))}>
+                                        <select
+                                            name="source"
+                                            value={formData.source}
+                                            onChange={handleChange}
+                                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                        >
                                             <option value="">Seleccionar...</option>
                                             <option value="Referido">Referido</option>
                                             <option value="Portal">Portal Inmobiliario</option>
@@ -204,26 +209,36 @@ const ContactForm = ({ contact, isOpen, onClose }) => {
                                             <option value="Web">Web</option>
                                             <option value="Llamado">Llamado Directo</option>
                                             <option value="Otro">Otro</option>
-                                        </Select>
+                                        </select>
                                     </div>
                                     <div className="space-y-2">
                                         <Label>Estado</Label>
-                                        <Select name="status" value={formData.status} onValueChange={(val) => setFormData(prev => ({ ...prev, status: val }))}>
+                                        <select
+                                            name="status"
+                                            value={formData.status}
+                                            onChange={handleChange}
+                                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                        >
                                             <option value="Activo">Activo</option>
                                             <option value="Inactivo">Inactivo</option>
                                             <option value="Archivado">Archivado</option>
                                             <option value="En Seguimiento">En Seguimiento</option>
                                             <option value="Cliente">Cliente (Cerrado)</option>
-                                        </Select>
+                                        </select>
                                     </div>
                                     <div className="space-y-2">
                                         <Label>Necesidad</Label>
-                                        <Select name="need" value={formData.need} onValueChange={(val) => setFormData(prev => ({ ...prev, need: val }))}>
+                                        <select
+                                            name="need"
+                                            value={formData.need}
+                                            onChange={handleChange}
+                                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                        >
                                             <option value="Comprar">Comprar</option>
                                             <option value="Vender">Vender</option>
                                             <option value="Arrendar">Arrendar</option>
                                             <option value="Invertir">Invertir</option>
-                                        </Select>
+                                        </select>
                                     </div>
                                     <div className="space-y-2">
                                         <Label>Email</Label>
@@ -309,12 +324,17 @@ const ContactForm = ({ contact, isOpen, onClose }) => {
                                     </div>
                                     <div className="space-y-2">
                                         <Label>Sexo</Label>
-                                        <Select name="sex" value={formData.sex} onValueChange={(val) => setFormData(prev => ({ ...prev, sex: val }))}>
+                                        <select
+                                            name="sex"
+                                            value={formData.sex}
+                                            onChange={handleChange}
+                                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                        >
                                             <option value="">Seleccionar...</option>
                                             <option value="Masculino">Masculino</option>
                                             <option value="Femenino">Femenino</option>
                                             <option value="Otro">Otro</option>
-                                        </Select>
+                                        </select>
                                     </div>
                                 </Section>
 
@@ -322,22 +342,32 @@ const ContactForm = ({ contact, isOpen, onClose }) => {
                                 <Section title="Clasificación">
                                     <div className="space-y-2">
                                         <Label>Rating (Calidad)</Label>
-                                        <Select name="rating" value={formData.rating} onValueChange={(val) => setFormData(prev => ({ ...prev, rating: val }))}>
+                                        <select
+                                            name="rating"
+                                            value={formData.rating}
+                                            onChange={handleChange}
+                                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                        >
                                             <option value="">Seleccionar...</option>
                                             <option value="A+">A+ (Listo para comprar/vender)</option>
                                             <option value="A">A (30-60 días)</option>
                                             <option value="B">B (60-90 días)</option>
                                             <option value="C">C (Largo plazo)</option>
                                             <option value="D">D (Descartado/Frío)</option>
-                                        </Select>
+                                        </select>
                                     </div>
                                     <div className="space-y-2">
                                         <Label>Pareto (80/20)</Label>
-                                        <Select name="rating_80_20" value={formData.rating_80_20} onValueChange={(val) => setFormData(prev => ({ ...prev, rating_80_20: val }))}>
+                                        <select
+                                            name="rating_80_20"
+                                            value={formData.rating_80_20}
+                                            onChange={handleChange}
+                                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                        >
                                             <option value="">Seleccionar...</option>
                                             <option value="20%">20% (Mejores Clientes)</option>
                                             <option value="80%">80% (Resto)</option>
-                                        </Select>
+                                        </select>
                                     </div>
                                     <div className="space-y-2">
                                         <Label>Último Contacto</Label>
