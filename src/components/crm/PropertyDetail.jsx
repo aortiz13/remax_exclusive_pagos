@@ -212,11 +212,17 @@ const PropertyDetail = () => {
                     <ArrowLeft className="w-5 h-5" />
                 </Button>
                 <div>
-                    <h1 className="text-2xl font-bold">{property.address}</h1>
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                        <Badge variant="outline">{property.property_type}</Badge>
-                        <span>{property.commune}</span>
-                        {property.unit_number && <span>• Unidad {property.unit_number}</span>}
+                    <h1 className="text-xl font-bold truncate max-w-md" title={property.address}>
+                        {property.address}
+                    </h1>
+                    <div className="flex items-center gap-2 text-sm text-gray-500">
+                        {property.price && (
+                            <span className="font-semibold text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 px-2 py-0.5 rounded">
+                                {property.currency === 'CLP' ? '$' : property.currency} {new Intl.NumberFormat('es-CL').format(property.price)}
+                            </span>
+                        )}
+                        {property.unit_number && <span>• Depto {property.unit_number}</span>}
+                        {property.commune && <span>• {property.commune}</span>}
                     </div>
                 </div>
                 <div className="ml-auto flex gap-2">

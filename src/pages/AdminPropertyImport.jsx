@@ -302,6 +302,7 @@ const AdminPropertyImport = () => {
                                     <th className="p-4">Agente</th>
                                     <th className="p-4">Propiedad</th>
                                     <th className="p-4">Tipo</th>
+                                    <th className="p-4">Precio</th>
                                     <th className="p-4">Características</th>
                                     <th className="p-4">Coords</th>
                                     <th className="p-4">Link</th>
@@ -344,6 +345,15 @@ const AdminPropertyImport = () => {
                                         <td className="p-4 text-sm whitespace-nowrap">
                                             {p.property_type}<br />
                                             <span className="text-xs text-gray-500 capitalize">{p.operation_type}</span>
+                                        </td>
+                                        <td className="p-4 text-sm whitespace-nowrap font-medium">
+                                            {p.price ? (
+                                                <span>
+                                                    {p.currency === 'CLP' ? '$' : p.currency} {new Intl.NumberFormat('es-CL').format(p.price)}
+                                                </span>
+                                            ) : (
+                                                <span className="text-gray-400">-</span>
+                                            )}
                                         </td>
                                         <td className="p-4 text-sm">
                                             <div className="flex flex-col gap-1">

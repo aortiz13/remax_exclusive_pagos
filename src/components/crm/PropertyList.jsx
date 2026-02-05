@@ -97,6 +97,7 @@ const PropertyList = () => {
         { id: 'type', label: 'Tipo', visible: true },
         { id: 'address', label: 'Dirección', visible: true },
         { id: 'commune', label: 'Comuna', visible: true },
+        { id: 'price', label: 'Precio', visible: true },
         { id: 'status', label: 'Estado', visible: true },
         { id: 'owner', label: 'Dueño', visible: true },
         { id: 'metrics', label: 'Metrajes', visible: false },
@@ -267,6 +268,18 @@ const PropertyList = () => {
                 )
             case 'commune':
                 return property.commune || '-'
+            case 'price':
+                return (
+                    <div className="font-medium whitespace-nowrap">
+                        {property.price ? (
+                            <span>
+                                {property.currency === 'CLP' ? '$' : property.currency} {new Intl.NumberFormat('es-CL').format(property.price)}
+                            </span>
+                        ) : (
+                            <span className="text-gray-400">-</span>
+                        )}
+                    </div>
+                )
             case 'status':
                 return (
                     <div className="flex flex-wrap gap-1 justify-center">

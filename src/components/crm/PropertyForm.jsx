@@ -220,6 +220,32 @@ const PropertyForm = ({ property, isOpen, onClose }) => {
                     )}
 
                     <Section title="Información Primaria">
+                        <div className="grid grid-cols-2 gap-4 mb-2">
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Moneda</label>
+                                <select
+                                    name="currency"
+                                    value={formData.currency}
+                                    onChange={handleChange}
+                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                    <option value="CLP">CLP (Pesos)</option>
+                                    <option value="UF">UF</option>
+                                    <option value="USD">USD</option>
+                                </select>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Precio</label>
+                                <Input
+                                    type="number"
+                                    name="price"
+                                    value={formData.price}
+                                    onChange={handleChange}
+                                    placeholder="0"
+                                />
+                            </div>
+                        </div>
+
                         <div className="space-y-2">
                             <label className="text-sm font-medium">Tipo de Propiedad</label>
                             <select
