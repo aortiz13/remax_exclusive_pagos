@@ -4,7 +4,7 @@ import { supabase } from '../services/supabase'
 import { Button, Input, Label, Card, CardHeader, CardTitle, CardContent, CardFooter, CardDescription, Alert, AlertDescription, Badge, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui'
 import { useAuth } from '../context/AuthContext'
 import { Navigate } from 'react-router-dom'
-import { Trash2, Shield, User, Loader2, Upload, FileText, CheckCircle2, AlertCircle, X } from 'lucide-react'
+import { Trash2, Shield, User, Loader2, Upload, FileText, CheckCircle2, AlertCircle, X, Edit2 } from 'lucide-react'
 import ExcelJS from 'exceljs'
 
 export default function AdminInvites() {
@@ -21,6 +21,12 @@ export default function AdminInvites() {
     const [deleteLoading, setDeleteLoading] = useState(null) // ID of user being deleted
     const [userToDelete, setUserToDelete] = useState(null)
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+
+    // Remax ID Edit State
+    const [isEditIdOpen, setIsEditIdOpen] = useState(false)
+    const [userToEdit, setUserToEdit] = useState(null)
+    const [remaxId, setRemaxId] = useState('')
+    const [editIdLoading, setEditIdLoading] = useState(false)
 
     // Bulk Invite state
     const [csvFile, setCsvFile] = useState(null)
@@ -277,6 +283,36 @@ export default function AdminInvites() {
         setIsDeleteDialogOpen(true)
     }
 
+    const handleEditIdClick = (user) => {
+        setUserToEdit(user)
+        setRemaxId(user.remax_agent_id || '')
+        setIsEditIdOpen(true)
+    }
+
+    const saveRemaxId = async () => {
+        if (!userToEdit) return
+        setEditIdLoading(true)
+
+        try {
+            const { error } = await supabase
+                .from('profiles')
+                .update({ remax_agent_id: remaxId })
+                .eq('id', userToEdit.id)
+
+            if (error) throw error
+
+            setUsers(users.map(u => u.id === userToEdit.id ? { ...u, remax_agent_id: remaxId } : u))
+            toast.success('ID REMAX actualizado')
+            setIsEditIdOpen(false)
+            setUserToEdit(null)
+        } catch (error) {
+            console.error('Error updating ID:', error)
+            toast.error('Error al actualizar ID')
+        } finally {
+            setEditIdLoading(false)
+        }
+    }
+
     return (
         <div className="container max-w-4xl mx-auto px-4 py-8 space-y-8">
             <div className="grid md:grid-cols-2 gap-8">
@@ -499,8 +535,13 @@ export default function AdminInvites() {
                                             )}
                                         </div>
                                         <div>
-                                            <p className="font-medium text-foreground">
+                                            <p className="font-medium text-foreground flex items-center gap-2">
                                                 {u.first_name} {u.last_name || ''}
+                                                {u.remax_agent_id && (
+                                                    <Badge variant="outline" className="text-[10px] h-5 px-1.5 bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300 border-blue-200 dark:border-blue-800">
+                                                        ID: {u.remax_agent_id}
+                                                    </Badge>
+                                                )}
                                                 {u.id === profile?.id && <span className="ml-2 text-xs text-muted-foreground">(Tú)</span>}
                                             </p>
                                             <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -539,19 +580,29 @@ export default function AdminInvites() {
                                     </div>
 
                                     {u.id !== profile?.id && (
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20"
-                                            onClick={() => handleDeleteClick(u)}
-                                            disabled={deleteLoading === u.id}
-                                        >
-                                            {deleteLoading === u.id ? (
-                                                <Loader2 className="h-4 w-4 animate-spin" />
-                                            ) : (
-                                                <Trash2 className="h-4 w-4" />
-                                            )}
-                                        </Button>
+                                        <div className="flex items-center gap-1">
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                title="Editar ID REMAX"
+                                                onClick={() => handleEditIdClick(u)}
+                                            >
+                                                <Edit2 className="h-4 w-4 text-gray-500" />
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20"
+                                                onClick={() => handleDeleteClick(u)}
+                                                disabled={deleteLoading === u.id}
+                                            >
+                                                {deleteLoading === u.id ? (
+                                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                                ) : (
+                                                    <Trash2 className="h-4 w-4" />
+                                                )}
+                                            </Button>
+                                        </div>
                                     )}
                                 </div>
                             ))}
@@ -575,6 +626,32 @@ export default function AdminInvites() {
                             className="bg-red-600 hover:bg-red-700"
                         >
                             Eliminar Usuario
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            <AlertDialog open={isEditIdOpen} onOpenChange={setIsEditIdOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Asignar ID REMAX</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Asigna un identificador manual para el agente <strong>{userToEdit?.first_name} {userToEdit?.last_name}</strong>.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <div className="py-2">
+                        <Label>ID Agente / Código</Label>
+                        <Input
+                            value={remaxId}
+                            onChange={(e) => setRemaxId(e.target.value)}
+                            placeholder="Ej: AG-1025"
+                            className="mt-2"
+                        />
+                    </div>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel onClick={() => setIsEditIdOpen(false)}>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction onClick={saveRemaxId} disabled={editIdLoading}>
+                            {editIdLoading ? 'Guardando...' : 'Guardar ID'}
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>

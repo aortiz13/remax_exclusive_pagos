@@ -117,6 +117,19 @@ export default function Profile() {
                                 required
                             />
                         </div>
+
+                        {profile?.remax_agent_id && (
+                            <div className="space-y-2">
+                                <Label htmlFor="remaxId">ID Agente REMAX</Label>
+                                <Input
+                                    id="remaxId"
+                                    value={profile.remax_agent_id}
+                                    disabled
+                                    className="bg-slate-50 dark:bg-slate-800 border-blue-200 dark:border-blue-900 text-blue-800 dark:text-blue-300 font-semibold"
+                                />
+                                <p className="text-[10px] text-muted-foreground">Este ID es asignado por administración.</p>
+                            </div>
+                        )}
                     </CardContent>
                     <CardFooter>
                         <Button type="submit" disabled={loading} className="w-full sm:w-auto">
