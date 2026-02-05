@@ -11,6 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui"
 import AddressAutocomplete from "@/components/ui/AddressAutocomplete"
 import ContactForm from './ContactForm'
 import { cn } from "@/lib/utils"
+import { logActivity } from '../../services/activityService'
 
 
 
@@ -112,34 +113,54 @@ const PropertyForm = ({ property, isOpen, onClose }) => {
                 updated_at: new Date().toISOString()
             }
 
-            let error;
+            let savedProperty = null;
+
             if (property?.id) {
-                const { error: updateError } = await supabase
+                const { data, error: updateError } = await supabase
                     .from('properties')
                     .update(dataToSave)
                     .eq('id', property.id)
+                    .select()
+                    .single()
+                savedProperty = data;
                 error = updateError;
             } else {
-                const { error: insertError } = await supabase
+                const { data, error: insertError } = await supabase
                     .from('properties')
                     .insert([dataToSave])
+                    .select()
+                    .single()
+                savedProperty = data;
                 error = insertError;
             }
 
             if (error) throw error
 
-            // Log activity if owner changed or assigned
-            if (dataToSave.owner_id && dataToSave.owner_id !== property?.owner_id) {
-                const activityDescription = property?.id
-                    ? `Se le asignó la propiedad: ${dataToSave.address}`
-                    : `Se le asignó una nueva propiedad: ${dataToSave.address}`
+            // Log activity
+            if (savedProperty) {
+                // 1. Log creation/edit
+                await logActivity({
+                    action: property?.id ? 'Editó' : 'Creó',
+                    entity_type: 'Propiedad',
+                    entity_id: savedProperty.id,
+                    description: property?.id ? 'Editó la propiedad' : 'Creó una nueva propiedad',
+                    property_id: savedProperty.id,
+                    details: { address: savedProperty.address } // context
+                })
 
-                await supabase.from('contact_activities').insert([{
-                    contact_id: dataToSave.owner_id,
-                    agent_id: user?.id,
-                    type: 'property_link',
-                    description: activityDescription
-                }])
+                // 2. Log owner link if changed
+                if (dataToSave.owner_id && dataToSave.owner_id !== property?.owner_id) {
+                    const activityDescription = `Vinculó propiedad: ${savedProperty.address}`
+
+                    await logActivity({
+                        action: 'Vinculó',
+                        entity_type: 'Propiedad',
+                        entity_id: savedProperty.id,
+                        description: activityDescription,
+                        contact_id: dataToSave.owner_id,
+                        property_id: savedProperty.id
+                    })
+                }
             }
 
             toast.success(property ? 'Propiedad actualizada' : 'Propiedad creada')

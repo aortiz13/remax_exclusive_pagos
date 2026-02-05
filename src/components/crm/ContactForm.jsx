@@ -10,6 +10,7 @@ import { Check, ChevronsUpDown } from "lucide-react"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui"
 import { cn } from "@/lib/utils"
+import { logActivity } from '../../services/activityService'
 
 const Section = ({ title, children }) => (
     <div className="mb-6">
@@ -138,11 +139,13 @@ const ContactForm = ({ contact, isOpen, onClose }) => {
 
                 // If property selected, update property owner
                 // Log Creation Activity
-                await supabase.from('contact_activities').insert([{
-                    contact_id: newContactData.id,
-                    type: 'creation',
-                    description: 'Contacto creado en el sistema'
-                }])
+                await logActivity({
+                    action: 'Creó',
+                    entity_type: 'Contacto',
+                    entity_id: newContactData.id,
+                    description: 'Contacto creado en el sistema',
+                    contact_id: newContactData.id
+                })
 
                 if (selectedPropertyId && newContactData) {
                     await supabase
@@ -152,11 +155,15 @@ const ContactForm = ({ contact, isOpen, onClose }) => {
 
                     // Log Property Link Activity
                     const propAddress = properties.find(p => p.id === selectedPropertyId)?.address || 'Propiedad'
-                    await supabase.from('contact_activities').insert([{
+
+                    await logActivity({
+                        action: 'Vinculó',
+                        entity_type: 'Propiedad',
+                        entity_id: selectedPropertyId,
+                        description: `Se vinculó como dueño de la propiedad: ${propAddress}`,
                         contact_id: newContactData.id,
-                        type: 'property_link',
-                        description: `Se vinculó como dueño de la propiedad: ${propAddress}`
-                    }])
+                        property_id: selectedPropertyId
+                    })
                 }
 
                 toast.success('Contacto creado')
@@ -171,11 +178,13 @@ const ContactForm = ({ contact, isOpen, onClose }) => {
 
                 // If property selected, update property owner
                 // Log Update Activity
-                await supabase.from('contact_activities').insert([{
-                    contact_id: contact.id,
-                    type: 'update',
-                    description: 'Se actualizó la información del contacto'
-                }])
+                await logActivity({
+                    action: 'Editó',
+                    entity_type: 'Contacto',
+                    entity_id: contact.id,
+                    description: 'Se actualizó la información del contacto',
+                    contact_id: contact.id
+                })
 
                 if (selectedPropertyId) {
                     await supabase
@@ -185,11 +194,15 @@ const ContactForm = ({ contact, isOpen, onClose }) => {
 
                     // Log Property Link Activity
                     const propAddress = properties.find(p => p.id === selectedPropertyId)?.address || 'Propiedad'
-                    await supabase.from('contact_activities').insert([{
+
+                    await logActivity({
+                        action: 'Vinculó',
+                        entity_type: 'Propiedad',
+                        entity_id: selectedPropertyId,
+                        description: `Se vinculó como dueño de la propiedad: ${propAddress}`,
                         contact_id: contact.id,
-                        type: 'property_link',
-                        description: `Se vinculó como dueño de la propiedad: ${propAddress}`
-                    }])
+                        property_id: selectedPropertyId
+                    })
                 }
 
                 toast.success('Contacto actualizado')

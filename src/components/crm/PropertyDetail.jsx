@@ -7,6 +7,7 @@ import PropertyForm from './PropertyForm'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import TaskModal from './TaskModal'
 import AddParticipantModal from './AddParticipantModal'
+import Storyline from './Storyline'
 
 const PropertyDetail = () => {
     const { id } = useParams()
@@ -181,6 +182,7 @@ const PropertyDetail = () => {
                             <TabsTrigger value="details" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2">Detalles</TabsTrigger>
                             <TabsTrigger value="notes" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2">Notas</TabsTrigger>
                             <TabsTrigger value="links" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2">Enlaces</TabsTrigger>
+                            <TabsTrigger value="activity" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2">Actividad</TabsTrigger>
                         </TabsList>
 
                         <TabsContent value="details" className="py-4 space-y-4">
@@ -238,6 +240,10 @@ const PropertyDetail = () => {
                             {!property.listing_link && !property.documentation_link && (
                                 <div className="text-sm text-muted-foreground italic">No hay enlaces registrados.</div>
                             )}
+                        </TabsContent>
+
+                        <TabsContent value="activity" className="py-4">
+                            <Storyline propertyId={id} />
                         </TabsContent>
                     </Tabs>
 

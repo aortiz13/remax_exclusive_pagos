@@ -8,6 +8,7 @@ import { supabase } from '../../services/supabase'
 import { toast } from 'sonner'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui"
+import { logActivity } from '../../services/activityService'
 
 const ROLES = ['Dueño', 'Arrendador', 'Abogado', 'Familiar', 'Captador', 'Otro']
 
@@ -54,6 +55,17 @@ const AddParticipantModal = ({ isOpen, onClose, propertyId }) => {
                 })
 
             if (error) throw error
+
+            const contactName = contacts.find(c => c.id === selectedContactId)?.first_name + " " + contacts.find(c => c.id === selectedContactId)?.last_name
+
+            await logActivity({
+                action: 'Vinculó',
+                entity_type: 'Propiedad',
+                entity_id: propertyId,
+                description: `Participante vinculado: ${contactName} como ${role}`,
+                property_id: propertyId,
+                contact_id: selectedContactId
+            })
 
             toast.success('Participante agregado correctamente')
             onClose(true) // Trigger refresh

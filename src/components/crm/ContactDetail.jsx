@@ -7,12 +7,14 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs' 
 import ContactForm from './ContactForm'
 import TaskModal from './TaskModal'
 import { toast } from 'sonner'
+import Storyline from './Storyline'
+import { logActivity } from '../../services/activityService'
 
 const ContactDetail = () => {
     const { id } = useParams()
     const navigate = useNavigate()
     const [contact, setContact] = useState(null)
-    const [activities, setActivities] = useState([])
+    // const [activities, setActivities] = useState([]) // Removed legacy local state
     const [tasks, setTasks] = useState([])
     const [ownedProperties, setOwnedProperties] = useState([])
     const [loading, setLoading] = useState(true)
@@ -44,15 +46,7 @@ const ContactDetail = () => {
             if (contactError) throw contactError
             setContact(contactData)
 
-            // 2. Fetch Activities (Storyline)
-            const { data: activityData, error: activityError } = await supabase
-                .from('contact_activities')
-                .select('*')
-                .eq('contact_id', id)
-                .order('created_at', { ascending: false })
-
-            if (activityError) throw activityError
-            setActivities(activityData || [])
+            // 2. Activities handled by Storyline component now
 
             // 3. Fetch Tasks
             const { data: taskData, error: taskError } = await supabase
@@ -90,18 +84,18 @@ const ContactDetail = () => {
         if (!note.trim()) return
         try {
             setNoteLoading(true)
-            const { error } = await supabase
-                .from('contact_activities')
-                .insert([{
-                    contact_id: id,
-                    type: 'note',
-                    description: note
-                }])
 
-            if (error) throw error
+            await logActivity({
+                contact_id: id,
+                action: 'Nota',
+                entity_type: 'Contacto',
+                entity_id: id,
+                description: note
+            })
+
             toast.success('Nota agregada')
             setNote('')
-            fetchData() // Refresh activities
+            // fetchData() // Storyline subscribes automatically, but we might trigger refresh if needed
         } catch (error) {
             console.error('Error adding note:', error)
             toast.error('Error al agregar nota')
@@ -124,11 +118,13 @@ const ContactDetail = () => {
 
             // Log activity for completion
             if (!currentStatus) {
-                await supabase.from('contact_activities').insert([{
+                await logActivity({
                     contact_id: id,
-                    type: 'task_completed',
+                    action: 'Tarea',
+                    entity_type: 'Contacto',
+                    entity_id: id,
                     description: `Tarea completada: ${tasks.find(t => t.id === taskId)?.action}`
-                }])
+                })
             }
 
             toast.success('Tarea actualizada')
@@ -237,58 +233,7 @@ const ContactDetail = () => {
                         </div>
 
                         <h2 className="text-xl font-semibold mb-6">Actividad Reciente</h2>
-                        <div className="relative border-l border-gray-200 dark:border-gray-700 ml-3 space-y-8">
-                            {activities.length === 0 ? (
-                                <p className="ml-6 text-gray-500">No hay actividad registrada.</p>
-                            ) : activities.map((activity, idx) => (
-                                <div key={activity.id} className="relative ml-6">
-                                    <span className={`absolute -left-[31px] flex h-6 w-6 items-center justify-center rounded-full ring-8 ring-white dark:ring-gray-900 ${activity.type === 'note' ? 'bg-yellow-100 dark:bg-yellow-900' :
-                                        activity.type === 'task_completed' ? 'bg-green-100 dark:bg-green-900' :
-                                            'bg-blue-100 dark:bg-blue-900'
-                                        }`}>
-                                        <div className={`h-2 w-2 rounded-full ${activity.type === 'note' ? 'bg-yellow-600 dark:bg-yellow-400' :
-                                            activity.type === 'task_completed' ? 'bg-green-600 dark:bg-green-400' :
-                                                'bg-blue-600 dark:bg-blue-400'
-                                            }`} />
-                                    </span>
-                                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-baseline">
-                                        <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                                            {activity.type === 'creation' && 'Contacto Creado'}
-                                            {activity.type === 'update' && 'Información Actualizada'}
-                                            {activity.type === 'task_created' && 'Tarea Creada'}
-                                            {activity.type === 'task_completed' && 'Tarea Completada'}
-                                            {activity.type === 'note' && 'Nota Agregada'}
-                                            {activity.type === 'property_link' && 'Propiedad Vinculada'}
-                                            {!['creation', 'update', 'task_created', 'task_completed', 'note', 'property_link'].includes(activity.type) && activity.type}
-                                        </p>
-                                        <span className="text-xs text-gray-500 whitespace-nowrap">
-                                            {new Date(activity.created_at).toLocaleString()}
-                                        </span>
-                                    </div>
-                                    <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
-                                        {activity.type === 'property_link' ? (() => {
-                                            const address = activity.description.split(': ')[1]?.trim()
-                                            const linkedProp = ownedProperties.find(p => p.address === address)
-                                            return linkedProp ? (
-                                                <span>
-                                                    {activity.description.split(': ')[0]}:{' '}
-                                                    <span
-                                                        className="text-primary hover:underline cursor-pointer font-medium"
-                                                        onClick={() => navigate(`/crm/property/${linkedProp.id}`)}
-                                                    >
-                                                        {address}
-                                                    </span>
-                                                </span>
-                                            ) : (
-                                                activity.description
-                                            )
-                                        })() : (
-                                            activity.description
-                                        )}
-                                    </p>
-                                </div>
-                            ))}
-                        </div>
+                        <Storyline contactId={id} />
                     </div>
                 </TabsContent>
 
@@ -447,7 +392,7 @@ const ContactDetail = () => {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
-        </div>
+        </div >
     )
 }
 
