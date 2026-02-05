@@ -402,7 +402,10 @@ const PropertyDetail = () => {
                 propertyId={id}
                 onClose={(refresh) => {
                     setIsAddParticipantOpen(false)
-                    if (refresh) fetchParticipants()
+                    if (refresh) {
+                        fetchParticipants()
+                        fetchProperty()
+                    }
                 }}
             />
         </div >

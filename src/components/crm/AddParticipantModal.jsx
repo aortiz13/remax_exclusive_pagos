@@ -56,6 +56,14 @@ const AddParticipantModal = ({ isOpen, onClose, propertyId }) => {
 
             if (error) throw error
 
+            // Sync with property owner_id if role is Dueño
+            if (role === 'Dueño') {
+                await supabase
+                    .from('properties')
+                    .update({ owner_id: selectedContactId })
+                    .eq('id', propertyId)
+            }
+
             const contactName = contacts.find(c => c.id === selectedContactId)?.first_name + " " + contacts.find(c => c.id === selectedContactId)?.last_name
 
             await logActivity({
