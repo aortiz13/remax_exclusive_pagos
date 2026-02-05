@@ -6,6 +6,7 @@ import { supabase } from '../../services/supabase'
 import PropertyForm from './PropertyForm'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import TaskModal from './TaskModal'
+import AddParticipantModal from './AddParticipantModal'
 
 const PropertyDetail = () => {
     const { id } = useParams()
@@ -19,6 +20,7 @@ const PropertyDetail = () => {
     // Task States
     const [isTaskModalOpen, setIsTaskModalOpen] = useState(false)
     const [selectedTask, setSelectedTask] = useState(null)
+    const [isAddParticipantOpen, setIsAddParticipantOpen] = useState(false)
 
     useEffect(() => {
         fetchProperty()
@@ -208,7 +210,9 @@ const PropertyDetail = () => {
                         <TabsContent value="notes" className="py-4">
                             <div className="bg-yellow-50 dark:bg-yellow-900/10 rounded-xl border border-yellow-100 dark:border-yellow-900/20 p-4 min-h-[150px]">
                                 <h3 className="font-medium mb-2 text-yellow-800 dark:text-yellow-200">Observaciones</h3>
-                                <p className="whitespace-pre-wrap text-sm">{property.notes || 'Sin notas.'}</p>
+                                <p className="whitespace-pre-wrap text-sm">
+                                    {property.notes ? property.notes.replace(/<br\s*\/?>/gi, '\n') : 'Sin notas.'}
+                                </p>
                             </div>
                         </TabsContent>
 
@@ -278,7 +282,13 @@ const PropertyDetail = () => {
                             <h3 className="font-medium flex items-center gap-2">
                                 <User className="w-4 h-4" /> Relacionados
                             </h3>
-                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0" title="Próximamente">
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0"
+                                title="Agregar Participante"
+                                onClick={() => setIsAddParticipantOpen(true)}
+                            >
                                 <Plus className="w-3 h-3" />
                             </Button>
                         </div>
@@ -323,6 +333,15 @@ const PropertyDetail = () => {
                     setIsTaskModalOpen(false)
                     setSelectedTask(null)
                     if (refresh) fetchTasks()
+                }}
+            />
+
+            <AddParticipantModal
+                isOpen={isAddParticipantOpen}
+                propertyId={id}
+                onClose={(refresh) => {
+                    setIsAddParticipantOpen(false)
+                    if (refresh) fetchParticipants()
                 }}
             />
         </div>
