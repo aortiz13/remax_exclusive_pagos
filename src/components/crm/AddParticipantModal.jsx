@@ -10,7 +10,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui"
 import { logActivity } from '../../services/activityService'
 
-const ROLES = ['Dueño', 'Arrendador', 'Abogado', 'Familiar', 'Captador', 'Otro']
+const ROLES = ['Dueño', 'Arrendador', 'Arrendatario', 'Abogado', 'Familiar', 'Captador', 'Otro']
 
 const AddParticipantModal = ({ isOpen, onClose, propertyId }) => {
     const [loading, setLoading] = useState(false)

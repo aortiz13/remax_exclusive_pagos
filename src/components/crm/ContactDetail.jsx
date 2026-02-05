@@ -16,7 +16,7 @@ const ContactDetail = () => {
     const [contact, setContact] = useState(null)
     // const [activities, setActivities] = useState([]) // Removed legacy local state
     const [tasks, setTasks] = useState([])
-    const [ownedProperties, setOwnedProperties] = useState([])
+    const [relatedProperties, setRelatedProperties] = useState([])
     const [loading, setLoading] = useState(true)
     const [isEditOpen, setIsEditOpen] = useState(false)
     const [isTaskModalOpen, setIsTaskModalOpen] = useState(false)
@@ -58,14 +58,45 @@ const ContactDetail = () => {
             if (taskError) throw taskError
             setTasks(taskData || [])
 
-            // 4. Fetch Owned Properties
-            const { data: propData, error: propError } = await supabase
+            // 4. Fetch Related Properties (Owned + Linked)
+            // A. Owned
+            const { data: ownedData } = await supabase
                 .from('properties')
                 .select('*')
                 .eq('owner_id', id)
 
-            if (propError) throw propError
-            setOwnedProperties(propData || [])
+            // B. Linked via property_contacts
+            const { data: linkedData } = await supabase
+                .from('property_contacts')
+                .select(`
+                    id, 
+                    role,
+                    property:property_id ( * )
+                `)
+                .eq('contact_id', id)
+
+            // Combine
+            const combined = []
+
+            // Add owned
+            if (ownedData) {
+                ownedData.forEach(p => {
+                    combined.push({ ...p, role: 'Dueño', linkId: `owned_${p.id}` })
+                })
+            }
+
+            // Add linked
+            if (linkedData) {
+                linkedData.forEach(link => {
+                    const prop = link.property
+                    // Avoid duplicates if also owner (unlikely but possible if data dirty)
+                    if (prop && !combined.find(c => c.id === prop.id && c.role === 'Dueño')) {
+                        combined.push({ ...prop, role: link.role, linkId: link.id })
+                    }
+                })
+            }
+
+            setRelatedProperties(combined)
 
         } catch (error) {
             console.error('Error fetching details:', error)
@@ -313,21 +344,29 @@ const ContactDetail = () => {
                     </div>
                 </TabsContent>
 
-                {ownedProperties.length > 0 && (
+                {relatedProperties.length > 0 && (
                     <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 p-6 mt-6">
-                        <h2 className="text-xl font-semibold mb-4">Propiedades (Dueño)</h2>
+                        <h2 className="text-xl font-semibold mb-4">Propiedades Asociadas</h2>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {ownedProperties.map(prop => (
+                            {relatedProperties.map(prop => (
                                 <div
-                                    key={prop.id}
+                                    key={prop.linkId || prop.id}
                                     className="p-4 rounded-lg border bg-gray-50 dark:bg-gray-800/50 flex flex-col gap-2 cursor-pointer hover:border-primary/50 transition-colors group"
                                     onClick={() => navigate(`/crm/property/${prop.id}`)}
                                 >
                                     <div className="flex justify-between items-start">
                                         <h3 className="font-semibold text-sm group-hover:text-primary transition-colors">{prop.address}</h3>
-                                        <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full dark:bg-blue-900 dark:text-blue-200">
-                                            {prop.property_type}
-                                        </span>
+                                        <div className="flex flex-col items-end gap-1">
+                                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${prop.role === 'Dueño'
+                                                    ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                                                    : 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'
+                                                }`}>
+                                                {prop.role}
+                                            </span>
+                                            <span className="text-[10px] text-gray-500">
+                                                {prop.property_type}
+                                            </span>
+                                        </div>
                                     </div>
                                     <div className="text-xs text-muted-foreground">
                                         {prop.commune}
