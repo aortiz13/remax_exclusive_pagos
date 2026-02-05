@@ -97,6 +97,15 @@ const PropertyMap = () => {
                             <Popup>
                                 <div className="min-w-[200px]">
                                     <div className="flex flex-col gap-1">
+                                        {property.image_url && (
+                                            <div className="w-full h-32 mb-2 rounded-md overflow-hidden bg-gray-100">
+                                                <img
+                                                    src={property.image_url}
+                                                    alt={property.address}
+                                                    className="w-full h-full object-cover"
+                                                />
+                                            </div>
+                                        )}
                                         <Badge className="w-fit mb-1">{property.property_type}</Badge>
                                         <h4 className="font-bold text-sm leading-tight">{property.address}</h4>
                                         <p className="text-xs text-muted-foreground">{property.commune}</p>

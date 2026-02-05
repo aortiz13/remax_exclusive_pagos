@@ -11,6 +11,7 @@ const AdminPropertyImport = () => {
     const [loading, setLoading] = useState(false)
     const [scannedProperties, setScannedProperties] = useState([])
     const [selectedProperties, setSelectedProperties] = useState({})
+    const [existingLinks, setExistingLinks] = useState(new Set())
     const [importing, setImporting] = useState(false)
 
     const handleScan = async (e) => {
@@ -36,13 +37,39 @@ const AdminPropertyImport = () => {
 
             if (data.success) {
                 setScannedProperties(data.properties)
-                // Select all by default
+
+                // Check for duplicates in DB
+                const urls = data.properties.map(p => p.source_url).filter(Boolean)
+                let foundLinks = new Set()
+
+                if (urls.length > 0) {
+                    const { data: existingData } = await supabase
+                        .from('properties')
+                        .select('listing_link')
+                        .in('listing_link', urls)
+
+                    if (existingData) {
+                        existingData.forEach(item => foundLinks.add(item.listing_link))
+                    }
+                }
+                setExistingLinks(foundLinks)
+
+                // Select only non-duplicates by default
                 const allSelected = {}
                 data.properties.forEach((p, idx) => {
-                    allSelected[idx] = true
+                    if (!foundLinks.has(p.source_url)) {
+                        allSelected[idx] = true
+                    }
                 })
                 setSelectedProperties(allSelected)
-                toast.success(`Se encontraron ${data.properties.length} propiedades`)
+
+                const duplicateCount = data.properties.filter(p => foundLinks.has(p.source_url)).length
+                if (duplicateCount > 0) {
+                    toast.success(`Se encontraron ${data.properties.length} propiedades (${duplicateCount} ya importadas)`)
+                } else {
+                    toast.success(`Se encontraron ${data.properties.length} propiedades nuevas`)
+                }
+
             } else {
                 toast.error('No se pudieron obtener propiedades: ' + data.error)
             }
@@ -171,10 +198,11 @@ const AdminPropertyImport = () => {
                             </thead>
                             <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                                 {scannedProperties.map((p, idx) => (
-                                    <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                                    <tr key={idx} className={`hover:bg-gray-50 dark:hover:bg-gray-700/30 ${existingLinks.has(p.source_url) ? 'opacity-60 bg-gray-50' : ''}`}>
                                         <td className="p-4">
                                             <Checkbox
                                                 checked={!!selectedProperties[idx]}
+                                                disabled={existingLinks.has(p.source_url)}
                                                 onCheckedChange={(checked) => {
                                                     setSelectedProperties(prev => ({
                                                         ...prev,
@@ -190,6 +218,11 @@ const AdminPropertyImport = () => {
                                         </td>
                                         <td className="p-4 font-medium max-w-[300px] truncate" title={p.title}>
                                             {p.title}
+                                            {existingLinks.has(p.source_url) && (
+                                                <span className="ml-2 inline-flex items-center rounded-md bg-yellow-50 px-2 py-1 text-xs font-medium text-yellow-700 ring-1 ring-inset ring-yellow-600/20">
+                                                    Ya importada
+                                                </span>
+                                            )}
                                             <div className="text-xs text-gray-500 truncate">{p.description?.substring(0, 50)}...</div>
                                         </td>
                                         <td className="p-4 text-sm">{p.property_type}</td>

@@ -44,6 +44,7 @@ const PropertyForm = ({ property, isOpen, onClose }) => {
         bedrooms: '',
         bathrooms: '',
         documentation_link: '',
+        image_url: '',
         latitude: null,
         longitude: null
     })
@@ -58,6 +59,7 @@ const PropertyForm = ({ property, isOpen, onClose }) => {
         if (property) {
             setFormData({
                 ...property,
+                image_url: property.image_url || '',
                 m2_total: property.m2_total || '',
                 m2_built: property.m2_built || '',
                 bedrooms: property.bedrooms || '',
@@ -169,6 +171,19 @@ const PropertyForm = ({ property, isOpen, onClose }) => {
                 </div>
 
                 <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 scroll-smooth">
+                    {formData.image_url && (
+                        <div className="mb-6 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-800 relative bg-gray-100 dark:bg-gray-800 h-48 md:h-64">
+                            <img
+                                src={formData.image_url}
+                                alt="Propiedad"
+                                className="w-full h-full object-cover"
+                            />
+                            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-4">
+                                <p className="text-white font-medium text-lg drop-shadow-sm">{formData.address}</p>
+                            </div>
+                        </div>
+                    )}
+
                     <Section title="Información Primaria">
                         <div className="space-y-2">
                             <label className="text-sm font-medium">Tipo de Propiedad</label>
