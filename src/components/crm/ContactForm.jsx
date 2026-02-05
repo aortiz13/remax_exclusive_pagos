@@ -273,7 +273,7 @@ const ContactForm = ({ contact, isOpen, onClose }) => {
                                     <div className="space-y-2">
                                         <Label>Necesidad</Label>
                                         <div className="flex flex-wrap gap-2 mt-2">
-                                            {['Comprar', 'Vender', 'Arrendar', 'Invertir'].map((option) => (
+                                            {['Comprar', 'Vender', 'Arrendar', 'Invertir', 'Otra'].map((option) => (
                                                 <Badge
                                                     key={option}
                                                     variant={selectedNeeds.includes(option) ? "default" : "outline"}
@@ -290,6 +290,18 @@ const ContactForm = ({ contact, isOpen, onClose }) => {
                                                 </Badge>
                                             ))}
                                         </div>
+                                        {selectedNeeds.includes('Otra') && (
+                                            <div className="mt-2 animate-in fade-in slide-in-from-top-1 duration-300">
+                                                <Label>Especifique otra necesidad</Label>
+                                                <Input
+                                                    name="need_other"
+                                                    value={formData.need_other}
+                                                    onChange={handleChange}
+                                                    placeholder="Ej: Inversión en terreno, Local comercial..."
+                                                    className="mt-1"
+                                                />
+                                            </div>
+                                        )}
                                     </div>
                                     <div className="space-y-2">
                                         <Label>Email</Label>
