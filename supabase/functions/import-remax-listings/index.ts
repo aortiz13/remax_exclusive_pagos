@@ -1,6 +1,5 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { DOMParser } from "https://deno.land/x/deno_dom/deno-dom-wasm.ts";
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -14,177 +13,152 @@ serve(async (req) => {
     }
 
     try {
-        console.log(`Incoming request method: ${req.method}`);
-
-        // Log headers to debug authentication issues (without logging full token)
-        const authHeader = req.headers.get('Authorization');
-        console.log(`Authorization Header Present: ${!!authHeader}`);
-        console.log(`Authorization Header Length: ${authHeader ? authHeader.length : 0}`);
-
         const { agentId } = await req.json()
 
         if (!agentId) {
             throw new Error('Agent ID is required')
         }
 
-        console.log(`Fetching listings for Agent ID: ${agentId}`);
+        console.log(`Fetching listings for Agent ID: ${agentId} using Search API`);
+        const searchUrl = 'https://www.remax.cl/search/listing-search/docs/search';
 
-        // Fetch the main listing page
-        const listUrl = `https://www.remax.cl/listings?ListingClass=-1&TransactionTypeUID=-1&AgentID=${agentId}`;
-        const listResponse = await fetch(listUrl, {
+        // Strict Payload matching the website behavior
+        // Filter out OnHold, NotViewable items to match public listing count
+        const payload = {
+            "count": true,
+            "skip": 0,
+            "top": 100,
+            "search": "*",
+            "filter": `content/AgentId eq ${agentId} and content/IsViewable eq true and content/OnHoldListing eq false`
+        };
+
+        const searchResponse = await fetch(searchUrl, {
+            method: 'POST',
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-            }
+                'Accept': 'application/json, text/plain, */*',
+                'Content-Type': 'application/json',
+                'Origin': 'https://www.remax.cl',
+                'Referer': `https://www.remax.cl/listings?AgentID=${agentId}`
+            },
+            body: JSON.stringify(payload)
         });
 
-        if (!listResponse.ok) {
-            throw new Error(`Failed to fetch listing page: ${listResponse.status} ${listResponse.statusText}`);
+        if (!searchResponse.ok) {
+            throw new Error(`API Error: ${searchResponse.status}`);
         }
 
-        const listHtml = await listResponse.text();
-        const doc = new DOMParser().parseFromString(listHtml, "text/html");
+        const searchResult = await searchResponse.json();
+        const rawProperties = searchResult.value || [];
+        console.log(`Found ${rawProperties.length} active properties via API`);
 
-        // Check HTML content
-        console.log(`Fetched HTML Length: ${listHtml.length}`);
-        const snippet = listHtml.substring(0, 500);
+        // Helper to find key case-insensitively
+        const getVal = (obj, key) => {
+            if (!obj) return undefined;
+            const foundKey = Object.keys(obj).find(k => k.toLowerCase() === key.toLowerCase());
+            return foundKey ? obj[foundKey] : undefined;
+        };
 
-        const propertyLinks = [];
-        const linkElements = doc.querySelectorAll('a');
+        const properties = rawProperties.map(item => {
+            // UNWRAP CONTENT: The API returns { "@search.score": 1, "content": { ...data... } }
+            const p = item.content || item;
 
-        console.log(`Found ${linkElements.length} total links`);
+            // ID & URL
+            let listingId = getVal(p, 'ListingId') || getVal(p, 'MLSID');
+            let sourceUrl = '';
 
-        for (const link of linkElements) {
-            const href = link.getAttribute('href');
-            if (href && href.includes('/propiedades/') && href.includes(agentId)) {
-                const fullUrl = href.startsWith('http') ? href : `https://www.remax.cl${href}`;
-                if (!propertyLinks.includes(fullUrl)) {
-                    propertyLinks.push(fullUrl);
+            // Fallback: Extract from ShortLinks
+            const shortLinks = getVal(p, 'ShortLinks');
+            if (Array.isArray(shortLinks) && shortLinks.length > 0) {
+                // "es-cl/propiedades/.../1028061013-997"
+                const link = shortLinks.find(l => l.ISOLanguageCode === 'es' || l.LanguageCode === 'es-CL') || shortLinks[0];
+                if (link && link.ShortLink) {
+                    sourceUrl = `https://www.remax.cl/${link.ShortLink}`;
+                    if (!listingId) {
+                        const parts = link.ShortLink.split('/');
+                        listingId = parts[parts.length - 1];
+                    }
                 }
             }
-        }
 
-        console.log(`Found ${propertyLinks.length} property links matches`);
-
-        // If no links found, return the HTML snippet to debug
-        if (propertyLinks.length === 0) {
-            return new Response(
-                JSON.stringify({
-                    success: false,
-                    count: 0,
-                    error: 'No properties found. Likely blocked by Cloudflare or selector change.',
-                    debug: {
-                        auth_received: !!authHeader,
-                        html_snippet: snippet,
-                        total_links_found: linkElements.length
-                    }
-                }),
-                { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-            )
-        }
-
-        const properties = [];
-        const limit = 10;
-        const linksToProcess = propertyLinks.slice(0, limit);
-
-        const detailPromises = linksToProcess.map(async (url) => {
-            try {
-                console.log(`Processing: ${url}`);
-                const res = await fetch(url, {
-                    headers: {
-                        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-                    }
-                });
-                if (!res.ok) return null;
-
-                const html = await res.text();
-                const pDoc = new DOMParser().parseFromString(html, "text/html");
-
-                const getText = (selector) => {
-                    const el = pDoc.querySelector(selector);
-                    return el ? el.textContent.trim() : null;
-                };
-
-                const title = getText('h1') || getText('.listing-address') || 'Desconocido';
-
-                let description = getText('.listing-description') || '';
-                if (!description) {
-                    const divs = pDoc.querySelectorAll('div');
-                    for (const div of divs) {
-                        if (div.textContent.length > 200 && div.textContent.includes('RE/MAX')) {
-                        }
-                    }
-                }
-
-                let m2_total = 0;
-                let m2_built = 0;
-                let bedrooms = 0;
-                let bathrooms = 0;
-                let type = 'Departamento';
-
-                const allText = pDoc.body.textContent;
-
-                const m2Match = allText.match(/(\d+)\s*m²\s*totales/i) || allText.match(/superficie\s*total\s*(\d+)/i);
-                if (m2Match) m2_total = parseInt(m2Match[1]);
-
-                const builtMatch = allText.match(/(\d+)\s*m²\s*úti/i) || allText.match(/(\d+)\s*m²\s*constr/i);
-                if (builtMatch) m2_built = parseInt(builtMatch[1]);
-
-                const bedMatch = allText.match(/(\d+)\s*dorm/i);
-                if (bedMatch) bedrooms = parseInt(bedMatch[1]);
-
-                const bathMatch = allText.match(/(\d+)\s*bañ/i);
-                if (bathMatch) bathrooms = parseInt(bathMatch[1]);
-
-                if (url.includes('departamento')) type = 'Departamento';
-                else if (url.includes('casa')) type = 'Casa';
-                else if (url.includes('oficina')) type = 'Oficina';
-                else if (url.includes('terreno')) type = 'Terreno';
-                else if (url.includes('comercial') || url.includes('negocio')) type = 'Comercial';
-                else if (url.includes('parking') || url.includes('estacionamiento')) type = 'Estacionamiento';
-
-                let latitude = null;
-                let longitude = null;
-
-                const latMatch = html.match(/"latitude":\s*(-?\d+\.\d+)/);
-                const lngMatch = html.match(/"longitude":\s*(-?\d+\.\d+)/);
-
-                if (latMatch && lngMatch) {
-                    latitude = parseFloat(latMatch[1]);
-                    longitude = parseFloat(lngMatch[1]);
-                }
-
-                return {
-                    source_url: url,
-                    title,
-                    property_type: type,
-                    address: title,
-                    m2_total,
-                    m2_built,
-                    bedrooms,
-                    bathrooms,
-                    description,
-                    latitude,
-                    longitude,
-                    agent_id: agentId,
-                    status: ['Publicada', 'En Venta']
-                };
-
-            } catch (e) {
-                console.error(`Error processing ${url}`, e);
-                return null;
+            if (!sourceUrl && listingId) {
+                sourceUrl = `https://www.remax.cl/propiedades/${listingId}`;
             }
+
+            // Basic Info
+            const title = getVal(p, 'FullAddress') || getVal(p, 'ListingName') || 'Propiedad sin título';
+            const address = getVal(p, 'FullAddress') || title;
+
+            const m2_total = getVal(p, 'TotalArea') || 0;
+            const m2_built = getVal(p, 'LivingArea') || getVal(p, 'BuiltArea') || 0;
+            const bedrooms = getVal(p, 'NumberOfBedrooms') || 0;
+            const bathrooms = getVal(p, 'NumberOfBathrooms') || 0;
+
+            // Description
+            let desc = '';
+            const descArray = getVal(p, 'ListingDescriptions');
+            if (Array.isArray(descArray) && descArray.length > 0) {
+                desc = descArray.find(d => d.ISOLanguageCode === 'es')?.Description || descArray[0].Description || '';
+            }
+
+            // Location
+            let latitude = null;
+            let longitude = null;
+            const loc = getVal(p, 'Location');
+            if (loc && loc.coordinates) {
+                longitude = loc.coordinates[0];
+                latitude = loc.coordinates[1];
+            }
+
+            // Type
+            let propertyType = 'Departamento';
+            const combinedText = (title + ' ' + desc).toLowerCase();
+            if (combinedText.includes('casa')) propertyType = 'Casa';
+            else if (combinedText.includes('terreno') || combinedText.includes('parcela')) propertyType = 'Terreno';
+            else if (combinedText.includes('oficina')) propertyType = 'Oficina';
+            else if (combinedText.includes('local') || combinedText.includes('comercial')) propertyType = 'Comercial';
+            else if (combinedText.includes('estacionamiento')) propertyType = 'Estacionamiento';
+
+            // Image URL extraction
+            // CDN: https://remax.azureedge.net/userimages/1028/LargeWM/{FileName}
+            let imageUrl = null;
+            const images = getVal(p, 'ListingImages');
+            if (Array.isArray(images) && images.length > 0) {
+                // Sort by Order if possible, or take first
+                const firstImage = images.sort((a, b) => (parseInt(a.Order) || 0) - (parseInt(b.Order) || 0))[0];
+                if (firstImage && firstImage.FileName) {
+                    // Heuristic: CountryID 1028 for Chile
+                    const countryId = getVal(p, 'CountryID') || 1028;
+                    imageUrl = `https://remax.azureedge.net/userimages/${countryId}/LargeWM/${firstImage.FileName}`;
+                }
+            }
+
+            return {
+                source_url: sourceUrl || `https://www.remax.cl/`,
+                title: title || 'Propiedad sin título',
+                property_type: propertyType,
+                address: address,
+                m2_total: Math.round(m2_total),
+                m2_built: Math.round(m2_built),
+                bedrooms,
+                bathrooms,
+                description: desc,
+                latitude,
+                longitude,
+                agent_id: agentId,
+                status: ['Publicada', 'En Venta'],
+                price: getVal(p, 'ListingPrice'),
+                currency: getVal(p, 'ListingCurrency'),
+                image_url: imageUrl
+            };
         });
-
-        const results = await Promise.all(detailPromises);
-        const successResults = results.filter(r => r !== null);
 
         return new Response(
             JSON.stringify({
                 success: true,
-                count: successResults.length,
+                count: properties.length,
                 agentId,
-                properties: successResults
+                properties: properties
             }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )

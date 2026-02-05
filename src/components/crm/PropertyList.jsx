@@ -79,6 +79,7 @@ const PropertyList = () => {
 
     // Column State
     const [columns, setColumns] = useState([
+        { id: 'image', label: '', visible: true },
         { id: 'type', label: 'Tipo', visible: true },
         { id: 'address', label: 'Dirección', visible: true },
         { id: 'commune', label: 'Comuna', visible: true },
@@ -180,6 +181,22 @@ const PropertyList = () => {
 
     const renderCellContent = (colId, property) => {
         switch (colId) {
+            case 'image':
+                return (
+                    <div className="flex justify-center">
+                        {property.image_url ? (
+                            <img
+                                src={property.image_url}
+                                alt="Propiedad"
+                                className="w-12 h-10 object-cover rounded-md border border-gray-100" // Small thumbnail
+                            />
+                        ) : (
+                            <div className="w-12 h-10 bg-gray-100 rounded-md flex items-center justify-center text-gray-400">
+                                <Home className="w-5 h-5" />
+                            </div>
+                        )}
+                    </div>
+                )
             case 'type':
                 return (
                     <div className="flex flex-col items-center">

@@ -70,6 +70,9 @@ const AdminPropertyImport = () => {
                 address: p.address,
                 commune: p.address.split(',')[1]?.trim() || 'Santiago', // Simple heuristic
                 property_type: p.property_type,
+                operation_type: 'Venta',
+                price: p.price || 0,
+                currency: p.currency || 'CLP',
                 bedrooms: p.bedrooms,
                 bathrooms: p.bathrooms,
                 m2_total: p.m2_total,
@@ -79,9 +82,11 @@ const AdminPropertyImport = () => {
                 latitude: p.latitude,
                 longitude: p.longitude,
                 status: ['Publicada', 'En Venta'],
-                source: 'import_remax',
-                agent_id: user?.id, // Assign to current admin user or keep logic open
-                created_at: new Date().toISOString()
+                status: ['Publicada', 'En Venta'],
+                source: 'remax',
+                agent_id: user?.id,
+                created_at: new Date().toISOString(),
+                image_url: p.image_url // Save image url
             }))
 
             const { error } = await supabase
@@ -156,6 +161,7 @@ const AdminPropertyImport = () => {
                                             }}
                                         />
                                     </th>
+                                    <th className="p-4">Img</th>
                                     <th className="p-4">Propiedad</th>
                                     <th className="p-4">Tipo</th>
                                     <th className="p-4">Características</th>
@@ -176,6 +182,11 @@ const AdminPropertyImport = () => {
                                                     }))
                                                 }}
                                             />
+                                        </td>
+                                        <td className="p-4">
+                                            {p.image_url && (
+                                                <img src={p.image_url} alt="Portada" className="w-16 h-12 object-cover rounded shadow-sm border" />
+                                            )}
                                         </td>
                                         <td className="p-4 font-medium max-w-[300px] truncate" title={p.title}>
                                             {p.title}
