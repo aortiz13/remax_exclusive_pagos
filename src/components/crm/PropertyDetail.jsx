@@ -114,6 +114,17 @@ const PropertyDetail = () => {
                 </div>
             </div>
 
+            {/* Image Banner */}
+            {property.image_url && (
+                <div className="w-full h-48 md:h-80 rounded-xl overflow-hidden bg-gray-100 border relative shadow-sm">
+                    <img
+                        src={property.image_url}
+                        alt={property.address}
+                        className="w-full h-full object-cover"
+                    />
+                </div>
+            )}
+
             {/* Main Layout */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
