@@ -42,13 +42,7 @@ const Storyline = ({ propertyId, contactId }) => {
         try {
             let query = supabase
                 .from('activity_logs')
-                .select(`
-                    *,
-                    actor:actor_id ( email ) 
-                `) // Assumes actor_id is auth.users, which might not be joinable directly if public table logic differs. 
-            // If actor_id references auth.users, we typically can't join easily unless we have a public profiles table.
-            // For now, we'll skip joining actor details or use a profiles table if exists. 
-            // Let's assume we just show "Usuario" or handle it if you have a public profiles table.
+                .select('*')
 
             // Note: Since actor_id is FK to auth.users, supabase standard client can't always join it directly depending on permissions.
             // Let's just fetch logs for now.
