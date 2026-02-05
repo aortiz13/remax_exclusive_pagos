@@ -23,13 +23,12 @@ const AdminPropertyImport = () => {
         try {
             const { data, error } = await supabase
                 .from('profiles')
-                .select('id, first_name, last_name, remax_agent_id')
+                .select('id, first_name, last_name, remax_agent_id, email')
                 .not('remax_agent_id', 'is', null)
                 .order('first_name')
 
             if (data) {
                 setAgents(data)
-                // Optional: Select all by default or none? Let's select none.
             }
         } catch (error) {
             console.error('Error fetching agents:', error)
@@ -202,6 +201,41 @@ const AdminPropertyImport = () => {
                 .insert(dbProperties)
 
             if (error) throw error
+
+            // --- Send Notifications ---
+            try {
+                // Group by agent_id
+                const agentGroups = dbProperties.reduce((acc, prop) => {
+                    const id = prop.agent_id; // UUID
+                    if (!acc[id]) acc[id] = [];
+                    acc[id].push(prop);
+                    return acc;
+                }, {});
+
+                // Send email to each agent
+                for (const agentId of Object.keys(agentGroups)) {
+                    const count = agentGroups[agentId].length;
+                    const agentProfile = agents.find(a => a.id === agentId);
+
+                    if (agentProfile && agentProfile.email) {
+                        const { error: notifyError } = await supabase.functions.invoke('send-notification', {
+                            body: {
+                                recipientEmail: agentProfile.email,
+                                recipientName: `${agentProfile.first_name} ${agentProfile.last_name}`,
+                                count: count,
+                                type: 'import_summary'
+                            }
+                        });
+                        if (notifyError) console.error(`Failed to notify ${agentProfile.email}`, notifyError);
+                    } else {
+                        console.warn(`No email found for agent ID ${agentId}`);
+                    }
+                }
+            } catch (notifyErr) {
+                console.error("Error processing notifications:", notifyErr);
+                // Don't block the UI success state
+            }
+            // --------------------------
 
             toast.success(`${dbProperties.length} propiedades importadas correctamente`)
             setScannedProperties([])
