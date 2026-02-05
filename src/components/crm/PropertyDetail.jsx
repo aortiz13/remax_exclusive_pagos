@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Button, Badge, Separator } from '@/components/ui'
+import { Button, Badge, Separator, AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui'
 import { ArrowLeft, User, MapPin, Building, Ruler, BedDouble, Bath, Link as LinkIcon, FileText, Briefcase, Plus, Filter, Trash2 } from 'lucide-react'
 import { supabase } from '../../services/supabase'
 import PropertyForm from './PropertyForm'
@@ -26,6 +26,11 @@ const PropertyDetail = () => {
     const [isAddParticipantOpen, setIsAddParticipantOpen] = useState(false)
     const [note, setNote] = useState('')
     const [noteLoading, setNoteLoading] = useState(false)
+
+    // Delete Participant State
+    const [isDeleteParticipantOpen, setIsDeleteParticipantOpen] = useState(false)
+    const [participantToDelete, setParticipantToDelete] = useState(null)
+    const [isDeletingParticipant, setIsDeletingParticipant] = useState(false)
 
     useEffect(() => {
         fetchProperty()
@@ -96,10 +101,28 @@ const PropertyDetail = () => {
     }
 
     // Placeholder for deleting participant
-    const handleDeleteParticipant = async (participantId) => {
-        if (!confirm('¿Estás seguro?')) return;
-        await supabase.from('property_contacts').delete().eq('id', participantId)
-        fetchParticipants()
+    const handleDeleteParticipant = async () => {
+        if (!participantToDelete) return;
+
+        try {
+            setIsDeletingParticipant(true)
+            const { error } = await supabase
+                .from('property_contacts')
+                .delete()
+                .eq('id', participantToDelete.id)
+
+            if (error) throw error
+
+            toast.success('Relacionado eliminado correctamente')
+            fetchParticipants()
+        } catch (error) {
+            console.error('Error deleting participant:', error)
+            toast.error('Error al eliminar relacionado')
+        } finally {
+            setIsDeletingParticipant(false)
+            setIsDeleteParticipantOpen(false)
+            setParticipantToDelete(null)
+        }
     }
 
     const handleAddNote = async () => {
@@ -366,7 +389,15 @@ const PropertyDetail = () => {
                                             <div className="font-medium truncate">{part.contacts?.first_name} {part.contacts?.last_name}</div>
                                             <div className="text-xs text-muted-foreground">{part.role}</div>
                                         </div>
-                                        <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100" onClick={() => handleDeleteParticipant(part.id)}>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-6 w-6 opacity-0 group-hover:opacity-100"
+                                            onClick={() => {
+                                                setParticipantToDelete(part)
+                                                setIsDeleteParticipantOpen(true)
+                                            }}
+                                        >
                                             <Trash2 className="w-3 h-3 text-red-500" />
                                         </Button>
                                     </div>
@@ -408,6 +439,26 @@ const PropertyDetail = () => {
                     }
                 }}
             />
+            <AlertDialog open={isDeleteParticipantOpen} onOpenChange={setIsDeleteParticipantOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Esta acción eliminará la vinculación de <strong>{participantToDelete?.contacts?.first_name} {participantToDelete?.contacts?.last_name}</strong> con esta propiedad. Esta acción no se puede deshacer.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={handleDeleteParticipant}
+                            disabled={isDeletingParticipant}
+                            className="bg-destructive hover:bg-destructive/90 text-destructive-foreground focus:ring-destructive"
+                        >
+                            {isDeletingParticipant ? 'Eliminando...' : 'Eliminar'}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div >
     )
 }

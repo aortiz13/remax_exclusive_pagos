@@ -10,7 +10,7 @@ import getDay from 'date-fns/getDay'
 import { es } from 'date-fns/locale'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
 import 'react-big-calendar/lib/addons/dragAndDrop/styles.css'
-import { Card, CardContent, Button, Checkbox, Label, Input, Textarea, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui'
+import { Card, CardContent, Button, Checkbox, Label, Input, Textarea, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription, AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui'
 import { ChevronLeft, ChevronRight, Filter, Plus, Clock, Calendar as CalendarIcon, MapPin, User, Bell, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { DayPicker } from 'react-day-picker'
@@ -50,6 +50,8 @@ export default function CalendarPage() {
         reminder: 'none'
     })
     const [isSaving, setIsSaving] = useState(false)
+    const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false)
+    const [isDeleting, setIsDeleting] = useState(false)
 
     useEffect(() => {
         if (user) {
@@ -191,9 +193,9 @@ export default function CalendarPage() {
 
     const handleDelete = async () => {
         if (!selectedEvent) return
-        if (!window.confirm('¿Estás seguro de eliminar esta tarea?')) return
 
         try {
+            setIsDeleting(true)
             const { error } = await supabase
                 .from('crm_tasks')
                 .delete()
@@ -206,6 +208,9 @@ export default function CalendarPage() {
         } catch (error) {
             console.error('Delete error:', error)
             toast.error('Error al eliminar')
+        } finally {
+            setIsDeleting(false)
+            setIsDeleteConfirmOpen(false)
         }
     }
 
@@ -506,7 +511,7 @@ export default function CalendarPage() {
 
                     <DialogFooter className="flex-col-reverse sm:flex-row gap-2">
                         {selectedEvent && (
-                            <Button variant="destructive" type="button" onClick={handleDelete} className="sm:mr-auto">
+                            <Button variant="destructive" type="button" onClick={() => setIsDeleteConfirmOpen(true)} className="sm:mr-auto">
                                 <Trash2 className="w-4 h-4 mr-2" /> Eliminar
                             </Button>
                         )}
@@ -517,6 +522,26 @@ export default function CalendarPage() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+            <AlertDialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Esta acción eliminará permanentemente la tarea <strong>{selectedEvent?.title}</strong>. No se puede deshacer.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={handleDelete}
+                            disabled={isDeleting}
+                            className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                        >
+                            {isDeleting ? 'Eliminando...' : 'Eliminar'}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     )
 }

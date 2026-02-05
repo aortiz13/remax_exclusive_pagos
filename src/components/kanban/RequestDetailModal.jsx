@@ -4,6 +4,7 @@ import { supabase } from '@/services/supabase'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { FileText, Receipt, User, Building2, Calendar, ClipboardList } from 'lucide-react'
+import { toast } from 'sonner'
 
 export function RequestDetailModal({ request, isOpen, onClose }) {
     const [auditLogs, setAuditLogs] = useState([])
@@ -102,7 +103,7 @@ export function RequestDetailModal({ request, isOpen, onClose }) {
 
     const handleComplete = async () => {
         if (contractFiles.length === 0) {
-            alert('Por favor adjunta al menos un archivo de contrato.')
+            toast.error('Por favor adjunta al menos un archivo de contrato.')
             return
         }
 
