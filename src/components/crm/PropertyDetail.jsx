@@ -299,8 +299,6 @@ const PropertyDetail = () => {
                                 <div className="text-sm text-muted-foreground italic">No hay enlaces registrados.</div>
                             )}
                         </TabsContent>
-
-                        </TabsContent>
                     </Tabs>
 
                 </div>
