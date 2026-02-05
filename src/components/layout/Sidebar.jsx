@@ -20,7 +20,6 @@ import {
     FileBarChart,
     Zap,
     Shield,
-    Shield,
     Calendar,
     MapPin
 } from 'lucide-react'
