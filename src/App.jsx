@@ -15,6 +15,7 @@ import UpdatePassword from './pages/UpdatePassword'
 import AgentLeadView from './pages/AgentLeadView'
 import InvoiceForm from './pages/InvoiceForm'
 import AdminRequests from './pages/AdminRequests'
+import AdminPropertyImport from './pages/AdminPropertyImport'
 import LeadDetail from './pages/LeadDetail'
 import WeeklyKpiForm from './components/kpi/WeeklyKpiForm'
 import AgentGoalsForm from './components/kpi/AgentGoalsForm'
@@ -155,6 +156,11 @@ function App() {
             <Route path="/admin/kpis" element={
               <ProtectedRoute>
                 <AdminKpiView />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/import" element={
+              <ProtectedRoute>
+                <AdminPropertyImport />
               </ProtectedRoute>
             } />
 

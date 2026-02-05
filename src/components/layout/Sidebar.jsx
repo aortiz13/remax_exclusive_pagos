@@ -21,7 +21,9 @@ import {
     Zap,
     Shield,
     Calendar,
-    MapPin
+    Calendar,
+    MapPin,
+    Download
 } from 'lucide-react'
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
@@ -112,7 +114,9 @@ export default function Sidebar() {
             title: 'ADMIN',
             items: [
                 { title: 'Administración', icon: Users, path: '/admin/invites' },
+                { title: 'Administración', icon: Users, path: '/admin/invites' },
                 { title: 'Solicitudes', icon: FileText, path: '/admin/requests' },
+                { title: 'Importar Propiedades', icon: Download, path: '/admin/import' },
             ]
         })
     }
