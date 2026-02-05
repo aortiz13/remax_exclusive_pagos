@@ -266,7 +266,25 @@ const ContactDetail = () => {
                                         </span>
                                     </div>
                                     <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
-                                        {activity.description}
+                                        {activity.type === 'property_link' ? (() => {
+                                            const address = activity.description.split(': ')[1]?.trim()
+                                            const linkedProp = ownedProperties.find(p => p.address === address)
+                                            return linkedProp ? (
+                                                <span>
+                                                    {activity.description.split(': ')[0]}:{' '}
+                                                    <span
+                                                        className="text-primary hover:underline cursor-pointer font-medium"
+                                                        onClick={() => navigate(`/crm/property/${linkedProp.id}`)}
+                                                    >
+                                                        {address}
+                                                    </span>
+                                                </span>
+                                            ) : (
+                                                activity.description
+                                            )
+                                        })() : (
+                                            activity.description
+                                        )}
                                     </p>
                                 </div>
                             ))}
@@ -355,9 +373,13 @@ const ContactDetail = () => {
                         <h2 className="text-xl font-semibold mb-4">Propiedades (Dueño)</h2>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             {ownedProperties.map(prop => (
-                                <div key={prop.id} className="p-4 rounded-lg border bg-gray-50 dark:bg-gray-800/50 flex flex-col gap-2">
+                                <div
+                                    key={prop.id}
+                                    className="p-4 rounded-lg border bg-gray-50 dark:bg-gray-800/50 flex flex-col gap-2 cursor-pointer hover:border-primary/50 transition-colors group"
+                                    onClick={() => navigate(`/crm/property/${prop.id}`)}
+                                >
                                     <div className="flex justify-between items-start">
-                                        <h3 className="font-semibold text-sm">{prop.address}</h3>
+                                        <h3 className="font-semibold text-sm group-hover:text-primary transition-colors">{prop.address}</h3>
                                         <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full dark:bg-blue-900 dark:text-blue-200">
                                             {prop.property_type}
                                         </span>
