@@ -212,13 +212,18 @@ const AdminPropertyImport = () => {
                     return acc;
                 }, {});
 
+                console.log("Groups to notify:", Object.keys(agentGroups));
+
                 // Send email to each agent
                 for (const agentId of Object.keys(agentGroups)) {
                     const count = agentGroups[agentId].length;
                     const agentProfile = agents.find(a => a.id === agentId);
 
+                    console.log(`Matching agentId: ${agentId}`, { found: !!agentProfile, email: agentProfile?.email });
+
                     if (agentProfile && agentProfile.email) {
-                        const { error: notifyError } = await supabase.functions.invoke('send-notification', {
+                        console.log(`Sending email to ${agentProfile.email}...`);
+                        const { data, error: notifyError } = await supabase.functions.invoke('send-notification', {
                             body: {
                                 recipientEmail: agentProfile.email,
                                 recipientName: `${agentProfile.first_name} ${agentProfile.last_name}`,
@@ -226,9 +231,13 @@ const AdminPropertyImport = () => {
                                 type: 'import_summary'
                             }
                         });
-                        if (notifyError) console.error(`Failed to notify ${agentProfile.email}`, notifyError);
+                        if (notifyError) {
+                            console.error(`Failed to notify ${agentProfile.email}`, notifyError);
+                        } else {
+                            console.log(`Notification result for ${agentProfile.email}:`, data);
+                        }
                     } else {
-                        console.warn(`No email found for agent ID ${agentId}`);
+                        console.warn(`No notification sent for agent ${agentId} because profile or email is missing. Profile found: ${!!agentProfile}`);
                     }
                 }
             } catch (notifyErr) {
