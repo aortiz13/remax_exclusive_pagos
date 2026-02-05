@@ -49,7 +49,7 @@ const ContactForm = ({ contact, isOpen, onClose }) => {
         rating_80_20: '',
         status: 'Activo',
         about: '',
-        need: 'Comprar',
+        need: 'Comprar', // Initial default as string, but we'll parse it
         need_other: '',
         last_contact_date: '',
         next_contact_date: '',
@@ -57,14 +57,27 @@ const ContactForm = ({ contact, isOpen, onClose }) => {
         observations: ''
     })
 
+    // Internal state for multi-select need
+    const [selectedNeeds, setSelectedNeeds] = useState(['Comprar'])
+
     useEffect(() => {
         if (contact) {
             setFormData({
                 ...contact,
                 dob: contact.dob || '',
-                last_contact_date: contact.last_contact_date ? contact.last_contact_date.split('T')[0] : '', // simple date handling
+                last_contact_date: contact.last_contact_date ? contact.last_contact_date.split('T')[0] : '',
                 next_contact_date: contact.next_contact_date ? contact.next_contact_date.split('T')[0] : ''
             })
+            // Parse existing needs (comma separated)
+            if (contact.need) {
+                const needsArray = contact.need.split(',').map(s => s.trim())
+                setSelectedNeeds(needsArray)
+            } else {
+                setSelectedNeeds([])
+            }
+        } else {
+            // Default for new contact
+            setSelectedNeeds(['Comprar'])
         }
         fetchProperties()
     }, [contact])
@@ -103,6 +116,7 @@ const ContactForm = ({ contact, isOpen, onClose }) => {
         try {
             const dataToSave = {
                 ...formData,
+                need: selectedNeeds.join(', '), // Save as comma separated string
                 agent_id: profile?.id || user?.id,
                 updated_at: new Date().toISOString()
             }
@@ -123,11 +137,26 @@ const ContactForm = ({ contact, isOpen, onClose }) => {
                 if (insertError) throw insertError
 
                 // If property selected, update property owner
+                // Log Creation Activity
+                await supabase.from('contact_activities').insert([{
+                    contact_id: newContactData.id,
+                    type: 'creation',
+                    description: 'Contacto creado en el sistema'
+                }])
+
                 if (selectedPropertyId && newContactData) {
                     await supabase
                         .from('properties')
                         .update({ owner_id: newContactData.id })
                         .eq('id', selectedPropertyId)
+
+                    // Log Property Link Activity
+                    const propAddress = properties.find(p => p.id === selectedPropertyId)?.address || 'Propiedad'
+                    await supabase.from('contact_activities').insert([{
+                        contact_id: newContactData.id,
+                        type: 'property_link',
+                        description: `Se vinculó como dueño de la propiedad: ${propAddress}`
+                    }])
                 }
 
                 toast.success('Contacto creado')
@@ -141,11 +170,26 @@ const ContactForm = ({ contact, isOpen, onClose }) => {
                 if (updateError) throw updateError
 
                 // If property selected, update property owner
+                // Log Update Activity
+                await supabase.from('contact_activities').insert([{
+                    contact_id: contact.id,
+                    type: 'update',
+                    description: 'Se actualizó la información del contacto'
+                }])
+
                 if (selectedPropertyId) {
                     await supabase
                         .from('properties')
                         .update({ owner_id: contact.id })
                         .eq('id', selectedPropertyId)
+
+                    // Log Property Link Activity
+                    const propAddress = properties.find(p => p.id === selectedPropertyId)?.address || 'Propiedad'
+                    await supabase.from('contact_activities').insert([{
+                        contact_id: contact.id,
+                        type: 'property_link',
+                        description: `Se vinculó como dueño de la propiedad: ${propAddress}`
+                    }])
                 }
 
                 toast.success('Contacto actualizado')
@@ -228,17 +272,24 @@ const ContactForm = ({ contact, isOpen, onClose }) => {
                                     </div>
                                     <div className="space-y-2">
                                         <Label>Necesidad</Label>
-                                        <select
-                                            name="need"
-                                            value={formData.need}
-                                            onChange={handleChange}
-                                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                        >
-                                            <option value="Comprar">Comprar</option>
-                                            <option value="Vender">Vender</option>
-                                            <option value="Arrendar">Arrendar</option>
-                                            <option value="Invertir">Invertir</option>
-                                        </select>
+                                        <div className="flex flex-wrap gap-2 mt-2">
+                                            {['Comprar', 'Vender', 'Arrendar', 'Invertir'].map((option) => (
+                                                <Badge
+                                                    key={option}
+                                                    variant={selectedNeeds.includes(option) ? "default" : "outline"}
+                                                    className="cursor-pointer hover:opacity-80 px-4 py-1.5 text-sm"
+                                                    onClick={() => {
+                                                        if (selectedNeeds.includes(option)) {
+                                                            setSelectedNeeds(prev => prev.filter(p => p !== option))
+                                                        } else {
+                                                            setSelectedNeeds(prev => [...prev, option])
+                                                        }
+                                                    }}
+                                                >
+                                                    {option}
+                                                </Badge>
+                                            ))}
+                                        </div>
                                     </div>
                                     <div className="space-y-2">
                                         <Label>Email</Label>

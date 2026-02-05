@@ -248,7 +248,8 @@ const ContactDetail = () => {
                                             {activity.type === 'task_created' && 'Tarea Creada'}
                                             {activity.type === 'task_completed' && 'Tarea Completada'}
                                             {activity.type === 'note' && 'Nota Agregada'}
-                                            {!['creation', 'update', 'task_created', 'task_completed', 'note'].includes(activity.type) && activity.type}
+                                            {activity.type === 'property_link' && 'Propiedad Vinculada'}
+                                            {!['creation', 'update', 'task_created', 'task_completed', 'note', 'property_link'].includes(activity.type) && activity.type}
                                         </p>
                                         <span className="text-xs text-gray-500 whitespace-nowrap">
                                             {new Date(activity.created_at).toLocaleString()}
