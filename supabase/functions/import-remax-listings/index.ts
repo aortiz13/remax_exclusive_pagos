@@ -7,23 +7,16 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
-    // Handle CORS preflight requests
-    if (req.method === 'OPTIONS') {
-        return new Response('ok', { headers: corsHeaders })
-    }
+    if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
     try {
         const { agentId } = await req.json()
+        if (!agentId) throw new Error('Agent ID is required')
 
-        if (!agentId) {
-            throw new Error('Agent ID is required')
-        }
-
-        console.log(`Fetching listings for Agent ID: ${agentId} using Search API`);
+        console.log(`Fetching listings for Agent ID: ${agentId}`);
         const searchUrl = 'https://www.remax.cl/search/listing-search/docs/search';
 
-        // Strict Payload matching the website behavior
-        // Filter out OnHold, NotViewable items to match public listing count
+        // Strict Payload
         const payload = {
             "count": true,
             "skip": 0,
@@ -35,8 +28,7 @@ serve(async (req) => {
         const searchResponse = await fetch(searchUrl, {
             method: 'POST',
             headers: {
-                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Accept': 'application/json, text/plain, */*',
+                'User-Agent': 'Mozilla/5.0',
                 'Content-Type': 'application/json',
                 'Origin': 'https://www.remax.cl',
                 'Referer': `https://www.remax.cl/listings?AgentID=${agentId}`
@@ -44,15 +36,13 @@ serve(async (req) => {
             body: JSON.stringify(payload)
         });
 
-        if (!searchResponse.ok) {
-            throw new Error(`API Error: ${searchResponse.status}`);
-        }
+        if (!searchResponse.ok) throw new Error(`API Error: ${searchResponse.status}`);
 
         const searchResult = await searchResponse.json();
         const rawProperties = searchResult.value || [];
         console.log(`Found ${rawProperties.length} active properties via API`);
 
-        // Helper to find key case-insensitively
+        // Helper
         const getVal = (obj, key) => {
             if (!obj) return undefined;
             const foundKey = Object.keys(obj).find(k => k.toLowerCase() === key.toLowerCase());
@@ -60,30 +50,20 @@ serve(async (req) => {
         };
 
         const properties = rawProperties.map(item => {
-            // UNWRAP CONTENT: The API returns { "@search.score": 1, "content": { ...data... } }
             const p = item.content || item;
 
             // ID & URL
             let listingId = getVal(p, 'ListingId') || getVal(p, 'MLSID');
             let sourceUrl = '';
-
-            // Fallback: Extract from ShortLinks
             const shortLinks = getVal(p, 'ShortLinks');
             if (Array.isArray(shortLinks) && shortLinks.length > 0) {
-                // "es-cl/propiedades/.../1028061013-997"
                 const link = shortLinks.find(l => l.ISOLanguageCode === 'es' || l.LanguageCode === 'es-CL') || shortLinks[0];
                 if (link && link.ShortLink) {
                     sourceUrl = `https://www.remax.cl/${link.ShortLink}`;
-                    if (!listingId) {
-                        const parts = link.ShortLink.split('/');
-                        listingId = parts[parts.length - 1];
-                    }
+                    if (!listingId) listingId = link.ShortLink.split('/').pop();
                 }
             }
-
-            if (!sourceUrl && listingId) {
-                sourceUrl = `https://www.remax.cl/propiedades/${listingId}`;
-            }
+            if (!sourceUrl && listingId) sourceUrl = `https://www.remax.cl/propiedades/${listingId}`;
 
             // Basic Info
             const title = getVal(p, 'FullAddress') || getVal(p, 'ListingName') || 'Propiedad sin título';
@@ -110,24 +90,32 @@ serve(async (req) => {
                 latitude = loc.coordinates[1];
             }
 
-            // Type
-            let propertyType = 'Departamento';
-            const combinedText = (title + ' ' + desc).toLowerCase();
-            if (combinedText.includes('casa')) propertyType = 'Casa';
-            else if (combinedText.includes('terreno') || combinedText.includes('parcela')) propertyType = 'Terreno';
-            else if (combinedText.includes('oficina')) propertyType = 'Oficina';
-            else if (combinedText.includes('local') || combinedText.includes('comercial')) propertyType = 'Comercial';
-            else if (combinedText.includes('estacionamiento')) propertyType = 'Estacionamiento';
+            // --- IMPROVED TYPE CLASSIFICATION ---
+            let propertyType = 'Departamento'; // Default
+            const pTypeUID = getVal(p, 'PropertyTypeUID');
+            const titleUpper = title.toUpperCase();
 
-            // Image URL extraction
-            // CDN: https://remax.azureedge.net/userimages/1028/LargeWM/{FileName}
+            // 1. UID Mapping (Verified from logs)
+            if (pTypeUID === 194) propertyType = 'Departamento';
+            else if (pTypeUID === 202) propertyType = 'Casa';
+            else if (pTypeUID === 13) propertyType = 'Comercial';
+            else if (pTypeUID === 19) propertyType = 'Terreno';
+
+            // 2. Title Overrides (Safer than description)
+            if (titleUpper.includes('CASA') || titleUpper.includes('CHALET')) propertyType = 'Casa';
+            else if (titleUpper.includes('DEPARTAMENTO') || titleUpper.includes('DPTO')) propertyType = 'Departamento';
+            else if (titleUpper.includes('TERRENO') || titleUpper.includes('PARCELA') || titleUpper.includes('SITIO')) propertyType = 'Terreno';
+            else if (titleUpper.includes('OFICINA')) propertyType = 'Oficina';
+            else if (titleUpper.includes('LOCAL') || (titleUpper.includes('COMERCIAL') && !titleUpper.includes('CENTRO'))) propertyType = 'Comercial';
+            else if (titleUpper.includes('ESTACIONAMIENTO')) propertyType = 'Estacionamiento';
+            else if (titleUpper.includes('BODEGA')) propertyType = 'Bodega';
+
+            // Image URL
             let imageUrl = null;
             const images = getVal(p, 'ListingImages');
             if (Array.isArray(images) && images.length > 0) {
-                // Sort by Order if possible, or take first
                 const firstImage = images.sort((a, b) => (parseInt(a.Order) || 0) - (parseInt(b.Order) || 0))[0];
                 if (firstImage && firstImage.FileName) {
-                    // Heuristic: CountryID 1028 for Chile
                     const countryId = getVal(p, 'CountryID') || 1028;
                     imageUrl = `https://remax.azureedge.net/userimages/${countryId}/LargeWM/${firstImage.FileName}`;
                 }
