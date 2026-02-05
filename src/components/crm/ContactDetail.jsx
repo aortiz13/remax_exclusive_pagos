@@ -14,6 +14,7 @@ const ContactDetail = () => {
     const [contact, setContact] = useState(null)
     const [activities, setActivities] = useState([])
     const [tasks, setTasks] = useState([])
+    const [ownedProperties, setOwnedProperties] = useState([])
     const [loading, setLoading] = useState(true)
     const [isEditOpen, setIsEditOpen] = useState(false)
     const [isTaskModalOpen, setIsTaskModalOpen] = useState(false)
@@ -62,6 +63,15 @@ const ContactDetail = () => {
 
             if (taskError) throw taskError
             setTasks(taskData || [])
+
+            // 4. Fetch Owned Properties
+            const { data: propData, error: propError } = await supabase
+                .from('properties')
+                .select('*')
+                .eq('owner_id', id)
+
+            if (propError) throw propError
+            setOwnedProperties(propData || [])
 
         } catch (error) {
             console.error('Error fetching details:', error)
@@ -339,6 +349,27 @@ const ContactDetail = () => {
                         </div>
                     </div>
                 </TabsContent>
+
+                {ownedProperties.length > 0 && (
+                    <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 p-6 mt-6">
+                        <h2 className="text-xl font-semibold mb-4">Propiedades (Dueño)</h2>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {ownedProperties.map(prop => (
+                                <div key={prop.id} className="p-4 rounded-lg border bg-gray-50 dark:bg-gray-800/50 flex flex-col gap-2">
+                                    <div className="flex justify-between items-start">
+                                        <h3 className="font-semibold text-sm">{prop.address}</h3>
+                                        <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full dark:bg-blue-900 dark:text-blue-200">
+                                            {prop.property_type}
+                                        </span>
+                                    </div>
+                                    <div className="text-xs text-muted-foreground">
+                                        {prop.commune}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
             </Tabs>
 
             <ContactForm

@@ -19,6 +19,7 @@ const TaskModal = ({ task, contactId, isOpen, onClose }) => {
     const { profile, user } = useAuth()
     const [loading, setLoading] = useState(false)
     const [contacts, setContacts] = useState([])
+    const [properties, setProperties] = useState([])
     const [formData, setFormData] = useState({
         contact_id: contactId || '',
         property_id: '',
@@ -29,8 +30,9 @@ const TaskModal = ({ task, contactId, isOpen, onClose }) => {
     })
 
     useEffect(() => {
-        if (isOpen && !contactId) {
-            fetchContacts()
+        if (isOpen) {
+            if (!contactId) fetchContacts()
+            fetchProperties()
         }
         if (task) {
             const dateObj = task.execution_date ? new Date(task.execution_date) : new Date()
@@ -48,6 +50,11 @@ const TaskModal = ({ task, contactId, isOpen, onClose }) => {
     const fetchContacts = async () => {
         const { data } = await supabase.from('contacts').select('id, first_name, last_name').order('first_name')
         setContacts(data || [])
+    }
+
+    const fetchProperties = async () => {
+        const { data } = await supabase.from('properties').select('id, address').order('address')
+        setProperties(data || [])
     }
 
     const handleChange = (e) => {
@@ -144,6 +151,23 @@ const TaskModal = ({ task, contactId, isOpen, onClose }) => {
                             </select>
                         </div>
                     )}
+
+                    <div className="space-y-2">
+                        <Label>Propiedad (Opcional)</Label>
+                        <select
+                            name="property_id"
+                            value={formData.property_id}
+                            onChange={handleChange}
+                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                            <option value="">Seleccionar propiedad...</option>
+                            {properties.map(property => (
+                                <option key={property.id} value={property.id}>
+                                    {property.address}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
 
                     <div className="space-y-2">
                         <label className="text-sm font-medium">Título tarea <span className="text-red-500">*</span></label>
