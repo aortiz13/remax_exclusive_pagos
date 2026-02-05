@@ -9,6 +9,7 @@ import TaskModal from './TaskModal'
 import AddParticipantModal from './AddParticipantModal'
 import Storyline from './Storyline'
 import { logActivity } from '../../services/activityService'
+import { toast } from 'sonner'
 
 const PropertyDetail = () => {
     const { id } = useParams()

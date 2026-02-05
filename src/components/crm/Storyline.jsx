@@ -29,7 +29,10 @@ const Storyline = ({ propertyId, contactId }) => {
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'activity_logs' }, (payload) => {
                 const newLog = payload.new
                 // Filter client side to avoid complexity or just re-fetch
-                if ((propertyId && newLog.property_id === propertyId) || (contactId && newLog.contact_id === contactId)) {
+                if (
+                    (propertyId && (newLog.property_id === propertyId || (newLog.entity_type === 'Propiedad' && newLog.entity_id === propertyId))) ||
+                    (contactId && (newLog.contact_id === contactId || (newLog.entity_type === 'Contacto' && newLog.entity_id === contactId)))
+                ) {
                     fetchActivities()
                 }
             })
