@@ -1,12 +1,6 @@
-import { useState, useEffect } from "react";
-import usePlacesAutocomplete, {
-    getGeocode,
-    getLatLng,
-} from "use-places-autocomplete";
-import { useJsApiLoader } from "@react-google-maps/api";
+import { useState, useEffect, useRef } from "react";
 import {
     Command,
-    CommandDialog,
     CommandEmpty,
     CommandGroup,
     CommandInput,
@@ -15,115 +9,97 @@ import {
     Popover,
     PopoverContent,
     PopoverTrigger,
-    Input,
-    Button
+    Input
 } from "@/components/ui";
-import { Check, ChevronsUpDown, MapPin, Loader2 } from "lucide-react";
+import { MapPin, Loader2, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const libraries = ["places"];
+// Nominatim API URL (OpenStreetMap)
+const NOMINATIM_BASE_URL = "https://nominatim.openstreetmap.org/search";
 
 const AddressAutocomplete = ({
     value,
     onChange,
     onSelectAddress,
     className,
-    placeholder = "Buscar dirección..."
+    placeholder = "Buscar dirección (OSM)..."
 }) => {
-    const { isLoaded, loadError } = useJsApiLoader({
-        googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "",
-        libraries,
-    });
-
-    const {
-        ready,
-        value: searchValue,
-        suggestions: { status, data },
-        setValue,
-        clearSuggestions,
-    } = usePlacesAutocomplete({
-        requestOptions: {
-            componentRestrictions: { country: "cl" }, // Restrict to Chile by default, can be made prop
-        },
-        debounce: 300,
-        defaultValue: value
-    });
-
     const [open, setOpen] = useState(false);
+    const [internalValue, setInternalValue] = useState(value || "");
+    const [suggestions, setSuggestions] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const debounceTimer = useRef(null);
 
-    // Sync internal value with external value prop
     useEffect(() => {
-        if (value !== searchValue) {
-            setValue(value, false);
+        if (value !== internalValue) {
+            setInternalValue(value || "");
         }
     }, [value]);
 
+    const searchAddress = async (query) => {
+        if (!query || query.length < 3) {
+            setSuggestions([]);
+            return;
+        }
 
-    const handleSelect = async (address) => {
-        setValue(address, false);
-        clearSuggestions();
-        setOpen(false); // Close dropdown
-
-        if (onChange) onChange(address);
-
+        setLoading(true);
         try {
-            const results = await getGeocode({ address });
-            const { lat, lng } = await getLatLng(results[0]);
-
-            // Parse components for structured data if needed
-            const addressComponents = results[0].address_components;
-            let commune = "";
-            let region = "";
-
-            addressComponents.forEach(component => {
-                if (component.types.includes("administrative_area_level_3") || component.types.includes("locality")) {
-                    commune = component.long_name;
-                }
-                if (component.types.includes("administrative_area_level_1")) {
-                    region = component.long_name;
-                }
+            const params = new URLSearchParams({
+                q: query,
+                format: 'json',
+                addressdetails: 1,
+                limit: 5,
+                countrycodes: 'cl' // Limit to Chile
             });
 
-            if (onSelectAddress) {
-                onSelectAddress({
-                    address: address,
-                    lat,
-                    lng,
-                    commune,
-                    region,
-                    raw: results[0]
-                });
-            }
+            const response = await fetch(`${NOMINATIM_BASE_URL}?${params.toString()}`);
+            const data = await response.json();
+            setSuggestions(data || []);
         } catch (error) {
-            console.log("Error: ", error);
+            console.error("Error fetching Nominatim data:", error);
+            setSuggestions([]);
+        } finally {
+            setLoading(false);
         }
     };
 
-    if (loadError) {
-        return (
-            <Input
-                value={value}
-                onChange={(e) => onChange(e.target.value)}
-                placeholder="Error cargando Google Maps. Ingrese manual."
-                className={cn("border-red-300", className)}
-            />
-        );
-    }
+    const handleInputChange = (val) => {
+        setInternalValue(val);
+        onChange(val);
+        setOpen(true);
 
-    if (!isLoaded) {
-        return (
-            <div className="relative">
-                <Input disabled placeholder="Cargando Google Maps..." className={className} />
-                <Loader2 className="absolute right-3 top-2.5 h-4 w-4 animate-spin text-muted-foreground" />
-            </div>
-        )
-    }
+        if (debounceTimer.current) clearTimeout(debounceTimer.current);
+        debounceTimer.current = setTimeout(() => {
+            searchAddress(val);
+        }, 500); // 500ms debounce to be polite to OSM servers
+    };
 
-    // Fallback if no API key is provided but script loaded (shouldn't happen with useJsApiLoader usually unless key is invalid)
-    if (!ready && !searchValue) {
-        // Allow manual typing even if not ready? 
-        // Actually usePlacesAutocomplete 'ready' might depend on script loading.
-    }
+    const handleSelect = (item) => {
+        // Format address from item
+        const formattedAddress = item.display_name;
+        const addressDetails = item.address;
+
+        setInternalValue(formattedAddress);
+        onChange(formattedAddress);
+        setSuggestions([]);
+        setOpen(false);
+
+        if (onSelectAddress) {
+            // Extract commune/city info
+            // OSM returns various fields for city/town/village depending on size
+            const commune = addressDetails.city || addressDetails.town || addressDetails.village || addressDetails.county || "";
+            const region = addressDetails.state || "";
+
+            onSelectAddress({
+                address: formattedAddress,
+                lat: parseFloat(item.lat),
+                lng: parseFloat(item.lon),
+                commune,
+                region,
+                raw: item
+            });
+        }
+    };
 
     return (
         <div className={cn("relative", className)}>
@@ -131,44 +107,51 @@ const AddressAutocomplete = ({
                 <PopoverTrigger asChild>
                     <div className="relative">
                         <Input
-                            value={searchValue}
-                            onChange={(e) => {
-                                setValue(e.target.value);
-                                onChange(e.target.value);
-                                if (e.target.value) setOpen(true);
-                            }}
-                            disabled={!ready}
+                            value={internalValue}
+                            onChange={(e) => handleInputChange(e.target.value)}
                             placeholder={placeholder}
                             className="pr-8"
                             autoComplete="off"
+                            role="combobox"
+                            aria-expanded={open}
                         />
-                        <MapPin className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground opacity-50" />
+                        {loading ? (
+                            <Loader2 className="absolute right-3 top-2.5 h-4 w-4 animate-spin text-muted-foreground" />
+                        ) : (
+                            <MapPin className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground opacity-50" />
+                        )}
                     </div>
                 </PopoverTrigger>
                 <PopoverContent className="p-0" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
-                    <Command>
-                        {/* Hidden input to prevent Command from filtering internally, we want Google results */}
-                        <div className="hidden"><CommandInput /></div>
+                    <Command shouldFilter={false}>
+                        {/* We disable internal filtering because we are filtering via API */}
+                        <div className="hidden"><CommandInput value={internalValue} /></div>
 
                         <CommandList>
-                            {status === "OK" && data.map(({ place_id, description }) => (
-                                <CommandItem
-                                    key={place_id}
-                                    value={description} // Command uses this for filtering, but we are driving it.
-                                    onSelect={() => handleSelect(description)}
-                                    className="cursor-pointer"
-                                >
-                                    <MapPin className="mr-2 h-4 w-4 text-muted-foreground shrink-0" />
-                                    <span>{description}</span>
-                                </CommandItem>
-                            ))}
-                            {status === "ZERO_RESULTS" && (
-                                <CommandEmpty>No se encontraron direcciones.</CommandEmpty>
+                            {suggestions.length > 0 ? (
+                                suggestions.map((item) => (
+                                    <CommandItem
+                                        key={item.place_id}
+                                        value={item.display_name}
+                                        onSelect={() => handleSelect(item)}
+                                        className="cursor-pointer"
+                                    >
+                                        <MapPin className="mr-2 h-4 w-4 text-muted-foreground shrink-0" />
+                                        <span>{item.display_name}</span>
+                                    </CommandItem>
+                                ))
+                            ) : (
+                                <CommandEmpty className="py-2 px-4 text-sm text-muted-foreground">
+                                    {loading ? "Buscando..." : "Sin resultados."}
+                                </CommandEmpty>
                             )}
                         </CommandList>
                     </Command>
                 </PopoverContent>
             </Popover>
+            <div className="text-[10px] text-muted-foreground text-right mt-1">
+                Powered by <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer" className="underline hover:text-black">OpenStreetMap</a>
+            </div>
         </div>
     );
 };
