@@ -126,6 +126,20 @@ const PropertyForm = ({ property, isOpen, onClose }) => {
 
             if (error) throw error
 
+            // Log activity if owner changed or assigned
+            if (dataToSave.owner_id && dataToSave.owner_id !== property?.owner_id) {
+                const activityDescription = property?.id
+                    ? `Se le asignó la propiedad: ${dataToSave.address}`
+                    : `Se le asignó una nueva propiedad: ${dataToSave.address}`
+
+                await supabase.from('contact_activities').insert([{
+                    contact_id: dataToSave.owner_id,
+                    agent_id: user?.id,
+                    type: 'property_link',
+                    description: activityDescription
+                }])
+            }
+
             toast.success(property ? 'Propiedad actualizada' : 'Propiedad creada')
             onClose(true)
         } catch (error) {
