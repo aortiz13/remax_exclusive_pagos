@@ -182,7 +182,7 @@ const PropertyForm = ({ property, isOpen, onClose }) => {
                                     }))
                                 }}
                             />
-                            <p className="text-xs text-muted-foreground">La dirección se guardará tal cual, con soporte de OpenStreetMap.</p>
+                            <p className="text-xs text-muted-foreground hidden">La dirección se guardará tal cual.</p>
                         </div>
                         <div className="space-y-2">
                             <label className="text-sm font-medium">Comuna</label>

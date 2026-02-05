@@ -24,7 +24,7 @@ const AddressAutocomplete = ({
     onChange,
     onSelectAddress,
     className,
-    placeholder = "Buscar dirección (OSM)..."
+    placeholder = "Buscar dirección..."
 }) => {
     const [open, setOpen] = useState(false);
     const [internalValue, setInternalValue] = useState(value || "");
