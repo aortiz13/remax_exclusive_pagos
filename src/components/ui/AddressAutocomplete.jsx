@@ -51,7 +51,13 @@ const AddressAutocomplete = ({
                 format: 'json',
                 addressdetails: 1,
                 limit: 5,
-                countrycodes: 'cl' // Limit to Chile
+                // countrycodes: 'cl' // Removed to allow international search if needed, or keep provided context. 
+                // User searched for Uruguay address, so let's allow it or keep it strict? 
+                // User said "ahora si aparecio" (now it appeared) for "Avenida Apoquindo" (Chile).
+                // But previously complained about "Avenida 8 de octubre" (Uruguay) not appearing.
+                // Let's keep strict 'cl' if they want Chile, but the primary issue is Z-INDEX.
+                // I will keep 'cl' for now as they confirmed finding Apoquindo (Chile) worked in JSON but not UI.
+                countrycodes: 'cl'
             });
 
             const response = await fetch(`${NOMINATIM_BASE_URL}?${params.toString()}`);
@@ -73,11 +79,10 @@ const AddressAutocomplete = ({
         if (debounceTimer.current) clearTimeout(debounceTimer.current);
         debounceTimer.current = setTimeout(() => {
             searchAddress(val);
-        }, 500); // 500ms debounce to be polite to OSM servers
+        }, 500);
     };
 
     const handleSelect = (item) => {
-        // Format address from item
         const formattedAddress = item.display_name;
         const addressDetails = item.address;
 
@@ -87,9 +92,12 @@ const AddressAutocomplete = ({
         setOpen(false);
 
         if (onSelectAddress) {
-            // Extract commune/city info
-            // OSM returns various fields for city/town/village depending on size
-            const commune = addressDetails.city || addressDetails.town || addressDetails.village || addressDetails.county || "";
+            // Updated extraction logic for Chile/OSM:
+            // - suburb: often "Las Condes", "Providencia"
+            // - city: often "Santiago"
+            // - town: sometimes smaller comunas
+            // - neighbourhood: "Barrio El Faro" (not a comuna)
+            const commune = addressDetails.suburb || addressDetails.city || addressDetails.town || addressDetails.village || addressDetails.county || "";
             const region = addressDetails.state || "";
 
             onSelectAddress({
@@ -124,9 +132,9 @@ const AddressAutocomplete = ({
                         )}
                     </div>
                 </PopoverTrigger>
-                <PopoverContent className="p-0" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
+                {/* Fixed Z-Index: Modal is 100, so Popover must be higher */}
+                <PopoverContent className="p-0 z-[200]" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
                     <Command shouldFilter={false}>
-                        {/* We disable internal filtering because we are filtering via API */}
                         <div className="hidden"><CommandInput value={internalValue} /></div>
 
                         <CommandList>
