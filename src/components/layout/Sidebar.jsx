@@ -21,7 +21,6 @@ import {
     Zap,
     Shield,
     Calendar,
-    Calendar,
     MapPin,
     Download
 } from 'lucide-react'
