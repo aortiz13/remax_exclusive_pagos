@@ -18,8 +18,18 @@ const AdminPropertyImport = () => {
         setLoading(true)
         setScannedProperties([])
         try {
+            const { data: { session } } = await supabase.auth.getSession()
+
+            if (!session) {
+                toast.error('Sesión no válida. Por favor recarga la página.')
+                return
+            }
+
             const { data, error } = await supabase.functions.invoke('import-remax-listings', {
-                body: { agentId }
+                body: { agentId },
+                headers: {
+                    Authorization: `Bearer ${session.access_token}`
+                }
             })
 
             if (error) throw error
