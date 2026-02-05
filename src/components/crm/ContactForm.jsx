@@ -335,9 +335,11 @@ const ContactForm = ({ contact, isOpen, onClose }) => {
                                                     aria-expanded={openPropertySelect}
                                                     className="w-full justify-between"
                                                 >
-                                                    {selectedPropertyId
-                                                        ? properties.find((p) => p.id === selectedPropertyId)?.address
-                                                        : "Asignar propiedad..."}
+                                                    <span className="truncate">
+                                                        {selectedPropertyId
+                                                            ? properties.find((p) => p.id === selectedPropertyId)?.address
+                                                            : "Seleccionar propiedad..."}
+                                                    </span>
                                                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                                 </Button>
                                             </PopoverTrigger>
