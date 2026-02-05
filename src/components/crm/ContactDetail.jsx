@@ -28,6 +28,11 @@ const ContactDetail = () => {
     const [deleteConfirmation, setDeleteConfirmation] = useState('')
     const [isDeleting, setIsDeleting] = useState(false)
 
+    // Delete Link State
+    const [isDeleteLinkOpen, setIsDeleteLinkOpen] = useState(false)
+    const [linkToDelete, setLinkToDelete] = useState(null)
+    const [isDeletingLink, setIsDeletingLink] = useState(false)
+
     useEffect(() => {
         fetchData()
     }, [id])
@@ -185,6 +190,52 @@ const ContactDetail = () => {
             console.error('Error deleting contact:', error)
             toast.error('Error al eliminar contacto: ' + (error.message || 'Error desconocido'))
             setIsDeleting(false)
+        }
+    }
+
+    const handleDeleteLink = async () => {
+        if (!linkToDelete) return
+
+        try {
+            setIsDeletingLink(true)
+
+            // If it's an "owned" link, we clear the owner_id in the properties table
+            if (linkToDelete.linkId.startsWith('owned_')) {
+                const { error } = await supabase
+                    .from('properties')
+                    .update({ owner_id: null })
+                    .eq('id', linkToDelete.id)
+
+                if (error) throw error
+            } else {
+                // Otherwise it's a link in property_contacts
+                const { error } = await supabase
+                    .from('property_contacts')
+                    .delete()
+                    .eq('id', linkToDelete.linkId)
+
+                if (error) throw error
+            }
+
+            // Log activity for both contact and property
+            await logActivity({
+                action: 'Desvinculó',
+                entity_type: 'Contacto',
+                entity_id: id,
+                description: `Desvinculó propiedad: ${linkToDelete.address} (${linkToDelete.role})`,
+                contact_id: id,
+                property_id: linkToDelete.id
+            })
+
+            toast.success('Vinculación eliminada')
+            fetchData()
+        } catch (error) {
+            console.error('Error deleting link:', error)
+            toast.error('Error al eliminar vinculación')
+        } finally {
+            setIsDeletingLink(false)
+            setIsDeleteLinkOpen(false)
+            setLinkToDelete(null)
         }
     }
 
@@ -355,21 +406,37 @@ const ContactDetail = () => {
                                     onClick={() => navigate(`/crm/property/${prop.id}`)}
                                 >
                                     <div className="flex justify-between items-start">
-                                        <h3 className="font-semibold text-sm group-hover:text-primary transition-colors">{prop.address}</h3>
+                                        <div className="flex-1" onClick={() => navigate(`/crm/property/${prop.id}`)}>
+                                            <h3 className="font-semibold text-sm group-hover:text-primary transition-colors">{prop.address}</h3>
+                                            <div className="text-xs text-muted-foreground">
+                                                {prop.commune}
+                                            </div>
+                                        </div>
                                         <div className="flex flex-col items-end gap-1">
-                                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${prop.role === 'Dueño'
+                                            <div className="flex items-center gap-2">
+                                                <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${prop.role === 'Dueño'
                                                     ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
                                                     : 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'
-                                                }`}>
-                                                {prop.role}
-                                            </span>
+                                                    }`}>
+                                                    {prop.role}
+                                                </span>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-6 w-6 opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation()
+                                                        setLinkToDelete(prop)
+                                                        setIsDeleteLinkOpen(true)
+                                                    }}
+                                                >
+                                                    <Trash2 className="w-3 h-3" />
+                                                </Button>
+                                            </div>
                                             <span className="text-[10px] text-gray-500">
                                                 {prop.property_type}
                                             </span>
                                         </div>
-                                    </div>
-                                    <div className="text-xs text-muted-foreground">
-                                        {prop.commune}
                                     </div>
                                 </div>
                             ))}
@@ -431,7 +498,30 @@ const ContactDetail = () => {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
-        </div >
+
+            {/* Delete Link Confirmation */}
+            <AlertDialog open={isDeleteLinkOpen} onOpenChange={setIsDeleteLinkOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>¿Eliminar vinculación?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Esta acción eliminará la relación entre este contacto y la propiedad <strong>{linkToDelete?.address}</strong>.
+                            La propiedad y el contacto NO serán eliminados, solo su vinculación.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={handleDeleteLink}
+                            disabled={isDeletingLink}
+                            className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                        >
+                            {isDeletingLink ? 'Eliminando...' : 'Eliminar Vinculación'}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+        </div>
     )
 }
 

@@ -137,7 +137,7 @@ const PropertyForm = ({ property, isOpen, onClose }) => {
 
             if (queryError) throw queryError
 
-            // Log activity
+            // Log activity and sync owner
             if (savedProperty) {
                 // 1. Log creation/edit
                 await logActivity({
@@ -149,7 +149,20 @@ const PropertyForm = ({ property, isOpen, onClose }) => {
                     details: { address: savedProperty.address } // context
                 })
 
-                // 2. Log owner link if changed
+                // 2. Sync owner with property_contacts table
+                if (dataToSave.owner_id) {
+                    const { error: relError } = await supabase
+                        .from('property_contacts')
+                        .upsert({
+                            property_id: savedProperty.id,
+                            contact_id: dataToSave.owner_id,
+                            role: 'Dueño'
+                        }, { onConflict: 'property_id,contact_id,role' }) // Ensure we don't duplicate exact same role
+
+                    if (relError) console.error('Error syncing owner relation:', relError)
+                }
+
+                // 3. Log owner link if changed
                 if (dataToSave.owner_id && dataToSave.owner_id !== property?.owner_id) {
                     const activityDescription = `Vinculó propiedad: ${savedProperty.address}`
 
