@@ -37,6 +37,7 @@ export default function CalendarPage() {
     const [view, setView] = useState(Views.WEEK)
     const [date, setDate] = useState(new Date())
     const [contacts, setContacts] = useState([])
+    const [properties, setProperties] = useState([])
 
     // Modal State
     const [isModalOpen, setIsModalOpen] = useState(false)
@@ -47,6 +48,7 @@ export default function CalendarPage() {
         start: '',
         end: '',
         contactId: 'none',
+        propertyId: 'none',
         reminder: 'none'
     })
     const [isSaving, setIsSaving] = useState(false)
@@ -57,6 +59,7 @@ export default function CalendarPage() {
         if (user) {
             fetchEvents()
             fetchContacts()
+            fetchProperties()
         }
     }, [user])
 
@@ -66,6 +69,15 @@ export default function CalendarPage() {
             setContacts(data || [])
         } catch (error) {
             console.error('Error fetching contacts:', error)
+        }
+    }
+
+    const fetchProperties = async () => {
+        try {
+            const { data } = await supabase.from('properties').select('id, address').order('address')
+            setProperties(data || [])
+        } catch (error) {
+            console.error('Error fetching properties:', error)
         }
     }
 
@@ -80,7 +92,8 @@ export default function CalendarPage() {
                     description,
                     completed,
                     reminder_minutes,
-                    contact:contacts(id, first_name, last_name)
+                    contact:contacts(id, first_name, last_name),
+                    property:properties(id, address)
                 `)
                 .eq('agent_id', user.id)
 
@@ -101,6 +114,8 @@ export default function CalendarPage() {
                     type: getEventType(task.action),
                     contactId: task.contact?.id,
                     contactName: task.contact ? `${task.contact.first_name} ${task.contact.last_name}` : null,
+                    propertyId: task.property?.id,
+                    propertyName: task.property?.address,
                     reminder: task.reminder_minutes
                 }
             })
@@ -131,6 +146,7 @@ export default function CalendarPage() {
             start: format(start, "yyyy-MM-dd'T'HH:mm"),
             end: format(end, "yyyy-MM-dd'T'HH:mm"),
             contactId: 'none',
+            propertyId: 'none',
             reminder: 'none'
         })
         setIsModalOpen(true)
@@ -144,6 +160,7 @@ export default function CalendarPage() {
             start: format(event.start, "yyyy-MM-dd'T'HH:mm"),
             end: format(event.end, "yyyy-MM-dd'T'HH:mm"),
             contactId: event.contactId || 'none',
+            propertyId: event.propertyId || 'none',
             reminder: event.reminder ? event.reminder.toString() : 'none'
         })
         setIsModalOpen(true)
@@ -163,6 +180,7 @@ export default function CalendarPage() {
                 description: formData.description,
                 execution_date: new Date(formData.start).toISOString(),
                 contact_id: formData.contactId === 'none' ? null : formData.contactId,
+                property_id: formData.propertyId === 'none' ? null : formData.propertyId,
                 reminder_minutes: formData.reminder === 'none' ? null : parseInt(formData.reminder)
             }
 
@@ -481,22 +499,42 @@ export default function CalendarPage() {
                             </div>
                         </div>
 
-                        <div className="space-y-2">
-                            <Label>Contacto (Opcional)</Label>
-                            <Select
-                                value={formData.contactId}
-                                onValueChange={v => setFormData({ ...formData, contactId: v })}
-                            >
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Seleccionar contacto..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="none">Ninguno</SelectItem>
-                                    {contacts.map(c => (
-                                        <SelectItem key={c.id} value={c.id}>{c.first_name} {c.last_name}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label>Contacto (Opcional)</Label>
+                                <Select
+                                    value={formData.contactId}
+                                    onValueChange={v => setFormData({ ...formData, contactId: v })}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Seleccionar contacto..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="none">Ninguno</SelectItem>
+                                        {contacts.map(c => (
+                                            <SelectItem key={c.id} value={c.id}>{c.first_name} {c.last_name}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label>Propiedad (Opcional)</Label>
+                                <Select
+                                    value={formData.propertyId}
+                                    onValueChange={v => setFormData({ ...formData, propertyId: v })}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Seleccionar propiedad..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="none">Ninguna</SelectItem>
+                                        {properties.map(p => (
+                                            <SelectItem key={p.id} value={p.id}>{p.address}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
                         </div>
 
                         <div className="space-y-2">

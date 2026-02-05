@@ -362,16 +362,28 @@ const PropertyDetail = () => {
                                 <div className="text-center py-4 text-sm text-muted-foreground">Sin tareas pendientes.</div>
                             ) : (
                                 tasks.map(task => (
-                                    <div key={task.id} className="flex items-start gap-2 p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-800/50 text-sm">
-                                        <input
-                                            type="checkbox"
-                                            checked={task.completed}
-                                            onChange={() => handleTaskToggle(task.id, task.completed)}
-                                            className="mt-1 rounded border-gray-300"
-                                        />
+                                    <div
+                                        key={task.id}
+                                        className="flex items-start gap-2 p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-800/50 text-sm cursor-pointer group"
+                                        onClick={() => {
+                                            setSelectedTask(task)
+                                            setIsTaskModalOpen(true)
+                                        }}
+                                    >
+                                        <div onClick={(e) => e.stopPropagation()}>
+                                            <input
+                                                type="checkbox"
+                                                checked={task.completed}
+                                                onChange={() => handleTaskToggle(task.id, task.completed)}
+                                                className="mt-1 rounded border-gray-300 cursor-pointer"
+                                            />
+                                        </div>
                                         <div className="flex-1 min-w-0">
-                                            <div className={`truncate ${task.completed ? 'line-through text-muted-foreground' : ''}`}>{task.action}</div>
-                                            <div className="text-xs text-muted-foreground">{new Date(task.execution_date).toLocaleDateString()}</div>
+                                            <div className={`truncate font-medium ${task.completed ? 'line-through text-muted-foreground' : ''}`}>{task.action}</div>
+                                            {task.description && (
+                                                <div className="text-xs text-muted-foreground truncate">{task.description}</div>
+                                            )}
+                                            <div className="text-xs text-muted-foreground mt-0.5">{new Date(task.execution_date).toLocaleString()}</div>
                                         </div>
                                     </div>
                                 ))
@@ -447,6 +459,7 @@ const PropertyDetail = () => {
             <TaskModal
                 task={selectedTask}
                 isOpen={isTaskModalOpen}
+                propertyId={id}
                 onClose={(refresh) => {
                     setIsTaskModalOpen(false)
                     setSelectedTask(null)

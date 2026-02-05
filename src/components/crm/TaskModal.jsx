@@ -8,18 +8,19 @@ import { useAuth } from '../../context/AuthContext'
 import { toast } from 'sonner'
 import { logActivity } from '../../services/activityService'
 
-const TaskModal = ({ task, contactId, isOpen, onClose }) => {
+const TaskModal = ({ task, contactId, propertyId, isOpen, onClose }) => {
     const { profile, user } = useAuth()
     const [loading, setLoading] = useState(false)
     const [contacts, setContacts] = useState([])
     const [properties, setProperties] = useState([])
     const [formData, setFormData] = useState({
         contact_id: contactId || '',
-        property_id: '',
+        property_id: propertyId || '',
         action: '',
         description: '',
         execution_date: '',
         execution_time: '',
+        reminder_minutes: 'none'
     })
 
     useEffect(() => {
@@ -31,14 +32,15 @@ const TaskModal = ({ task, contactId, isOpen, onClose }) => {
             const dateObj = task.execution_date ? new Date(task.execution_date) : new Date()
             setFormData({
                 contact_id: task.contact_id || contactId || '',
-                property_id: task.property_id || '',
+                property_id: task.property_id || propertyId || '',
                 action: task.action || '',
                 description: task.description || '',
                 execution_date: task.execution_date ? task.execution_date.split('T')[0] : '',
-                execution_time: task.execution_date ? dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
+                execution_time: task.execution_date ? dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '',
+                reminder_minutes: task.reminder_minutes ? task.reminder_minutes.toString() : 'none',
             })
         }
-    }, [isOpen, contactId, task])
+    }, [isOpen, contactId, propertyId, task])
 
     const fetchContacts = async () => {
         const { data } = await supabase.from('contacts').select('id, first_name, last_name').order('first_name')
@@ -70,6 +72,7 @@ const TaskModal = ({ task, contactId, isOpen, onClose }) => {
                 action: formData.action,
                 description: formData.description,
                 execution_date: dateTime.toISOString(),
+                reminder_minutes: formData.reminder_minutes === 'none' ? null : parseInt(formData.reminder_minutes)
             }
 
             let error;
@@ -212,6 +215,24 @@ const TaskModal = ({ task, contactId, isOpen, onClose }) => {
                                 />
                             </div>
                         </div>
+                    </div>
+
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium">Recordatorio</label>
+                        <select
+                            name="reminder_minutes"
+                            value={formData.reminder_minutes}
+                            onChange={handleChange}
+                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                        >
+                            <option value="none">Sin recordatorio</option>
+                            <option value="10">10 min antes</option>
+                            <option value="20">20 min antes</option>
+                            <option value="30">30 min antes</option>
+                            <option value="40">40 min antes</option>
+                            <option value="50">50 min antes</option>
+                            <option value="60">1 hora antes</option>
+                        </select>
                     </div>
                 </form>
 

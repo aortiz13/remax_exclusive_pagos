@@ -20,6 +20,7 @@ const ContactDetail = () => {
     const [loading, setLoading] = useState(true)
     const [isEditOpen, setIsEditOpen] = useState(false)
     const [isTaskModalOpen, setIsTaskModalOpen] = useState(false)
+    const [selectedTask, setSelectedTask] = useState(null)
     const [note, setNote] = useState('')
     const [noteLoading, setNoteLoading] = useState(false)
 
@@ -323,7 +324,14 @@ const ContactDetail = () => {
                     <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 p-6">
                         <div className="flex justify-between items-center mb-6">
                             <h2 className="text-xl font-semibold">Tareas Pendientes</h2>
-                            <Button variant="outline" size="sm" onClick={() => setIsTaskModalOpen(true)}>+ Nueva Tarea</Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                    setSelectedTask(null)
+                                    setIsTaskModalOpen(true)
+                                }}
+                            >+ Nueva Tarea</Button>
                         </div>
                         {/* Task List */}
                         {tasks.length === 0 ? (
@@ -334,9 +342,18 @@ const ContactDetail = () => {
                                     <li
                                         key={task.id}
                                         className={`flex items-center gap-3 p-3 rounded-lg border bg-gray-50 dark:bg-gray-800/50 transition-colors ${task.completed ? 'opacity-60 cursor-default' : 'hover:bg-gray-100 cursor-pointer'}`}
-                                        onClick={() => !task.completed && toggleTask(task.id, task.completed)}
+                                        onClick={() => {
+                                            setSelectedTask(task)
+                                            setIsTaskModalOpen(true)
+                                        }}
                                     >
-                                        <div className={`flex-shrink-0 ${task.completed ? 'text-green-500' : 'text-gray-400'}`}>
+                                        <div
+                                            className={`flex-shrink-0 ${task.completed ? 'text-green-500' : 'text-gray-400 cursor-pointer hover:text-green-500'}`}
+                                            onClick={(e) => {
+                                                e.stopPropagation()
+                                                toggleTask(task.id, task.completed)
+                                            }}
+                                        >
                                             {task.completed ? <CheckCircle2 className="w-6 h-6" /> : <Circle className="w-6 h-6" />}
                                         </div>
                                         <div className="flex-1">
@@ -452,12 +469,14 @@ const ContactDetail = () => {
             />
 
             <TaskModal
-                contactId={id}
                 isOpen={isTaskModalOpen}
                 onClose={(refresh) => {
                     setIsTaskModalOpen(false)
+                    setSelectedTask(null)
                     if (refresh) fetchData()
                 }}
+                contactId={id}
+                task={selectedTask}
             />
 
             {/* Delete Confirmation Alert */}
