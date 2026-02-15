@@ -1,23 +1,21 @@
 import { Play, Trash2, Edit, Heart, CheckCircle, Clock } from 'lucide-react'
 import { Card, Button, Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui'
 import { motion } from 'framer-motion'
-import { useState, useMemo } from 'react'
-import ReactPlayer from 'react-player'
+import { useState } from 'react'
 import { cn } from '@/lib/utils'
 
 export default function VideoCard({ video, isAdmin = false, onDelete, onEdit, isFavorite = false, isCompleted = false, onToggleFavorite, onComplete, onDebugLog }) {
     const [showModal, setShowModal] = useState(false)
-    const [isReady, setIsReady] = useState(false)
 
-    const playerConfig = useMemo(() => ({
-        youtube: {
-            playerVars: {
-                rel: 0,
-                modestbranding: 1,
-                show_related: 0
-            }
-        }
-    }), [])
+    // Helper to extract YouTube ID
+    const getYouTubeId = (url) => {
+        if (!url) return null
+        const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/
+        const match = url.match(regExp)
+        return (match && match[2].length === 11) ? match[2] : null
+    }
+
+    const videoId = getYouTubeId(video.video_url)
 
     return (
         <>
@@ -35,7 +33,7 @@ export default function VideoCard({ video, isAdmin = false, onDelete, onEdit, is
                         if (onDebugLog) {
                             onDebugLog(`Opening modal: ${video.title}`)
                             onDebugLog(`URL: ${video.video_url}`)
-                            onDebugLog(`CanPlay: ${ReactPlayer.canPlay(video.video_url)}`)
+                            onDebugLog(`ID: ${videoId}`)
                         }
                     }}
                 >
@@ -117,44 +115,25 @@ export default function VideoCard({ video, isAdmin = false, onDelete, onEdit, is
             </motion.div>
 
             {/* Cinema Mode Modal */}
-            <Dialog open={showModal} onOpenChange={(open) => {
-                if (!open) setIsReady(false)
-                setShowModal(open)
-            }}>
+            <Dialog open={showModal} onOpenChange={setShowModal}>
                 <DialogContent className="max-w-4xl p-0 overflow-hidden bg-black border-slate-800 aspect-video ring-0 outline-none">
                     <DialogTitle className="sr-only">{video.title}</DialogTitle>
                     <DialogDescription className="sr-only">Reproduciendo video: {video.title}</DialogDescription>
 
-                    {/* Only mount player when modal is open to ensure autoplay and proper cleanup */}
-                    {showModal && (
-                        <ReactPlayer
-                            key={showModal ? 'playing' : 'stopped'}
-                            url={video.video_url}
-                            width="100%"
-                            height="100%"
-                            playing={showModal && isReady}
-                            controls={true}
-                            muted={true}
-                            onReady={() => {
-                                setIsReady(true)
-                                if (onDebugLog) onDebugLog(`[Player] Ready: ${video.video_url}`, 'success')
-                            }}
-                            onStart={() => {
-                                if (onDebugLog) onDebugLog('[Player] Started', 'success')
-                            }}
-                            onBuffer={() => {
-                                if (onDebugLog) onDebugLog('[Player] Buffering...')
-                            }}
-                            config={playerConfig}
-                            onEnded={() => {
-                                if (onDebugLog) onDebugLog('[Player] Ended', 'success')
-                                if (onComplete) onComplete()
-                            }}
-                            onError={(e) => {
-                                console.error('Video Error:', e)
-                                if (onDebugLog) onDebugLog(`[Player] Error: ${JSON.stringify(e)}`, 'error')
-                            }}
-                        />
+                    {/* Native Iframe Implementation */}
+                    {showModal && videoId ? (
+                        <iframe
+                            className="w-full h-full"
+                            src={`https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1`}
+                            title={video.title}
+                            frameBorder="0"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                            allowFullScreen
+                        ></iframe>
+                    ) : (
+                        <div className="flex items-center justify-center h-full text-white">
+                            <p>Error: ID de video no encontrado.</p>
+                        </div>
                     )}
                 </DialogContent>
             </Dialog>
