@@ -1,18 +1,27 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { Button, Input, Label, Textarea } from '@/components/ui'
-import { X, Save, Calendar, Clock } from 'lucide-react'
+import { X, Save, Calendar, Clock, Check, ChevronsUpDown, Plus } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { supabase } from '../../services/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { toast } from 'sonner'
 import { logActivity } from '../../services/activityService'
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui"
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
+import { cn } from "@/lib/utils"
+import ContactForm from './ContactForm'
+import PropertyForm from './PropertyForm'
 
 const TaskModal = ({ task, contactId, propertyId, isOpen, onClose }) => {
     const { profile, user } = useAuth()
     const [loading, setLoading] = useState(false)
     const [contacts, setContacts] = useState([])
     const [properties, setProperties] = useState([])
+    const [openContactSelect, setOpenContactSelect] = useState(false)
+    const [openPropertySelect, setOpenPropertySelect] = useState(false)
+    const [isContactFormOpen, setIsContactFormOpen] = useState(false)
+    const [isPropertyFormOpen, setIsPropertyFormOpen] = useState(false)
     const [formData, setFormData] = useState({
         contact_id: contactId || '',
         property_id: propertyId || '',
@@ -135,37 +144,114 @@ const TaskModal = ({ task, contactId, propertyId, isOpen, onClose }) => {
                 <form onSubmit={handleSubmit} className="p-6 space-y-4">
                     {!contactId && (
                         <div className="space-y-2">
-                            <label className="text-sm font-medium">Contacto</label>
-                            <select
-                                name="contact_id"
-                                value={formData.contact_id}
-                                onChange={handleChange}
-                                required
-                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                            >
-                                <option value="">Seleccionar Contacto</option>
-                                {contacts.map(c => (
-                                    <option key={c.id} value={c.id}>{c.first_name} {c.last_name}</option>
-                                ))}
-                            </select>
+                            <Label>Contacto <span className="text-red-500">*</span></Label>
+                            <Popover open={openContactSelect} onOpenChange={setOpenContactSelect}>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        role="combobox"
+                                        aria-expanded={openContactSelect}
+                                        className="w-full justify-between font-normal"
+                                    >
+                                        {formData.contact_id
+                                            ? contacts.find((c) => c.id === formData.contact_id)?.first_name + " " + contacts.find((c) => c.id === formData.contact_id)?.last_name
+                                            : "Seleccionar contacto..."}
+                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-[300px] p-0 z-[200]">
+                                    <Command>
+                                        <CommandInput placeholder="Buscar contacto..." />
+                                        <CommandList>
+                                            <CommandEmpty>No encontrado.</CommandEmpty>
+                                            <CommandGroup>
+                                                <CommandItem
+                                                    onSelect={() => {
+                                                        setOpenContactSelect(false)
+                                                        setIsContactFormOpen(true)
+                                                    }}
+                                                    className="font-medium text-primary cursor-pointer border-b mb-1 pb-1"
+                                                >
+                                                    <Plus className="mr-2 h-4 w-4" />
+                                                    Crear nuevo contacto
+                                                </CommandItem>
+                                                {contacts.map((contact) => (
+                                                    <CommandItem
+                                                        key={contact.id}
+                                                        value={contact.first_name + " " + contact.last_name}
+                                                        onSelect={() => {
+                                                            setFormData(prev => ({ ...prev, contact_id: contact.id }))
+                                                            setOpenContactSelect(false)
+                                                        }}
+                                                    >
+                                                        <Check
+                                                            className={cn("mr-2 h-4 w-4", formData.contact_id === contact.id ? "opacity-100" : "opacity-0")}
+                                                        />
+                                                        {contact.first_name} {contact.last_name}
+                                                    </CommandItem>
+                                                ))}
+                                            </CommandGroup>
+                                        </CommandList>
+                                    </Command>
+                                </PopoverContent>
+                            </Popover>
                         </div>
                     )}
 
                     <div className="space-y-2">
                         <Label>Propiedad (Opcional)</Label>
-                        <select
-                            name="property_id"
-                            value={formData.property_id}
-                            onChange={handleChange}
-                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                            <option value="">Seleccionar propiedad...</option>
-                            {properties.map(property => (
-                                <option key={property.id} value={property.id}>
-                                    {property.address}
-                                </option>
-                            ))}
-                        </select>
+                        <Popover open={openPropertySelect} onOpenChange={setOpenPropertySelect}>
+                            <PopoverTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    role="combobox"
+                                    aria-expanded={openPropertySelect}
+                                    className="w-full justify-between font-normal"
+                                >
+                                    <span className="truncate">
+                                        {formData.property_id
+                                            ? properties.find((p) => p.id === formData.property_id)?.address
+                                            : "Seleccionar propiedad..."}
+                                    </span>
+                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[300px] p-0 z-[200]">
+                                <Command>
+                                    <CommandInput placeholder="Buscar propiedad..." />
+                                    <CommandList>
+                                        <CommandEmpty>No encontrada.</CommandEmpty>
+                                        <CommandGroup>
+                                            <CommandItem
+                                                onSelect={() => {
+                                                    setOpenPropertySelect(false)
+                                                    setIsPropertyFormOpen(true)
+                                                }}
+                                                className="font-medium text-primary cursor-pointer border-b mb-1 pb-1"
+                                            >
+                                                <Plus className="mr-2 h-4 w-4" />
+                                                Crear nueva propiedad
+                                            </CommandItem>
+                                            {properties.map((prop) => (
+                                                <CommandItem
+                                                    key={prop.id}
+                                                    value={prop.address}
+                                                    onSelect={() => {
+                                                        setFormData(prev => ({ ...prev, property_id: prop.id }))
+                                                        setOpenPropertySelect(false)
+                                                    }}
+                                                >
+                                                    <Check
+                                                        className={cn("mr-2 h-4 w-4", formData.property_id === prop.id ? "opacity-100" : "opacity-0")}
+                                                    />
+                                                    {prop.address}
+                                                </CommandItem>
+                                            ))}
+                                        </CommandGroup>
+                                    </CommandList>
+                                </Command>
+                            </PopoverContent>
+                        </Popover>
                     </div>
 
                     <div className="space-y-2">
@@ -244,6 +330,36 @@ const TaskModal = ({ task, contactId, propertyId, isOpen, onClose }) => {
                     </Button>
                 </div>
             </motion.div>
+
+            {isContactFormOpen && (
+                <ContactForm
+                    isOpen={isContactFormOpen}
+                    onClose={(newContact) => {
+                        setIsContactFormOpen(false)
+                        if (newContact) {
+                            setContacts(prev => [...prev, newContact])
+                            setFormData(prev => ({ ...prev, contact_id: newContact.id }))
+                        }
+                    }}
+                />
+            )}
+
+            {isPropertyFormOpen && (
+                <PropertyForm
+                    isOpen={isPropertyFormOpen}
+                    onClose={(didSave) => {
+                        setIsPropertyFormOpen(false)
+                        if (didSave) {
+                            fetchProperties().then(newProps => {
+                                // Since fetchProperties doesn't return data, we need to find the latest
+                                // This is a bit tricky without the direct object, but PropertyForm usually closes on success
+                            })
+                            // Refresh properties list
+                            fetchProperties()
+                        }
+                    }}
+                />
+            )}
         </div>,
         document.body
     )

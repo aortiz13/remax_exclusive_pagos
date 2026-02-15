@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
-import { Icon } from 'leaflet'
+import { divIcon } from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { supabase } from '../../services/supabase'
 import { Loader2, ExternalLink } from 'lucide-react'
@@ -12,15 +12,33 @@ import markerIconPng from "leaflet/dist/images/marker-icon.png"
 import markerIcon2xPng from "leaflet/dist/images/marker-icon-2x.png"
 import markerShadowPng from "leaflet/dist/images/marker-shadow.png"
 
-const customIcon = new Icon({
-    iconUrl: markerIconPng,
-    iconRetinaUrl: markerIcon2xPng,
-    shadowUrl: markerShadowPng,
-    iconSize: [25, 41],
-    iconAnchor: [12, 41],
-    popupAnchor: [1, -34],
-    shadowSize: [41, 41]
-})
+const getMarkerIcon = (statusArray) => {
+    const statusStr = (statusArray || []).join(', ').toLowerCase()
+    let color = '#3b82f6' // Default Blue (RE/MAX Blue-ish)
+
+    if (statusStr.includes('venta')) {
+        color = '#ef4444' // Red (RE/MAX Red)
+    } else if (statusStr.includes('arriendo')) {
+        color = '#22c55e' // Green
+    } else if (statusStr.includes('administr')) {
+        color = '#f97316' // Orange
+    }
+
+    return divIcon({
+        html: `<div style="
+            background-color: ${color}; 
+            width: 14px; 
+            height: 14px; 
+            border-radius: 50%; 
+            border: 2px solid white; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        "></div>`,
+        className: 'custom-marker-pin',
+        iconSize: [14, 14],
+        iconAnchor: [7, 7],
+        popupAnchor: [0, -7],
+    })
+}
 
 const PropertyMap = () => {
     const [properties, setProperties] = useState([])
@@ -92,7 +110,7 @@ const PropertyMap = () => {
                         <Marker
                             key={property.id}
                             position={[property.latitude, property.longitude]}
-                            icon={customIcon}
+                            icon={getMarkerIcon(property.status)}
                         >
                             <Popup>
                                 <div className="min-w-[200px]">

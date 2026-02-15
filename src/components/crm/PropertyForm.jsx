@@ -407,6 +407,18 @@ const PropertyForm = ({ property, isOpen, onClose }) => {
                     </Button>
                 </div>
             </motion.div>
+            {isContactFormOpen && (
+                <ContactForm
+                    isOpen={isContactFormOpen}
+                    onClose={(newContact) => {
+                        setIsContactFormOpen(false)
+                        if (newContact) {
+                            setContacts(prev => [...prev, newContact])
+                            setFormData(prev => ({ ...prev, owner_id: newContact.id }))
+                        }
+                    }}
+                />
+            )}
         </div>,
         document.body
     )
