@@ -22,7 +22,11 @@ export default function VideoCard({ video, isAdmin = false, onDelete, onEdit, is
                     className="aspect-video bg-slate-100 dark:bg-slate-800 relative overflow-hidden cursor-pointer"
                     onClick={() => {
                         setShowModal(true)
-                        if (onDebugLog) onDebugLog(`Opening modal for: ${video.title}`)
+                        if (onDebugLog) {
+                            onDebugLog(`Opening modal for: ${video.title}`)
+                            onDebugLog(`URL: ${video.video_url}`)
+                            onDebugLog(`CanPlay: ${ReactPlayer.canPlay(video.video_url)}`)
+                        }
                     }}
                 >
                     <img
