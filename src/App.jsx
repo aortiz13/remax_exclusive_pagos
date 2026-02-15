@@ -27,6 +27,8 @@ import PropertyDetail from './components/crm/PropertyDetail'
 import PropertyMapPage from './pages/PropertyMapPage'
 import DocumentsHub from './pages/DocumentsHub'
 import CalendarPage from './pages/Calendar'
+import VirtualClassroom from './pages/VirtualClassroom'
+import AdminVirtualClassroom from './pages/AdminVirtualClassroom'
 import { Toaster } from 'sonner'
 
 // Protected Route Component
@@ -215,6 +217,21 @@ function App() {
 
             {/* Public Route for Agents to View Lead */}
             <Route path="/nuevolead/:id" element={<AgentLeadView />} />
+
+            {/* Public Route for Agents to View Lead */}
+            <Route path="/nuevolead/:id" element={<AgentLeadView />} />
+
+            {/* Aula Virtual Routes */}
+            <Route path="/aula-virtual" element={
+              <ProtectedRoute>
+                <VirtualClassroom />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/aula-virtual" element={
+              <ProtectedRoute>
+                <AdminVirtualClassroom />
+              </ProtectedRoute>
+            } />
 
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

@@ -22,7 +22,8 @@ import {
     Shield,
     Calendar,
     MapPin,
-    Download
+    Download,
+    GraduationCap
 } from 'lucide-react'
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
@@ -96,6 +97,16 @@ export default function Sidebar() {
             ]
         },
         {
+            title: 'AULA VIRTUAL',
+            items: [
+                {
+                    title: 'Aula Virtual',
+                    icon: GraduationCap,
+                    path: '/aula-virtual',
+                }
+            ]
+        },
+        {
             title: 'DOCUMENTOS',
             items: [
                 {
@@ -115,6 +126,7 @@ export default function Sidebar() {
                 { title: 'Administración', icon: Users, path: '/admin/invites' },
                 { title: 'Solicitudes', icon: FileText, path: '/admin/requests' },
                 { title: 'Importar Propiedades', icon: Download, path: '/admin/import' },
+                { title: 'Config. Aula Virtual', icon: Settings, path: '/admin/aula-virtual' },
             ]
         })
     }
