@@ -46,3 +46,26 @@ export const fetchVideoMetadata = async (url) => {
         throw error;
     }
 };
+
+export const fetchPlaylistItems = async (playlistId) => {
+    try {
+        const response = await fetch(`https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId=${playlistId}&key=${API_KEY}`);
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error?.message || 'Error fetching playlist items');
+        }
+
+        return data.items.map(item => ({
+            youtube_id: item.snippet.resourceId.videoId,
+            title: item.snippet.title,
+            thumbnail_url: item.snippet.thumbnails?.maxres?.url || item.snippet.thumbnails?.high?.url || item.snippet.thumbnails?.medium?.url,
+            video_url: `https://www.youtube.com/watch?v=${item.snippet.resourceId.videoId}`,
+            description: item.snippet.description,
+            publishedAt: item.snippet.publishedAt
+        })).filter(video => video.title !== 'Private video' && video.title !== 'Deleted video');
+    } catch (error) {
+        console.error("Error fetching playlist items:", error);
+        throw error;
+    }
+};

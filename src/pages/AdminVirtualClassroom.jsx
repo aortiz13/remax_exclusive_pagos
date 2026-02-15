@@ -3,7 +3,7 @@ import { supabase } from '../services/supabase'
 import { fetchVideoMetadata } from '../services/youtube' // Import the service
 import { Button, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui'
 import { toast } from 'sonner'
-import { Loader2, Plus, Trash2, Video } from 'lucide-react'
+import { Loader2, Plus, Trash2, Video, RefreshCw } from 'lucide-react'
 import VideoCard from '../components/classroom/VideoCard'
 
 export default function AdminVirtualClassroom() {
@@ -96,6 +96,56 @@ export default function AdminVirtualClassroom() {
         }
     }
 
+    const handleSyncPlaylists = async () => {
+        setSaving(true)
+        toast.info('Iniciando sincronización...')
+        try {
+            const playlists = [
+                { id: 'PLd3VhBafUdLqaetc6gyid5PQ7c90yOAkZ', category: 'capacitaciones' },
+                { id: 'PLd3VhBafUdLpMneYpy2hoJA7PbS_zqBwJ', category: 'tutoriales' }
+            ]
+
+            let newVideosCount = 0
+
+            for (const playlist of playlists) {
+                const videos = await import('../services/youtube').then(m => m.fetchPlaylistItems(playlist.id))
+
+                for (const video of videos) {
+                    // Check if video already exists by URL
+                    const { data: existing } = await supabase
+                        .from('virtual_classroom_videos')
+                        .select('id')
+                        .eq('video_url', video.video_url)
+                        .single()
+
+                    if (!existing) {
+                        await supabase.from('virtual_classroom_videos').insert({
+                            title: video.title,
+                            video_url: video.video_url,
+                            thumbnail_url: video.thumbnail_url,
+                            description: video.description,
+                            category: playlist.category
+                        })
+                        newVideosCount++
+                    }
+                }
+            }
+
+            if (newVideosCount > 0) {
+                toast.success(`${newVideosCount} videos nuevos sincronizados`)
+                fetchVideos()
+            } else {
+                toast.success('Listas sincronizadas. No hay videos nuevos.')
+            }
+
+        } catch (error) {
+            console.error('Sync error:', error)
+            toast.error('Error en la sincronización: ' + error.message)
+        } finally {
+            setSaving(false)
+        }
+    }
+
     if (loading) return <div>Cargando...</div>
 
     return (
@@ -177,7 +227,13 @@ export default function AdminVirtualClassroom() {
 
             {/* Video List */}
             <div className="space-y-4">
-                <h2 className="text-lg font-semibold">Videos Existentes</h2>
+                <div className="flex justify-between items-center">
+                    <h2 className="text-lg font-semibold">Videos Existentes</h2>
+                    <Button variant="outline" onClick={handleSyncPlaylists} disabled={saving}>
+                        {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <RefreshCw className="w-4 h-4 mr-2" />}
+                        Sincronizar Listas de YouTube
+                    </Button>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     {videos.map(video => (
                         <div key={video.id} className="relative group">

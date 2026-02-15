@@ -24,6 +24,7 @@ export default function VideoCard({ video, isAdmin = false, onDelete, onEdit }) 
                         playing={true}
                         controls={true}
                         light={false}
+                        onError={(e) => console.log('Video Playback Error (handled):', e)}
                     />
                 ) : (
                     <>
