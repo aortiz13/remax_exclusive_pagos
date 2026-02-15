@@ -3,7 +3,7 @@ import { supabase } from '../services/supabase'
 import VideoCard from '../components/classroom/VideoCard'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs' // Assuming standard shadcn/ui tabs
 import { GraduationCap, PlayCircle, BookOpen, Search, Heart } from 'lucide-react'
-import { Input } from '@/components/ui/input'
+import { Input } from '@/components/ui'
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 
