@@ -58,47 +58,78 @@ export default function StepComision({ data, onUpdate, onNext, onBack }) {
                     </div>
 
                     {!data.dividirComision ? (
-                        <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
-                            <Label>Monto Comisión Total</Label>
-                            <div className="relative">
-                                <DollarSign className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                                <Input
-                                    className="pl-8"
-                                    value={data.montoComision || ''}
-                                    onChange={(e) => onUpdate('montoComision', e.target.value)}
-                                    placeholder="Ej: 2000000"
-                                    required={!data.dividirComision}
-                                    autoFocus
-                                />
-                            </div>
-                            <p className="text-xs text-muted-foreground">Valor en pesos chilenos (Neto o Bruto según acuerdo).</p>
-                        </div>
-                    ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2">
+                        <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
                             <div className="space-y-2">
-                                <Label className="text-blue-700">Comisión Vendedor</Label>
+                                <Label>Monto Comisión Total (Neto)</Label>
                                 <div className="relative">
                                     <DollarSign className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                                     <Input
                                         className="pl-8"
-                                        value={data.comisionVendedor || ''}
-                                        onChange={(e) => onUpdate('comisionVendedor', e.target.value)}
-                                        placeholder="Monto Vendedor"
-                                        required={data.dividirComision}
+                                        type="number"
+                                        value={data.montoComision || ''}
+                                        onChange={(e) => onUpdate('montoComision', e.target.value)}
+                                        placeholder="Ej: 2000000"
+                                        required={!data.dividirComision}
+                                        autoFocus
                                     />
                                 </div>
                             </div>
-                            <div className="space-y-2">
-                                <Label className="text-green-700">Comisión Comprador</Label>
-                                <div className="relative">
-                                    <DollarSign className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                                    <Input
-                                        className="pl-8"
-                                        value={data.comisionComprador || ''}
-                                        onChange={(e) => onUpdate('comisionComprador', e.target.value)}
-                                        placeholder="Monto Comprador"
-                                        required={data.dividirComision}
-                                    />
+
+                            {data.montoComision > 0 && (
+                                <div className="p-3 bg-slate-50 rounded-md border border-slate-100 text-sm space-y-1">
+                                    <div className="flex justify-between text-muted-foreground">
+                                        <span>IVA (19%):</span>
+                                        <span>${Math.round(data.montoComision * 0.19).toLocaleString('es-CL')}</span>
+                                    </div>
+                                    <div className="flex justify-between font-bold text-primary border-t pt-1">
+                                        <span>Total con IVA:</span>
+                                        <span>${Math.round(data.montoComision * 1.19).toLocaleString('es-CL')}</span>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label className="text-blue-700">Comisión Vendedor (Neto)</Label>
+                                    <div className="relative">
+                                        <DollarSign className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                                        <Input
+                                            className="pl-8"
+                                            type="number"
+                                            value={data.comisionVendedor || ''}
+                                            onChange={(e) => onUpdate('comisionVendedor', e.target.value)}
+                                            placeholder="Monto Vendedor"
+                                            required={data.dividirComision}
+                                        />
+                                    </div>
+                                    {data.comisionVendedor > 0 && (
+                                        <p className="text-[10px] text-muted-foreground px-1">
+                                            + IVA: ${Math.round(data.comisionVendedor * 0.19).toLocaleString('es-CL')} |
+                                            Total: <strong>${Math.round(data.comisionVendedor * 1.19).toLocaleString('es-CL')}</strong>
+                                        </p>
+                                    )}
+                                </div>
+                                <div className="space-y-2">
+                                    <Label className="text-green-700">Comisión Comprador (Neto)</Label>
+                                    <div className="relative">
+                                        <DollarSign className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                                        <Input
+                                            className="pl-8"
+                                            type="number"
+                                            value={data.comisionComprador || ''}
+                                            onChange={(e) => onUpdate('comisionComprador', e.target.value)}
+                                            placeholder="Monto Comprador"
+                                            required={data.dividirComision}
+                                        />
+                                    </div>
+                                    {data.comisionComprador > 0 && (
+                                        <p className="text-[10px] text-muted-foreground px-1">
+                                            + IVA: ${Math.round(data.comisionComprador * 0.19).toLocaleString('es-CL')} |
+                                            Total: <strong>${Math.round(data.comisionComprador * 1.19).toLocaleString('es-CL')}</strong>
+                                        </p>
+                                    )}
                                 </div>
                             </div>
                         </div>
