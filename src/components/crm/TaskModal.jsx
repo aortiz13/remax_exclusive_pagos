@@ -334,6 +334,7 @@ const TaskModal = ({ task, contactId, propertyId, isOpen, onClose }) => {
             {isContactFormOpen && (
                 <ContactForm
                     isOpen={isContactFormOpen}
+                    isSimplified={true}
                     onClose={(newContact) => {
                         setIsContactFormOpen(false)
                         if (newContact) {
