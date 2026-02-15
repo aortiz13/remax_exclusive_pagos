@@ -30,6 +30,7 @@ import AgentDocuments from './pages/AgentDocuments'
 import CalendarPage from './pages/Calendar'
 import VirtualClassroom from './pages/VirtualClassroom'
 import AdminVirtualClassroom from './pages/AdminVirtualClassroom'
+import NewMandate from './pages/crm/NewMandate'
 import { Toaster } from 'sonner'
 
 // Protected Route Component
@@ -187,6 +188,12 @@ function App() {
             <Route path="/crm/map" element={
               <ProtectedRoute>
                 <PropertyMapPage />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/new-mandate" element={
+              <ProtectedRoute>
+                <NewMandate />
               </ProtectedRoute>
             } />
 

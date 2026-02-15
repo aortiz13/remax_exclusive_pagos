@@ -105,7 +105,7 @@ const PropertyForm = ({ property, isOpen, onClose }) => {
 
             const dataToSave = {
                 ...cleanData,
-                agent_id: user?.id, // Ensure agent_id is set
+                agent_id: property?.id ? property.agent_id : user?.id,
                 m2_total: formData.m2_total || null,
                 m2_built: formData.m2_built || null,
                 bedrooms: formData.bedrooms || null,

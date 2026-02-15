@@ -95,6 +95,11 @@ export default function Sidebar() {
                     icon: PlusCircle,
                     path: '/new-request',
                 },
+                {
+                    title: 'Nueva Captación / Mandato',
+                    icon: Zap,
+                    path: '/new-mandate',
+                },
             ]
         },
         {
