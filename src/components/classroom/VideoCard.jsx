@@ -5,9 +5,8 @@ import { useState } from 'react'
 import ReactPlayer from 'react-player'
 import { cn } from '@/lib/utils'
 
-export default function VideoCard({ video, isAdmin = false, onDelete, onEdit, isFavorite = false, isCompleted = false, onToggleFavorite, onComplete, onDebugLog }) {
+export default function VideoCard({ video, isAdmin = false, onDelete, onEdit, isFavorite = false, isCompleted = false, onToggleFavorite, onComplete }) {
     const [showModal, setShowModal] = useState(false)
-    const [isPlaying, setIsPlaying] = useState(false)
 
     return (
         <>
@@ -20,14 +19,7 @@ export default function VideoCard({ video, isAdmin = false, onDelete, onEdit, is
                 {/* Video Container (Thumbnail) */}
                 <div
                     className="aspect-video bg-slate-100 dark:bg-slate-800 relative overflow-hidden cursor-pointer"
-                    onClick={() => {
-                        setShowModal(true)
-                        if (onDebugLog) {
-                            onDebugLog(`Opening modal for: ${video.title}`)
-                            onDebugLog(`URL: ${video.video_url}`)
-                            onDebugLog(`CanPlay: ${ReactPlayer.canPlay(video.video_url)}`)
-                        }
-                    }}
+                    onClick={() => setShowModal(true)}
                 >
                     <img
                         src={video.thumbnail_url}
@@ -66,10 +58,7 @@ export default function VideoCard({ video, isAdmin = false, onDelete, onEdit, is
                     <div>
                         <div className="flex justify-between items-start gap-2">
                             <h3
-                                onClick={() => {
-                                    setShowModal(true)
-                                    if (onDebugLog) onDebugLog(`Clicked title: ${video.title}`)
-                                }}
+                                onClick={() => setShowModal(true)}
                                 className="font-semibold text-slate-800 dark:text-slate-100 text-sm leading-snug line-clamp-2 cursor-pointer hover:text-primary transition-colors"
                             >
                                 {video.title}
@@ -110,41 +99,35 @@ export default function VideoCard({ video, isAdmin = false, onDelete, onEdit, is
             </motion.div>
 
             {/* Cinema Mode Modal */}
-            <Dialog open={showModal} onOpenChange={(open) => {
-                setShowModal(open)
-                if (!open) {
-                    setIsPlaying(false)
-                    if (onDebugLog) onDebugLog('Closing modal')
-                }
-            }}>
+            <Dialog open={showModal} onOpenChange={setShowModal}>
                 <DialogContent className="max-w-4xl p-0 overflow-hidden bg-black border-slate-800 aspect-video ring-0 outline-none">
                     <DialogTitle className="sr-only">{video.title}</DialogTitle>
                     <DialogDescription className="sr-only">Reproduciendo video: {video.title}</DialogDescription>
-                    <ReactPlayer
-                        url={video.video_url}
-                        width="100%"
-                        height="100%"
-                        playing={isPlaying}
-                        controls={true}
-                        onReady={() => {
-                            setIsPlaying(true)
-                            if (onDebugLog) onDebugLog(`[Player] Ready: ${video.video_url}`, 'success')
-                        }}
-                        onStart={() => {
-                            if (onDebugLog) onDebugLog('[Player] Started', 'success')
-                        }}
-                        onBuffer={() => {
-                            if (onDebugLog) onDebugLog('[Player] Buffering...')
-                        }}
-                        onEnded={() => {
-                            if (onDebugLog) onDebugLog('[Player] Ended', 'success')
-                            if (onComplete) onComplete()
-                        }}
-                        onError={(e) => {
-                            console.log('Video Playback Error:', e)
-                            if (onDebugLog) onDebugLog(`[Player] Error: ${JSON.stringify(e)}`, 'error')
-                        }}
-                    />
+
+                    {/* Only mount player when modal is open to ensure autoplay and proper cleanup */}
+                    {showModal && (
+                        <ReactPlayer
+                            url={video.video_url}
+                            width="100%"
+                            height="100%"
+                            playing={true}
+                            controls={true}
+                            config={{
+                                youtube: {
+                                    playerVars: {
+                                        autoplay: 1,
+                                        rel: 0,
+                                        modestbranding: 1,
+                                        show_related: 0
+                                    }
+                                }
+                            }}
+                            onEnded={() => {
+                                if (onComplete) onComplete()
+                            }}
+                            onError={(e) => console.error('Video Error:', e)}
+                        />
+                    )}
                 </DialogContent>
             </Dialog>
         </>
