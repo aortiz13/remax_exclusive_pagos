@@ -1,0 +1,14 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Easypanel Deploy
+        run: |
+          curl -X POST "${{ secrets.EASYPANEL_PROD_WEBHOOK_URL }}"
