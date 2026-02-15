@@ -5,7 +5,7 @@ import { useState, useMemo } from 'react'
 import ReactPlayer from 'react-player'
 import { cn } from '@/lib/utils'
 
-export default function VideoCard({ video, isAdmin = false, onDelete, onEdit, isFavorite = false, isCompleted = false, onToggleFavorite, onComplete }) {
+export default function VideoCard({ video, isAdmin = false, onDelete, onEdit, isFavorite = false, isCompleted = false, onToggleFavorite, onComplete, onDebugLog }) {
     const [showModal, setShowModal] = useState(false)
     const [isReady, setIsReady] = useState(false)
 
@@ -31,7 +31,14 @@ export default function VideoCard({ video, isAdmin = false, onDelete, onEdit, is
                 {/* Video Container (Thumbnail) */}
                 <div
                     className="aspect-video bg-slate-100 dark:bg-slate-800 relative overflow-hidden cursor-pointer"
-                    onClick={() => setShowModal(true)}
+                    onClick={() => {
+                        setShowModal(true)
+                        if (onDebugLog) {
+                            onDebugLog(`Opening modal: ${video.title}`)
+                            onDebugLog(`URL: ${video.video_url}`)
+                            onDebugLog(`CanPlay: ${ReactPlayer.canPlay(video.video_url)}`)
+                        }
+                    }}
                 >
                     <img
                         src={video.thumbnail_url}
@@ -127,12 +134,26 @@ export default function VideoCard({ video, isAdmin = false, onDelete, onEdit, is
                             height="100%"
                             playing={showModal && isReady}
                             controls={true}
-                            onReady={() => setIsReady(true)}
+                            muted={true}
+                            onReady={() => {
+                                setIsReady(true)
+                                if (onDebugLog) onDebugLog(`[Player] Ready: ${video.video_url}`, 'success')
+                            }}
+                            onStart={() => {
+                                if (onDebugLog) onDebugLog('[Player] Started', 'success')
+                            }}
+                            onBuffer={() => {
+                                if (onDebugLog) onDebugLog('[Player] Buffering...')
+                            }}
                             config={playerConfig}
                             onEnded={() => {
+                                if (onDebugLog) onDebugLog('[Player] Ended', 'success')
                                 if (onComplete) onComplete()
                             }}
-                            onError={(e) => console.error('Video Error:', e)}
+                            onError={(e) => {
+                                console.error('Video Error:', e)
+                                if (onDebugLog) onDebugLog(`[Player] Error: ${JSON.stringify(e)}`, 'error')
+                            }}
                         />
                     )}
                 </DialogContent>
