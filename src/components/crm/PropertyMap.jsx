@@ -25,18 +25,16 @@ const getMarkerIcon = (statusArray) => {
     }
 
     return divIcon({
-        html: `<div style="
-            background-color: ${color}; 
-            width: 14px; 
-            height: 14px; 
-            border-radius: 50%; 
-            border: 2px solid white; 
-            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-        "></div>`,
+        html: `<div style="display: flex; justify-content: center; align-items: center;">
+            <svg width="24" height="34" viewBox="0 0 24 34" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 2px 2px rgba(0,0,0,0.4));">
+                <path d="M12 0C5.37 0 0 5.37 0 12C0 21 12 34 12 34C12 34 24 21 24 12C24 5.37 18.63 0 12 0Z" fill="${color}"/>
+                <circle cx="12" cy="12" r="4" fill="white"/>
+            </svg>
+        </div>`,
         className: 'custom-marker-pin',
-        iconSize: [14, 14],
-        iconAnchor: [7, 7],
-        popupAnchor: [0, -7],
+        iconSize: [24, 34],
+        iconAnchor: [12, 34],
+        popupAnchor: [0, -34],
     })
 }
 
