@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils'
 
 export default function VideoCard({ video, isAdmin = false, onDelete, onEdit, isFavorite = false, isCompleted = false, onToggleFavorite, onComplete }) {
     const [showModal, setShowModal] = useState(false)
+    const [isPlaying, setIsPlaying] = useState(false)
 
     return (
         <>
@@ -98,7 +99,10 @@ export default function VideoCard({ video, isAdmin = false, onDelete, onEdit, is
             </motion.div>
 
             {/* Cinema Mode Modal */}
-            <Dialog open={showModal} onOpenChange={setShowModal}>
+            <Dialog open={showModal} onOpenChange={(open) => {
+                setShowModal(open)
+                if (!open) setIsPlaying(false)
+            }}>
                 <DialogContent className="max-w-4xl p-0 overflow-hidden bg-black border-slate-800 aspect-video ring-0 outline-none">
                     <DialogTitle className="sr-only">{video.title}</DialogTitle>
                     <DialogDescription className="sr-only">Reproduciendo video: {video.title}</DialogDescription>
@@ -106,19 +110,13 @@ export default function VideoCard({ video, isAdmin = false, onDelete, onEdit, is
                         url={video.video_url}
                         width="100%"
                         height="100%"
-                        playing={showModal}
+                        playing={isPlaying}
                         controls={true}
-                        onReady={() => console.log('[VideoPlayer] Ready:', video.video_url)}
-                        onStart={() => console.log('[VideoPlayer] Started')}
-                        onBuffer={() => console.log('[VideoPlayer] Buffering...')}
+                        onReady={() => setIsPlaying(true)}
                         onEnded={() => {
-                            console.log('[VideoPlayer] Ended')
                             if (onComplete) onComplete()
                         }}
-                        onError={(e) => {
-                            console.error('[VideoPlayer] Error:', e)
-                            console.error('[VideoPlayer] URL that failed:', video.video_url)
-                        }}
+                        onError={(e) => console.log('Video Playback Error:', e)}
                     />
                 </DialogContent>
             </Dialog>
