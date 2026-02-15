@@ -15,6 +15,29 @@ export default function VirtualClassroom() {
     const [favorites, setFavorites] = useState(new Set())
     const [progress, setProgress] = useState({})
 
+    // Debug State
+    const [debugLogs, setDebugLogs] = useState([])
+    const addLog = (msg, type = 'info') => {
+        const timestamp = new Date().toLocaleTimeString()
+        setDebugLogs(prev => [`[${timestamp}] [${type}] ${msg}`, ...prev].slice(0, 5))
+    }
+
+    // Capture global errors
+    useEffect(() => {
+        const handleError = (event) => {
+            addLog(`Global Error: ${event.message}`, 'error')
+        }
+        const handleRejection = (event) => {
+            addLog(`Unhandled Rejection: ${event.reason}`, 'error')
+        }
+        window.addEventListener('error', handleError)
+        window.addEventListener('unhandledrejection', handleRejection)
+        return () => {
+            window.removeEventListener('error', handleError)
+            window.removeEventListener('unhandledrejection', handleRejection)
+        }
+    }, [])
+
     useEffect(() => {
         fetchVideos()
         fetchUserData()
@@ -113,7 +136,22 @@ export default function VirtualClassroom() {
     }
 
     return (
-        <div className="space-y-8 pb-10">
+        <div className="space-y-8 pb-10 relative">
+            {/* Debug Banner */}
+            <div className="fixed top-0 left-0 right-0 z-[100] bg-black/80 text-white p-2 text-xs font-mono max-h-32 overflow-y-auto pointer-events-none">
+                <div className="font-bold text-yellow-400 mb-1">DEBUG MONITOR (Últimos 5 eventos)</div>
+                {debugLogs.length === 0 && <div className="text-gray-500">Esperando eventos...</div>}
+                {debugLogs.map((log, i) => (
+                    <div key={i} className={cn(
+                        "border-b border-white/10 py-0.5",
+                        log.includes('[error]') ? "text-red-400 font-bold" :
+                            log.includes('[success]') ? "text-green-400" : "text-gray-300"
+                    )}>
+                        {log}
+                    </div>
+                ))}
+            </div>
+
             {/* Header and Search */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
@@ -186,6 +224,7 @@ export default function VirtualClassroom() {
                                 isCompleted={progress[video.id]}
                                 onToggleFavorite={() => toggleFavorite(video.id)}
                                 onComplete={() => markCompleted(video.id)}
+                                onDebugLog={addLog}
                             />
                         </div>
                     ))
