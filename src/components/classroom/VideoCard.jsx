@@ -14,8 +14,7 @@ export default function VideoCard({ video, isAdmin = false, onDelete, onEdit, is
             playerVars: {
                 rel: 0,
                 modestbranding: 1,
-                show_related: 0,
-                origin: typeof window !== 'undefined' ? window.location.origin : ''
+                show_related: 0
             }
         }
     }), [])
@@ -129,6 +128,7 @@ export default function VideoCard({ video, isAdmin = false, onDelete, onEdit, is
                     {/* Only mount player when modal is open to ensure autoplay and proper cleanup */}
                     {showModal && (
                         <ReactPlayer
+                            key={showModal ? 'playing' : 'stopped'}
                             url={video.video_url}
                             width="100%"
                             height="100%"
