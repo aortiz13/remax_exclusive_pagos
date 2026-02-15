@@ -15,13 +15,6 @@ export default function VirtualClassroom() {
     const [favorites, setFavorites] = useState(new Set())
     const [progress, setProgress] = useState({})
 
-    const [progress, setProgress] = useState({})
-
-    useEffect(() => {
-        fetchVideos()
-        fetchUserData()
-    }, [])
-
     useEffect(() => {
         fetchVideos()
         fetchUserData()
@@ -207,7 +200,6 @@ export default function VirtualClassroom() {
                                 isFavorite={favorites.has(video.id)}
                                 isCompleted={progress[video.id]}
                                 onToggleFavorite={() => toggleFavorite(video.id)}
-                                onComplete={() => markCompleted(video.id)}
                                 onComplete={() => markCompleted(video.id)}
                             />
                         </div>
