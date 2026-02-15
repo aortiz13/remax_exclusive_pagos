@@ -1,10 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../services/supabase'
 import { fetchVideoMetadata } from '../services/youtube' // Import the service
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Button, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui'
 import { toast } from 'sonner'
 import { Loader2, Plus, Trash2, Video } from 'lucide-react'
 import VideoCard from '../components/classroom/VideoCard'

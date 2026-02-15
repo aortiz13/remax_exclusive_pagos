@@ -1,9 +1,8 @@
 import { Play, Trash2, Edit } from 'lucide-react'
-import { Card } from '@/components/ui/card' // Assuming we have a card component or use standard div
-import { Button } from '@/components/ui/button' // Assuming we have a button component
+import { Card, Button } from '@/components/ui'
 import { motion } from 'framer-motion'
 import { useState } from 'react'
-import ReactPlayer from 'react-player/lazy'
+import ReactPlayer from 'react-player'
 import { cn } from '@/lib/utils'
 
 export default function VideoCard({ video, isAdmin = false, onDelete, onEdit }) {

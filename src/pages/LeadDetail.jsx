@@ -81,7 +81,7 @@ const extractPropertyInfo = (data) => {
 
 export default function LeadDetail() {
     const { id } = useParams()
-    const navigate = useNavigate()
+    // const navigate = useNavigate() // Unused
     const [lead, setLead] = useState(null)
     const [loading, setLoading] = useState(true)
     const [agents, setAgents] = useState([])
@@ -156,7 +156,7 @@ export default function LeadDetail() {
 
             setLead(prev => ({ ...prev, assigned_agent_id: selectedAgent, status: 'assigned' }))
             toast.success('Agente asignado exitosamente')
-        } catch (error) {
+        } catch (_) { // Removed unused error variable
             toast.error('Error al asignar')
         } finally {
             setAssigning(false)
