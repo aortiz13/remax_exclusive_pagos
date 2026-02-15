@@ -60,7 +60,8 @@ export default function AdminVirtualClassroom() {
                 video_url: metadata.video_url,
                 thumbnail_url: metadata.thumbnail_url,
                 description: metadata.description,
-                category: category
+                category: category,
+                duration: metadata.duration
             })
 
             if (error) throw error
@@ -124,7 +125,8 @@ export default function AdminVirtualClassroom() {
                             video_url: video.video_url,
                             thumbnail_url: video.thumbnail_url,
                             description: video.description,
-                            category: playlist.category
+                            category: playlist.category,
+                            duration: video.duration
                         })
                         newVideosCount++
                     }
