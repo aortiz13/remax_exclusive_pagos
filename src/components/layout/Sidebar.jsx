@@ -23,7 +23,10 @@ import {
     Calendar,
     MapPin,
     Download,
-    GraduationCap
+    MapPin,
+    Download,
+    GraduationCap,
+    Folder
 } from 'lucide-react'
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
@@ -110,9 +113,14 @@ export default function Sidebar() {
             title: 'DOCUMENTOS',
             items: [
                 {
-                    title: 'Ver Documentos',
+                    title: 'Documentos Remax',
                     icon: FileText,
                     path: '/documents',
+                },
+                {
+                    title: 'Mis Documentos',
+                    icon: Folder,
+                    path: '/my-documents',
                 }
             ]
         }

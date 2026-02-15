@@ -18,7 +18,7 @@ const DocumentsHub = () => {
     return (
         <div className="space-y-6 max-w-7xl mx-auto p-4 md:p-8">
             <div className="flex flex-col gap-2">
-                <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">Centro de Documentos</h1>
+                <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">Documentos Remax</h1>
                 <p className="text-muted-foreground">Accede a todos los formularios, contratos y plantillas oficiales.</p>
             </div>
 

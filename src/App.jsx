@@ -26,6 +26,7 @@ import ContactDetail from './components/crm/ContactDetail'
 import PropertyDetail from './components/crm/PropertyDetail'
 import PropertyMapPage from './pages/PropertyMapPage'
 import DocumentsHub from './pages/DocumentsHub'
+import AgentDocuments from './pages/AgentDocuments'
 import CalendarPage from './pages/Calendar'
 import VirtualClassroom from './pages/VirtualClassroom'
 import AdminVirtualClassroom from './pages/AdminVirtualClassroom'
@@ -192,6 +193,12 @@ function App() {
             <Route path="/documents" element={
               <ProtectedRoute>
                 <DocumentsHub />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/my-documents" element={
+              <ProtectedRoute>
+                <AgentDocuments />
               </ProtectedRoute>
             } />
 
