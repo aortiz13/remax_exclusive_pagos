@@ -108,10 +108,17 @@ export default function VideoCard({ video, isAdmin = false, onDelete, onEdit, is
                         height="100%"
                         playing={showModal}
                         controls={true}
+                        onReady={() => console.log('[VideoPlayer] Ready:', video.video_url)}
+                        onStart={() => console.log('[VideoPlayer] Started')}
+                        onBuffer={() => console.log('[VideoPlayer] Buffering...')}
                         onEnded={() => {
+                            console.log('[VideoPlayer] Ended')
                             if (onComplete) onComplete()
                         }}
-                        onError={(e) => console.log('Video Playback Error (handled):', e)}
+                        onError={(e) => {
+                            console.error('[VideoPlayer] Error:', e)
+                            console.error('[VideoPlayer] URL that failed:', video.video_url)
+                        }}
                     />
                 </DialogContent>
             </Dialog>
