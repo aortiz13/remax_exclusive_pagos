@@ -1,13 +1,24 @@
 import { Play, Trash2, Edit, Heart, CheckCircle, Clock } from 'lucide-react'
 import { Card, Button, Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui'
 import { motion } from 'framer-motion'
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import ReactPlayer from 'react-player'
 import { cn } from '@/lib/utils'
 
 export default function VideoCard({ video, isAdmin = false, onDelete, onEdit, isFavorite = false, isCompleted = false, onToggleFavorite, onComplete }) {
     const [showModal, setShowModal] = useState(false)
     const [isReady, setIsReady] = useState(false)
+
+    const playerConfig = useMemo(() => ({
+        youtube: {
+            playerVars: {
+                rel: 0,
+                modestbranding: 1,
+                show_related: 0,
+                origin: typeof window !== 'undefined' ? window.location.origin : ''
+            }
+        }
+    }), [])
 
     return (
         <>
@@ -117,17 +128,7 @@ export default function VideoCard({ video, isAdmin = false, onDelete, onEdit, is
                             playing={showModal && isReady}
                             controls={true}
                             onReady={() => setIsReady(true)}
-                            config={{
-                                youtube: {
-                                    playerVars: {
-                                        autoplay: 1,
-                                        rel: 0,
-                                        modestbranding: 1,
-                                        show_related: 0,
-                                        origin: typeof window !== 'undefined' ? window.location.origin : ''
-                                    }
-                                }
-                            }}
+                            config={playerConfig}
                             onEnded={() => {
                                 if (onComplete) onComplete()
                             }}
