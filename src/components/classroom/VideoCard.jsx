@@ -4,7 +4,7 @@ import { motion } from 'framer-motion'
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
 
-export default function VideoCard({ video, isAdmin = false, onDelete, onEdit, isFavorite = false, isCompleted = false, onToggleFavorite, onComplete, onDebugLog }) {
+export default function VideoCard({ video, isAdmin = false, onDelete, onEdit, isFavorite = false, isCompleted = false, onToggleFavorite, onComplete }) {
     const [showModal, setShowModal] = useState(false)
 
     // Helper to extract YouTube ID
@@ -30,11 +30,6 @@ export default function VideoCard({ video, isAdmin = false, onDelete, onEdit, is
                     className="aspect-video bg-slate-100 dark:bg-slate-800 relative overflow-hidden cursor-pointer"
                     onClick={() => {
                         setShowModal(true)
-                        if (onDebugLog) {
-                            onDebugLog(`Opening modal: ${video.title}`)
-                            onDebugLog(`URL: ${video.video_url}`)
-                            onDebugLog(`ID: ${videoId}`)
-                        }
                     }}
                 >
                     <img
