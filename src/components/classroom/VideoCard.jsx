@@ -1,5 +1,5 @@
 import { Play, Trash2, Edit, Heart, CheckCircle, Clock } from 'lucide-react'
-import { Card, Button, Dialog, DialogContent } from '@/components/ui'
+import { Card, Button, Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui'
 import { motion } from 'framer-motion'
 import { useState } from 'react'
 import ReactPlayer from 'react-player'
@@ -100,6 +100,8 @@ export default function VideoCard({ video, isAdmin = false, onDelete, onEdit, is
             {/* Cinema Mode Modal */}
             <Dialog open={showModal} onOpenChange={setShowModal}>
                 <DialogContent className="max-w-4xl p-0 overflow-hidden bg-black border-slate-800 aspect-video ring-0 outline-none">
+                    <DialogTitle className="sr-only">{video.title}</DialogTitle>
+                    <DialogDescription className="sr-only">Reproduciendo video: {video.title}</DialogDescription>
                     <ReactPlayer
                         url={video.video_url}
                         width="100%"
