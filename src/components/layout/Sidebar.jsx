@@ -23,8 +23,6 @@ import {
     Calendar,
     MapPin,
     Download,
-    MapPin,
-    Download,
     GraduationCap,
     Folder
 } from 'lucide-react'
