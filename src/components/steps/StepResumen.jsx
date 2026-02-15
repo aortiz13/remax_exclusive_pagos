@@ -51,13 +51,25 @@ export default function StepResumen({ data, onUpdate, onBack, onComplete }) {
             comuna: data.dueñoComuna
           },
           financiero: {
+            // General Totals (Legacy support + Summary)
             total_cancelar: calculations.totalCancelar,
             total_recibir: calculations.totalRecibir,
-            honorarios: calculations.totalComision,
+            honorarios_total: calculations.totalComisionA + calculations.totalComisionB, // Sum of both parts
             administracion: calculations.totalAdmin,
             uf_valor: calculations.ufUsed,
-            ingreso_manual: data.ingresoManual,
-            fee_alert: data.feeAlertTriggered
+
+            // INDEPENDENT FEES (NEW)
+            honorarios_propietario: calculations.totalComisionA || 0,
+            honorarios_arrendatario: calculations.totalComisionB || 0,
+            ingreso_manual_propietario: data.ingresoManualA || false,
+            ingreso_manual_arrendatario: data.ingresoManualB || false,
+            monto_manual_propietario: data.montoManualA || 0,
+            monto_manual_arrendatario: data.montoManualB || 0,
+
+            fee_alert_propietario: calculations.feeAlertA || false,
+            fee_alert_arrendatario: calculations.feeAlertB || false,
+
+            fee_alert: data.feeAlertTriggered // Global alert
           },
           condiciones_especiales: data.chkCondicionesEspeciales ? data.condicionesEspeciales : '', // ADDED
           fecha_envio_link: data.fechaEnvioLink || 'No especificada', // OPTIONAL DEFAULT
@@ -90,7 +102,14 @@ export default function StepResumen({ data, onUpdate, onBack, onComplete }) {
             email: data.compradorEmail
           },
           financiero: {
-            monto_comision: data.montoComision
+            monto_comision_total: data.dividirComision
+              ? (Number(data.comisionVendedor || 0) + Number(data.comisionComprador || 0))
+              : Number(data.montoComision || 0),
+
+            // SPLIT LOGIC
+            dividir_comision: data.dividirComision || false,
+            comision_vendedor: data.dividirComision ? Number(data.comisionVendedor || 0) : Number(data.montoComision || 0), // If not split, Seller pays all? Or just Total? Usually Seller.
+            comision_comprador: data.dividirComision ? Number(data.comisionComprador || 0) : 0
           }
           // PDF logic for buy/sell if needed, currently omitted as per plan if not critical
         }

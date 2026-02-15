@@ -8,9 +8,14 @@ const VALOR_UF_ESTIMADO = 38000;
 export default function StepCalculos({ data, onUpdate, onNext, onBack }) {
     const [results, setResults] = useState({
         totalArriendoInicial: 0,
-        honorariosNeto: 0,
-        ivaHonorarios: 0,
-        totalComision: 0, // Now "Honorarios"
+        // Split Fees
+        honorariosNetoA: 0,
+        ivaHonorariosA: 0,
+        totalComisionA: 0,
+        honorariosNetoB: 0,
+        ivaHonorariosB: 0,
+        totalComisionB: 0,
+        // Totals
         totalCancelar: 0,
         totalRecibir: 0,
         montoAdmin: 0,
@@ -75,9 +80,11 @@ export default function StepCalculos({ data, onUpdate, onNext, onBack }) {
         const montoMesAdelantado = data.chkMesAdelantado ? canon : 0
         const totalArriendoInicial = montoProporcional + montoMesAdelantado
 
-        // --- 2. Honorarios (Comisión) ---
-        let honorariosNeto = 0;
-        let feeAlert = false; // "fee_alert_triggered"
+        // --- 2. Honorarios (Comisión) - INDEPENDENT LOGIC ---
+        let honorariosNetoA = 0; // Owner
+        let honorariosNetoB = 0; // Tenant
+        let feeAlertA = false;
+        let feeAlertB = false;
 
         const mesesContrato = Number(data.duracionContrato) || 12; // Default 1 year if not set
         const tipoPropiedad = data.tipoPropiedad || 'Casa'; // Default Residential
@@ -87,74 +94,72 @@ export default function StepCalculos({ data, onUpdate, onNext, onBack }) {
             ? data.contractType === 'commercial'
             : ['Oficina', 'Local Comercial', 'Bodega', 'Industrial'].includes(tipoPropiedad);
 
-        // --- CALCULATION LOGIC ---
+        const calculateSideFee = (manualFlag, manualAmount) => {
+            let netFee = 0;
+            let isMinApplied = false;
+            let alert = false;
 
-        if (data.ingresoManual) {
-            // MANUAL OVERRIDE
-            // Logic: User enters a NET amount manually.
-            // But how do we get the manual input? We need a field in `data`.
-            // Let's assume we reuse 'montoComision' or add 'montoHonorariosManual'.
-            // Actually, we should probably stick to `data.honorariosAdmin` or similar, 
-            // OR checks generic field. Let's look at `data`.
-            // `data.montoComision` is used in Compraventa.
-            // Let's use `data.honorariosNetosManual` if it exists, otherwise define it.
-            // Since we didn't add it in RequestForm, let's use `data.montoComision` as the shared "Fee Amount" field,
-            // OR create a local logic if the user edits the field directly.
-            // Wait, previous code calculated `honorariosNeto` inside effect.
-            // If manual, we should read from input.
-            // Let's assume the Input will write to `data.montoHonorariosManual`.
-
-            honorariosNeto = Number(data.montoHonorariosManual) || 0;
-
-            // CHECK MINIMUM RULE ALERT
-            if (!isCommercial && mesesContrato <= 24 && ufVal > 0) {
-                const minLegalNeto = Math.round(6 * ufVal);
-                if (honorariosNeto < minLegalNeto) {
-                    feeAlert = true;
-                }
-            }
-
-        } else {
-            // AUTOMATIC CALCULATION
-            if (!isCommercial) {
-                // -- RESIDENCIAL --
-                if (mesesContrato <= 24) {
-                    // Rule 1: 50% Canon
-                    const halfRent = Math.round(canon * 0.5);
-
-                    // Rule 2: Minimum 6 UF + IVA (Logic is on Net or Gross?)
-                    // "Si ese resultado es menor a 6 UF + IVA, el sistema debe cambiar automáticamente el monto a cobrar a las 6 UF + IVA"
-                    // Usually "6 UF + IVA" means the Gross Total is 6UF+IVA.
-                    // So Net Minimum = 6 UF.
-
-                    let finalNet = halfRent;
-                    if (ufVal > 0) {
-                        const minNet = Math.round(6 * ufVal);
-                        if (halfRent < minNet) {
-                            finalNet = minNet;
-                        }
-                    }
-                    honorariosNeto = finalNet;
-
-                } else {
-                    // > 24 meses: 2% del total del contrato
-                    const totalContrato = canon * mesesContrato;
-                    honorariosNeto = Math.round(totalContrato * 0.02);
+            if (manualFlag) {
+                netFee = Number(manualAmount) || 0;
+                // Validation: Check min legal if applicable
+                // Assuming logic: if manual is less than min, trigger alert
+                if (!isCommercial && mesesContrato <= 24 && ufVal > 0) {
+                    const minLegalNeto = Math.round(6 * ufVal);
+                    if (netFee < minLegalNeto) alert = true;
                 }
             } else {
-                // -- COMERCIAL --
-                if (mesesContrato <= 60) { // Hasta 5 años
-                    honorariosNeto = Math.round(canon * 0.5);
+                if (!isCommercial) {
+                    // -- RESIDENCIAL --
+                    if (mesesContrato <= 24) {
+                        const halfRent = Math.round(canon * 0.5);
+                        let finalNet = halfRent;
+                        if (ufVal > 0) {
+                            const minNet = Math.round(6 * ufVal);
+                            if (halfRent < minNet) {
+                                finalNet = minNet;
+                                isMinApplied = true;
+                            }
+                        }
+                        netFee = finalNet;
+                    } else {
+                        // > 24 meses: 2% del total del contrato
+                        const totalContrato = canon * mesesContrato;
+                        netFee = Math.round(totalContrato * 0.02);
+                    }
                 } else {
-                    // > 5 años: 2% del total del contrato
-                    const totalContrato = canon * mesesContrato;
-                    honorariosNeto = Math.round(totalContrato * 0.02);
+                    // -- COMERCIAL --
+                    if (mesesContrato <= 60) { // Hasta 5 años
+                        netFee = Math.round(canon * 0.5);
+                    } else {
+                        // > 5 años: 2% del total del contrato
+                        const totalContrato = canon * mesesContrato;
+                        netFee = Math.round(totalContrato * 0.02);
+                    }
                 }
             }
-        }
+            return { netFee, isMinApplied, alert };
+        };
 
-        const ivaHonorarios = Math.round(honorariosNeto * 0.19);
-        const totalComision = honorariosNeto + ivaHonorarios;
+        // Calculate A (Owner)
+        const calcA = calculateSideFee(data.ingresoManualA, data.montoManualA);
+        honorariosNetoA = calcA.netFee;
+        feeAlertA = calcA.alert;
+
+        // Calculate B (Tenant)
+        const calcB = calculateSideFee(data.ingresoManualB, data.montoManualB);
+        honorariosNetoB = calcB.netFee;
+        feeAlertB = calcB.alert;
+
+        const ivaHonorariosA = Math.round(honorariosNetoA * 0.19);
+        const totalComisionA = honorariosNetoA + ivaHonorariosA;
+
+        const ivaHonorariosB = Math.round(honorariosNetoB * 0.19);
+        const totalComisionB = honorariosNetoB + ivaHonorariosB;
+
+        // Total Combined (for display if needed, but we separate usually)
+        // Actually, previous logic summed them up for "Total Comision" in summary?
+        // Usually, in summary: "Total a Pagar" (Tenant) includes Tenant Fee.
+        // "Total a Recibir" (Owner) subtracts Owner Fee.
 
         // --- 3. Administración ---
         let montoAdmin = 0;
@@ -168,11 +173,34 @@ export default function StepCalculos({ data, onUpdate, onNext, onBack }) {
             totalAdmin = montoAdmin + ivaAdmin;
         }
 
-        // --- 4. Total a Cancelar (Arrendatario) ---
-        const totalCancelar = totalArriendoInicial + garantia + gastosNotariales + totalComision + seguro
+        // --- 4. Total a Cancelar (Arrendatario / Parte B) ---
+        // Pays: Initial Rent + Warranty + Notary + HIS FEE + Insurance
+        const totalCancelar = totalArriendoInicial + garantia + gastosNotariales + totalComisionB + seguro
 
-        // --- 5. Total a Recibir (Dueño) ---
-        const totalEgresosOwner = totalComision + gastosNotariales + certDominio + totalAdmin
+        // --- 5. Total a Recibir (Dueño / Parte A) ---
+        // Receives: Initial Rent + Warranty
+        // Pays (deducted): HIS FEE + Notary + Certificate + Admin
+        // Wait, Notary is usually paid by Tenant in "Total Cancelar"? Or split? 
+        // Logic currently: "Total a Pagar" includes Gastos Notariales. 
+        // "Total a Recibir" subtracts "totalComision (sum?)" + Gastos + Cert.
+        // Wait, if Tenant pays Notary (in totalCancelar), why subtract from Owner? 
+        // Unless logic implies Agent collects Notary cost from Tenant and pays it? 
+        // Standard Remax: Tenant pays notary. 
+        // "Total Recibir Owner": (Rent + Guarantee) - (Owner Fee + Admin + Cert Domain).
+        // If Notary is paid by Tenant directly or via Agent, it shouldn't deduct from Owner unless Owner pays half.
+        // CURRENT LOGIC WAS: `const totalEgresosOwner = totalComision + gastosNotariales + certDominio + totalAdmin`
+        // `totalComision` was sum of both? No, previously it was just one value calculated (50%).
+        // Implied: "Honorarios" calculated previously was the TOTAL collected? Or just one side? 
+        // "honorariosNeto = halfRent". This is usually 50% of 1 month. 
+        // Usually BOTH pay 50%. So Total Agent Revenue is 100% of 1 month.
+        // Previous logic: `totalComision` was result of `halfRent`. So only 50% total?
+        // That means previous logic might have been calculating for ONLY ONE side or assuming shared?
+        // "Total Cancelar" (Tenant) added `totalComision`. So Tenant paid that 50%.
+        // "Total Recibir" (Owner) subtracted `totalComision`. So Owner ALSO paid that 50%?
+        // If so, `totalComision` variable was used for BOTH, implying they are equal.
+        // NOW we have specific `totalComisionA` and `totalComisionB`.
+
+        const totalEgresosOwner = totalComisionA + gastosNotariales + certDominio + totalAdmin
         const totalRecibir = (totalArriendoInicial + garantia) - totalEgresosOwner
 
         setResults({
@@ -180,21 +208,32 @@ export default function StepCalculos({ data, onUpdate, onNext, onBack }) {
             montoProporcional,
             montoMesAdelantado,
             montoSeguro: seguro,
-            honorariosNeto,
-            ivaHonorarios,
-            totalComision,
+
+            // Split Fees
+            honorariosNetoA,
+            ivaHonorariosA,
+            totalComisionA,
+            minAppliedA: calcA.isMinApplied,
+            feeAlertA,
+
+            honorariosNetoB,
+            ivaHonorariosB,
+            totalComisionB,
+            minAppliedB: calcB.isMinApplied,
+            feeAlertB,
+
             totalCancelar,
             totalRecibir,
             montoAdmin,
             ivaAdmin,
             totalAdmin,
             ufUsed: ufVal,
-            feeAlert
+            feeAlert: feeAlertA || feeAlertB // General alert flag
         })
 
         // Update parent with alert status
-        if (data.feeAlertTriggered !== feeAlert) {
-            onUpdate('feeAlertTriggered', feeAlert);
+        if (data.feeAlertTriggered !== (feeAlertA || feeAlertB)) {
+            onUpdate('feeAlertTriggered', feeAlertA || feeAlertB);
         }
 
     }, [data, ufData])
@@ -505,11 +544,10 @@ export default function StepCalculos({ data, onUpdate, onNext, onBack }) {
                             </div>
                         </div>
 
-                        {/* SECCIÓN 4: HONORARIOS (UF LOGIC & MANUAL) */}
-                        <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg border border-slate-100 dark:border-slate-800 space-y-4">
+                        {/* SECCIÓN 4: HONORARIOS (SPLIT) */}
+                        <div className="space-y-4">
                             <h3 className="font-semibold text-sm uppercase tracking-wide text-slate-500 flex justify-between items-center">
-                                <span>Honorarios</span>
-                                {data.ingresoManual && <span className="text-[10px] bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full border border-orange-200">Manual</span>}
+                                <span>Honorarios Independientes</span>
                             </h3>
 
                             {/* UF Info Bar */}
@@ -519,58 +557,117 @@ export default function StepCalculos({ data, onUpdate, onNext, onBack }) {
                                 <span className="opacity-60">| Mínimo 6 UF: ~{formatCurrency(Math.round(6 * ufData.valor))} + IVA</span>
                             </div>
 
-                            <div className="flex items-center space-x-2">
-                                <input
-                                    type="checkbox"
-                                    id="ingresoManual"
-                                    className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-                                    checked={data.ingresoManual || false}
-                                    onChange={(e) => onUpdate('ingresoManual', e.target.checked)}
-                                />
-                                <Label htmlFor="ingresoManual" className="font-medium cursor-pointer text-sm">
-                                    Ingreso Manual de Honorarios
-                                </Label>
-                            </div>
-
-                            {/* MANUAL INPUT */}
-                            {data.ingresoManual && (
-                                <div className="animate-in slide-in-from-top-2 space-y-2">
-                                    <Label className="text-xs text-muted-foreground">Monto Honorarios Neto (Sin IVA)</Label>
-                                    <div className="relative">
-                                        <DollarSign className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                                        <Input
-                                            className="pl-8 bg-white"
-                                            type="number"
-                                            value={data.montoHonorariosManual}
-                                            onChange={(e) => onUpdate('montoHonorariosManual', e.target.value)}
-                                            placeholder="Ingrese monto neto"
-                                        />
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {/* PARTE A: PROPIETARIO */}
+                                <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg border border-slate-100 dark:border-slate-800 space-y-3 relative">
+                                    <div className="flex justify-between items-start">
+                                        <Label className="text-sm font-bold text-slate-700">Parte A (Propietario)</Label>
+                                        {data.ingresoManualA && <span className="text-[10px] bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded border border-orange-200">Manual</span>}
                                     </div>
-                                    {results.feeAlert && (
-                                        <div className="text-xs text-red-600 bg-red-50 p-2 rounded border border-red-100 flex items-start gap-1">
-                                            <span className="font-bold">⚠ Alerta:</span>
-                                            <span>El monto ingresado es inferior al mínimo de 6 UF ({formatCurrency(Math.round(6 * ufData.valor))}). Se notificará a administración.</span>
+
+                                    <div className="flex items-center space-x-2">
+                                        <input
+                                            type="checkbox"
+                                            id="ingresoManualA"
+                                            className="h-3.5 w-3.5 rounded border-gray-300 text-primary"
+                                            checked={data.ingresoManualA || false}
+                                            onChange={(e) => onUpdate('ingresoManualA', e.target.checked)}
+                                        />
+                                        <Label htmlFor="ingresoManualA" className="font-medium cursor-pointer text-xs text-muted-foreground">
+                                            Sobrescribir Monto
+                                        </Label>
+                                    </div>
+
+                                    {data.ingresoManualA ? (
+                                        <div className="animate-in fade-in zoom-in-95 duration-300 space-y-2">
+                                            <div className="relative">
+                                                <DollarSign className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                                                <Input
+                                                    className="pl-8 bg-white h-9 text-sm"
+                                                    type="number"
+                                                    value={data.montoManualA}
+                                                    onChange={(e) => onUpdate('montoManualA', e.target.value)}
+                                                    placeholder="Neto sin IVA"
+                                                />
+                                            </div>
+                                            {results.feeAlertA && (
+                                                <div className="text-[10px] text-red-600 bg-red-50 p-1.5 rounded border border-red-100 leading-tight">
+                                                    <strong>⚠ Bajo Mínimo:</strong> Se notificará.
+                                                </div>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-1">
+                                            <div className="h-9 px-3 py-2 bg-white/50 text-slate-600 text-sm rounded-md border border-slate-200 flex items-center justify-between">
+                                                <span className="text-xs text-muted-foreground">Neto Calc:</span>
+                                                <span className="font-semibold">{formatCurrency(results.honorariosNetoA)}</span>
+                                            </div>
+                                            {results.minAppliedA && (
+                                                <p className="text-[10px] text-green-600 font-medium">* Mínimo legal aplicado</p>
+                                            )}
                                         </div>
                                     )}
-                                </div>
-                            )}
-
-                            {/* READ ONLY DISPLAY (If Automatic) */}
-                            {!data.ingresoManual && (
-                                <div className="space-y-1">
-                                    <Label className="text-xs text-muted-foreground">Cálculo Automático (Neto)</Label>
-                                    <div className="h-9 px-3 py-2 bg-muted text-muted-foreground text-sm rounded-md border border-input opacity-70">
-                                        {formatCurrency(results.honorariosNeto)}
+                                    <div className="pt-2 border-t border-slate-200/50 flex justify-between items-center text-xs">
+                                        <span className="text-slate-500">Total + IVA:</span>
+                                        <span className="font-bold text-slate-800">{formatCurrency(results.totalComisionA)}</span>
                                     </div>
-                                    {!isCommercial && results.honorariosNeto > 0 && results.honorariosNeto === Math.round(6 * ufData.valor) && (
-                                        <p className="text-[10px] text-green-600 font-medium">
-                                            * Se aplicó mínimo legal de 6 UF por ser menor el 50%.
-                                        </p>
-                                    )}
                                 </div>
-                            )}
 
+                                {/* PARTE B: ARRENDATARIO */}
+                                <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg border border-slate-100 dark:border-slate-800 space-y-3">
+                                    <div className="flex justify-between items-start">
+                                        <Label className="text-sm font-bold text-slate-700">Parte B (Arrendatario)</Label>
+                                        {data.ingresoManualB && <span className="text-[10px] bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded border border-orange-200">Manual</span>}
+                                    </div>
 
+                                    <div className="flex items-center space-x-2">
+                                        <input
+                                            type="checkbox"
+                                            id="ingresoManualB"
+                                            className="h-3.5 w-3.5 rounded border-gray-300 text-primary"
+                                            checked={data.ingresoManualB || false}
+                                            onChange={(e) => onUpdate('ingresoManualB', e.target.checked)}
+                                        />
+                                        <Label htmlFor="ingresoManualB" className="font-medium cursor-pointer text-xs text-muted-foreground">
+                                            Sobrescribir Monto
+                                        </Label>
+                                    </div>
+
+                                    {data.ingresoManualB ? (
+                                        <div className="animate-in fade-in zoom-in-95 duration-300 space-y-2">
+                                            <div className="relative">
+                                                <DollarSign className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                                                <Input
+                                                    className="pl-8 bg-white h-9 text-sm"
+                                                    type="number"
+                                                    value={data.montoManualB}
+                                                    onChange={(e) => onUpdate('montoManualB', e.target.value)}
+                                                    placeholder="Neto sin IVA"
+                                                />
+                                            </div>
+                                            {results.feeAlertB && (
+                                                <div className="text-[10px] text-red-600 bg-red-50 p-1.5 rounded border border-red-100 leading-tight">
+                                                    <strong>⚠ Bajo Mínimo:</strong> Se notificará.
+                                                </div>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-1">
+                                            <div className="h-9 px-3 py-2 bg-white/50 text-slate-600 text-sm rounded-md border border-slate-200 flex items-center justify-between">
+                                                <span className="text-xs text-muted-foreground">Neto Calc:</span>
+                                                <span className="font-semibold">{formatCurrency(results.honorariosNetoB)}</span>
+                                            </div>
+                                            {results.minAppliedB && (
+                                                <p className="text-[10px] text-green-600 font-medium">* Mínimo legal aplicado</p>
+                                            )}
+                                        </div>
+                                    )}
+                                    <div className="pt-2 border-t border-slate-200/50 flex justify-between items-center text-xs">
+                                        <span className="text-slate-500">Total + IVA:</span>
+                                        <span className="font-bold text-slate-800">{formatCurrency(results.totalComisionB)}</span>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
                         {/* SECCIÓN 5: CONDICIONES ESPECIALES */}
@@ -651,15 +748,12 @@ export default function StepCalculos({ data, onUpdate, onNext, onBack }) {
                                         </div>
                                     )}
                                     <div className="flex justify-between text-white/70">
-                                        <span className="flex flex-col">
-                                            <span>+ Honorarios Remax</span>
-                                            <span className="text-[10px] opacity-60">
-                                                {isCommercial
-                                                    ? (data.duracionContrato > 60 ? 'Comercial (>5a): 2% Total' : 'Comercial (<=5a): 1 Canon')
-                                                    : (data.duracionContrato > 24 ? 'Residencial (>2a): 2% Total' : 'Residencial (<=2a): 50% Canon')} + IVA
-                                            </span>
-                                        </span>
-                                        <span className="font-mono">{formatCurrency(results.totalComision)}</span>
+                                        <span>+ Honorarios (Propietario)</span>
+                                        <span className="font-mono">{formatCurrency(results.totalComisionA)}</span>
+                                    </div>
+                                    <div className="flex justify-between text-white/70">
+                                        <span>+ Honorarios (Arrendatario)</span>
+                                        <span className="font-mono">{formatCurrency(results.totalComisionB)}</span>
                                     </div>
 
                                     {data.conAdministracion && (
