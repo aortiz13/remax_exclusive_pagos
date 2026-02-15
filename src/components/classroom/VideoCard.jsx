@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils'
 
 export default function VideoCard({ video, isAdmin = false, onDelete, onEdit, isFavorite = false, isCompleted = false, onToggleFavorite, onComplete }) {
     const [showModal, setShowModal] = useState(false)
+    const [isReady, setIsReady] = useState(false)
 
     return (
         <>
@@ -99,7 +100,10 @@ export default function VideoCard({ video, isAdmin = false, onDelete, onEdit, is
             </motion.div>
 
             {/* Cinema Mode Modal */}
-            <Dialog open={showModal} onOpenChange={setShowModal}>
+            <Dialog open={showModal} onOpenChange={(open) => {
+                if (!open) setIsReady(false)
+                setShowModal(open)
+            }}>
                 <DialogContent className="max-w-4xl p-0 overflow-hidden bg-black border-slate-800 aspect-video ring-0 outline-none">
                     <DialogTitle className="sr-only">{video.title}</DialogTitle>
                     <DialogDescription className="sr-only">Reproduciendo video: {video.title}</DialogDescription>
@@ -110,15 +114,17 @@ export default function VideoCard({ video, isAdmin = false, onDelete, onEdit, is
                             url={video.video_url}
                             width="100%"
                             height="100%"
-                            playing={true}
+                            playing={showModal && isReady}
                             controls={true}
+                            onReady={() => setIsReady(true)}
                             config={{
                                 youtube: {
                                     playerVars: {
                                         autoplay: 1,
                                         rel: 0,
                                         modestbranding: 1,
-                                        show_related: 0
+                                        show_related: 0,
+                                        origin: typeof window !== 'undefined' ? window.location.origin : ''
                                     }
                                 }
                             }}
