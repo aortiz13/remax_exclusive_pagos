@@ -218,11 +218,13 @@ const NewMandate = () => {
                                         <Button
                                             variant="outline"
                                             role="combobox"
-                                            className="w-full justify-between font-normal mt-1"
+                                            className="w-full justify-between font-normal mt-1 overflow-hidden"
                                         >
-                                            {formData.contact_id
-                                                ? contacts.find((c) => c.id === formData.contact_id)?.first_name + " " + contacts.find((c) => c.id === formData.contact_id)?.last_name
-                                                : "Seleccionar contacto..."}
+                                            <span className="truncate flex-1 text-left">
+                                                {formData.contact_id
+                                                    ? contacts.find((c) => c.id === formData.contact_id)?.first_name + " " + contacts.find((c) => c.id === formData.contact_id)?.last_name
+                                                    : "Seleccionar contacto..."}
+                                            </span>
                                             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                         </Button>
                                     </PopoverTrigger>
@@ -268,11 +270,13 @@ const NewMandate = () => {
                                         <Button
                                             variant="outline"
                                             role="combobox"
-                                            className="w-full justify-between font-normal mt-1"
+                                            className="w-full justify-between font-normal mt-1 overflow-hidden"
                                         >
-                                            {formData.property_id
-                                                ? properties.find((p) => p.id === formData.property_id)?.address
-                                                : "Propiedad existente..."}
+                                            <span className="truncate flex-1 text-left">
+                                                {formData.property_id
+                                                    ? properties.find((p) => p.id === formData.property_id)?.address
+                                                    : "Propiedad existente..."}
+                                            </span>
                                             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                         </Button>
                                     </PopoverTrigger>
