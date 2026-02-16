@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '../../services/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { toast } from 'sonner'
-import { Target, TrendingUp, Lightbulb, Rocket, PieChart as PieChartIcon, Plus, Trash2, Save, ChevronDown, ChevronUp, GripVertical, AlertCircle } from 'lucide-react'
+import { Target, TrendingUp, Lightbulb, Rocket, PieChart as PieChartIcon, Plus, Trash2, Save, ChevronDown, ChevronUp, GripVertical, AlertCircle, Building2, Car } from 'lucide-react'
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
@@ -31,6 +31,8 @@ export default function BusinessPlan() {
     const [expandedSections, setExpandedSections] = useState({
         marketing: false, // Collapsed by default as requested
         technology: false,
+        office: false,
+        transportation: false,
         other: false
     })
 
@@ -112,7 +114,7 @@ export default function BusinessPlan() {
         }
         setInvestments(prev => [...prev, newInvestment])
         // Auto expand the section when adding
-        const sectionKey = category === 'Marketing' ? 'marketing' : category === 'Tecnología' ? 'technology' : 'other'
+        const sectionKey = category === 'Marketing' ? 'marketing' : category === 'Tecnología' ? 'technology' : category === 'Oficina' ? 'office' : category === 'Movilización' ? 'transportation' : 'other'
         setExpandedSections(prev => ({ ...prev, [sectionKey]: true }))
     }
 
@@ -202,6 +204,10 @@ export default function BusinessPlan() {
                 { id: '4', category: 'Tecnología', subcategory: 'Suscripciones de Software', amount: 0, is_custom: false },
                 { id: '5', category: 'Tecnología', subcategory: 'Traslado y Logística', amount: 0, is_custom: false },
                 { id: '6', category: 'Tecnología', subcategory: 'Mantenimiento de Oficina', amount: 0, is_custom: false },
+                { id: '7', category: 'Oficina', subcategory: 'Cuotas de Oficina (Plan de Asociación) y Membresía', amount: 0, is_custom: false },
+                { id: '8', category: 'Oficina', subcategory: 'Papelería y Otros gastos', amount: 0, is_custom: false },
+                { id: '9', category: 'Movilización', subcategory: 'Transporte Público o Combustible', amount: 0, is_custom: false },
+                { id: '10', category: 'Movilización', subcategory: 'Gastos generales vehículo propio', amount: 0, is_custom: false },
             ]
             setInvestments(defaults)
         }
@@ -371,81 +377,91 @@ export default function BusinessPlan() {
                                 <div className="w-full md:w-[60%] h-full overflow-y-auto p-5 border-r border-gray-100 custom-scrollbar">
                                     <div className="space-y-3">
                                         {[
-                                            { key: 'marketing', label: 'Marketing y Publicidad', color: 'bg-blue-500', text: 'text-blue-600', border: 'border-blue-100', bg: 'bg-blue-50' },
-                                            { key: 'technology', label: 'Tecnología y Operaciones', color: 'bg-purple-500', text: 'text-purple-600', border: 'border-purple-100', bg: 'bg-purple-50' },
-                                            { key: 'other', label: 'Otros Gastos', color: 'bg-gray-500', text: 'text-gray-600', border: 'border-gray-100', bg: 'bg-gray-50' }
-                                        ].map((section) => {
-                                            const catName = section.key === 'marketing' ? 'Marketing' : section.key === 'technology' ? 'Tecnología' : 'Otros';
-                                            const total = getCategoryTotal(catName);
-                                            const items = getCategoryItems(catName);
+                                            {
+                                                [
+                                                { key: 'marketing', label: 'Marketing y Publicidad', color: 'bg-blue-500', text: 'text-blue-600', border: 'border-blue-100', bg: 'bg-blue-50' },
+                                                { key: 'technology', label: 'Tecnología y Operaciones', color: 'bg-purple-500', text: 'text-purple-600', border: 'border-purple-100', bg: 'bg-purple-50' },
+                                                { key: 'office', label: 'Oficina', color: 'bg-amber-500', text: 'text-amber-600', border: 'border-amber-100', bg: 'bg-amber-50' },
+                                                { key: 'transportation', label: 'Movilización', color: 'bg-emerald-500', text: 'text-emerald-600', border: 'border-emerald-100', bg: 'bg-emerald-50' },
+                                                { key: 'other', label: 'Otros Gastos', color: 'bg-gray-500', text: 'text-gray-600', border: 'border-gray-100', bg: 'bg-gray-50' }
+                                                ].map((section) => {
+                                                    const catName = section.key === 'marketing' ? 'Marketing' :
+                                                        section.key === 'technology' ? 'Tecnología' :
+                                                            section.key === 'office' ? 'Oficina' :
+                                                                section.key === 'transportation' ? 'Movilización' : 'Otros';
+                                                    const total = getCategoryTotal(catName);
+                                                    const items = getCategoryItems(catName);
 
-                                            return (
-                                                <div key={section.key} className={`border rounded-lg overflow-hidden transition-all ${expandedSections[section.key] ? 'border-gray-200 shadow-sm' : 'border-gray-100 hover:border-gray-200'}`}>
-                                                    <button
-                                                        onClick={() => toggleSection(section.key)}
-                                                        className={`w-full flex items-center justify-between p-3.5 ${expandedSections[section.key] ? 'bg-gray-50' : 'bg-white'}`}
-                                                    >
-                                                        <div className="flex items-center gap-3">
-                                                            <div className={`p-1.5 rounded-md ${section.bg} ${section.text}`}>
-                                                                {section.key === 'marketing' && <Target className="w-3.5 h-3.5" />}
-                                                                {section.key === 'technology' && <Lightbulb className="w-3.5 h-3.5" />}
-                                                                {section.key === 'other' && <Plus className="w-3.5 h-3.5" />}
-                                                            </div>
-                                                            <span className="font-semibold text-gray-700 text-sm">{section.label}</span>
-                                                        </div>
-                                                        <div className="flex items-center gap-3">
-                                                            <span className="text-sm font-bold text-gray-800 font-mono tracking-tight">${total.toLocaleString()}</span>
-                                                            {expandedSections[section.key] ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
-                                                        </div>
-                                                    </button>
-
-                                                    <AnimatePresence>
-                                                        {expandedSections[section.key] && (
-                                                            <motion.div
-                                                                initial={{ height: 0, opacity: 0 }}
-                                                                animate={{ height: 'auto', opacity: 1 }}
-                                                                exit={{ height: 0, opacity: 0 }}
-                                                                className="border-t border-gray-100 bg-white"
+                                                    return (
+                                                        <div key={section.key} className={`border rounded-lg overflow-hidden transition-all ${expandedSections[section.key] ? 'border-gray-200 shadow-sm' : 'border-gray-100 hover:border-gray-200'}`}>
+                                                            <button
+                                                                onClick={() => toggleSection(section.key)}
+                                                                className={`w-full flex items-center justify-between p-3.5 ${expandedSections[section.key] ? 'bg-gray-50' : 'bg-white'}`}
                                                             >
-                                                                <div className="p-3 space-y-2">
-                                                                    {items.map(item => (
-                                                                        <div key={item.id} className="flex gap-2 items-center group py-1">
-                                                                            <input
-                                                                                value={item.subcategory}
-                                                                                onChange={(e) => handleInvestmentChange(item.id, 'subcategory', e.target.value)}
-                                                                                disabled={!item.is_custom}
-                                                                                className={`flex-1 py-1 px-2 rounded text-xs border ${item.is_custom ? 'border-gray-200 focus:border-blue-400 bg-white' : 'border-transparent bg-transparent font-medium text-gray-600'} focus:ring-0 outline-none transition-all placeholder:text-gray-300`}
-                                                                                placeholder="Nombre del ítem"
-                                                                            />
-                                                                            <div className="relative w-28 shrink-0">
-                                                                                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-300 text-[0.65rem]">$</span>
-                                                                                <input
-                                                                                    type="number"
-                                                                                    value={item.amount}
-                                                                                    onChange={(e) => handleInvestmentChange(item.id, 'amount', e.target.value)}
-                                                                                    className="w-full py-1 pl-4 pr-1 rounded border border-gray-100 focus:border-blue-500 outline-none text-right font-medium text-xs text-gray-800 font-mono hover:border-gray-200 transition-colors"
-                                                                                />
-                                                                            </div>
-                                                                            {item.is_custom && (
-                                                                                <button onClick={() => removeInvestment(item.id)} className="p-1 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded transition-colors opacity-0 group-hover:opacity-100">
-                                                                                    <Trash2 className="w-3 h-3" />
-                                                                                </button>
-                                                                            )}
-                                                                        </div>
-                                                                    ))}
-                                                                    <button
-                                                                        onClick={() => addInvestment(catName)}
-                                                                        className={`text-[0.7rem] ${section.text} font-medium hover:${section.bg} px-2 py-1.5 rounded transition-colors flex items-center gap-1.5 w-full justify-center border border-dashed border-transparent hover:border-${section.text.split('-')[1]}-200 mt-2`}
-                                                                    >
-                                                                        <Plus className="w-3 h-3" /> Agregar nuevo gasto
-                                                                    </button>
+                                                                <div className="flex items-center gap-3">
+                                                                    <div className={`p-1.5 rounded-md ${section.bg} ${section.text}`}>
+                                                                        {section.key === 'marketing' && <Target className="w-3.5 h-3.5" />}
+                                                                        {section.key === 'technology' && <Lightbulb className="w-3.5 h-3.5" />}
+                                                                        {section.key === 'office' && <Building2 className="w-3.5 h-3.5" />}
+                                                                        {section.key === 'transportation' && <Car className="w-3.5 h-3.5" />}
+                                                                        {section.key === 'other' && <Plus className="w-3.5 h-3.5" />}
+                                                                    </div>
+                                                                    <span className="font-semibold text-gray-700 text-sm">{section.label}</span>
                                                                 </div>
-                                                            </motion.div>
-                                                        )}
-                                                    </AnimatePresence>
-                                                </div>
-                                            )
-                                        })}
+                                                                <div className="flex items-center gap-3">
+                                                                    <span className="text-sm font-bold text-gray-800 font-mono tracking-tight">${total.toLocaleString()}</span>
+                                                                    {expandedSections[section.key] ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+                                                                </div>
+                                                            </button>
+
+                                                            <AnimatePresence>
+                                                                {expandedSections[section.key] && (
+                                                                    <motion.div
+                                                                        initial={{ height: 0, opacity: 0 }}
+                                                                        animate={{ height: 'auto', opacity: 1 }}
+                                                                        exit={{ height: 0, opacity: 0 }}
+                                                                        className="border-t border-gray-100 bg-white"
+                                                                    >
+                                                                        <div className="p-3 space-y-2">
+                                                                            {items.map(item => (
+                                                                                <div key={item.id} className="flex gap-2 items-center group py-1">
+                                                                                    <input
+                                                                                        value={item.subcategory}
+                                                                                        onChange={(e) => handleInvestmentChange(item.id, 'subcategory', e.target.value)}
+                                                                                        disabled={!item.is_custom}
+                                                                                        className={`flex-1 py-1 px-2 rounded text-xs border ${item.is_custom ? 'border-gray-200 focus:border-blue-400 bg-white' : 'border-transparent bg-transparent font-medium text-gray-600'} focus:ring-0 outline-none transition-all placeholder:text-gray-300`}
+                                                                                        placeholder="Nombre del ítem"
+                                                                                    />
+                                                                                    <div className="relative w-28 shrink-0">
+                                                                                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-300 text-[0.65rem]">$</span>
+                                                                                        <input
+                                                                                            type="number"
+                                                                                            value={item.amount}
+                                                                                            onChange={(e) => handleInvestmentChange(item.id, 'amount', e.target.value)}
+                                                                                            className="w-full py-1 pl-4 pr-1 rounded border border-gray-100 focus:border-blue-500 outline-none text-right font-medium text-xs text-gray-800 font-mono hover:border-gray-200 transition-colors"
+                                                                                        />
+                                                                                    </div>
+                                                                                    {item.is_custom && (
+                                                                                        <button onClick={() => removeInvestment(item.id)} className="p-1 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded transition-colors opacity-0 group-hover:opacity-100">
+                                                                                            <Trash2 className="w-3 h-3" />
+                                                                                        </button>
+                                                                                    )}
+                                                                                </div>
+                                                                            ))}
+                                                                            <button
+                                                                                onClick={() => addInvestment(catName)}
+                                                                                className={`text-[0.7rem] ${section.text} font-medium hover:${section.bg} px-2 py-1.5 rounded transition-colors flex items-center gap-1.5 w-full justify-center border border-dashed border-transparent hover:border-${section.text.split('-')[1]}-200 mt-2`}
+                                                                            >
+                                                                                <Plus className="w-3 h-3" /> Agregar nuevo gasto
+                                                                            </button>
+                                                                        </div>
+                                                                    </motion.div>
+                                                                )}
+                                                            </AnimatePresence>
+                                                        </div>
+                                                    )
+                                                })
+                                            }
                                     </div>
                                 </div>
 
