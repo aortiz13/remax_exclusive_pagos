@@ -8,8 +8,6 @@ import { useNavigate } from 'react-router-dom'
 export default function StepResumen({ data, onUpdate, onBack, onComplete }) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [success, setSuccess] = useState(false)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [success, setSuccess] = useState(false)
   const [fileArriendo, setFileArriendo] = useState(null)
   const [fileAdmin, setFileAdmin] = useState(null)
   const navigate = useNavigate()
