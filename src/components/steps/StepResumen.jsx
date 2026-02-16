@@ -3,16 +3,16 @@ import { toast } from 'sonner'
 import { generatePDF } from '../../services/pdfGenerator'
 import { triggerWebhook } from '../../services/api'
 import { Card, CardContent, Button, Input, Label } from '@/components/ui'
-import { CheckCircle2, FileText, Send, ArrowLeft, Loader2, User, Building, Wallet, Download } from 'lucide-react'
+import { CheckCircle2, FileText, Send, ArrowLeft, Loader2, User, Building, Wallet, Download, Upload } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
 export default function StepResumen({ data, onUpdate, onBack, onComplete }) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [success, setSuccess] = useState(false)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [success, setSuccess] = useState(false)
+
   const [fileArriendo, setFileArriendo] = useState(null)
   const [fileAdmin, setFileAdmin] = useState(null)
+  const [fileSeguro, setFileSeguro] = useState(null)
   const navigate = useNavigate()
 
   const calculations = data.calculations || {}
@@ -47,11 +47,20 @@ export default function StepResumen({ data, onUpdate, onBack, onComplete }) {
           setIsSubmitting(false)
           return
         }
+        if (data.chkSeguro && !fileSeguro) {
+          toast.error('Debes adjuntar la Póliza de Seguro de Restitución')
+          setIsSubmitting(false)
+          return
+        }
 
         const base64Arriendo = await fileToBase64(fileArriendo)
         let base64Admin = null
         if (fileAdmin) {
           base64Admin = await fileToBase64(fileAdmin)
+        }
+        let base64Seguro = null
+        if (fileSeguro) {
+          base64Seguro = await fileToBase64(fileSeguro)
         }
 
         const pdfRaw = generatePDF(data, calculations)
@@ -61,6 +70,8 @@ export default function StepResumen({ data, onUpdate, onBack, onComplete }) {
           contrato_arriendo: base64Arriendo,
           contrato_administracion_name: fileAdmin ? fileAdmin.name : '',
           contrato_administracion: base64Admin,
+          contrato_seguro_name: fileSeguro ? fileSeguro.name : '',
+          contrato_seguro: base64Seguro,
           agente: {
             nombre: data.agenteNombre,
             apellido: data.agenteApellido,
@@ -328,28 +339,84 @@ export default function StepResumen({ data, onUpdate, onBack, onComplete }) {
                     <Label htmlFor="file-arriendo" className="text-sm font-medium">
                       Contrato de Arriendo <span className="text-red-500">*</span>
                     </Label>
-                    <Input
-                      id="file-arriendo"
-                      type="file"
-                      accept=".pdf,image/*,.doc,.docx"
-                      onChange={(e) => setFileArriendo(e.target.files[0])}
-                      className="cursor-pointer file:text-primary file:font-semibold file:bg-primary/10 file:rounded-md file:border-0 file:mr-4 file:px-4 file:py-2 hover:file:bg-primary/20 transition-all"
-                    />
+                    <div className="flex items-center gap-3">
+                      <Input
+                        id="file-arriendo"
+                        type="file"
+                        accept=".pdf,image/*,.doc,.docx"
+                        onChange={(e) => setFileArriendo(e.target.files[0])}
+                        className="hidden"
+                      />
+                      <label
+                        htmlFor="file-arriendo"
+                        className="flex items-center justify-center gap-2 cursor-pointer bg-secondary hover:bg-secondary/80 text-secondary-foreground h-10 px-4 py-2 rounded-md text-sm font-medium transition-colors border border-input shadow-sm whitespace-nowrap"
+                      >
+                        <Upload className="w-4 h-4" />
+                        Seleccionar archivo
+                      </label>
+                      <span className="text-sm text-muted-foreground truncate flex-1 block min-w-0" title={fileArriendo ? fileArriendo.name : "Sin archivos seleccionados"}>
+                        {fileArriendo ? fileArriendo.name : "Sin archivos seleccionados"}
+                      </span>
+                    </div>
                   </div>
                   {data.conAdministracion && (
                     <div className="space-y-2">
                       <Label htmlFor="file-admin" className="text-sm font-medium">
                         Contrato de Administración <span className="text-red-500">*</span>
                       </Label>
-                      <Input
-                        id="file-admin"
-                        type="file"
-                        accept=".pdf,image/*,.doc,.docx"
-                        onChange={(e) => setFileAdmin(e.target.files[0])}
-                        className="cursor-pointer file:text-primary file:font-semibold file:bg-primary/10 file:rounded-md file:border-0 file:mr-4 file:px-4 file:py-2 hover:file:bg-primary/20 transition-all"
-                      />
+                      <div className="flex items-center gap-3">
+                        <Input
+                          id="file-admin"
+                          type="file"
+                          accept=".pdf,image/*,.doc,.docx"
+                          onChange={(e) => setFileAdmin(e.target.files[0])}
+                          className="hidden"
+                        />
+                        <label
+                          htmlFor="file-admin"
+                          className="flex items-center justify-center gap-2 cursor-pointer bg-secondary hover:bg-secondary/80 text-secondary-foreground h-10 px-4 py-2 rounded-md text-sm font-medium transition-colors border border-input shadow-sm whitespace-nowrap"
+                        >
+                          <Upload className="w-4 h-4" />
+                          Seleccionar archivo
+                        </label>
+                        <span className="text-sm text-muted-foreground truncate flex-1 block min-w-0" title={fileAdmin ? fileAdmin.name : "Sin archivos seleccionados"}>
+                          {fileAdmin ? fileAdmin.name : "Sin archivos seleccionados"}
+                        </span>
+                      </div>
                     </div>
                   )}
+                </div>
+              </div>
+            )}
+
+            {data.chkSeguro && (
+              <div className="bg-slate-50 dark:bg-slate-900/50 rounded-xl p-5 space-y-4 border border-slate-100 dark:border-slate-800">
+                <div className="flex items-center gap-2 text-primary font-semibold border-b border-slate-200 dark:border-slate-700 pb-2 mb-2">
+                  <FileText className="w-4 h-4" /> Seguro de Restitución
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="file-seguro" className="text-sm font-medium">
+                    Póliza de Seguro de Restitución <span className="text-red-500">*</span>
+                  </Label>
+                  <div className="flex items-center gap-3">
+                    <Input
+                      id="file-seguro"
+                      type="file"
+                      accept=".pdf,image/*,.doc,.docx"
+                      onChange={(e) => setFileSeguro(e.target.files[0])}
+                      className="hidden"
+                    />
+                    <label
+                      htmlFor="file-seguro"
+                      className="flex items-center justify-center gap-2 cursor-pointer bg-secondary hover:bg-secondary/80 text-secondary-foreground h-10 px-4 py-2 rounded-md text-sm font-medium transition-colors border border-input shadow-sm whitespace-nowrap"
+                    >
+                      <Upload className="w-4 h-4" />
+                      Seleccionar archivo
+                    </label>
+                    <span className="text-sm text-muted-foreground truncate flex-1 block min-w-0" title={fileSeguro ? fileSeguro.name : "Sin archivos seleccionados"}>
+                      {fileSeguro ? fileSeguro.name : "Sin archivos seleccionados"}
+                    </span>
+                  </div>
                 </div>
               </div>
             )}
@@ -560,6 +627,6 @@ export default function StepResumen({ data, onUpdate, onBack, onComplete }) {
           </Button>
         </div>
       </CardContent>
-    </Card>
+    </Card >
   )
 }
