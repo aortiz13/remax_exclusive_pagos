@@ -1,9 +1,8 @@
 import React, { useState } from 'react'
 import { toast } from 'sonner'
-import { generatePDF } from '../../services/pdfGenerator'
 import { triggerWebhook } from '../../services/api'
 import { Card, CardContent, Button, Input, Label } from '@/components/ui'
-import { CheckCircle2, FileText, Send, ArrowLeft, Loader2, User, Building, Wallet, Download } from 'lucide-react'
+import { CheckCircle2, FileText, Send, ArrowLeft, Loader2, User, Building, Wallet } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
 export default function StepResumen({ data, onUpdate, onBack, onComplete }) {
@@ -54,7 +53,6 @@ export default function StepResumen({ data, onUpdate, onBack, onComplete }) {
           base64Admin = await fileToBase64(fileAdmin)
         }
 
-        const pdfRaw = generatePDF(data, calculations)
         payload = {
           tipo_solicitud: 'arriendo', // Explicit Type
           contrato_arriendo_name: fileArriendo.name,
@@ -107,8 +105,7 @@ export default function StepResumen({ data, onUpdate, onBack, onComplete }) {
             fee_alert: data.feeAlertTriggered // Global alert
           },
           condiciones_especiales: data.chkCondicionesEspeciales ? data.condicionesEspeciales : '', // ADDED
-          fecha_envio_link: data.fechaEnvioLink || 'No especificada', // OPTIONAL DEFAULT
-          pdf_base64: pdfRaw // Send raw base64
+          fecha_envio_link: data.fechaEnvioLink || 'No especificada' // OPTIONAL DEFAULT
         }
       } else {
 
@@ -167,20 +164,7 @@ export default function StepResumen({ data, onUpdate, onBack, onComplete }) {
     }
   }
 
-  const downloadPDF = () => {
-    try {
-      const rawBase64 = generatePDF(data, calculations)
-      const linkSource = `data:application/pdf;base64,${rawBase64}`;
-      const downloadLink = document.createElement("a");
-      const fileName = `solicitud_${data.dueñoNombre || 'cliente'}.pdf`;
-      downloadLink.href = linkSource;
-      downloadLink.download = fileName;
-      downloadLink.click();
-    } catch (e) {
-      console.error("Download failed", e)
-      toast.error('Error al descargar el PDF')
-    }
-  }
+
 
   if (success) {
     return (
@@ -198,11 +182,6 @@ export default function StepResumen({ data, onUpdate, onBack, onComplete }) {
             <Button onClick={() => navigate('/pages/Dashboard')} size="lg" className="w-full">
               Volver al Inicio
             </Button>
-            {isArriendo && (
-              <Button variant="outline" className="w-full" onClick={downloadPDF}>
-                <Download className="w-4 h-4 mr-2" /> Descargar Comprobante
-              </Button>
-            )}
           </div>
         </CardContent>
       </Card>
