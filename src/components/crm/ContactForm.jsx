@@ -21,7 +21,7 @@ const Section = ({ title, children }) => (
     </div>
 )
 
-const ContactForm = ({ contact, isOpen, onClose }) => {
+const ContactForm = ({ contact, isOpen, onClose, isSimplified = false }) => {
     const { profile, user } = useAuth()
     const [loading, setLoading] = useState(false)
     const [properties, setProperties] = useState([])
@@ -222,12 +222,15 @@ const ContactForm = ({ contact, isOpen, onClose }) => {
     return createPortal(
         <AnimatePresence>
             {isOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
                     <motion.div
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
                         exit={{ opacity: 0, scale: 0.95 }}
-                        className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col"
+                        className={cn(
+                            "bg-white dark:bg-slate-900 rounded-2xl w-full shadow-2xl flex flex-col overflow-hidden",
+                            isSimplified ? "max-w-md max-h-[60vh]" : "max-w-4xl max-h-[90vh]"
+                        )}
                     >
                         <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/50">
                             <h2 className="text-xl font-bold text-gray-900 dark:text-white">
@@ -242,225 +245,233 @@ const ContactForm = ({ contact, isOpen, onClose }) => {
                             <form id="contact-form" onSubmit={handleSubmit} className="space-y-6">
 
                                 {/* Section: Información Principal */}
-                                <Section title="Información General">
-                                    <div className="space-y-2">
-                                        <Label>Nombre <span className="text-red-500">*</span></Label>
-                                        <Input name="first_name" value={formData.first_name} onChange={handleChange} required placeholder="Juan" />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label>Apellido <span className="text-red-500">*</span></Label>
-                                        <Input name="last_name" value={formData.last_name} onChange={handleChange} required placeholder="Pérez" />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label>Fuente (Origen)</Label>
-                                        <select
-                                            name="source"
-                                            value={formData.source}
-                                            onChange={handleChange}
-                                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                        >
-                                            <option value="">Seleccionar...</option>
-                                            <option value="Referido">Referido</option>
-                                            <option value="Portal">Portal Inmobiliario</option>
-                                            <option value="Redes Sociales">Redes Sociales</option>
-                                            <option value="Web">Web</option>
-                                            <option value="Llamado">Llamado Directo</option>
-                                            <option value="Otro">Otro</option>
-                                        </select>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label>Estado</Label>
-                                        <select
-                                            name="status"
-                                            value={formData.status}
-                                            onChange={handleChange}
-                                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                        >
-                                            <option value="Activo">Activo</option>
-                                            <option value="Inactivo">Inactivo</option>
-                                            <option value="Archivado">Archivado</option>
-                                            <option value="En Seguimiento">En Seguimiento</option>
-                                            <option value="Cliente">Cliente (Cerrado)</option>
-                                        </select>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label>Necesidad</Label>
-                                        <div className="flex flex-wrap gap-2 mt-2">
-                                            {['Comprar', 'Vender', 'Arrendar', 'Invertir', 'Otra'].map((option) => (
-                                                <Badge
-                                                    key={option}
-                                                    variant={selectedNeeds.includes(option) ? "default" : "outline"}
-                                                    className="cursor-pointer hover:opacity-80 px-4 py-1.5 text-sm"
-                                                    onClick={() => {
-                                                        if (selectedNeeds.includes(option)) {
-                                                            setSelectedNeeds(prev => prev.filter(p => p !== option))
-                                                        } else {
-                                                            setSelectedNeeds(prev => [...prev, option])
-                                                        }
-                                                    }}
-                                                >
-                                                    {option}
-                                                </Badge>
-                                            ))}
+                                <div className="space-y-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <Label>Nombre <span className="text-red-500">*</span></Label>
+                                            <Input name="first_name" value={formData.first_name} onChange={handleChange} required placeholder="Juan" />
                                         </div>
-                                        {selectedNeeds.includes('Otra') && (
-                                            <div className="mt-2 animate-in fade-in slide-in-from-top-1 duration-300">
-                                                <Label>Especifique otra necesidad</Label>
-                                                <Input
-                                                    name="need_other"
-                                                    value={formData.need_other}
+                                        <div className="space-y-2">
+                                            <Label>Apellido <span className="text-red-500">*</span></Label>
+                                            <Input name="last_name" value={formData.last_name} onChange={handleChange} required placeholder="Pérez" />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label>Email</Label>
+                                            <Input type="email" name="email" value={formData.email} onChange={handleChange} placeholder="juan@ejemplo.com" />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label>Teléfono</Label>
+                                            <Input type="tel" name="phone" value={formData.phone} onChange={handleChange} placeholder="+56 9 1234 5678" />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {!isSimplified && (
+                                    <>
+                                        <Section title="Información Detallada">
+                                            <div className="space-y-2">
+                                                <Label>Fuente (Origen)</Label>
+                                                <select
+                                                    name="source"
+                                                    value={formData.source}
                                                     onChange={handleChange}
-                                                    placeholder="Ej: Inversión en terreno, Local comercial..."
-                                                    className="mt-1"
-                                                />
-                                            </div>
-                                        )}
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label>Email</Label>
-                                        <Input type="email" name="email" value={formData.email} onChange={handleChange} placeholder="juan@ejemplo.com" />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label>Teléfono</Label>
-                                        <Input type="tel" name="phone" value={formData.phone} onChange={handleChange} placeholder="+56 9 1234 5678" />
-                                    </div>
-                                </Section>
-
-                                {/* Section: Ubicación */}
-                                <Section title="Ubicación y Propiedad">
-                                    <div className="space-y-2">
-                                        <Label>Barrio / Comuna</Label>
-                                        <Input name="barrio_comuna" value={formData.barrio_comuna || formData.comuna} onChange={handleChange} />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label>Dirección Particular</Label>
-                                        <Input name="address" value={formData.address} onChange={handleChange} placeholder="Calle 123, Depto 4" />
-                                    </div>
-
-                                    {/* Propiedad Asignada (Dueño) */}
-                                    <div className="space-y-2">
-                                        <Label>Propiedad (Dueño)</Label>
-                                        <Popover open={openPropertySelect} onOpenChange={setOpenPropertySelect}>
-                                            <PopoverTrigger asChild>
-                                                <Button
-                                                    variant="outline"
-                                                    role="combobox"
-                                                    aria-expanded={openPropertySelect}
-                                                    className="w-full justify-between"
+                                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                                                 >
-                                                    <span className="truncate">
-                                                        {selectedPropertyId
-                                                            ? properties.find((p) => p.id === selectedPropertyId)?.address
-                                                            : "Seleccionar propiedad..."}
-                                                    </span>
-                                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                                </Button>
-                                            </PopoverTrigger>
-                                            <PopoverContent className="w-[300px] p-0 z-[200]">
-                                                <Command>
-                                                    <CommandInput placeholder="Buscar propiedad..." />
-                                                    <CommandList>
-                                                        <CommandEmpty>No encontrada.</CommandEmpty>
-                                                        <CommandGroup>
-                                                            {properties.map((prop) => (
-                                                                <CommandItem
-                                                                    key={prop.id}
-                                                                    value={prop.address} // Filter by address
-                                                                    onSelect={() => {
-                                                                        setSelectedPropertyId(prop.id)
-                                                                        setOpenPropertySelect(false)
-                                                                    }}
-                                                                >
-                                                                    <Check
-                                                                        className={cn("mr-2 h-4 w-4", selectedPropertyId === prop.id ? "opacity-100" : "opacity-0")}
-                                                                    />
-                                                                    {prop.address}
-                                                                </CommandItem>
-                                                            ))}
-                                                        </CommandGroup>
-                                                    </CommandList>
-                                                </Command>
-                                            </PopoverContent>
-                                        </Popover>
-                                        <p className="text-[10px] text-muted-foreground">Este contacto quedará registrado como dueño de la propiedad seleccionada.</p>
-                                    </div>
-                                </Section>
+                                                    <option value="">Seleccionar...</option>
+                                                    <option value="Referido">Referido</option>
+                                                    <option value="Portal">Portal Inmobiliario</option>
+                                                    <option value="Redes Sociales">Redes Sociales</option>
+                                                    <option value="Web">Web</option>
+                                                    <option value="Llamado">Llamado Directo</option>
+                                                    <option value="Otro">Otro</option>
+                                                </select>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label>Estado</Label>
+                                                <select
+                                                    name="status"
+                                                    value={formData.status}
+                                                    onChange={handleChange}
+                                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                                >
+                                                    <option value="Activo">Activo</option>
+                                                    <option value="Inactivo">Inactivo</option>
+                                                    <option value="Archivado">Archivado</option>
+                                                    <option value="En Seguimiento">En Seguimiento</option>
+                                                    <option value="Cliente">Cliente (Cerrado)</option>
+                                                </select>
+                                            </div>
+                                            <div className="space-y-2 col-span-2">
+                                                <Label>Necesidad</Label>
+                                                <div className="flex flex-wrap gap-2 mt-2">
+                                                    {['Comprar', 'Vender', 'Arrendar', 'Invertir', 'Otra'].map((option) => (
+                                                        <Badge
+                                                            key={option}
+                                                            variant={selectedNeeds.includes(option) ? "default" : "outline"}
+                                                            className="cursor-pointer hover:opacity-80 px-4 py-1.5 text-sm"
+                                                            onClick={() => {
+                                                                if (selectedNeeds.includes(option)) {
+                                                                    setSelectedNeeds(prev => prev.filter(p => p !== option))
+                                                                } else {
+                                                                    setSelectedNeeds(prev => [...prev, option])
+                                                                }
+                                                            }}
+                                                        >
+                                                            {option}
+                                                        </Badge>
+                                                    ))}
+                                                </div>
+                                                {selectedNeeds.includes('Otra') && (
+                                                    <div className="mt-2 animate-in fade-in slide-in-from-top-1 duration-300">
+                                                        <Label>Especifique otra necesidad</Label>
+                                                        <Input
+                                                            name="need_other"
+                                                            value={formData.need_other}
+                                                            onChange={handleChange}
+                                                            placeholder="Ej: Inversión en terreno, Local comercial..."
+                                                            className="mt-1"
+                                                        />
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </Section>
 
-                                {/* Section: Detalles Personales */}
-                                <Section title="Detalles Personales">
-                                    <div className="space-y-2">
-                                        <Label>Fecha Nacimiento</Label>
-                                        <Input type="date" name="dob" value={formData.dob} onChange={handleChange} />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label>Profesión</Label>
-                                        <Input name="profession" value={formData.profession} onChange={handleChange} />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label>Ocupación</Label>
-                                        <Input name="occupation" value={formData.occupation} onChange={handleChange} />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label>Sexo</Label>
-                                        <select
-                                            name="sex"
-                                            value={formData.sex}
-                                            onChange={handleChange}
-                                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                        >
-                                            <option value="">Seleccionar...</option>
-                                            <option value="Masculino">Masculino</option>
-                                            <option value="Femenino">Femenino</option>
-                                            <option value="Otro">Otro</option>
-                                        </select>
-                                    </div>
-                                </Section>
+                                        {/* Section: Ubicación */}
+                                        <Section title="Ubicación y Propiedad">
+                                            <div className="space-y-2">
+                                                <Label>Barrio / Comuna</Label>
+                                                <Input name="barrio_comuna" value={formData.barrio_comuna || formData.comuna} onChange={handleChange} />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label>Dirección Particular</Label>
+                                                <Input name="address" value={formData.address} onChange={handleChange} placeholder="Calle 123, Depto 4" />
+                                            </div>
 
-                                {/* Section: Clasificación y Seguimiento */}
-                                <Section title="Clasificación">
-                                    <div className="space-y-2">
-                                        <Label>Rating (Calidad)</Label>
-                                        <select
-                                            name="rating"
-                                            value={formData.rating}
-                                            onChange={handleChange}
-                                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                        >
-                                            <option value="">Seleccionar...</option>
-                                            <option value="A+">A+ (Listo para comprar/vender)</option>
-                                            <option value="A">A (30-60 días)</option>
-                                            <option value="B">B (60-90 días)</option>
-                                            <option value="C">C (Largo plazo)</option>
-                                            <option value="D">D (Descartado/Frío)</option>
-                                        </select>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label>Pareto (80/20)</Label>
-                                        <select
-                                            name="rating_80_20"
-                                            value={formData.rating_80_20}
-                                            onChange={handleChange}
-                                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                        >
-                                            <option value="">Seleccionar...</option>
-                                            <option value="20%">20% (Mejores Clientes)</option>
-                                            <option value="80%">80% (Resto)</option>
-                                        </select>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label>Último Contacto</Label>
-                                        <Input type="date" name="last_contact_date" value={formData.last_contact_date} onChange={handleChange} />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label>Próximo Contacto</Label>
-                                        <Input type="date" name="next_contact_date" value={formData.next_contact_date} onChange={handleChange} />
-                                    </div>
-                                    <div className="col-span-2 space-y-2">
-                                        <Label>Observaciones</Label>
-                                        <Textarea name="observations" value={formData.observations} onChange={handleChange} rows={3} />
-                                    </div>
-                                </Section>
+                                            {/* Propiedad Asignada (Dueño) */}
+                                            <div className="space-y-2">
+                                                <Label>Propiedad (Dueño)</Label>
+                                                <Popover open={openPropertySelect} onOpenChange={setOpenPropertySelect}>
+                                                    <PopoverTrigger asChild>
+                                                        <Button
+                                                            variant="outline"
+                                                            role="combobox"
+                                                            aria-expanded={openPropertySelect}
+                                                            className="w-full justify-between"
+                                                        >
+                                                            <span className="truncate">
+                                                                {selectedPropertyId
+                                                                    ? properties.find((p) => p.id === selectedPropertyId)?.address
+                                                                    : "Seleccionar propiedad..."}
+                                                            </span>
+                                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                        </Button>
+                                                    </PopoverTrigger>
+                                                    <PopoverContent className="w-[300px] p-0 z-[200]">
+                                                        <Command>
+                                                            <CommandInput placeholder="Buscar propiedad..." />
+                                                            <CommandList>
+                                                                <CommandEmpty>No encontrada.</CommandEmpty>
+                                                                <CommandGroup>
+                                                                    {properties.map((prop) => (
+                                                                        <CommandItem
+                                                                            key={prop.id}
+                                                                            value={prop.address} // Filter by address
+                                                                            onSelect={() => {
+                                                                                setSelectedPropertyId(prop.id)
+                                                                                setOpenPropertySelect(false)
+                                                                            }}
+                                                                        >
+                                                                            <Check
+                                                                                className={cn("mr-2 h-4 w-4", selectedPropertyId === prop.id ? "opacity-100" : "opacity-0")}
+                                                                            />
+                                                                            {prop.address}
+                                                                        </CommandItem>
+                                                                    ))}
+                                                                </CommandGroup>
+                                                            </CommandList>
+                                                        </Command>
+                                                    </PopoverContent>
+                                                </Popover>
+                                                <p className="text-[10px] text-muted-foreground">Este contacto quedará registrado como dueño de la propiedad seleccionada.</p>
+                                            </div>
+                                        </Section>
 
+                                        {/* Section: Detalles Personales */}
+                                        <Section title="Detalles Personales">
+                                            <div className="space-y-2">
+                                                <Label>Fecha Nacimiento</Label>
+                                                <Input type="date" name="dob" value={formData.dob} onChange={handleChange} />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label>Profesión</Label>
+                                                <Input name="profession" value={formData.profession} onChange={handleChange} />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label>Ocupación</Label>
+                                                <Input name="occupation" value={formData.occupation} onChange={handleChange} />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label>Sexo</Label>
+                                                <select
+                                                    name="sex"
+                                                    value={formData.sex}
+                                                    onChange={handleChange}
+                                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                                >
+                                                    <option value="">Seleccionar...</option>
+                                                    <option value="Masculino">Masculino</option>
+                                                    <option value="Femenino">Femenino</option>
+                                                    <option value="Otro">Otro</option>
+                                                </select>
+                                            </div>
+                                        </Section>
+
+                                        {/* Section: Clasificación y Seguimiento */}
+                                        <Section title="Clasificación">
+                                            <div className="space-y-2">
+                                                <Label>Rating (Calidad)</Label>
+                                                <select
+                                                    name="rating"
+                                                    value={formData.rating}
+                                                    onChange={handleChange}
+                                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                                >
+                                                    <option value="">Seleccionar...</option>
+                                                    <option value="A+">A+ (Listo para comprar/vender)</option>
+                                                    <option value="A">A (30-60 días)</option>
+                                                    <option value="B">B (60-90 días)</option>
+                                                    <option value="C">C (Largo plazo)</option>
+                                                    <option value="D">D (Descartado/Frío)</option>
+                                                </select>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label>Pareto (80/20)</Label>
+                                                <select
+                                                    name="rating_80_20"
+                                                    value={formData.rating_80_20}
+                                                    onChange={handleChange}
+                                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                                >
+                                                    <option value="">Seleccionar...</option>
+                                                    <option value="20%">20% (Mejores Clientes)</option>
+                                                    <option value="80%">80% (Resto)</option>
+                                                </select>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label>Último Contacto</Label>
+                                                <Input type="date" name="last_contact_date" value={formData.last_contact_date} onChange={handleChange} />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label>Próximo Contacto</Label>
+                                                <Input type="date" name="next_contact_date" value={formData.next_contact_date} onChange={handleChange} />
+                                            </div>
+                                            <div className="col-span-2 space-y-2">
+                                                <Label>Observaciones</Label>
+                                                <Textarea name="observations" value={formData.observations} onChange={handleChange} rows={3} />
+                                            </div>
+                                        </Section>
+                                    </>
+                                )}
                             </form>
                         </div>
 

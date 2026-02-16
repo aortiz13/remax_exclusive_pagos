@@ -1,4 +1,4 @@
-import { useState } from 'react'
+
 import PropertyMap from '../components/crm/PropertyMap'
 
 const PropertyMapPage = () => {

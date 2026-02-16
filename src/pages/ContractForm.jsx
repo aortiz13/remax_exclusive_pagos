@@ -7,7 +7,7 @@ import { generateExcel } from '../lib/generateExcel'
 import { generatePDF } from '../lib/generatePDF'
 import { triggerLegalWebhook } from '../services/api'
 import { Button, Card, CardContent, CardHeader, CardTitle, CardDescription, Input, Label, Textarea } from '@/components/ui'
-import { ArrowLeft, Building2, Key, Save, Plus, Trash2, UploadCloud } from 'lucide-react'
+import { ArrowLeft, Building2, Key, Save, Plus, Trash2, UploadCloud, FilePlus, Search } from 'lucide-react'
 
 // --- HELPER COMPONENTS ---
 
@@ -373,18 +373,18 @@ export default function ContractForm() {
                         <p className="text-muted-foreground">¿Qué tipo de contrato necesitas redactar?</p>
                     </div>
 
-                    <div className="grid gap-6 md:grid-cols-2">
+                    <div className="grid gap-6 md:grid-cols-3">
                         <Card
                             className="cursor-pointer transition-all hover:scale-[1.02] hover:shadow-xl border-2 hover:border-primary group"
                             onClick={() => handleTypeSelect('buy-sell')}
                         >
-                            <CardContent className="flex flex-col items-center justify-center p-12 text-center space-y-4">
+                            <CardContent className="flex flex-col items-center justify-center p-8 text-center space-y-4">
                                 <div className="p-4 rounded-full bg-blue-50 group-hover:bg-blue-100 transition-colors">
-                                    <Building2 className="h-12 w-12 text-primary" />
+                                    <Building2 className="h-10 w-10 text-primary" />
                                 </div>
                                 <div>
-                                    <h3 className="text-xl font-bold group-hover:text-primary transition-colors">Compraventa</h3>
-                                    <p className="text-sm text-slate-500 mt-2">Redacción de contrato de promesa y compraventa de propiedades.</p>
+                                    <h3 className="text-lg font-bold group-hover:text-primary transition-colors">Compraventa</h3>
+                                    <p className="text-xs text-slate-500 mt-2">Promesa y Compraventa de propiedades.</p>
                                 </div>
                             </CardContent>
                         </Card>
@@ -393,13 +393,28 @@ export default function ContractForm() {
                             className="cursor-pointer transition-all hover:scale-[1.02] hover:shadow-xl border-2 hover:border-red-500 group"
                             onClick={() => handleTypeSelect('lease')}
                         >
-                            <CardContent className="flex flex-col items-center justify-center p-12 text-center space-y-4">
+                            <CardContent className="flex flex-col items-center justify-center p-8 text-center space-y-4">
                                 <div className="p-4 rounded-full bg-red-50 group-hover:bg-red-100 transition-colors">
-                                    <Key className="h-12 w-12 text-red-500" />
+                                    <Key className="h-10 w-10 text-red-500" />
                                 </div>
                                 <div>
-                                    <h3 className="text-xl font-bold group-hover:text-red-500 transition-colors">Arriendo</h3>
-                                    <p className="text-sm text-slate-500 mt-2">Redacción de contrato de arrendamiento habitacional o comercial.</p>
+                                    <h3 className="text-lg font-bold group-hover:text-red-500 transition-colors">Arriendo</h3>
+                                    <p className="text-xs text-slate-500 mt-2">Contrato de Arriendo habitacional o comercial.</p>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        <Card
+                            className="cursor-pointer transition-all hover:scale-[1.02] hover:shadow-xl border-2 hover:border-purple-500 group"
+                            onClick={() => handleTypeSelect('annex')}
+                        >
+                            <CardContent className="flex flex-col items-center justify-center p-8 text-center space-y-4">
+                                <div className="p-4 rounded-full bg-purple-50 group-hover:bg-purple-100 transition-colors">
+                                    <FilePlus className="h-10 w-10 text-purple-600" />
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-bold group-hover:text-purple-600 transition-colors">Anexo</h3>
+                                    <p className="text-xs text-slate-500 mt-2">Modificaciones o anexos a contratos vigentes.</p>
                                 </div>
                             </CardContent>
                         </Card>
@@ -417,11 +432,15 @@ export default function ContractForm() {
                 </Button>
 
                 <h1 className="text-2xl font-bold mb-6">
-                    {formType === 'buy-sell' ? 'Solicitud de Compraventa' : 'Solicitud de Arriendo'} {id && '(Edición)'}
+                    {formType === 'buy-sell' && 'Solicitud de Compraventa'}
+                    {formType === 'lease' && 'Solicitud de Arriendo'}
+                    {formType === 'annex' && 'Solicitud de Anexo de Contrato'}
+                    {id && ' (Edición)'}
                 </h1>
 
                 {formType === 'buy-sell' && <BuySellFormLogic user={user} profile={profile} navigate={navigate} initialData={initialData} requestId={id} />}
                 {formType === 'lease' && <LeaseFormLogic user={user} profile={profile} navigate={navigate} initialData={initialData} requestId={id} />}
+                {formType === 'annex' && <AnnexFormLogic user={user} profile={profile} navigate={navigate} initialData={initialData} requestId={id} />}
             </div>
         </div>
     )
@@ -1162,5 +1181,224 @@ function LeaseFormLogic({ user, profile, navigate, initialData = {}, requestId =
                 </div>
             </div >
         </form >
+    )
+}
+
+function AnnexFormLogic({ user, profile, navigate, initialData = {}, requestId = null }) {
+    const [isSubmitting, setIsSubmitting] = useState(false)
+    const [properties, setProperties] = useState([])
+    const [loadingProperties, setLoadingProperties] = useState(false)
+    const [selectedPropertyId, setSelectedPropertyId] = useState('')
+
+    // Fetch Agent's Properties for Autocomplete
+    useEffect(() => {
+        const fetchProperties = async () => {
+            if (!user?.id) return
+            setLoadingProperties(true)
+            const { data, error } = await supabase
+                .from('properties')
+                .select('id, address, commune') // Note: 'role' might not exist, checking schema... Schema says: address, commune. No role.
+                .eq('agent_id', user.id)
+                .order('created_at', { ascending: false })
+
+            if (!error && data) {
+                setProperties(data)
+            }
+            setLoadingProperties(false)
+        }
+        fetchProperties()
+    }, [user])
+
+    const handlePropertySelect = (e) => {
+        const propId = e.target.value
+        setSelectedPropertyId(propId)
+        if (propId) {
+            const prop = properties.find(p => p.id === propId)
+            if (prop) {
+                // Auto-fill address and commune
+                const addressInput = document.querySelector('input[name="direccion_propiedad"]')
+                const communeInput = document.querySelector('input[name="comuna"]')
+                if (addressInput) addressInput.value = prop.address || ''
+                if (communeInput) communeInput.value = prop.commune || ''
+            }
+        }
+    }
+
+    const handleSubmit = async (e) => {
+        e.preventDefault()
+        const formData = new FormData(e.currentTarget)
+
+        // Validation
+        const contrato = formData.get('contrato_original')
+        // Check if file provided. For edits, it might be skipped if not changing. 
+        // But for "Anexo" usually we want the contract reference.
+        // Let's assume strict for new requests.
+        const fileInput = document.querySelector('input[name="contrato_original"]');
+        const hasFiles = fileInput && fileInput.files.length > 0;
+
+        if (!requestId && !hasFiles) {
+            toast.error('Debes adjuntar el Contrato Original.')
+            return
+        }
+
+        setIsSubmitting(true)
+
+        try {
+            // Append context data
+            const agentName = `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim()
+            formData.append('agente_nombre', agentName)
+            formData.append('agente_email', user.email)
+            formData.append('agente_telefono', profile?.phone || '')
+            formData.append('tipo_solicitud', 'anexo')
+
+            // Prepare Webhook Payload
+            const webhookData = new FormData()
+
+            // Append data
+            for (const [key, value] of formData.entries()) {
+                if (typeof value === 'string') {
+                    webhookData.append(key, value)
+                }
+            }
+
+            // Files - Helper
+            const appendFiles = (baseFieldName) => {
+                const files = formData.getAll(baseFieldName).length > 0
+                    ? formData.getAll(baseFieldName)
+                    : formData.getAll(`${baseFieldName}[]`);
+
+                files.forEach((file) => {
+                    if (file instanceof File && file.size > 0) {
+                        webhookData.append(`${baseFieldName}[]`, file);
+                    }
+                });
+            }
+            appendFiles('contrato_original')
+            appendFiles('documentos_adicionales')
+
+            // Trigger Webhook
+            await triggerLegalWebhook(webhookData)
+
+            // Save JSON to Supabase
+            const jsonData = {}
+            for (const [key, value] of formData.entries()) {
+                if (!(value instanceof File)) {
+                    if (jsonData[key]) {
+                        if (!Array.isArray(jsonData[key])) jsonData[key] = [jsonData[key]]
+                        jsonData[key].push(value)
+                    } else {
+                        jsonData[key] = value
+                    }
+                }
+            }
+
+            const payload = {
+                status: 'submitted',
+                type: 'annex',
+                data: { ...jsonData, contract_type: 'annex' }
+            }
+
+            let error
+            if (requestId) {
+                const { error: updateError } = await supabase.from('requests').update({ ...payload, updated_at: new Date() }).eq('id', requestId)
+                error = updateError
+            } else {
+                const { error: insertError } = await supabase.from('requests').insert({ ...payload, user_id: user.id, step: 1 })
+                error = insertError
+            }
+
+            if (error) throw error
+
+            toast.success('Solicitud de Anexo enviada exitosamente.')
+            navigate('/dashboard')
+
+        } catch (error) {
+            console.error('Error:', error)
+            toast.error('Error al enviar la solicitud: ' + error.message)
+        } finally {
+            setIsSubmitting(false)
+        }
+    }
+
+    return (
+        <form onSubmit={handleSubmit} className="space-y-8 pb-12">
+            <div className="grid gap-8">
+                <CardSection title="1. Propiedad y Datos Básicos">
+                    <div className="mb-6 p-4 bg-slate-50 border rounded-lg">
+                        <Label className="mb-2 block text-xs font-bold uppercase text-slate-500">Autocompletar desde mis propiedades</Label>
+                        <div className="flex gap-2 items-center">
+                            <div className="relative w-full max-w-md">
+                                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-500" />
+                                <select
+                                    className="flex h-10 w-full rounded-md border border-input bg-white pl-9 pr-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                    onChange={handlePropertySelect}
+                                    value={selectedPropertyId}
+                                    disabled={loadingProperties}
+                                >
+                                    <option value="">Seleccionar propiedad...</option>
+                                    {properties.map(p => (
+                                        <option key={p.id} value={p.id}>
+                                            {p.address} {p.commune ? `- ${p.commune}` : ''}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            {loadingProperties && <span className="text-xs text-slate-400">Cargando...</span>}
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <Field label="Dirección" name="direccion_propiedad" defaultValue={initialData.direccion_propiedad} className="md:col-span-2" required />
+                        <Field label="Comuna" name="comuna" defaultValue={initialData.comuna} required />
+                        <Field label="ROL (Opcional)" name="rol" defaultValue={initialData.rol} />
+                    </div>
+                </CardSection>
+
+                <CardSection title="2. Detalle de la Solicitud">
+                    <div className="space-y-4">
+                        <Label>Cuerpo del Anexo / Instrucciones</Label>
+                        <Textarea
+                            name="cuerpo_anexo"
+                            placeholder="Describa aquí las modificaciones, cláusulas a agregar/eliminar, o el objetivo del anexo..."
+                            className="min-h-[200px] font-mono text-sm"
+                            defaultValue={initialData.cuerpo_anexo}
+                            required
+                        />
+                        <p className="text-xs text-slate-500">Sea lo más detallado posible para facilitar la redacción legal.</p>
+                    </div>
+                </CardSection>
+
+                <CardSection title="3. Documentación Requerida">
+                    <div className="space-y-6">
+                        <FileUploadField
+                            label="Contrato Original (Obligatorio)"
+                            name="contrato_original"
+                            accept=".pdf,image/*,.doc,.docx"
+                        />
+                        <FileUploadField
+                            label="Documentos Adicionales (Opcional)"
+                            name="documentos_adicionales"
+                            accept=".pdf,image/*,.doc,.docx"
+                            multiple
+                        />
+                    </div>
+                </CardSection>
+
+                <div className="sticky bottom-4 z-10">
+                    <Card className="shadow-lg border-2 border-primary/20 bg-white/95 backdrop-blur">
+                        <CardContent className="p-4 flex flex-col md:flex-row justify-between items-center gap-4">
+                            <div className="text-xs text-slate-500 text-center md:text-left">
+                                <span className="font-bold block">Aviso Importante:</span>
+                                Al enviar, la solicitud será procesada por el equipo legal. Asegúrate de adjuntar el contrato base.
+                            </div>
+                            <Button type="submit" size="lg" disabled={isSubmitting} className="w-full md:w-auto">
+                                <Save className="mr-2 h-5 w-5" />
+                                {isSubmitting ? 'Enviando...' : (requestId ? 'Actualizar Solicitud' : 'Enviar Solicitud')}
+                            </Button>
+                        </CardContent>
+                    </Card>
+                </div>
+            </div>
+        </form>
     )
 }

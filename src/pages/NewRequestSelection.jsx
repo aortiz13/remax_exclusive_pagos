@@ -41,9 +41,9 @@ export default function NewRequestSelection() {
                                 <FileText className="h-12 w-12 text-indigo-600" />
                             </div>
                             <div className="space-y-2">
-                                <h3 className="text-xl font-bold text-slate-900 group-hover:text-primary transition-colors">Redacción de Contrato</h3>
+                                <h3 className="text-xl font-bold text-slate-900 group-hover:text-primary transition-colors">Contratos</h3>
                                 <p className="text-sm text-slate-500 max-w-[200px] mx-auto">
-                                    Solicitar redacción de contratos de compraventa o arriendo.
+                                    Solicitudes referentes a contratos
                                 </p>
                             </div>
                         </CardContent>

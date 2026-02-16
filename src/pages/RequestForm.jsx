@@ -85,6 +85,19 @@ export default function RequestForm() {
         feeAlertTriggered: false, // If manual fee is below minimum
         chkCondicionesEspeciales: false, // New: Special conditions toggle
         condicionesEspeciales: '', // New: Special conditions text
+
+        // Independent Fees Logic (Arriendo)
+        honorariosEncargadoA: '', // Result for A (Owner)
+        honorariosEncargadoB: '', // Result for B (Tenant) - if needed to persist
+        ingresoManualA: false,
+        ingresoManualB: false,
+        montoManualA: '',
+        montoManualB: '',
+
+        // Independent Commission Logic (Compraventa)
+        dividirComision: false,
+        comisionVendedor: '',
+        comisionComprador: '',
     })
 
     // Load Request if ID exists

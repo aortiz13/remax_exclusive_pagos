@@ -51,13 +51,25 @@ export default function StepResumen({ data, onUpdate, onBack, onComplete }) {
             comuna: data.dueñoComuna
           },
           financiero: {
+            // General Totals (Legacy support + Summary)
             total_cancelar: calculations.totalCancelar,
             total_recibir: calculations.totalRecibir,
-            honorarios: calculations.totalComision,
+            honorarios_total: calculations.totalComisionA + calculations.totalComisionB, // Sum of both parts
             administracion: calculations.totalAdmin,
             uf_valor: calculations.ufUsed,
-            ingreso_manual: data.ingresoManual,
-            fee_alert: data.feeAlertTriggered
+
+            // INDEPENDENT FEES (NEW)
+            honorarios_propietario: calculations.totalComisionA || 0,
+            honorarios_arrendatario: calculations.totalComisionB || 0,
+            ingreso_manual_propietario: data.ingresoManualA || false,
+            ingreso_manual_arrendatario: data.ingresoManualB || false,
+            monto_manual_propietario: data.montoManualA || 0,
+            monto_manual_arrendatario: data.montoManualB || 0,
+
+            fee_alert_propietario: calculations.feeAlertA || false,
+            fee_alert_arrendatario: calculations.feeAlertB || false,
+
+            fee_alert: data.feeAlertTriggered // Global alert
           },
           condiciones_especiales: data.chkCondicionesEspeciales ? data.condicionesEspeciales : '', // ADDED
           fecha_envio_link: data.fechaEnvioLink || 'No especificada', // OPTIONAL DEFAULT
@@ -90,7 +102,14 @@ export default function StepResumen({ data, onUpdate, onBack, onComplete }) {
             email: data.compradorEmail
           },
           financiero: {
-            monto_comision: data.montoComision
+            monto_comision_total: data.dividirComision
+              ? (Number(data.comisionVendedor || 0) + Number(data.comisionComprador || 0))
+              : Number(data.montoComision || 0),
+
+            // SPLIT LOGIC
+            dividir_comision: data.dividirComision || false,
+            comision_vendedor: data.dividirComision ? Number(data.comisionVendedor || 0) : Number(data.montoComision || 0), // If not split, Seller pays all? Or just Total? Usually Seller.
+            comision_comprador: data.dividirComision ? Number(data.comisionComprador || 0) : 0
           }
           // PDF logic for buy/sell if needed, currently omitted as per plan if not critical
         }
@@ -285,50 +304,148 @@ export default function StepResumen({ data, onUpdate, onBack, onComplete }) {
               </div>
 
               {isArriendo ? (
-                <div className="space-y-3 text-sm">
-                  {data.chkProporcional && (
-                    <div className="flex justify-between py-1">
-                      <span className="text-muted-foreground">Prop. ({data.diasProporcionales} días)</span>
-                      <span className="font-medium">{formatCurrency(data.calculations?.montoProporcional)}</span>
+                <div className="space-y-4 text-sm">
+                  {/* Part A: Owner */}
+                  <div className="bg-blue-50/50 dark:bg-blue-900/5 p-3 rounded-lg border border-blue-100/50">
+                    <p className="text-[10px] font-bold text-blue-600 uppercase mb-2">Parte A (Propietario)</p>
+                    <div className="space-y-1">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Honorarios Neto:</span>
+                        <span>{formatCurrency(calculations.honorariosNetoA)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">IVA (19%):</span>
+                        <span>{formatCurrency(calculations.ivaHonorariosA)}</span>
+                      </div>
+                      <div className="flex justify-between font-bold text-blue-700 border-t pt-1 mt-1">
+                        <span>Total:</span>
+                        <span>{formatCurrency(calculations.totalComisionA)}</span>
+                      </div>
                     </div>
-                  )}
-                  {data.chkMesAdelantado && (
-                    <div className="flex justify-between py-1">
-                      <span className="text-muted-foreground">Mes Adelantado</span>
-                      <span className="font-medium">{formatCurrency(data.calculations?.montoMesAdelantado)}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between py-1">
-                    <span className="text-muted-foreground">Garantía</span>
-                    <span className="font-medium">{formatCurrency(data.garantia)}</span>
                   </div>
-                  {data.chkSeguro && (
-                    <div className="flex justify-between py-1">
-                      <span className="text-muted-foreground">Seguro Restitución</span>
-                      <span className="font-medium">{formatCurrency(data.calculations?.montoSeguro)}</span>
+
+                  {/* Part B: Tenant */}
+                  <div className="bg-green-50/50 dark:bg-green-900/5 p-3 rounded-lg border border-green-100/50">
+                    <p className="text-[10px] font-bold text-green-600 uppercase mb-2">Parte B (Arrendatario)</p>
+                    <div className="space-y-1">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Honorarios Neto:</span>
+                        <span>{formatCurrency(calculations.honorariosNetoB)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">IVA (19%):</span>
+                        <span>{formatCurrency(calculations.ivaHonorariosB)}</span>
+                      </div>
+                      <div className="flex justify-between font-bold text-green-700 border-t pt-1 mt-1">
+                        <span>Total:</span>
+                        <span>{formatCurrency(calculations.totalComisionB)}</span>
+                      </div>
                     </div>
-                  )}
-                  <div className="flex justify-between py-1">
-                    <span className="text-muted-foreground">Honorarios</span>
-                    <span className="font-medium">{formatCurrency(data.calculations?.totalComision)}</span>
                   </div>
-                  {data.conAdministracion && (
-                    <div className="flex justify-between py-1 text-indigo-600">
-                      <span className="text-muted-foreground">Administración</span>
-                      <span className="font-medium">{formatCurrency(data.calculations?.totalAdmin)}</span>
+
+                  {/* Other Concepts */}
+                  <div className="space-y-1 pt-2">
+                    {data.chkProporcional && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Arriendo Prop. ({data.diasProporcionales} días)</span>
+                        <span>{formatCurrency(calculations.montoProporcional)}</span>
+                      </div>
+                    )}
+                    {data.chkMesAdelantado && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Mes Adelantado</span>
+                        <span>{formatCurrency(calculations.montoMesAdelantado)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Garantía</span>
+                      <span>{formatCurrency(data.garantia)}</span>
                     </div>
-                  )}
-                  <div className="flex justify-between py-1">
-                    <span className="text-muted-foreground">Gastos Notariales</span>
-                    <span className="font-medium">{formatCurrency(data.gastosNotariales)}</span>
+                    {data.chkSeguro && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Seguro Restitución</span>
+                        <span>{formatCurrency(calculations.montoSeguro)}</span>
+                      </div>
+                    )}
+                    {data.conAdministracion && (
+                      <div className="flex justify-between text-indigo-600">
+                        <span className="text-indigo-600/70">Administración</span>
+                        <span className="font-medium">{formatCurrency(calculations.totalAdmin)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Gastos Notariales</span>
+                      <span>{formatCurrency(data.gastosNotariales)}</span>
+                    </div>
                   </div>
                 </div>
               ) : (
-                <div className="space-y-3 text-sm">
-                  <div className="p-4 bg-slate-50 rounded-lg text-center">
-                    <span className="text-muted-foreground block mb-2">Monto Comisión Acordada</span>
-                    <span className="text-xl font-bold text-slate-900 dark:text-slate-100">{data.montoComision}</span>
-                  </div>
+                <div className="space-y-4 text-sm">
+                  {!data.dividirComision ? (
+                    <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg border border-slate-100">
+                      <p className="text-xs font-bold text-slate-500 uppercase mb-3 text-center">Comisión Total Acordada</p>
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Neto:</span>
+                          <span className="font-medium">{formatCurrency(data.montoComision || 0)}</span>
+                        </div>
+                        <div className="flex justify-between border-b pb-2">
+                          <span className="text-muted-foreground">IVA (19%):</span>
+                          <span>{formatCurrency(Math.round((data.montoComision || 0) * 0.19))}</span>
+                        </div>
+                        <div className="flex justify-between font-black text-xl text-primary pt-2">
+                          <span>TOTAL:</span>
+                          <span>{formatCurrency(Math.round((data.montoComision || 0) * 1.19))}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-4">
+                      {/* Vendedor */}
+                      <div className="bg-blue-50/50 dark:bg-blue-900/5 p-3 rounded-lg border border-blue-100/50">
+                        <p className="text-[10px] font-bold text-blue-600 uppercase mb-2">Vendedor</p>
+                        <div className="space-y-1">
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Comisión Neto:</span>
+                            <span>{formatCurrency(data.comisionVendedor || 0)}</span>
+                          </div>
+                          <div className="flex justify-between border-b pb-1">
+                            <span className="text-muted-foreground">IVA (19%):</span>
+                            <span>{formatCurrency(Math.round((data.comisionVendedor || 0) * 0.19))}</span>
+                          </div>
+                          <div className="flex justify-between font-bold text-blue-700 pt-1">
+                            <span>Total Vendedor:</span>
+                            <span>{formatCurrency(Math.round((data.comisionVendedor || 0) * 1.19))}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Comprador */}
+                      <div className="bg-green-50/50 dark:bg-green-900/5 p-3 rounded-lg border border-green-100/50">
+                        <p className="text-[10px] font-bold text-green-600 uppercase mb-2">Comprador</p>
+                        <div className="space-y-1">
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Comisión Neto:</span>
+                            <span>{formatCurrency(data.comisionComprador || 0)}</span>
+                          </div>
+                          <div className="flex justify-between border-b pb-1">
+                            <span className="text-muted-foreground">IVA (19%):</span>
+                            <span>{formatCurrency(Math.round((data.comisionComprador || 0) * 0.19))}</span>
+                          </div>
+                          <div className="flex justify-between font-bold text-green-700 pt-1">
+                            <span>Total Comprador:</span>
+                            <span>{formatCurrency(Math.round((data.comisionComprador || 0) * 1.19))}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Total Global */}
+                      <div className="bg-slate-900 text-white p-3 rounded-lg flex justify-between items-center mt-2">
+                        <span className="text-xs font-bold uppercase">Total Operación Remax</span>
+                        <span className="text-lg font-black">{formatCurrency(Math.round((Number(data.comisionVendedor || 0) + Number(data.comisionComprador || 0)) * 1.19))}</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 

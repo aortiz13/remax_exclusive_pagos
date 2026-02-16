@@ -22,7 +22,9 @@ import {
     Shield,
     Calendar,
     MapPin,
-    Download
+    Download,
+    GraduationCap,
+    Folder
 } from 'lucide-react'
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
@@ -63,6 +65,11 @@ export default function Sidebar() {
                     icon: BarChart3,
                     path: '/kpis/dashboard',
                 },
+                {
+                    title: 'Mi Plan de Negocio',
+                    icon: Target,
+                    path: '/kpis/business-plan',
+                },
                 ...(profile?.role === 'admin' ? [{
                     title: 'Dashboard CEO',
                     icon: FileBarChart,
@@ -93,15 +100,35 @@ export default function Sidebar() {
                     icon: PlusCircle,
                     path: '/new-request',
                 },
+                {
+                    title: 'Nueva Captación / Mandato',
+                    icon: Zap,
+                    path: '/new-mandate',
+                },
+            ]
+        },
+        {
+            title: 'AULA VIRTUAL',
+            items: [
+                {
+                    title: 'Aula Virtual',
+                    icon: GraduationCap,
+                    path: '/aula-virtual',
+                }
             ]
         },
         {
             title: 'DOCUMENTOS',
             items: [
                 {
-                    title: 'Ver Documentos',
+                    title: 'Documentos Remax',
                     icon: FileText,
                     path: '/documents',
+                },
+                {
+                    title: 'Mis Documentos',
+                    icon: Folder,
+                    path: '/my-documents',
                 }
             ]
         }
@@ -115,6 +142,7 @@ export default function Sidebar() {
                 { title: 'Administración', icon: Users, path: '/admin/invites' },
                 { title: 'Solicitudes', icon: FileText, path: '/admin/requests' },
                 { title: 'Importar Propiedades', icon: Download, path: '/admin/import' },
+                { title: 'Config. Aula Virtual', icon: Settings, path: '/admin/aula-virtual' },
             ]
         })
     }

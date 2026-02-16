@@ -21,12 +21,17 @@ import WeeklyKpiForm from './components/kpi/WeeklyKpiForm'
 import AgentGoalsForm from './components/kpi/AgentGoalsForm'
 import KpiDashboard from './components/kpi/KpiDashboard'
 import AdminKpiView from './components/kpi/AdminKpiView'
+import BusinessPlan from './pages/kpi/BusinessPlan'
 import CRM from './pages/CRM'
 import ContactDetail from './components/crm/ContactDetail'
 import PropertyDetail from './components/crm/PropertyDetail'
 import PropertyMapPage from './pages/PropertyMapPage'
 import DocumentsHub from './pages/DocumentsHub'
+import AgentDocuments from './pages/AgentDocuments'
 import CalendarPage from './pages/Calendar'
+import VirtualClassroom from './pages/VirtualClassroom'
+import AdminVirtualClassroom from './pages/AdminVirtualClassroom'
+import NewMandate from './pages/crm/NewMandate'
 import { Toaster } from 'sonner'
 
 // Protected Route Component
@@ -187,9 +192,21 @@ function App() {
               </ProtectedRoute>
             } />
 
+            <Route path="/new-mandate" element={
+              <ProtectedRoute>
+                <NewMandate />
+              </ProtectedRoute>
+            } />
+
             <Route path="/documents" element={
               <ProtectedRoute>
                 <DocumentsHub />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/my-documents" element={
+              <ProtectedRoute>
+                <AgentDocuments />
               </ProtectedRoute>
             } />
 
@@ -209,12 +226,32 @@ function App() {
                 <KpiDashboard />
               </ProtectedRoute>
             } />
+            <Route path="/kpis/business-plan" element={
+              <ProtectedRoute>
+                <BusinessPlan />
+              </ProtectedRoute>
+            } />
 
             {/* Public Route for Lead Assignment */}
             <Route path="/busqueda/:id" element={<LeadDetail />} />
 
             {/* Public Route for Agents to View Lead */}
             <Route path="/nuevolead/:id" element={<AgentLeadView />} />
+
+            {/* Public Route for Agents to View Lead */}
+            <Route path="/nuevolead/:id" element={<AgentLeadView />} />
+
+            {/* Aula Virtual Routes */}
+            <Route path="/aula-virtual" element={
+              <ProtectedRoute>
+                <VirtualClassroom />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/aula-virtual" element={
+              <ProtectedRoute>
+                <AdminVirtualClassroom />
+              </ProtectedRoute>
+            } />
 
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

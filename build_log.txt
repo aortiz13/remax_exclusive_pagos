@@ -1,0 +1,31 @@
+
+> remax-exclusive-requests@0.0.0 build
+> vite build
+
+vite v7.3.1 building client environment for production...
+transforming...
+✓ 45 modules transformed.
+✗ Build failed in 1.31s
+error during build:
+[vite:esbuild] Transform failed with 1 error:
+/Users/adrianortiz/Desktop/miniapp_remax/remax-exclusive-requests/src/pages/kpi/BusinessPlan.jsx:382:191: ERROR: Expected "]" but found ","
+file: /Users/adrianortiz/Desktop/miniapp_remax/remax-exclusive-requests/src/pages/kpi/BusinessPlan.jsx:382:191
+
+Expected "]" but found ","
+380 |                                              {
+381 |                                                  [
+382 |  ...ext-blue-600', border: 'border-blue-100', bg: 'bg-blue-50' },
+    |                                                                 ^
+383 |                                                  { key: 'technology', label: 'Tecnología y Operaciones', color: 'bg-pu...
+384 |                                                  { key: 'office', label: 'Oficina', color: 'bg-amber-500', text: 'text...
+
+    at failureErrorWithLog (/Users/adrianortiz/Desktop/miniapp_remax/remax-exclusive-requests/node_modules/esbuild/lib/main.js:1467:15)
+    at /Users/adrianortiz/Desktop/miniapp_remax/remax-exclusive-requests/node_modules/esbuild/lib/main.js:736:50
+    at responseCallbacks.<computed> (/Users/adrianortiz/Desktop/miniapp_remax/remax-exclusive-requests/node_modules/esbuild/lib/main.js:603:9)
+    at handleIncomingPacket (/Users/adrianortiz/Desktop/miniapp_remax/remax-exclusive-requests/node_modules/esbuild/lib/main.js:658:12)
+    at Socket.readFromStdout (/Users/adrianortiz/Desktop/miniapp_remax/remax-exclusive-requests/node_modules/esbuild/lib/main.js:581:7)
+    at Socket.emit (node:events:524:28)
+    at addChunk (node:internal/streams/readable:561:12)
+    at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+    at Readable.push (node:internal/streams/readable:392:5)
+    at Pipe.onStreamRead (node:internal/stream_base_commons:191:23)
