@@ -21,6 +21,7 @@ import WeeklyKpiForm from './components/kpi/WeeklyKpiForm'
 import AgentGoalsForm from './components/kpi/AgentGoalsForm'
 import KpiDashboard from './components/kpi/KpiDashboard'
 import AdminKpiView from './components/kpi/AdminKpiView'
+import BusinessPlan from './pages/kpi/BusinessPlan'
 import CRM from './pages/CRM'
 import ContactDetail from './components/crm/ContactDetail'
 import PropertyDetail from './components/crm/PropertyDetail'
@@ -223,6 +224,11 @@ function App() {
             <Route path="/kpis/dashboard" element={
               <ProtectedRoute>
                 <KpiDashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/kpis/business-plan" element={
+              <ProtectedRoute>
+                <BusinessPlan />
               </ProtectedRoute>
             } />
 

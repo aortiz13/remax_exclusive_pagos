@@ -65,6 +65,11 @@ export default function Sidebar() {
                     icon: BarChart3,
                     path: '/kpis/dashboard',
                 },
+                {
+                    title: 'Mi Plan de Negocio',
+                    icon: Target,
+                    path: '/kpis/business-plan',
+                },
                 ...(profile?.role === 'admin' ? [{
                     title: 'Dashboard CEO',
                     icon: FileBarChart,
