@@ -1,20 +1,30 @@
 import React, { useState } from 'react'
 import { toast } from 'sonner'
-import { generatePDF } from '../../services/pdfGenerator'
 import { triggerWebhook } from '../../services/api'
-import { Card, CardContent, Button } from '@/components/ui'
-import { CheckCircle2, FileText, Send, ArrowLeft, Loader2, User, Building, Wallet, Download } from 'lucide-react'
+import { Card, CardContent, Button, Input, Label } from '@/components/ui'
+import { CheckCircle2, FileText, Send, ArrowLeft, Loader2, User, Building, Wallet } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
 export default function StepResumen({ data, onUpdate, onBack, onComplete }) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [success, setSuccess] = useState(false)
+  const [fileArriendo, setFileArriendo] = useState(null)
+  const [fileAdmin, setFileAdmin] = useState(null)
   const navigate = useNavigate()
 
   const calculations = data.calculations || {}
   const formatCurrency = (val) => new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(val || 0)
 
   const isArriendo = data.tipoSolicitud === 'arriendo'
+
+  const fileToBase64 = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = error => reject(error);
+    });
+  }
 
   const handleFinish = async () => {
     setIsSubmitting(true)
@@ -23,9 +33,30 @@ export default function StepResumen({ data, onUpdate, onBack, onComplete }) {
       let payload = {}
 
       if (isArriendo) {
-        const pdfRaw = generatePDF(data, calculations)
+        // Validation
+        if (!fileArriendo) {
+          toast.error('Debes adjuntar el Contrato de Arriendo')
+          setIsSubmitting(false)
+          return
+        }
+        if (data.conAdministracion && !fileAdmin) {
+          toast.error('Debes adjuntar el Contrato de Administración')
+          setIsSubmitting(false)
+          return
+        }
+
+        const base64Arriendo = await fileToBase64(fileArriendo)
+        let base64Admin = null
+        if (fileAdmin) {
+          base64Admin = await fileToBase64(fileAdmin)
+        }
+
         payload = {
           tipo_solicitud: 'arriendo', // Explicit Type
+          contrato_arriendo_name: fileArriendo.name,
+          contrato_arriendo: base64Arriendo,
+          contrato_administracion_name: fileAdmin ? fileAdmin.name : '',
+          contrato_administracion: base64Admin,
           agente: {
             nombre: data.agenteNombre,
             apellido: data.agenteApellido,
@@ -72,8 +103,7 @@ export default function StepResumen({ data, onUpdate, onBack, onComplete }) {
             fee_alert: data.feeAlertTriggered // Global alert
           },
           condiciones_especiales: data.chkCondicionesEspeciales ? data.condicionesEspeciales : '', // ADDED
-          fecha_envio_link: data.fechaEnvioLink || 'No especificada', // OPTIONAL DEFAULT
-          pdf_base64: pdfRaw // Send raw base64
+          fecha_envio_link: data.fechaEnvioLink || 'No especificada' // OPTIONAL DEFAULT
         }
       } else {
 
@@ -132,20 +162,7 @@ export default function StepResumen({ data, onUpdate, onBack, onComplete }) {
     }
   }
 
-  const downloadPDF = () => {
-    try {
-      const rawBase64 = generatePDF(data, calculations)
-      const linkSource = `data:application/pdf;base64,${rawBase64}`;
-      const downloadLink = document.createElement("a");
-      const fileName = `solicitud_${data.dueñoNombre || 'cliente'}.pdf`;
-      downloadLink.href = linkSource;
-      downloadLink.download = fileName;
-      downloadLink.click();
-    } catch (e) {
-      console.error("Download failed", e)
-      toast.error('Error al descargar el PDF')
-    }
-  }
+
 
   if (success) {
     return (
@@ -163,11 +180,6 @@ export default function StepResumen({ data, onUpdate, onBack, onComplete }) {
             <Button onClick={() => navigate('/pages/Dashboard')} size="lg" className="w-full">
               Volver al Inicio
             </Button>
-            {isArriendo && (
-              <Button variant="outline" className="w-full" onClick={downloadPDF}>
-                <Download className="w-4 h-4 mr-2" /> Descargar Comprobante
-              </Button>
-            )}
           </div>
         </CardContent>
       </Card>
@@ -281,6 +293,43 @@ export default function StepResumen({ data, onUpdate, onBack, onComplete }) {
                 <p className="text-xs text-muted-foreground">Si se deja vacío, se asumirá envío inmediato.</p>
               </div>
             </div>
+
+            {/* Documentación Requerida */}
+            {isArriendo && (
+              <div className="bg-slate-50 dark:bg-slate-900/50 rounded-xl p-5 space-y-4 border border-slate-100 dark:border-slate-800">
+                <div className="flex items-center gap-2 text-primary font-semibold border-b border-slate-200 dark:border-slate-700 pb-2 mb-2">
+                  <FileText className="w-4 h-4" /> Documentación Requerida
+                </div>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="file-arriendo" className="text-sm font-medium">
+                      Contrato de Arriendo <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="file-arriendo"
+                      type="file"
+                      accept=".pdf,image/*,.doc,.docx"
+                      onChange={(e) => setFileArriendo(e.target.files[0])}
+                      className="cursor-pointer file:text-primary file:font-semibold file:bg-primary/10 file:rounded-md file:border-0 file:mr-4 file:px-4 file:py-2 hover:file:bg-primary/20 transition-all"
+                    />
+                  </div>
+                  {data.conAdministracion && (
+                    <div className="space-y-2">
+                      <Label htmlFor="file-admin" className="text-sm font-medium">
+                        Contrato de Administración <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="file-admin"
+                        type="file"
+                        accept=".pdf,image/*,.doc,.docx"
+                        onChange={(e) => setFileAdmin(e.target.files[0])}
+                        className="cursor-pointer file:text-primary file:font-semibold file:bg-primary/10 file:rounded-md file:border-0 file:mr-4 file:px-4 file:py-2 hover:file:bg-primary/20 transition-all"
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Condiciones Especiales Summary */}
             {data.chkCondicionesEspeciales && (
