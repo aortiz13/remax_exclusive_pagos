@@ -52,6 +52,7 @@ const NewMandate = () => {
         price: '',
         currency: 'UF',
         capture_type: 'Exclusiva',
+        operation_type: 'Venta', // New field
         latitude: null,
         longitude: null,
     })
@@ -103,8 +104,15 @@ const NewMandate = () => {
     }
 
     const valueInUF = getValueInUF()
-    const showPhotographer = isExclusive && isRM && valueInUF >= 4000
-    const show360Camera = isExclusive
+    const isVenta = formData.operation_type === 'Venta'
+    const isArriendo = formData.operation_type === 'Arriendo'
+    const priceRaw = parseFloat(formData.price || 0)
+
+    const showPhotographer = isExclusive && isRM && (
+        (isVenta && valueInUF >= 4000) ||
+        (isArriendo && priceRaw >= 1000000)
+    )
+    const show360Camera = isExclusive && isRM
 
     // Handlers
     const handleFileChange = (e) => {
@@ -140,6 +148,58 @@ const NewMandate = () => {
                 uploadedUrls.push(filePath)
             }
 
+            // 1.5 Prepare data for Webhook
+            const fileToBase64 = (file) => new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = error => reject(error);
+            });
+
+            const base64Files = await Promise.all(files.map(async (file) => ({
+                nombre: file.name,
+                tipo: file.type,
+                contenido: await fileToBase64(file)
+            })));
+
+            // Clean Agent Profile data
+            const agentLimpio = {
+                nombre: profile?.first_name,
+                apellido: profile?.last_name,
+                email: profile?.email,
+                telefono: profile?.phone,
+                id_agente_remax: profile?.remax_agent_id
+            };
+
+            // Clean Mandate data
+            const datosMandato = {
+                direccion: formData.address,
+                comuna: formData.commune,
+                region: formData.region,
+                precio: formData.price,
+                moneda: formData.currency,
+                tipo_captacion: formData.capture_type,
+                tipo_operacion: formData.operation_type
+            };
+
+            const webhookPayload = {
+                agente: agentLimpio,
+                datos_mandato: datosMandato,
+                archivos: base64Files,
+                fecha_registro: new Date().toISOString()
+            };
+
+            // 1.6 Send to Webhook
+            try {
+                await fetch('https://workflow.remax-exclusive.cl/webhook/mandatos', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(webhookPayload)
+                });
+            } catch (webhookErr) {
+                console.error('Webhook error:', webhookErr);
+            }
+
             // 2. Save Mandate
             const { data: mandate, error } = await supabase
                 .from('mandates')
@@ -153,6 +213,7 @@ const NewMandate = () => {
                     price: formData.price ? parseFloat(formData.price) : null,
                     currency: formData.currency,
                     capture_type: formData.capture_type,
+                    operation_type: formData.operation_type,
                     file_urls: uploadedUrls,
                     status: 'pendiente'
                 }])
@@ -332,13 +393,13 @@ const NewMandate = () => {
                                 multiple
                                 hidden
                                 onChange={handleFileChange}
-                                accept=".pdf,.jpg,.jpeg,.png"
+                                accept="*"
                             />
                             <div className="p-3 bg-white dark:bg-slate-900 rounded-full shadow-sm w-fit mx-auto mb-4 border dark:border-slate-800">
                                 <UploadCloud className="w-6 h-6 text-primary" />
                             </div>
                             <p className="text-sm font-medium text-slate-900 dark:text-white">Haz clic o arrastra archivos aquí</p>
-                            <p className="text-xs text-slate-500 mt-1">Sube el mandato firmado y otros documentos relevantes</p>
+                            <p className="text-xs text-slate-500 mt-1">Sube el mandato firmado y otros documentos (PDF, Doc, Imágenes, etc.)</p>
                         </div>
 
                         <AnimatePresence>
@@ -419,7 +480,7 @@ const NewMandate = () => {
                         </div>
 
                         <div className="space-y-2">
-                            <Label>Valor Propiedad</Label>
+                            <Label>{formData.operation_type === 'Arriendo' ? 'Valor Arriendo' : 'Valor Propiedad'}</Label>
                             <div className="flex gap-2">
                                 <Input
                                     type="number"
@@ -428,16 +489,22 @@ const NewMandate = () => {
                                     placeholder="Monto"
                                     className="flex-1"
                                 />
-                                <select
-                                    className="w-24 h-10 rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                                    value={formData.currency}
-                                    onChange={(e) => setFormData(prev => ({ ...prev, currency: e.target.value }))}
-                                >
-                                    <option value="UF">UF</option>
-                                    <option value="CLP">CLP</option>
-                                </select>
+                                {formData.operation_type === 'Arriendo' ? (
+                                    <div className="w-24 h-10 flex items-center justify-center rounded-xl border-2 border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 text-sm font-bold text-slate-500">
+                                        CLP
+                                    </div>
+                                ) : (
+                                    <select
+                                        className="w-24 h-10 rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                        value={formData.currency}
+                                        onChange={(e) => setFormData(prev => ({ ...prev, currency: e.target.value }))}
+                                    >
+                                        <option value="UF">UF</option>
+                                        <option value="CLP">CLP</option>
+                                    </select>
+                                )}
                             </div>
-                            {formData.price && formData.currency === 'CLP' && ufValue > 0 && (
+                            {formData.price && formData.currency === 'CLP' && ufValue > 0 && formData.operation_type !== 'Arriendo' && (
                                 <p className="text-[10px] text-slate-500 italic mt-1">
                                     Equivalente a ≈ {valueInUF.toLocaleString('es-CL', { maximumFractionDigits: 1 })} UF (valor UF: ${ufValue.toLocaleString('es-CL')})
                                 </p>
@@ -454,6 +521,44 @@ const NewMandate = () => {
                                 <option value="Exclusiva">Captación Exclusiva (Premium)</option>
                                 <option value="Abierta">Captación Abierta</option>
                             </select>
+                        </div>
+
+                        <div className="space-y-2 md:col-span-2">
+                            <Label>Tipo de Operación <span className="text-red-500">*</span></Label>
+                            <div className="flex gap-4">
+                                <label className={cn(
+                                    "flex-1 flex items-center justify-center gap-2 p-4 rounded-xl border-2 transition-all cursor-pointer",
+                                    formData.operation_type === 'Venta'
+                                        ? "border-primary bg-primary/5 text-primary"
+                                        : "border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700"
+                                )}>
+                                    <input
+                                        type="radio"
+                                        className="hidden"
+                                        name="operation_type"
+                                        value="Venta"
+                                        checked={formData.operation_type === 'Venta'}
+                                        onChange={(e) => setFormData(prev => ({ ...prev, operation_type: e.target.value }))}
+                                    />
+                                    <span className="font-bold">Venta</span>
+                                </label>
+                                <label className={cn(
+                                    "flex-1 flex items-center justify-center gap-2 p-4 rounded-xl border-2 transition-all cursor-pointer",
+                                    formData.operation_type === 'Arriendo'
+                                        ? "border-primary bg-primary/5 text-primary"
+                                        : "border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700"
+                                )}>
+                                    <input
+                                        type="radio"
+                                        className="hidden"
+                                        name="operation_type"
+                                        value="Arriendo"
+                                        checked={formData.operation_type === 'Arriendo'}
+                                        onChange={(e) => setFormData(prev => ({ ...prev, operation_type: e.target.value, currency: e.target.value === 'Arriendo' ? 'CLP' : prev.currency }))}
+                                    />
+                                    <span className="font-bold">Arriendo</span>
+                                </label>
+                            </div>
                         </div>
                     </CardContent>
                 </Card>
@@ -482,9 +587,9 @@ const NewMandate = () => {
                                             type="button"
                                             variant="outline"
                                             className="mt-auto border-blue-200 text-blue-600 hover:bg-blue-50"
-                                            onClick={() => toast.info('Funcionalidad de agendamiento 360 próximamente disponible')}
+                                            onClick={() => toast.info('Reservar cámara - En desarrollo')}
                                         >
-                                            Solicitar Agendamiento
+                                            Reservar cámara
                                         </Button>
                                     </div>
                                 )}

@@ -2,15 +2,16 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../services/supabase'
 import VideoCard from '../components/classroom/VideoCard'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs' // Assuming standard shadcn/ui tabs
-import { GraduationCap, PlayCircle, BookOpen, Search, Heart } from 'lucide-react'
-import { Input } from '@/components/ui'
-import { motion } from 'framer-motion'
+import { GraduationCap, PlayCircle, BookOpen, Search, Heart, Laptop, Rocket, Users, Cpu, ArrowLeft } from 'lucide-react'
+import ViajeExitoRoadmap from '../components/classroom/ViajeExitoRoadmap'
+import { Input, Button } from '@/components/ui'
+import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
 
 export default function VirtualClassroom() {
     const [videos, setVideos] = useState([])
     const [loading, setLoading] = useState(true)
-    const [activeTab, setActiveTab] = useState('viaje_exito')
+    const [activeTab, setActiveTab] = useState(null)
     const [searchQuery, setSearchQuery] = useState('')
     const [favorites, setFavorites] = useState(new Set())
     const [progress, setProgress] = useState({})
@@ -85,10 +86,56 @@ export default function VirtualClassroom() {
     }
 
     const categories = [
-        { id: 'viaje_exito', label: 'Viaje al Éxito', icon: GraduationCap, color: 'text-amber-500', bg: 'bg-amber-500/10', border: 'border-amber-200 dark:border-amber-800' },
-        { id: 'capacitaciones', label: 'Capacitaciones', icon: PlayCircle, color: 'text-blue-500', bg: 'bg-blue-500/10', border: 'border-blue-200 dark:border-blue-800' },
-        { id: 'tutoriales', label: 'Tutoriales', icon: BookOpen, color: 'text-purple-500', bg: 'bg-purple-500/10', border: 'border-purple-200 dark:border-purple-800' },
-        { id: 'favoritos', label: 'Mis Favoritos', icon: Heart, color: 'text-red-500', bg: 'bg-red-500/10', border: 'border-red-200 dark:border-red-800' }
+        {
+            id: 'viaje_exito',
+            label: 'Viaje al Éxito',
+            description: 'Descubre el camino hacia tus metas profesionales.',
+            icon: Rocket,
+            color: 'text-blue-500',
+            bg: 'bg-blue-50',
+            border: 'border-blue-100',
+            countLabel: 'lecciones'
+        },
+        {
+            id: 'capacitaciones',
+            label: 'Capacitaciones',
+            description: 'Entrenamientos especializados para equipos de alto impacto.',
+            icon: Users,
+            color: 'text-green-500',
+            bg: 'bg-green-50',
+            border: 'border-green-100',
+            countLabel: 'cursos'
+        },
+        {
+            id: 'tutoriales',
+            label: 'Tutoriales',
+            description: 'Guías paso a paso para dominar cualquier herramienta.',
+            icon: PlayCircle,
+            color: 'text-amber-500',
+            bg: 'bg-amber-50',
+            border: 'border-amber-100',
+            countLabel: 'guías'
+        },
+        {
+            id: 'aprendamos_tecnologia',
+            label: 'Aprendamos Tecnología',
+            description: 'Explora las últimas tendencias e innovaciones digitales.',
+            icon: Cpu,
+            color: 'text-indigo-500',
+            bg: 'bg-indigo-50',
+            border: 'border-indigo-100',
+            countLabel: 'módulos'
+        },
+        {
+            id: 'favoritos',
+            label: 'Mis Favoritos',
+            description: 'Accede rápidamente a tus contenidos guardados.',
+            icon: Heart,
+            color: 'text-red-500',
+            bg: 'bg-red-50',
+            border: 'border-red-100',
+            countLabel: 'guardados'
+        }
     ]
 
     const filteredVideos = () => {
@@ -112,92 +159,184 @@ export default function VirtualClassroom() {
         )
     }
 
+    // Landing View Component
+    const CategoryLanding = () => (
+        <div className="space-y-8 mt-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {categories.map((cat) => {
+                    const Icon = cat.icon
+                    const count = cat.id === 'favoritos'
+                        ? favorites.size
+                        : videos.filter(v => v.category === cat.id).length
+
+                    return (
+                        <motion.button
+                            key={cat.id}
+                            whileHover={{ y: -5 }}
+                            onClick={() => setActiveTab(cat.id)}
+                            className={cn(
+                                "flex flex-col items-center text-center p-8 rounded-2xl bg-white dark:bg-slate-900 border transition-all h-full",
+                                cat.border,
+                                "hover:shadow-xl hover:border-primary/20"
+                            )}
+                        >
+                            <div className={cn("h-16 w-16 rounded-full flex items-center justify-center mb-6 shadow-sm", cat.bg)}>
+                                <Icon className={cn("w-8 h-8", cat.color)} />
+                            </div>
+                            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-3">{cat.label}</h3>
+                            <p className="text-sm text-slate-500 dark:text-slate-400 mb-6 leading-relaxed">
+                                {cat.description}
+                            </p>
+                            <span className="mt-auto inline-flex items-center px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-xs font-medium text-slate-600 dark:text-slate-300">
+                                {count} {cat.countLabel}
+                            </span>
+                        </motion.button>
+                    )
+                })}
+            </div>
+        </div>
+    )
+
     return (
         <div className="space-y-8 pb-10 relative">
-
-
             {/* Header and Search */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white mb-2">
-                        Aula Virtual
-                    </h1>
-                    <p className="text-slate-500 dark:text-slate-400">
-                        Centro de capacitación y recursos educativos.
-                    </p>
+                    {activeTab ? (
+                        <Button
+                            variant="ghost"
+                            className="pl-0 hover:bg-transparent hover:text-primary mb-1 group"
+                            onClick={() => setActiveTab(null)}
+                        >
+                            <ArrowLeft className="w-4 h-4 mr-2 group-hover:-translate-x-1 transition-transform" />
+                            Volver a Categorías
+                        </Button>
+                    ) : (
+                        <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white mb-2">
+                            Aula Virtual
+                        </h1>
+                    )}
+                    {!activeTab && (
+                        <p className="text-slate-500 dark:text-slate-400">
+                            Centro de capacitación y recursos educativos.
+                        </p>
+                    )}
                 </div>
-                <div className="relative w-full md:w-72">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                        placeholder="Buscar videos..."
-                        className="pl-9 bg-white dark:bg-slate-900"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                    />
-                </div>
-            </div>
-
-            {/* Categories Navigation (Hidden if searching) */}
-            {!searchQuery && (
-                <div className="flex flex-wrap gap-4">
-                    {categories.map((cat) => {
-                        const isActive = activeTab === cat.id
-                        const Icon = cat.icon
-                        return (
-                            <button
-                                key={cat.id}
-                                onClick={() => setActiveTab(cat.id)}
-                                className={cn(
-                                    "flex items-center gap-3 px-6 py-4 rounded-xl transition-all duration-300 border",
-                                    isActive
-                                        ? cn("shadow-lg scale-105", cat.bg, cat.border)
-                                        : "bg-white/50 dark:bg-slate-900/50 border-transparent hover:bg-white hover:shadow-md"
-                                )}
-                            >
-                                <div className={cn("p-2 rounded-lg bg-white/50 dark:bg-slate-900/50", cat.color)}>
-                                    <Icon className="w-6 h-6" />
-                                </div>
-                                <div className="text-left">
-                                    <p className={cn("font-bold text-sm", isActive ? "text-slate-900 dark:text-white" : "text-slate-500 dark:text-slate-400")}>
-                                        {cat.label}
-                                    </p>
-                                    <p className="text-xs text-slate-400">
-                                        {videos.filter(v => v.category === cat.id).length} videos
-                                    </p>
-                                </div>
-                            </button>
-                        )
-                    })}
-                </div>
-            )}
-
-            {/* Video Grid */}
-            <motion.div
-                key={activeTab}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3 }}
-                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
-            >
-                {filteredVideos().length > 0 ? (
-                    filteredVideos().map((video, idx) => (
-                        <div key={video.id} style={{ animationDelay: `${idx * 0.1}s` }} className="animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-backwards">
-                            <VideoCard
-                                video={video}
-                                isFavorite={favorites.has(video.id)}
-                                isCompleted={progress[video.id]}
-                                onToggleFavorite={() => toggleFavorite(video.id)}
-                                onComplete={() => markCompleted(video.id)}
-                            />
-                        </div>
-                    ))
-                ) : (
-                    <div className="col-span-full py-12 text-center text-slate-400 bg-white/50 dark:bg-slate-900/50 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">
-                        <GraduationCap className="w-12 h-12 mx-auto mb-4 opacity-20" />
-                        <p>No hay videos disponibles en esta categoría aún.</p>
+                {activeTab !== 'viaje_exito' && (
+                    <div className="relative w-full md:w-72">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                            placeholder="Buscar videos..."
+                            className="pl-9 bg-white dark:bg-slate-900"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                        />
                     </div>
                 )}
-            </motion.div>
+            </div>
+
+            {/* Main Content */}
+            <AnimatePresence mode="wait">
+                {!activeTab && !searchQuery ? (
+                    <motion.div
+                        key="landing"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                    >
+                        <CategoryLanding />
+                    </motion.div>
+                ) : (
+                    <motion.div
+                        key="content"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                    >
+                        <div className="flex flex-grow flex-col w-full bg-white dark:bg-slate-900 rounded-3xl shadow-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+                            {/* Category Header */}
+                            {activeTab && activeTab !== 'viaje_exito' && !searchQuery && (
+                                <div className="sticky top-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-100 dark:border-slate-800 px-6 py-6 mb-0">
+                                    {categories.map(cat => {
+                                        if (cat.id !== activeTab) return null
+                                        const Icon = cat.icon
+                                        const count = cat.id === 'favoritos'
+                                            ? favorites.size
+                                            : videos.filter(v => v.category === cat.id).length
+                                        return (
+                                            <div key={cat.id} className="flex flex-col md:flex-row items-center justify-between gap-6">
+                                                <div className="flex items-center gap-4">
+                                                    <div className={cn("p-3 rounded-xl", cat.bg)}>
+                                                        <Icon className={cn("w-8 h-8", cat.color)} />
+                                                    </div>
+                                                    <div>
+                                                        <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{cat.label}</h2>
+                                                        <p className="text-slate-500 text-sm">{cat.description}</p>
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex items-center gap-6 bg-slate-50 dark:bg-slate-800/50 rounded-2xl px-6 py-3 border border-slate-100 dark:border-slate-700 shadow-sm">
+                                                    <div className="text-right">
+                                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total {cat.countLabel}</p>
+                                                        <p className="text-2xl font-extrabold text-primary leading-none text-center">{count}</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+                            )}
+
+                            {/* Search Header inside card */}
+                            {searchQuery && (
+                                <div className="sticky top-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-100 dark:border-slate-800 px-6 py-6">
+                                    <h2 className="text-xl font-bold text-slate-900 dark:text-white">Resultados de búsqueda</h2>
+                                    <p className="text-slate-500 text-sm italic">Mostrando resultados para "{searchQuery}"</p>
+                                </div>
+                            )}
+
+                            {/* Grid Content */}
+                            <div className="p-6 md:p-10">
+                                {activeTab === 'viaje_exito' && !searchQuery ? (
+                                    <ViajeExitoRoadmap
+                                        videos={videos.filter(v => v.category === 'viaje_exito')}
+                                        progress={progress}
+                                        markCompleted={markCompleted}
+                                        onVideoSelect={(video) => console.log('Select video', video)}
+                                    />
+                                ) : (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                                        {filteredVideos().length > 0 ? (
+                                            filteredVideos().map((video, idx) => (
+                                                <div key={video.id} style={{ animationDelay: `${idx * 0.1}s` }} className="animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-backwards">
+                                                    <VideoCard
+                                                        video={video}
+                                                        isFavorite={favorites.has(video.id)}
+                                                        isCompleted={progress[video.id]}
+                                                        onToggleFavorite={() => toggleFavorite(video.id)}
+                                                        onComplete={() => markCompleted(video.id)}
+                                                    />
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <div className="col-span-full py-20 text-center text-slate-400 bg-slate-50 dark:bg-slate-900/50 rounded-3xl border border-dashed border-slate-200 dark:border-slate-800">
+                                                <div className="h-16 w-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4">
+                                                    <Search className="w-8 h-8 opacity-20" />
+                                                </div>
+                                                <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-1">
+                                                    No se encontraron videos
+                                                </h3>
+                                                <p className="max-w-xs mx-auto text-sm">
+                                                    Intenta ajustar tu búsqueda o explora otras categorías.
+                                                </p>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     )
 }

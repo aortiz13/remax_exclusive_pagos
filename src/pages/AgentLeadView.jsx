@@ -146,6 +146,23 @@ export default function AgentLeadView() {
                     </CardContent>
                 </Card>
 
+                {/* Assignment Info */}
+                {lead.status === 'assigned' && (
+                    <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 flex items-center justify-between shadow-sm">
+                        <div className="flex items-center gap-3">
+                            <div className="h-10 text-blue-600 bg-white rounded-lg flex items-center justify-center px-3 border border-blue-100 shadow-sm">
+                                <UserCheck className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <p className="text-[10px] font-bold text-blue-500 uppercase tracking-widest">Asignación</p>
+                                <p className="text-sm font-bold text-slate-800">
+                                    {lead.assigned_agent_id ? 'Asignado Directamente' : 'Gestionado por RE/MAX Chile'}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* Contact Details */}
                 <Card className="border-0 shadow-sm">
                     <CardHeader className="pb-2">

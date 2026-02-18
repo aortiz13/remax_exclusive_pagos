@@ -244,7 +244,7 @@ export default function StepCalculos({ data, onUpdate, onNext, onBack }) {
     }
 
     const formatCurrency = (val) => {
-        return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(val)
+        return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(Number(val) || 0)
     }
 
     // Determine category label for UI

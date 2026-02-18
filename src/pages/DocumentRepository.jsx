@@ -45,8 +45,9 @@ export default function DocumentRepository({ category: propCategory }) {
 
     const categoryTitle = category === 'purchase' ? 'Formularios Tipo de Compraventa' :
         category === 'rental' ? 'Formularios Tipo de Arriendo' :
-            category === 'evaluations' ? 'Formatos Evaluaciones Comerciales' : // New Category
-                'Documentos'
+            category === 'evaluations' ? 'Formatos Evaluaciones Comerciales' :
+                category === 'others' ? 'Otros Documentos (Admin)' :
+                    'Documentos'
 
     useEffect(() => {
         if (category) {
