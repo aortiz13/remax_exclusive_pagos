@@ -1,7 +1,7 @@
 
 import { useState } from 'react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { FileText, Building2, Wallet, FileBarChart } from 'lucide-react'
+import { FileText, Building2, Wallet, FileBarChart, Folder } from 'lucide-react'
 import DocumentRepository from './DocumentRepository'
 
 /**
@@ -23,7 +23,7 @@ const DocumentsHub = () => {
             </div>
 
             <Tabs defaultValue="purchase" value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="grid w-full max-w-[600px] grid-cols-3 bg-slate-100 dark:bg-slate-800 p-1 mb-6">
+                <TabsList className="grid w-full max-w-[800px] grid-cols-4 bg-slate-100 dark:bg-slate-800 p-1 mb-6">
                     <TabsTrigger value="purchase" className="flex items-center gap-2">
                         <Wallet className="h-4 w-4" />
                         <span className="hidden sm:inline">Compraventa</span>
@@ -37,6 +37,11 @@ const DocumentsHub = () => {
                     <TabsTrigger value="evaluations" className="flex items-center gap-2">
                         <FileBarChart className="h-4 w-4" />
                         <span className="hidden sm:inline">Evaluaciones</span>
+                    </TabsTrigger>
+
+                    <TabsTrigger value="others" className="flex items-center gap-2">
+                        <Folder className="h-4 w-4" />
+                        <span className="hidden sm:inline">Otros</span>
                     </TabsTrigger>
                 </TabsList>
 
@@ -53,6 +58,10 @@ const DocumentsHub = () => {
                 {/* Tab: Evaluations */}
                 <TabsContent value="evaluations" className="border-none p-0 outline-none animate-in fade-in-50 duration-300">
                     <DocumentRepository category="evaluations" />
+                </TabsContent>
+                {/* Tab: Others */}
+                <TabsContent value="others" className="border-none p-0 outline-none animate-in fade-in-50 duration-300">
+                    <DocumentRepository category="others" />
                 </TabsContent>
             </Tabs>
         </div>

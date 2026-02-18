@@ -110,6 +110,8 @@ export default function LeadDetail() {
 
                 if (leadData.assigned_agent_id) {
                     setSelectedAgent(leadData.assigned_agent_id)
+                } else if (leadData.status === 'assigned') {
+                    setSelectedAgent('remax_chile')
                 }
 
             } catch (error) {
@@ -126,22 +128,27 @@ export default function LeadDetail() {
         setAssigning(true)
 
         try {
+            const isRemaxChile = selectedAgent === 'remax_chile'
             const { error } = await supabase
                 .from('external_leads')
-                .update({ assigned_agent_id: selectedAgent, status: 'assigned' })
+                .update({
+                    assigned_agent_id: isRemaxChile ? null : selectedAgent,
+                    status: 'assigned'
+                })
                 .eq('id', lead.id)
 
             if (error) throw error
 
-            const agent = agents.find(a => a.id === selectedAgent)
+            const agent = isRemaxChile ? { first_name: 'Remax', last_name: 'Chile', email: 'regional@remax.cl' } : agents.find(a => a.id === selectedAgent)
+
             if (agent) {
                 try {
                     const webhookPayload = {
                         agent: {
                             first_name: agent.first_name,
                             last_name: agent.last_name,
-                            email: agent.email,
-                            phone: agent.phone
+                            email: agent.email || '',
+                            phone: agent.phone || ''
                         },
                         lead_link: `https://solicitudes.remax-exclusive.cl/nuevolead/${lead.short_id || lead.id}`,
                         lead_data: lead.raw_data
@@ -168,7 +175,10 @@ export default function LeadDetail() {
 
     const contact = extractContactInfo(lead.raw_data)
     const property = extractPropertyInfo(lead.raw_data)
-    const assignedAgentObj = agents.find(a => a.id === lead.assigned_agent_id)
+    let assignedAgentObj = agents.find(a => a.id === lead.assigned_agent_id)
+    if (!assignedAgentObj && lead.status === 'assigned') {
+        assignedAgentObj = { first_name: 'Remax', last_name: 'Chile' }
+    }
 
     return (
         <div className="min-h-screen bg-slate-50 pb-20 font-sans">
@@ -181,7 +191,9 @@ export default function LeadDetail() {
                     <span className="font-bold text-slate-800 tracking-tight">Asignación</span>
                 </div>
                 <Badge className={lead.status === 'assigned' ? "bg-green-100 text-green-700 hover:bg-green-200" : "bg-yellow-100 text-yellow-700 hover:bg-yellow-200"}>
-                    {lead.status === 'assigned' ? 'Asignado' : 'Pendiente'}
+                    {lead.status === 'assigned'
+                        ? (assignedAgentObj ? `Asignado a ${assignedAgentObj.first_name}` : 'Asignado a Remax Chile')
+                        : 'Pendiente'}
                 </Badge>
             </div>
 
@@ -210,6 +222,7 @@ export default function LeadDetail() {
                             onChange={(e) => setSelectedAgent(e.target.value)}
                         >
                             <option value="">-- Elegir un Agente --</option>
+                            <option value="remax_chile" className="font-bold text-blue-600">Remax Chile (Regional)</option>
                             {agents.map(agent => (
                                 <option key={agent.id} value={agent.id}>
                                     {agent.first_name} {agent.last_name}

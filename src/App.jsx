@@ -18,7 +18,7 @@ import AdminRequests from './pages/AdminRequests'
 import AdminPropertyImport from './pages/AdminPropertyImport'
 import LeadDetail from './pages/LeadDetail'
 import WeeklyKpiForm from './components/kpi/WeeklyKpiForm'
-import AgentGoalsForm from './components/kpi/AgentGoalsForm'
+
 import KpiDashboard from './components/kpi/KpiDashboard'
 import AdminKpiView from './components/kpi/AdminKpiView'
 import BusinessPlan from './pages/kpi/BusinessPlan'
@@ -216,11 +216,7 @@ function App() {
                 <WeeklyKpiForm />
               </ProtectedRoute>
             } />
-            <Route path="/kpis/goals" element={
-              <ProtectedRoute>
-                <AgentGoalsForm />
-              </ProtectedRoute>
-            } />
+
             <Route path="/kpis/dashboard" element={
               <ProtectedRoute>
                 <KpiDashboard />

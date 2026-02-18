@@ -9,7 +9,7 @@ export default function StepArrendatario({ data, onUpdate, onNext, onBack }) {
     // Validation
     const isTenantComplete =
         !isTenantRequired ||
-        (data.arrendatarioNombre && data.arrendatarioApellido && data.arrendatarioEmail && data.arrendatarioTelefono && data.arrendatarioRut && data.arrendatarioDireccion && data.arrendatarioComuna)
+        (data.arrendatarioNombre && data.arrendatarioApellido && data.arrendatarioEmail && data.arrendatarioTelefono && data.arrendatarioRut)
 
     const handleSubmit = (e) => {
         e.preventDefault()
@@ -43,7 +43,7 @@ export default function StepArrendatario({ data, onUpdate, onNext, onBack }) {
                             <div className="space-y-2">
                                 <Label>Nombre {isTenantRequired && '*'}</Label>
                                 <Input
-                                    value={data.arrendatarioNombre}
+                                    value={data.arrendatarioNombre || ''}
                                     onChange={(e) => onUpdate('arrendatarioNombre', e.target.value)}
                                     required={isTenantRequired}
                                     autoFocus
@@ -53,7 +53,7 @@ export default function StepArrendatario({ data, onUpdate, onNext, onBack }) {
                             <div className="space-y-2">
                                 <Label>Apellido {isTenantRequired && '*'}</Label>
                                 <Input
-                                    value={data.arrendatarioApellido}
+                                    value={data.arrendatarioApellido || ''}
                                     onChange={(e) => onUpdate('arrendatarioApellido', e.target.value)}
                                     required={isTenantRequired}
                                     placeholder="Apellido"
@@ -62,7 +62,7 @@ export default function StepArrendatario({ data, onUpdate, onNext, onBack }) {
                             <div className="space-y-2">
                                 <Label>RUT {isTenantRequired && '*'}</Label>
                                 <Input
-                                    value={data.arrendatarioRut}
+                                    value={data.arrendatarioRut || ''}
                                     onChange={(e) => handleRutChange('arrendatarioRut', e.target.value)}
                                     placeholder="12.345.678-9"
                                     required={isTenantRequired}
@@ -72,7 +72,7 @@ export default function StepArrendatario({ data, onUpdate, onNext, onBack }) {
                                 <Label>Teléfono {isTenantRequired && '*'}</Label>
                                 <Input
                                     type="tel"
-                                    value={data.arrendatarioTelefono}
+                                    value={data.arrendatarioTelefono || ''}
                                     onChange={(e) => onUpdate('arrendatarioTelefono', e.target.value)}
                                     required={isTenantRequired}
                                     placeholder="56 9 ..."
@@ -82,44 +82,25 @@ export default function StepArrendatario({ data, onUpdate, onNext, onBack }) {
                                 <Label>Email {isTenantRequired && '*'}</Label>
                                 <Input
                                     type="email"
-                                    value={data.arrendatarioEmail}
+                                    value={data.arrendatarioEmail || ''}
                                     onChange={(e) => onUpdate('arrendatarioEmail', e.target.value)}
                                     required={isTenantRequired}
                                     placeholder="nombre@ejemplo.com"
                                 />
                             </div>
-                            {/* New Address Fields */}
-                            <div className="space-y-2 md:col-span-2">
-                                <Label>Dirección Particular {isTenantRequired && '*'}</Label>
-                                <Input
-                                    value={data.arrendatarioDireccion}
-                                    onChange={(e) => onUpdate('arrendatarioDireccion', e.target.value)}
-                                    placeholder="Calle, Número, Depto..."
-                                    required={isTenantRequired}
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Comuna Particular {isTenantRequired && '*'}</Label>
-                                <Input
-                                    value={data.arrendatarioComuna}
-                                    onChange={(e) => onUpdate('arrendatarioComuna', e.target.value)}
-                                    placeholder="Ej: Ñuñoa"
-                                    required={isTenantRequired}
-                                />
-                            </div>
                         </div>
                     </div>
 
-                    <div className="flex justify-between pt-6">
-                        <Button type="button" variant="outline" onClick={onBack}>
+                    <div className="flex justify-between pt-6 gap-4">
+                        <Button type="button" variant="outline" onClick={onBack} className="w-full md:w-auto">
                             Atrás
                         </Button>
-                        <Button type="submit" disabled={!isTenantComplete}>
+                        <Button type="submit" disabled={!isTenantComplete} className="w-full md:w-auto">
                             Siguiente
                         </Button>
                     </div>
                 </form>
             </CardContent>
-        </Card>
+        </Card >
     )
 }

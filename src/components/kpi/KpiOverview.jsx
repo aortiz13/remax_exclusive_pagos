@@ -9,6 +9,7 @@ import {
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, isWithinInterval, isSameDay } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { TrendingUp, TrendingDown, DollarSign, Users, Target, Activity, CheckCircle2, AlertCircle } from 'lucide-react'
+import { KpiFilterBar } from './KpiFilterBar'
 import {
     Select,
     SelectContent,
@@ -31,11 +32,21 @@ export default function KpiOverview() {
     const { user } = useAuth()
     const [loading, setLoading] = useState(true)
     const [stats, setStats] = useState({
-        daily: {},
-        weekly: {},
-        monthly: {},
-        annual: {}
+        summary: {
+            conversations: 0,
+            prelisting: 0,
+            prebuying: 0,
+            captures: 0,
+            closings: 0,
+            billing: 0
+        },
+        annual: { billing: 0, listings: 0 }
     })
+    const [dateRange, setDateRange] = useState({
+        from: startOfWeek(new Date(), { weekStartsOn: 1 }),
+        to: endOfWeek(new Date(), { weekStartsOn: 1 })
+    })
+    const [activePeriodId, setActivePeriodId] = useState('week')
     const [targets, setTargets] = useState({
         daily_conversations: 10,
         weekly_prelisting: 2,
@@ -46,10 +57,10 @@ export default function KpiOverview() {
     const [kpiRecords, setKpiRecords] = useState([])
 
     useEffect(() => {
-        if (user) {
+        if (user && dateRange?.from && dateRange?.to) {
             fetchDashboardData()
         }
-    }, [user])
+    }, [user, dateRange])
 
     const fetchDashboardData = async () => {
         setLoading(true)
@@ -68,72 +79,56 @@ export default function KpiOverview() {
                 setTargets(prev => ({ ...prev, ...settings.value }))
             }
 
-            // 2. Fetch KPI Records (Daily/Weekly/Monthly) for this year
-            const { data: records, error } = await supabase
+            // 2. Fetch Summary via RPC (The efficient way)
+            const { data: summaryData, error: summaryError } = await supabase.rpc('get_kpi_summary', {
+                target_agent_id: user.id,
+                start_date: format(dateRange.from, 'yyyy-MM-dd'),
+                end_date: format(dateRange.to, 'yyyy-MM-dd')
+            })
+
+            if (summaryError) throw summaryError
+
+            // 3. Fetch Annual Stats (Always Needed)
+            const { data: annualData, error: annualError } = await supabase.rpc('get_kpi_summary', {
+                target_agent_id: user.id,
+                start_date: format(startYear, 'yyyy-MM-dd'),
+                end_date: format(now, 'yyyy-MM-dd')
+            })
+
+            if (annualError) console.error('Error fetching annual stats:', annualError)
+
+            // 4. Fetch Records for Chart (Only for the selected range)
+            const { data: records, error: recordsError } = await supabase
                 .from('kpi_records')
                 .select('*')
                 .eq('agent_id', user.id)
-                .gte('date', format(startYear, 'yyyy-MM-dd'))
+                .gte('date', format(dateRange.from, 'yyyy-MM-dd'))
+                .lte('date', format(dateRange.to, 'yyyy-MM-dd'))
                 .order('date', { ascending: true })
 
-            if (error) throw error
+            if (recordsError) throw recordsError
             setKpiRecords(records || [])
 
-            // 3. Aggregate Data
-            calculateStats(records || [], now)
+            setStats({
+                summary: {
+                    conversations: summaryData.conversations || 0,
+                    prelisting: summaryData.sales_interviews || 0, // Mapping names
+                    prebuying: summaryData.buying_interviews || 0,
+                    captures: summaryData.new_listings || 0,
+                    closings: summaryData.signed_promises || 0,
+                    billing: summaryData.billing || 0
+                },
+                annual: {
+                    billing: annualData?.billing || 0,
+                    listings: annualData?.new_listings || 0
+                }
+            })
 
         } catch (error) {
             console.error('Error fetching dashboard data:', error)
         } finally {
             setLoading(false)
         }
-    }
-
-    const calculateStats = (records, now) => {
-        const todayStr = format(now, 'yyyy-MM-dd')
-        const startWk = startOfWeek(now, { weekStartsOn: 1 })
-        const endWk = endOfWeek(now, { weekStartsOn: 1 })
-        const startMth = startOfMonth(now)
-        const endMth = endOfMonth(now)
-
-        // Aggregators
-        let daily = { conversations: 0 }
-        let weekly = { prelisting: 0, prebuying: 0 }
-        let monthly = { captures: 0, closings: 0, billing: 0 }
-        let annual = { billing: 0, listings: 0 }
-
-        records.forEach(r => {
-            const rDate = new Date(r.date)
-
-            // Annual
-            annual.billing += (r.billing_primary || 0)
-            annual.listings += (r.new_listings || 0)
-
-            // Monthly
-            if (isWithinInterval(rDate, { start: startMth, end: endMth })) {
-                monthly.captures += (r.new_listings || 0)
-                monthly.closings += (r.signed_promises || 0) // Assuming signed_promises = closing business
-                monthly.billing += (r.billing_primary || 0)
-
-                // Also add Daily/Weekly records if they fall in month
-                if (r.period_type === 'daily' || r.period_type === 'weekly') {
-                    // Logic already captures explicit column sums, so no double counting needed if columns are distinct
-                }
-            }
-
-            // Weekly (Careful: 'monthly' records don't count for weekly activity usually)
-            if (isWithinInterval(rDate, { start: startWk, end: endWk })) {
-                weekly.prelisting += (r.sales_interviews || 0)
-                weekly.prebuying += (r.buying_interviews || 0)
-            }
-
-            // Daily (Only 'daily' records for Today)
-            if (r.period_type === 'daily' && r.date === todayStr) {
-                daily.conversations += (r.conversations_started || 0)
-            }
-        })
-
-        setStats({ daily, weekly, monthly, annual })
     }
 
     // --- Visualization Helpers ---
@@ -152,28 +147,51 @@ export default function KpiOverview() {
 
     // Chart Data Preparation (Similar to before but using new record source)
     const trendData = useMemo(() => {
-        // Aggregate by Week for chart
-        const weeklyMap = {}
-        kpiRecords.forEach(r => {
-            const date = new Date(r.date)
-            const weekStart = format(startOfWeek(date, { weekStartsOn: 1 }), 'yyyy-MM-dd')
+        // Adapt aggregation based on range duration
+        const diffDays = Math.ceil((dateRange.to - dateRange.from) / (1000 * 60 * 60 * 24))
+        const isLongRange = diffDays > 35
 
-            if (!weeklyMap[weekStart]) {
-                weeklyMap[weekStart] = { conversations: 0, interviews: 0, listings: 0 }
+        if (isLongRange) {
+            // Aggregate by Month or Week if very long
+            // For simplicity, let's keep it by Week for now or improve later
+        }
+
+        const map = {}
+        // Initialize map with empty values for the range? (Optional, maybe for advanced chart)
+
+        kpiRecords.forEach(r => {
+            // Only aggregate Daily records for the chart to avoid spikes/duplicates if we mix types
+            // OR handling weekly records carefully.
+            // For the Trend Chart, checking 'daily' is safest. 
+            // If we have 'weekly' data, we should ideally distribute it or show it as a block.
+            // Simplified Approach: Iterate and group by Date (if short range) or Week (if long).
+
+            if (r.period_type !== 'daily') return // Skip weekly summaries in granular chart for now
+
+            const dateKey = format(new Date(r.date), 'yyyy-MM-dd')
+            // If long range, maybe group by week
+            const key = isLongRange
+                ? format(startOfWeek(new Date(r.date), { weekStartsOn: 1 }), 'yyyy-MM-dd')
+                : dateKey
+
+            if (!map[key]) {
+                map[key] = { conversations: 0, interviews: 0, listings: 0 }
             }
-            weeklyMap[weekStart].conversations += (r.conversations_started || 0)
-            weeklyMap[weekStart].interviews += (r.sales_interviews || 0) + (r.buying_interviews || 0)
-            weeklyMap[weekStart].listings += (r.new_listings || 0)
+            map[key].conversations += (r.conversations_started || 0)
+            map[key].interviews += (r.sales_interviews || 0) + (r.buying_interviews || 0)
+            map[key].listings += (r.new_listings || 0)
         })
 
-        return Object.entries(weeklyMap)
+        return Object.entries(map)
             .sort((a, b) => new Date(a[0]) - new Date(b[0]))
-            .slice(-8)
             .map(([date, val]) => ({
-                week: format(new Date(date), 'dd MMM', { locale: es }),
+                label: isLongRange
+                    ? format(new Date(date), 'dd MMM', { locale: es }) // Week Start
+                    : format(new Date(date), 'dd', { locale: es }),    // Day
+                fullDate: date,
                 ...val
             }))
-    }, [kpiRecords])
+    }, [kpiRecords, dateRange])
 
     const CustomTooltip = ({ active, payload, label }) => {
         if (active && payload && payload.length) {
@@ -198,14 +216,28 @@ export default function KpiOverview() {
     return (
         <div className="max-w-7xl mx-auto p-6 space-y-8 animate-in fade-in duration-500 bg-slate-50/50 min-h-screen">
 
-            {/* New: Compliance Targets Section */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* Header with Filter */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex flex-col gap-1">
+                    <h2 className="text-2xl font-bold text-slate-800">Tu Rendimiento</h2>
+                    <p className="text-muted-foreground text-sm">Resumen de actividad para el periodo seleccionado</p>
+                </div>
+                <KpiFilterBar onFilterChange={(range, id) => {
+                    setDateRange(range)
+                    setActivePeriodId(id)
+                }} />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
 
                 {/* 1. Daily: Conversations */}
                 <CardMetric
-                    title="Conversaciones (Hoy)"
-                    current={stats.daily.conversations}
-                    target={targets.daily_conversations}
+                    title="Conversaciones"
+                    current={stats.summary.conversations}
+                    target={activePeriodId === 'today' ? targets.daily_conversations : (targets.daily_conversations * 5)} // Rough estimate for target scaling? Or leave static target?
+                    // Better to show JUST the number if target doesn't scale well dynamically without complex logic.
+                    // Let's keep target visualization but acknowledge it might need scaling logic later.
+                    showTarget={activePeriodId === 'today' || activePeriodId === 'week'}
                     icon={CheckCircle2}
                     color="text-blue-600 bg-blue-50"
                     unit="inicios"
@@ -213,9 +245,10 @@ export default function KpiOverview() {
 
                 {/* 2. Weekly: Pre-listing */}
                 <CardMetric
-                    title="Pre-listing (Semana)"
-                    current={stats.weekly.prelisting}
-                    target={targets.weekly_prelisting}
+                    title="Pre-listing (Venta)"
+                    current={stats.summary.prelisting}
+                    target={activePeriodId === 'week' ? targets.weekly_prelisting : null}
+                    showTarget={activePeriodId === 'week'}
                     icon={Users}
                     color="text-indigo-600 bg-indigo-50"
                     unit="reuniones"
@@ -223,37 +256,40 @@ export default function KpiOverview() {
 
                 {/* 3. Weekly: Pre-buying */}
                 <CardMetric
-                    title="Pre-buying (Semana)"
-                    current={stats.weekly.prebuying}
-                    target={targets.weekly_prebuying}
+                    title="Pre-buying (Compra)"
+                    current={stats.summary.prebuying}
+                    target={activePeriodId === 'week' ? targets.weekly_prebuying : null}
+                    showTarget={activePeriodId === 'week'}
                     icon={Users}
                     color="text-purple-600 bg-purple-50"
                     unit="reuniones"
                 />
 
-                {/* 4. Monthly: Captures & Closings (Combined or Split) */}
+                {/* 4. Monthly: Captures & Closings */}
                 <div className="bg-white p-6 rounded-3xl shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-100 flex flex-col justify-between space-y-4">
                     <div>
                         <div className="flex justify-between items-center mb-1">
-                            <span className="text-sm font-medium text-slate-500">Captaciones (Mes)</span>
-                            <span className={cn("text-xs font-bold px-2 py-0.5 rounded-full", stats.monthly.captures >= targets.monthly_captures ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600")}>
-                                {stats.monthly.captures}/{targets.monthly_captures}
+                            <span className="text-sm font-medium text-slate-500">Captaciones</span>
+                            <span className={cn("text-xs font-bold px-2 py-0.5 rounded-full", stats.summary.captures >= targets.monthly_captures ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600")}>
+                                {stats.summary.captures}
                             </span>
                         </div>
-                        <Progress value={Math.min((stats.monthly.captures / targets.monthly_captures) * 100, 100)} className="h-2" />
+                        {/* Only show progress bar if typical period */}
+                        <Progress value={Math.min((stats.summary.captures / targets.monthly_captures) * 100, 100)} className="h-2" />
                     </div>
                     <div>
                         <div className="flex justify-between items-center mb-1">
-                            <span className="text-sm font-medium text-slate-500">Cierres (Mes)</span>
-                            <span className={cn("text-xs font-bold px-2 py-0.5 rounded-full", stats.monthly.closings >= targets.monthly_closing ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600")}>
-                                {stats.monthly.closings}/{targets.monthly_closing}
+                            <span className="text-sm font-medium text-slate-500">Cierres</span>
+                            <span className={cn("text-xs font-bold px-2 py-0.5 rounded-full", stats.summary.closings >= targets.monthly_closing ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600")}>
+                                {stats.summary.closings}
                             </span>
                         </div>
-                        <Progress value={Math.min((stats.monthly.closings / targets.monthly_closing) * 100, 100)} className="h-2" />
+                        <Progress value={Math.min((stats.summary.closings / targets.monthly_closing) * 100, 100)} className="h-2" />
                     </div>
                 </div>
 
             </div>
+
 
             {/* Charts Section */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -271,7 +307,7 @@ export default function KpiOverview() {
                             <BarChart data={trendData} barGap={0} barCategoryGap="20%">
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                                 <XAxis
-                                    dataKey="week"
+                                    dataKey="label"
                                     axisLine={false}
                                     tickLine={false}
                                     tick={{ fill: '#94a3b8', fontSize: 12, fontWeight: 500 }}
@@ -314,9 +350,9 @@ export default function KpiOverview() {
     )
 }
 
-function CardMetric({ title, current, target, icon: Icon, color, unit }) {
-    const pct = Math.min((current / target) * 100, 100)
-    const isComplete = current >= target
+function CardMetric({ title, current, target, showTarget = true, icon: Icon, color, unit }) {
+    const pct = target ? Math.min((current / target) * 100, 100) : 0
+    const isComplete = target ? current >= target : false
 
     return (
         <div className="bg-white p-6 rounded-3xl shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-100 flex flex-col justify-between h-full relative overflow-hidden group">
@@ -333,18 +369,22 @@ function CardMetric({ title, current, target, icon: Icon, color, unit }) {
 
             <div className="mt-2 relative z-10">
                 <div className="flex items-end gap-2">
-                    <span className={`text-3xl font-bold ${isComplete ? 'text-emerald-600' : 'text-slate-900'}`}>
+                    <span className={cn("text-3xl font-bold", isComplete ? 'text-emerald-600' : 'text-slate-900')}>
                         {current}
                     </span>
-                    <span className="text-sm text-slate-400 font-medium mb-1">/ {target} {unit}</span>
+                    {showTarget && target && (
+                        <span className="text-sm text-slate-400 font-medium mb-1">/ {target} {unit}</span>
+                    )}
                 </div>
 
-                <div className="w-full bg-slate-100 h-2 rounded-full mt-3 overflow-hidden">
-                    <div
-                        className={`h-full rounded-full transition-all duration-1000 ${isComplete ? 'bg-emerald-500' : 'bg-blue-500'}`}
-                        style={{ width: `${pct}%` }}
-                    />
-                </div>
+                {showTarget && target && (
+                    <div className="w-full bg-slate-100 h-2 rounded-full mt-3 overflow-hidden">
+                        <div
+                            className={cn("h-full rounded-full transition-all duration-1000", isComplete ? 'bg-emerald-500' : 'bg-blue-500')}
+                            style={{ width: `${pct}%` }}
+                        />
+                    </div>
+                )}
             </div>
         </div>
     )

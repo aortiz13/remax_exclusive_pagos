@@ -14,44 +14,11 @@ export default function StepPropiedad({ data, onUpdate, onNext, onBack }) {
         <Card className="max-w-xl mx-auto border-0 shadow-none sm:border sm:shadow-sm">
             <CardContent className="pt-6">
                 <div className="mb-6 space-y-2">
-                    {/* NEW: Role Selector (Only for Arriendo) */}
-                    {data.tipoSolicitud === 'arriendo' && (
-                        <div className="mb-8 p-4 bg-blue-50/50 dark:bg-blue-900/10 rounded-lg border border-blue-100 dark:border-blue-900/30">
-                            <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 mb-3 uppercase tracking-wide">Configuración de la Operación</h3>
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                                {['Ambas', 'Arrendador', 'Arrendatario'].map((role) => (
-                                    <label
-                                        key={role}
-                                        className={`
-                                            flex items-center justify-center px-4 py-3 rounded-md border cursor-pointer transition-all text-sm font-medium
-                                            ${data.arriendoRole === role
-                                                ? 'bg-blue-600 text-white border-blue-600 shadow-md transform scale-[1.02]'
-                                                : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700 hover:border-blue-300'}
-                                        `}
-                                    >
-                                        <input
-                                            type="radio"
-                                            name="arriendoRole"
-                                            className="hidden"
-                                            value={role}
-                                            checked={data.arriendoRole === role}
-                                            onChange={(e) => onUpdate('arriendoRole', e.target.value)}
-                                        />
-                                        {role === 'Ambas' ? 'Ambas Puntas' : `Punta ${role}`}
-                                    </label>
-                                ))}
-                            </div>
-                            <p className="text-xs text-blue-600/80 dark:text-blue-400 mt-2 ml-1">
-                                * Permite dejar opcionales los datos de la contraparte no seleccionada.
-                            </p>
-                        </div>
-                    )}
-
                     <h2 className="text-2xl font-bold tracking-tight text-primary flex items-center gap-2">
                         <Building2 className="w-6 h-6" />
                         Datos de la Propiedad
                     </h2>
-                    <p className="text-muted-foreground text-sm">Ingrese la información básica del inmueble a arrendar.</p>
+                    <p className="text-muted-foreground text-sm">Ingrese la información básica del inmueble de la operación.</p>
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-6">

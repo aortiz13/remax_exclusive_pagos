@@ -26,7 +26,7 @@ export default function NewRequestSelection() {
                             <div className="space-y-2">
                                 <h3 className="text-xl font-bold text-slate-900 group-hover:text-primary transition-colors">Link de Pago</h3>
                                 <p className="text-sm text-slate-500 max-w-[200px] mx-auto">
-                                    Generar solicitud para cálculo de arriendo y link de pago.
+                                    Generar solicitud para links de pago.
                                 </p>
                             </div>
                         </CardContent>

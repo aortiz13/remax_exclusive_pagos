@@ -16,9 +16,12 @@ export default function StepResumen({ data, onUpdate, onBack, onComplete }) {
   const navigate = useNavigate()
 
   const calculations = data.calculations || {}
-  const formatCurrency = (val) => new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(val || 0)
+  const formatCurrency = (val) => new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(Number(val) || 0)
 
-  const isArriendo = data.tipoSolicitud === 'arriendo'
+  const isArriendoLegacy = data.tipoSolicitud === 'arriendo'
+  const isHonorariosFlow = data.tipoSolicitud === 'venta' || data.tipoSolicitud === 'honorarios_arriendo'
+  const isVentaHonorarios = data.tipoSolicitud === 'venta'
+  const isArriendo = isArriendoLegacy
 
   const fileToBase64 = (file) => {
     return new Promise((resolve, reject) => {
@@ -35,7 +38,7 @@ export default function StepResumen({ data, onUpdate, onBack, onComplete }) {
     try {
       let payload = {}
 
-      if (isArriendo) {
+      if (isArriendoLegacy) {
         // Validation
         if (!fileArriendo) {
           toast.error('Debes adjuntar el Contrato de Arriendo')
@@ -55,17 +58,13 @@ export default function StepResumen({ data, onUpdate, onBack, onComplete }) {
 
         const base64Arriendo = await fileToBase64(fileArriendo)
         let base64Admin = null
-        if (fileAdmin) {
-          base64Admin = await fileToBase64(fileAdmin)
-        }
+        if (fileAdmin) base64Admin = await fileToBase64(fileAdmin)
         let base64Seguro = null
-        if (fileSeguro) {
-          base64Seguro = await fileToBase64(fileSeguro)
-        }
+        if (fileSeguro) base64Seguro = await fileToBase64(fileSeguro)
 
         const pdfRaw = generatePDF(data, calculations)
         payload = {
-          tipo_solicitud: 'arriendo', // Explicit Type
+          tipo_solicitud: 'arriendo', // Legacy
           contrato_arriendo_name: fileArriendo.name,
           contrato_arriendo: base64Arriendo,
           contrato_administracion_name: fileAdmin ? fileAdmin.name : '',
@@ -92,44 +91,30 @@ export default function StepResumen({ data, onUpdate, onBack, onComplete }) {
           dueño: {
             nombre: data.dueñoNombre,
             rut: data.dueñoRut,
-            banco: data.bancoNombre,
             direccion: data.dueñoDireccion,
             comuna: data.dueñoComuna
           },
           financiero: {
-            // General Totals (Legacy support + Summary)
             total_cancelar: calculations.totalCancelar,
             total_recibir: calculations.totalRecibir,
-            honorarios_total: calculations.totalComisionA + calculations.totalComisionB, // Sum of both parts
-            administracion: calculations.totalAdmin,
-            uf_valor: calculations.ufUsed,
-
-            // INDEPENDENT FEES (NEW)
             honorarios_propietario: calculations.totalComisionA || 0,
             honorarios_arrendatario: calculations.totalComisionB || 0,
-            ingreso_manual_propietario: data.ingresoManualA || false,
-            ingreso_manual_arrendatario: data.ingresoManualB || false,
-            monto_manual_propietario: data.montoManualA || 0,
-            monto_manual_arrendatario: data.montoManualB || 0,
-
-            fee_alert_propietario: calculations.feeAlertA || false,
-            fee_alert_arrendatario: calculations.feeAlertB || false,
-
-            fee_alert: data.feeAlertTriggered // Global alert
-          },
-          condiciones_especiales: data.chkCondicionesEspeciales ? data.condicionesEspeciales : '', // ADDED
-          fecha_envio_link: data.fechaEnvioLink || 'No especificada', // OPTIONAL DEFAULT
-          pdf_base64: pdfRaw // Send raw base64
+            uf_valor: calculations.ufUsed
+          }
         }
-      } else {
+      } else if (isHonorariosFlow) {
+        // HONORARIOS Payload (New)
+        const parteANombre = data.vendedorNombre || data.dueñoNombre
+        const parteBNombre = data.compradorNombre || data.arrendatarioNombre
 
-        // COMPRAVENTA Payload
         payload = {
-          tipo_solicitud: 'compraventa',
+          tipo_solicitud: 'honorarios',
+          tipo_solicitud_honorarios: isVentaHonorarios ? '[Venta]' : '[Arriendo]',
           agente: {
             nombre: data.agenteNombre,
             apellido: data.agenteApellido,
             email: data.agenteEmail,
+            telefono: data.agenteTelefono
           },
           fecha: new Date().toISOString().split('T')[0],
           propiedad: {
@@ -137,27 +122,56 @@ export default function StepResumen({ data, onUpdate, onBack, onComplete }) {
             comuna: data.comuna,
             tipo: data.tipoPropiedad
           },
-          vendedor: {
-            nombre: data.vendedorNombre,
-            rut: data.vendedorRut,
-            email: data.vendedorEmail
+          financiero: {
+            configuracion_punta: isVentaHonorarios ? data.ventaRole : data.arriendoRole,
+            [isVentaHonorarios ? 'honorarios_vendedor_neto' : 'honorarios_arrendador_neto']: Number(data.montoHonorariosA || 0),
+            [isVentaHonorarios ? 'honorarios_vendedor_total' : 'honorarios_arrendador_total']: Math.round(Number(data.montoHonorariosA || 0) * 1.19),
+            [isVentaHonorarios ? 'honorarios_comprador_neto' : 'honorarios_arrendatario_neto']: Number(data.montoHonorariosB || 0),
+            [isVentaHonorarios ? 'honorarios_comprador_total' : 'honorarios_arrendatario_total']: Math.round(Number(data.montoHonorariosB || 0) * 1.19),
+            total_operacion_neto: Number(data.montoHonorariosA || 0) + Number(data.montoHonorariosB || 0),
+            total_operacion_con_iva: Math.round((Number(data.montoHonorariosA || 0) + Number(data.montoHonorariosB || 0)) * 1.19),
+            uf_valor: data.ufValue || 0
           },
-          comprador: {
-            nombre: data.compradorNombre,
-            rut: data.compradorRut,
-            email: data.compradorEmail
-          },
+          fecha_envio_link: data.fechaEnvioLink || 'No especificada'
+        }
+
+        if (parteANombre) {
+          const keyA = isVentaHonorarios ? 'punta_vendedora' : 'punta_arrendadora'
+          payload[keyA] = {
+            nombre: parteANombre,
+            rut: data.vendedorRut || data.dueñoRut,
+            email: data.vendedorEmail || data.dueñoEmail,
+            telefono: data.vendedorTelefono || data.dueñoTelefono,
+            domicilio_particular: data.vendedorDireccion || data.dueñoDireccion,
+            comuna_particular: data.vendedorComuna || data.dueñoComuna,
+            rol: isVentaHonorarios ? 'Vendedor' : 'Arrendador'
+          }
+        }
+
+        if (parteBNombre) {
+          const keyB = isVentaHonorarios ? 'punta_compradora' : 'punta_arrendataria'
+          payload[keyB] = {
+            nombre: parteBNombre,
+            rut: data.compradorRut || data.arrendatarioRut,
+            email: data.compradorEmail || data.arrendatarioEmail,
+            telefono: data.compradorTelefono || data.arrendatarioTelefono,
+            domicilio_particular: data.compradorDireccion || data.arrendatarioDireccion,
+            comuna_particular: data.compradorComuna || data.arrendatarioComuna,
+            rol: isVentaHonorarios ? 'Comprador' : 'Arrendatario'
+          }
+        }
+      } else {
+        // COMPRAVENTA (Legacy fallback)
+        payload = {
+          tipo_solicitud: 'compraventa',
+          agente: { nombre: data.agenteNombre, apellido: data.agenteApellido, email: data.agenteEmail },
+          fecha: new Date().toISOString().split('T')[0],
+          propiedad: { direccion: data.direccion, comuna: data.comuna, tipo: data.tipoPropiedad },
           financiero: {
             monto_comision_total: data.dividirComision
               ? (Number(data.comisionVendedor || 0) + Number(data.comisionComprador || 0))
-              : Number(data.montoComision || 0),
-
-            // SPLIT LOGIC
-            dividir_comision: data.dividirComision || false,
-            comision_vendedor: data.dividirComision ? Number(data.comisionVendedor || 0) : Number(data.montoComision || 0), // If not split, Seller pays all? Or just Total? Usually Seller.
-            comision_comprador: data.dividirComision ? Number(data.comisionComprador || 0) : 0
+              : Number(data.montoComision || 0)
           }
-          // PDF logic for buy/sell if needed, currently omitted as per plan if not critical
         }
       }
 
@@ -228,8 +242,10 @@ export default function StepResumen({ data, onUpdate, onBack, onComplete }) {
             <FileText className="w-6 h-6 text-primary" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold">Resumen Final ({isArriendo ? 'Arriendo' : 'Compraventa'})</h2>
-            <p className="text-muted-foreground text-sm">Revise los datos antes de enviar la solicitud.</p>
+            <h2 className="text-2xl font-bold">Resumen Final ({isHonorariosFlow ? 'Honorarios' : 'Arriendo'})</h2>
+            <p className="text-muted-foreground text-sm">
+              Revise los datos de la operación {isHonorariosFlow ? (isVentaHonorarios ? '[Venta]' : '[Arriendo]') : ''} antes de enviar.
+            </p>
           </div>
         </div>
 
@@ -250,10 +266,10 @@ export default function StepResumen({ data, onUpdate, onBack, onComplete }) {
             </div>
 
 
-            {isArriendo ? (
+            {isArriendoLegacy ? (
               <div className="bg-slate-50 dark:bg-slate-900/50 rounded-xl p-5 space-y-4 border border-slate-100 dark:border-slate-800">
                 <div className="flex items-center gap-2 text-primary font-semibold border-b border-slate-200 dark:border-slate-700 pb-2 mb-2">
-                  <User className="w-4 h-4" /> Propietario & Banco
+                  <User className="w-4 h-4" /> Propietario
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -264,28 +280,23 @@ export default function StepResumen({ data, onUpdate, onBack, onComplete }) {
                     <span className="text-xs uppercase text-muted-foreground font-semibold">RUT</span>
                     <p className="font-medium text-sm">{data.dueñoRut}</p>
                   </div>
-                  <div className="col-span-2">
-                    <span className="text-xs uppercase text-muted-foreground font-semibold">Cuenta Bancaria</span>
-                    <p className="font-medium text-sm">{data.bancoNombre}</p>
-                    <p className="text-sm text-muted-foreground">{data.bancoTipoCuenta} · {data.bancoNroCuenta}</p>
-                  </div>
                 </div>
               </div>
             ) : (
               <div className="bg-slate-50 dark:bg-slate-900/50 rounded-xl p-5 space-y-4 border border-slate-100 dark:border-slate-800">
                 <div className="flex items-center gap-2 text-primary font-semibold border-b border-slate-200 dark:border-slate-700 pb-2 mb-2">
-                  <User className="w-4 h-4" /> Partes
+                  <User className="w-4 h-4" /> Partes de la Operación
                 </div>
-                <div className="space-y-4">
+                <div className="space-y-4 text-sm">
                   <div>
-                    <span className="text-xs uppercase text-muted-foreground font-semibold block mb-1">Vendedor</span>
-                    <p className="font-medium text-sm">{data.vendedorNombre}</p>
-                    <p className="text-xs text-muted-foreground">{data.vendedorRut} · {data.vendedorEmail}</p>
+                    <span className="text-[10px] uppercase text-muted-foreground font-bold block mb-1">{isVentaHonorarios ? 'Vendedor' : 'Arrendador'}</span>
+                    <p className="font-medium">{data.vendedorNombre || data.dueñoNombre || 'N/A'}</p>
+                    <p className="text-xs text-muted-foreground">{(data.vendedorRut || data.dueñoRut) || ''}</p>
                   </div>
                   <div>
-                    <span className="text-xs uppercase text-muted-foreground font-semibold block mb-1">Comprador</span>
-                    <p className="font-medium text-sm">{data.compradorNombre}</p>
-                    <p className="text-xs text-muted-foreground">{data.compradorRut} · {data.compradorEmail}</p>
+                    <span className="text-[10px] uppercase text-muted-foreground font-bold block mb-1">{isVentaHonorarios ? 'Comprador' : 'Arrendatario'}</span>
+                    <p className="font-medium">{data.compradorNombre || data.arrendatarioNombre || 'N/A'}</p>
+                    <p className="text-xs text-muted-foreground">{(data.compradorRut || data.arrendatarioRut) || ''}</p>
                   </div>
                 </div>
               </div>
@@ -442,7 +453,7 @@ export default function StepResumen({ data, onUpdate, onBack, onComplete }) {
                 <Wallet className="w-4 h-4" /> Desglose Financiero
               </div>
 
-              {isArriendo ? (
+              {isArriendoLegacy ? (
                 <div className="space-y-4 text-sm">
                   {/* Part A: Owner */}
                   <div className="bg-blue-50/50 dark:bg-blue-900/5 p-3 rounded-lg border border-blue-100/50">
@@ -519,78 +530,59 @@ export default function StepResumen({ data, onUpdate, onBack, onComplete }) {
                   </div>
                 </div>
               ) : (
-                <div className="space-y-4 text-sm">
-                  {!data.dividirComision ? (
-                    <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg border border-slate-100">
-                      <p className="text-xs font-bold text-slate-500 uppercase mb-3 text-center">Comisión Total Acordada</p>
-                      <div className="space-y-2">
+                <div className="space-y-4">
+                  {/* Honorarios A */}
+                  {(data.montoHonorariosA > 0) && (
+                    <div className="bg-blue-50/50 dark:bg-blue-900/5 p-3 rounded-lg border border-blue-100/50">
+                      <p className="text-[10px] font-bold text-blue-600 uppercase mb-2">Parte A ({isVentaHonorarios ? 'Vendedor' : 'Arrendador'})</p>
+                      <div className="space-y-1 text-sm">
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">Neto:</span>
-                          <span className="font-medium">{formatCurrency(data.montoComision || 0)}</span>
+                          <span>{formatCurrency(data.montoHonorariosA)}</span>
                         </div>
-                        <div className="flex justify-between border-b pb-2">
+                        <div className="flex justify-between border-b pb-1">
                           <span className="text-muted-foreground">IVA (19%):</span>
-                          <span>{formatCurrency(Math.round((data.montoComision || 0) * 0.19))}</span>
+                          <span>{formatCurrency(Math.round(data.montoHonorariosA * 0.19))}</span>
                         </div>
-                        <div className="flex justify-between font-black text-xl text-primary pt-2">
-                          <span>TOTAL:</span>
-                          <span>{formatCurrency(Math.round((data.montoComision || 0) * 1.19))}</span>
+                        <div className="flex justify-between font-bold text-blue-700 pt-1">
+                          <span>Total:</span>
+                          <span>{formatCurrency(Math.round(data.montoHonorariosA * 1.19))}</span>
                         </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 gap-4">
-                      {/* Vendedor */}
-                      <div className="bg-blue-50/50 dark:bg-blue-900/5 p-3 rounded-lg border border-blue-100/50">
-                        <p className="text-[10px] font-bold text-blue-600 uppercase mb-2">Vendedor</p>
-                        <div className="space-y-1">
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Comisión Neto:</span>
-                            <span>{formatCurrency(data.comisionVendedor || 0)}</span>
-                          </div>
-                          <div className="flex justify-between border-b pb-1">
-                            <span className="text-muted-foreground">IVA (19%):</span>
-                            <span>{formatCurrency(Math.round((data.comisionVendedor || 0) * 0.19))}</span>
-                          </div>
-                          <div className="flex justify-between font-bold text-blue-700 pt-1">
-                            <span>Total Vendedor:</span>
-                            <span>{formatCurrency(Math.round((data.comisionVendedor || 0) * 1.19))}</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Comprador */}
-                      <div className="bg-green-50/50 dark:bg-green-900/5 p-3 rounded-lg border border-green-100/50">
-                        <p className="text-[10px] font-bold text-green-600 uppercase mb-2">Comprador</p>
-                        <div className="space-y-1">
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Comisión Neto:</span>
-                            <span>{formatCurrency(data.comisionComprador || 0)}</span>
-                          </div>
-                          <div className="flex justify-between border-b pb-1">
-                            <span className="text-muted-foreground">IVA (19%):</span>
-                            <span>{formatCurrency(Math.round((data.comisionComprador || 0) * 0.19))}</span>
-                          </div>
-                          <div className="flex justify-between font-bold text-green-700 pt-1">
-                            <span>Total Comprador:</span>
-                            <span>{formatCurrency(Math.round((data.comisionComprador || 0) * 1.19))}</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Total Global */}
-                      <div className="bg-slate-900 text-white p-3 rounded-lg flex justify-between items-center mt-2">
-                        <span className="text-xs font-bold uppercase">Total Operación Remax</span>
-                        <span className="text-lg font-black">{formatCurrency(Math.round((Number(data.comisionVendedor || 0) + Number(data.comisionComprador || 0)) * 1.19))}</span>
                       </div>
                     </div>
                   )}
+
+                  {/* Honorarios B */}
+                  {(data.montoHonorariosB > 0) && (
+                    <div className="bg-green-50/50 dark:bg-green-900/5 p-3 rounded-lg border border-green-100/50">
+                      <p className="text-[10px] font-bold text-green-600 uppercase mb-2">Parte B ({isVentaHonorarios ? 'Comprador' : 'Arrendatario'})</p>
+                      <div className="space-y-1 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Neto:</span>
+                          <span>{formatCurrency(data.montoHonorariosB)}</span>
+                        </div>
+                        <div className="flex justify-between border-b pb-1">
+                          <span className="text-muted-foreground">IVA (19%):</span>
+                          <span>{formatCurrency(Math.round(data.montoHonorariosB * 0.19))}</span>
+                        </div>
+                        <div className="flex justify-between font-bold text-green-700 pt-1">
+                          <span>Total:</span>
+                          <span>{formatCurrency(Math.round(data.montoHonorariosB * 1.19))}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Total Global */}
+                  <div className="bg-slate-900 text-white p-4 rounded-xl flex flex-col items-center mt-4">
+                    <span className="text-[10px] font-bold uppercase opacity-70 mb-1">Total a Recaudar Remax</span>
+                    <span className="text-2xl font-black">{formatCurrency(Math.round((Number(data.montoHonorariosA || 0) + Number(data.montoHonorariosB || 0)) * 1.19))}</span>
+                  </div>
                 </div>
               )}
-
             </div>
 
-            {isArriendo && (
+            {isArriendoLegacy && (
               <div className="space-y-4 mt-8 pt-6 border-t border-slate-100 dark:border-slate-800">
                 <div className="flex justify-between items-center px-4 py-3 bg-slate-50 dark:bg-slate-900 rounded-lg">
                   <span className="text-sm font-semibold text-slate-600 dark:text-slate-400">Total a Pagar</span>

@@ -55,13 +55,19 @@ export default function AdminVirtualClassroom() {
         if (!metadata) return
         setSaving(true)
         try {
+            // Extract YouTube ID
+            const youtubeId = metadata.video_url.includes('v=')
+                ? metadata.video_url.split('v=')[1].split('&')[0]
+                : metadata.video_url.split('/').pop().split('?')[0];
+
             const { error } = await supabase.from('virtual_classroom_videos').insert({
                 title: metadata.title,
                 video_url: metadata.video_url,
                 thumbnail_url: metadata.thumbnail_url,
                 description: metadata.description,
                 category: category,
-                duration: metadata.duration
+                duration: metadata.duration,
+                youtube_id: youtubeId
             })
 
             if (error) throw error
@@ -99,50 +105,72 @@ export default function AdminVirtualClassroom() {
 
     const handleSyncPlaylists = async () => {
         setSaving(true)
-        toast.info('Iniciando sincronización...')
+        const toastId = toast.loading('Sincronizando con YouTube...')
         try {
             const playlists = [
                 { id: 'PLd3VhBafUdLqaetc6gyid5PQ7c90yOAkZ', category: 'capacitaciones' },
-                { id: 'PLd3VhBafUdLpMneYpy2hoJA7PbS_zqBwJ', category: 'tutoriales' }
+                { id: 'PLd3VhBafUdLpMneYpy2hoJA7PbS_zqBwJ', category: 'tutoriales' },
+                { id: 'PLpeYfCtXoij-ZMyQux4zYo8YTLw_kqZHD', category: 'aprendamos_tecnologia' }
             ]
 
-            let newVideosCount = 0
+            let addedCount = 0
+            let removedCount = 0
+
+            // 1. Fetch current status from DB for these categories
+            const { data: dbVideos } = await supabase
+                .from('virtual_classroom_videos')
+                .select('id, youtube_id, category')
+                .in('category', playlists.map(p => p.category))
+
+            const dbVideosMap = {}
+            dbVideos?.forEach(v => {
+                if (v.youtube_id) dbVideosMap[v.youtube_id] = v
+            })
 
             for (const playlist of playlists) {
-                const videos = await import('../services/youtube').then(m => m.fetchPlaylistItems(playlist.id))
+                const ytVideos = await import('../services/youtube').then(m => m.fetchPlaylistItems(playlist.id))
+                const ytIds = new Set(ytVideos.map(v => v.youtube_id))
 
-                for (const video of videos) {
-                    // Check if video already exists by URL
-                    const { data: existing } = await supabase
-                        .from('virtual_classroom_videos')
-                        .select('id')
-                        .eq('video_url', video.video_url)
-                        .single()
-
-                    if (!existing) {
+                // 2. Addition / Update logic
+                for (const video of ytVideos) {
+                    if (!dbVideosMap[video.youtube_id]) {
+                        // New video
                         await supabase.from('virtual_classroom_videos').insert({
                             title: video.title,
                             video_url: video.video_url,
                             thumbnail_url: video.thumbnail_url,
                             description: video.description,
                             category: playlist.category,
-                            duration: video.duration
+                            duration: video.duration,
+                            youtube_id: video.youtube_id
                         })
-                        newVideosCount++
+                        addedCount++
+                    } else {
+                        // Existing - Optional: update metadata if changed
+                        // For now we skip to keep it fast
                     }
+                }
+
+                // 3. Deletion logic (Remove from DB if NOT in YouTube anymore)
+                const videosToRemove = dbVideos?.filter(v => v.category === playlist.category && !ytIds.has(v.youtube_id))
+                if (videosToRemove?.length > 0) {
+                    const idsToRemove = videosToRemove.map(v => v.id)
+                    await supabase.from('virtual_classroom_videos').delete().in('id', idsToRemove)
+                    removedCount += idsToRemove.length
                 }
             }
 
-            if (newVideosCount > 0) {
-                toast.success(`${newVideosCount} videos nuevos sincronizados`)
+            toast.dismiss(toastId)
+            if (addedCount > 0 || removedCount > 0) {
+                toast.success(`Sincronización completa: +${addedCount} / -${removedCount}`)
                 fetchVideos()
             } else {
-                toast.success('Listas sincronizadas. No hay videos nuevos.')
+                toast.success('Todo actualizado. No hay cambios.')
             }
 
         } catch (error) {
             console.error('Sync error:', error)
-            toast.error('Error en la sincronización: ' + error.message)
+            toast.error('Error en la sincronización: ' + error.message, { id: toastId })
         } finally {
             setSaving(false)
         }
@@ -191,6 +219,7 @@ export default function AdminVirtualClassroom() {
                                     <SelectItem value="viaje_exito">Viaje al Éxito (Obligatorio)</SelectItem>
                                     <SelectItem value="capacitaciones">Capacitaciones y Reuniones</SelectItem>
                                     <SelectItem value="tutoriales">Tutoriales</SelectItem>
+                                    <SelectItem value="aprendamos_tecnologia">Aprendamos Tecnología</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>

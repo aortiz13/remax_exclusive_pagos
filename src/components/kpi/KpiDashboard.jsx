@@ -4,7 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { BarChart3, ClipboardList, Target } from 'lucide-react'
 import KpiOverview from './KpiOverview'
 import KpiDataEntry from './KpiDataEntry'
-import AgentGoalsForm from './AgentGoalsForm'
+
 
 const KpiDashboard = () => {
     const [activeTab, setActiveTab] = useState("overview")
@@ -17,7 +17,7 @@ const KpiDashboard = () => {
             </div>
 
             <Tabs defaultValue="overview" className="w-full" onValueChange={setActiveTab}>
-                <TabsList className="grid w-full max-w-[500px] grid-cols-3">
+                <TabsList className="grid w-full max-w-[500px] grid-cols-2">
                     <TabsTrigger value="overview" className="flex items-center gap-2">
                         <BarChart3 className="h-4 w-4" />
                         Dashboard
@@ -26,10 +26,7 @@ const KpiDashboard = () => {
                         <ClipboardList className="h-4 w-4" />
                         Carga de Datos
                     </TabsTrigger>
-                    <TabsTrigger value="goals" className="flex items-center gap-2">
-                        <Target className="h-4 w-4" />
-                        Mis Objetivos
-                    </TabsTrigger>
+
                 </TabsList>
 
                 <TabsContent value="overview" className="mt-6 border-none p-0 outline-none">
@@ -42,9 +39,7 @@ const KpiDashboard = () => {
                     </div>
                 </TabsContent>
 
-                <TabsContent value="goals" className="mt-6 border-none p-0 outline-none">
-                    <AgentGoalsForm />
-                </TabsContent>
+
             </Tabs>
         </div>
     )
