@@ -6,10 +6,11 @@ import { supabase } from '../../services/supabase'
 import PropertyForm from './PropertyForm'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import TaskModal from './TaskModal'
-import AddParticipantModal from './AddParticipantModal'
+import AddParticipantModal, { ROLE_COLORS } from './AddParticipantModal'
 import Storyline from './Storyline'
 import { logActivity } from '../../services/activityService'
 import { toast } from 'sonner'
+import ActionModal from './ActionModal'
 
 const PropertyDetail = () => {
     const { id } = useParams()
@@ -34,6 +35,9 @@ const PropertyDetail = () => {
 
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
     const [isDeleting, setIsDeleting] = useState(false)
+
+    // Action Modal State
+    const [isActionModalOpen, setIsActionModalOpen] = useState(false)
 
     useEffect(() => {
         fetchProperty()
@@ -157,7 +161,7 @@ const PropertyDetail = () => {
             })
 
             // If the deleted participant was the Owner, clear owner_id in the properties table
-            if (participantToDelete.role === 'Dueño') {
+            if (participantToDelete.role === 'propietario') {
                 await supabase
                     .from('properties')
                     .update({ owner_id: null })
@@ -226,6 +230,10 @@ const PropertyDetail = () => {
                     </div>
                 </div>
                 <div className="ml-auto flex gap-2">
+                    <Button className="bg-indigo-600 hover:bg-indigo-700 text-white" onClick={() => setIsActionModalOpen(true)}>
+                        <Plus className="w-4 h-4 mr-2" />
+                        Agregar Acción
+                    </Button>
                     <Button variant="outline" onClick={() => setIsEditOpen(true)}>Editar</Button>
                     <Button className="bg-green-600 hover:bg-green-700 text-white" onClick={() => {
                         setSelectedTask({ property_id: property.id, contact_id: property.owner_id }) // Pre-fill
@@ -471,7 +479,7 @@ const PropertyDetail = () => {
                                                 <div className="font-medium truncate hover:text-primary transition-colors">
                                                     {part.contacts?.first_name} {part.contacts?.last_name}
                                                 </div>
-                                                <div className="text-xs text-muted-foreground">{part.role}</div>
+                                                <div className="text-xs"><span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium capitalize ${ROLE_COLORS[part.role] || 'bg-gray-100 text-gray-800'}`}>{part.role}</span></div>
                                             </div>
                                         </div>
                                         <Button
@@ -498,7 +506,10 @@ const PropertyDetail = () => {
                 isOpen={isEditOpen}
                 onClose={(refresh) => {
                     setIsEditOpen(false)
-                    if (refresh) fetchProperty()
+                    if (refresh) {
+                        fetchProperty()
+                        fetchParticipants()
+                    }
                 }}
                 property={property}
             />
@@ -524,6 +535,15 @@ const PropertyDetail = () => {
                         fetchProperty()
                     }
                 }}
+            />
+
+            <ActionModal
+                isOpen={isActionModalOpen}
+                onClose={(refresh) => {
+                    setIsActionModalOpen(false)
+                    // You could fetch data again if needed when true saving is implemented
+                }}
+                defaultPropertyId={id}
             />
 
             {/* Delete Property Warning Dialog */}

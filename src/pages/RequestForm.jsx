@@ -14,6 +14,7 @@ import StepHonorariosConfig from '../components/steps/StepHonorariosConfig'
 import StepHonorarios from '../components/steps/StepHonorarios'
 import { Button, Card, CardContent } from '@/components/ui'
 import { Save, Building, Briefcase, DollarSign } from 'lucide-react'
+import { autoLinkContactProperty } from '../services/autoLink'
 
 export default function RequestForm() {
     const { id } = useParams()
@@ -57,7 +58,10 @@ export default function RequestForm() {
         diasProporcionales: '',
         chkMesAdelantado: false,
         garantia: '',
-        gastosNotariales: '',
+        incluyeGastosNotarialesArrendador: false,
+        montoGastosNotarialesArrendador: '7500',
+        incluyeGastosNotarialesArrendatario: false,
+        montoGastosNotarialesArrendatario: '7500',
         chkSeguro: false,
         montoSeguro: '',
         costoDominioVigente: '',
@@ -118,6 +122,7 @@ export default function RequestForm() {
                 if (error) {
                     console.error('Error fetching request:', error)
                     toast.error('Error al cargar la solicitud')
+                    console.log('RequestForm: Redirigiendo a dashboard porque falló la carga con id:', id)
                     navigate('/dashboard')
                     return
                 }
@@ -427,6 +432,22 @@ export default function RequestForm() {
                                             if (id) {
                                                 await supabase.from('requests').update({ status: 'submitted' }).eq('id', id)
                                             }
+                                            // Auto-link contacts to property if selected from CRM
+                                            const propId = formData._crmPropertyId
+                                            const agentId = user?.id
+                                            if (propId && agentId) {
+                                                const isVenta = formData.tipoSolicitud === 'venta'
+                                                // Link Parte A (Vendedor/Dueño)
+                                                const contactAId = formData[`_crm${isVenta ? 'Vendedor' : 'Dueño'}ContactId`]
+                                                if (contactAId) {
+                                                    await autoLinkContactProperty(contactAId, propId, isVenta ? 'vendedor' : 'propietario', agentId)
+                                                }
+                                                // Link Parte B (Comprador/Arrendatario)
+                                                const contactBId = formData[`_crm${isVenta ? 'Comprador' : 'Arrendatario'}ContactId`]
+                                                if (contactBId) {
+                                                    await autoLinkContactProperty(contactBId, propId, isVenta ? 'comprador' : 'arrendatario', agentId)
+                                                }
+                                            }
                                         }}
                                     />
                                 )}
@@ -476,6 +497,19 @@ export default function RequestForm() {
                                         onComplete={async () => {
                                             if (id) {
                                                 await supabase.from('requests').update({ status: 'submitted' }).eq('id', id)
+                                            }
+                                            // Auto-link contacts to property if selected from CRM
+                                            const propId = formData._crmPropertyId
+                                            const agentId = user?.id
+                                            if (propId && agentId) {
+                                                // Link Dueño (propietario)
+                                                if (formData._crmDueñoContactId) {
+                                                    await autoLinkContactProperty(formData._crmDueñoContactId, propId, 'propietario', agentId)
+                                                }
+                                                // Link Arrendatario
+                                                if (formData._crmArrendatarioContactId) {
+                                                    await autoLinkContactProperty(formData._crmArrendatarioContactId, propId, 'arrendatario', agentId)
+                                                }
                                             }
                                         }}
                                     />

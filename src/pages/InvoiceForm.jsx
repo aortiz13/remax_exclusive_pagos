@@ -7,6 +7,9 @@ import { Button, Input, Label, Card, CardHeader, CardTitle, CardContent, CardDes
 import { ArrowLeft, Save, Send, Receipt, User, Building2, FileText, ChevronRight, ChevronLeft, Users, UserPlus } from 'lucide-react'
 import Stepper from '../components/layout/Stepper'
 import { motion, AnimatePresence } from 'framer-motion'
+import ContactPickerInline from '../components/ui/ContactPickerInline'
+import PropertyPickerInline from '../components/ui/PropertyPickerInline'
+import { autoLinkContactProperty } from '../services/autoLink'
 
 export default function InvoiceForm() {
     const { id } = useParams()
@@ -148,6 +151,20 @@ export default function InvoiceForm() {
                     .single()
                 if (error) throw error
                 requestData = data
+            }
+
+            // --- AUTO-LINKING LOGIC ---
+            const propId = formData._crmPropertyId
+            const agentId = user?.id
+            if (propId && agentId) {
+                // Link Vendedor
+                if (formData._crmVendedorContactId) {
+                    await autoLinkContactProperty(formData._crmVendedorContactId, propId, 'vendedor', agentId)
+                }
+                // Link Comprador
+                if (formData._crmCompradorContactId) {
+                    await autoLinkContactProperty(formData._crmCompradorContactId, propId, 'comprador', agentId)
+                }
             }
 
             if (status === 'submitted') {
@@ -430,6 +447,20 @@ export default function InvoiceForm() {
                                             </div>
                                         </CardHeader>
                                         <CardContent className="space-y-6 pt-8 p-6 md:p-8">
+                                            <ContactPickerInline
+                                                onSelectContact={(contact) => {
+                                                    setFormData(prev => ({
+                                                        ...prev,
+                                                        vendedorNombre: `${contact.first_name || ''} ${contact.last_name || ''}`.trim(),
+                                                        vendedorRut: contact.rut || '',
+                                                        vendedorEmail: contact.email || '',
+                                                        vendedorTelefono: contact.phone || '',
+                                                        vendedorDireccion: contact.address || '',
+                                                        _crmVendedorContactId: contact.id
+                                                    }))
+                                                }}
+                                                label="Pre-llenar datos del vendedor"
+                                            />
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                                 <div className="space-y-2 md:col-span-2">
                                                     <Label htmlFor="vendedorNombre">Nombre Completo</Label>
@@ -491,6 +522,20 @@ export default function InvoiceForm() {
                                             </div>
                                         </CardHeader>
                                         <CardContent className="space-y-6 pt-8 p-6 md:p-8">
+                                            <ContactPickerInline
+                                                onSelectContact={(contact) => {
+                                                    setFormData(prev => ({
+                                                        ...prev,
+                                                        compradorNombre: `${contact.first_name || ''} ${contact.last_name || ''}`.trim(),
+                                                        compradorRut: contact.rut || '',
+                                                        compradorEmail: contact.email || '',
+                                                        compradorTelefono: contact.phone || '',
+                                                        compradorDireccion: contact.address || '',
+                                                        _crmCompradorContactId: contact.id
+                                                    }))
+                                                }}
+                                                label="Pre-llenar datos del comprador"
+                                            />
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                                 <div className="space-y-2 md:col-span-2">
                                                     <Label htmlFor="compradorNombre">Nombre Completo</Label>
@@ -552,6 +597,16 @@ export default function InvoiceForm() {
                                             </div>
                                         </CardHeader>
                                         <CardContent className="space-y-6 pt-8 p-6 md:p-8">
+                                            <PropertyPickerInline
+                                                onSelectProperty={(property) => {
+                                                    setFormData(prev => ({
+                                                        ...prev,
+                                                        propiedadDireccion: property.address || '',
+                                                        _crmPropertyId: property.id
+                                                    }))
+                                                }}
+                                                label="Pre-llenar dirección de propiedad"
+                                            />
                                             <div className="space-y-2">
                                                 <Label htmlFor="propiedadDireccion">Dirección de la Propiedad</Label>
                                                 <Input className="h-11 bg-white dark:bg-slate-950" id="propiedadDireccion" name="propiedadDireccion" value={formData.propiedadDireccion} onChange={handleChange} placeholder="Dirección del inmueble" />

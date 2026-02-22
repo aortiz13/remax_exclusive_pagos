@@ -99,7 +99,17 @@ export default function StepResumen({ data, onUpdate, onBack, onComplete }) {
             total_recibir: calculations.totalRecibir,
             honorarios_propietario: calculations.totalComisionA || 0,
             honorarios_arrendatario: calculations.totalComisionB || 0,
-            uf_valor: calculations.ufUsed
+            gastos_notariales_arrendador: data.incluyeGastosNotarialesArrendador ? Number(data.montoGastosNotarialesArrendador) : 0,
+            gastos_notariales_arrendatario: data.incluyeGastosNotarialesArrendatario ? Number(data.montoGastosNotarialesArrendatario) : 0,
+            uf_valor: calculations.ufUsed,
+            // Mapeo de opciones a SI/NO
+            ...(data.chkProporcional && { mes_proporcional: "SI" }),
+            ...(data.chkMesAdelantado && { mes_adelantado: "SI" }),
+            seguro_restitucion: data.chkSeguro ? "SI" : "NO",
+            con_administracion: data.conAdministracion ? "SI" : "NO",
+            condiciones_especiales: data.chkCondicionesEspeciales ? "SI" : "NO",
+            notaria_arrendador: data.incluyeGastosNotarialesArrendador ? "SI" : "NO",
+            notaria_arrendatario: data.incluyeGastosNotarialesArrendatario ? "SI" : "NO"
           }
         }
       } else if (isHonorariosFlow) {
@@ -407,7 +417,7 @@ export default function StepResumen({ data, onUpdate, onBack, onComplete }) {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="file-seguro" className="text-sm font-medium">
-                    Póliza de Seguro de Restitución <span className="text-red-500">*</span>
+                    Informe Comercial Arrendatario <span className="text-red-500">*</span>
                   </Label>
                   <div className="flex items-center gap-3">
                     <Input
@@ -523,10 +533,18 @@ export default function StepResumen({ data, onUpdate, onBack, onComplete }) {
                         <span className="font-medium">{formatCurrency(calculations.totalAdmin)}</span>
                       </div>
                     )}
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Gastos Notariales</span>
-                      <span>{formatCurrency(data.gastosNotariales)}</span>
-                    </div>
+                    {data.incluyeGastosNotarialesArrendador && (
+                      <div className="flex justify-between border-t border-slate-100 pt-1 mt-1">
+                        <span className="text-muted-foreground">Notaría (Propietario)</span>
+                        <span>{formatCurrency(data.montoGastosNotarialesArrendador)}</span>
+                      </div>
+                    )}
+                    {data.incluyeGastosNotarialesArrendatario && (
+                      <div className="flex justify-between border-t border-slate-100 pt-1 mt-1">
+                        <span className="text-muted-foreground">Notaría (Arrendatario)</span>
+                        <span>{formatCurrency(data.montoGastosNotarialesArrendatario)}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               ) : (

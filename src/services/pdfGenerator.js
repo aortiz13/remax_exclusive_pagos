@@ -171,13 +171,15 @@ export const generatePDF = (data, calculations) => {
     }
 
     addRow('Garantía', data.garantia)
-    addRow('Gastos Notariales', data.gastosNotariales)
+    if (data.incluyeGastosNotarialesArrendatario) {
+        addRow('Gastos Notariales', data.montoGastosNotarialesArrendatario)
+    }
 
     if (data.chkSeguro) {
         addRow('Seguro de Restitución', calculations.montoSeguro)
     }
 
-    addRow('Honorarios (IVA incl.)', calculations.totalComision)
+    addRow('Honorarios (IVA incl.)', calculations.totalComisionB)
 
     // Total Footer
     currentY += 2
@@ -224,9 +226,11 @@ export const generatePDF = (data, calculations) => {
     addRowRight('Garantía', data.garantia)
 
     // Deductions
-    addRowRight('Gastos Notariales', data.gastosNotariales, true)
+    if (data.incluyeGastosNotarialesArrendador) {
+        addRowRight('Gastos Notariales', data.montoGastosNotarialesArrendador, true)
+    }
     addRowRight('Cert. Dominio Vig.', data.costoDominioVigente, true)
-    addRowRight('Honorarios (IVA incl.)', calculations.totalComision, true)
+    addRowRight('Honorarios (IVA incl.)', calculations.totalComisionA, true)
     addRowRight('Hon. Admin (IVA incl.)', data.honorariosAdmin, true)
 
     // Total Footer

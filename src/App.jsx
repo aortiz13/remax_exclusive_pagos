@@ -18,6 +18,7 @@ import AdminRequests from './pages/AdminRequests'
 import AdminPropertyImport from './pages/AdminPropertyImport'
 import LeadDetail from './pages/LeadDetail'
 import WeeklyKpiForm from './components/kpi/WeeklyKpiForm'
+import EvaluacionComercialForm from './pages/EvaluacionComercialForm'
 
 import KpiDashboard from './components/kpi/KpiDashboard'
 import AdminKpiView from './components/kpi/AdminKpiView'
@@ -32,6 +33,7 @@ import CalendarPage from './pages/Calendar'
 import VirtualClassroom from './pages/VirtualClassroom'
 import AdminVirtualClassroom from './pages/AdminVirtualClassroom'
 import NewMandate from './pages/crm/NewMandate'
+import ChatwootWidget from './components/chatwoot/ChatwootWidget'
 import { Toaster } from 'sonner'
 
 // Protected Route Component
@@ -65,9 +67,9 @@ const Layout = ({ children }) => {
 
       {user && <Sidebar />}
 
-      <div className="flex-1 flex flex-col h-full relative z-10 w-full max-w-[1920px] mx-auto">
+      <div className="flex-1 flex flex-col h-full relative z-10 w-full min-w-0 max-w-[1920px] mx-auto">
         <Header />
-        <main className="flex-1 overflow-y-auto scroll-smooth p-4 md:p-8 w-full max-w-7xl mx-auto">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden scroll-smooth p-4 md:p-8 w-full max-w-7xl mx-auto">
           {children}
         </main>
       </div>
@@ -128,6 +130,12 @@ function App() {
               </ProtectedRoute>
             } />
 
+            <Route path="/request/evaluacion-comercial/new" element={
+              <ProtectedRoute>
+                <EvaluacionComercialForm />
+              </ProtectedRoute>
+            } />
+
             <Route path="/request/:id" element={
               <ProtectedRoute>
                 <RequestForm />
@@ -145,6 +153,8 @@ function App() {
                 <InvoiceForm />
               </ProtectedRoute>
             } />
+
+
 
             <Route path="/admin/invites" element={
               <ProtectedRoute>
@@ -254,6 +264,7 @@ function App() {
         </Layout>
       </Router>
       <Toaster position="top-right" richColors theme="light" closeButton className="font-sans" />
+      <ChatwootWidget />
     </AuthProvider>
   )
 }

@@ -1,6 +1,7 @@
 import React from 'react'
 import { Card, CardContent, Button, Input, Label } from '@/components/ui'
 import { UserPlus } from 'lucide-react'
+import ContactPickerInline from '@/components/ui/ContactPickerInline'
 
 export default function StepArrendatario({ data, onUpdate, onNext, onBack }) {
     // Conditional Logic for "Puntas"
@@ -9,98 +10,113 @@ export default function StepArrendatario({ data, onUpdate, onNext, onBack }) {
     // Validation
     const isTenantComplete =
         !isTenantRequired ||
-        (data.arrendatarioNombre && data.arrendatarioApellido && data.arrendatarioEmail && data.arrendatarioTelefono && data.arrendatarioRut)
+        (data.arrendatarioNombre &&
+            data.arrendatarioApellido &&
+            data.arrendatarioRut &&
+            data.arrendatarioEmail &&
+            data.arrendatarioTelefono)
 
     const handleSubmit = (e) => {
         e.preventDefault()
         if (isTenantComplete) onNext()
     }
 
-    const handleRutChange = (field, val) => {
-        onUpdate(field, val)
+    const handleContactSelect = (contact) => {
+        onUpdate('arrendatarioNombre', contact.first_name || '')
+        onUpdate('arrendatarioApellido', contact.last_name || '')
+        onUpdate('arrendatarioRut', contact.rut || '')
+        onUpdate('arrendatarioEmail', contact.email || '')
+        onUpdate('arrendatarioTelefono', contact.phone || '')
+        onUpdate('arrendatarioDireccion', contact.address || '')
+        onUpdate('arrendatarioComuna', contact.barrio_comuna || '')
+        // Store the CRM contact ID for auto-linking
+        onUpdate('_crmArrendatarioContactId', contact.id)
     }
 
     return (
-        <Card className="max-w-2xl mx-auto border-0 shadow-none sm:border sm:shadow-sm">
-            <CardContent className="pt-6">
-                {!isTenantRequired && (
-                    <div className="mb-6 p-4 bg-yellow-50 text-yellow-800 rounded-md text-sm border border-yellow-200">
-                        <strong>Información Opcional:</strong> Has seleccionado "Punta Arrendador", por lo que estos datos no son obligatorios.
+        <Card className="max-w-xl mx-auto border-0 shadow-none sm:border sm:shadow-sm">
+            <CardContent className="p-6 sm:p-8 space-y-6">
+                <div className="flex items-center gap-3 mb-2">
+                    <div className="p-2 rounded-lg bg-violet-50 text-violet-600">
+                        <UserPlus className="w-5 h-5" />
                     </div>
-                )}
-                <form onSubmit={handleSubmit} className="space-y-8">
-                    {/* Tenant Section */}
-                    <div className="space-y-4">
-                        <div className="flex items-center gap-2 pb-2 border-b">
-                            <UserPlus className="w-5 h-5 text-primary" />
-                            <h2 className="text-lg font-semibold text-foreground">
-                                Datos del Arrendatario <span className="text-sm font-normal text-muted-foreground">(Receptor del Voucher)</span>
-                                {!isTenantRequired && <span className="text-sm font-normal text-muted-foreground ml-2">(Opcional)</span>}
-                            </h2>
-                        </div>
+                    <div>
+                        <h2 className="text-xl font-bold tracking-tight">Datos del Arrendatario</h2>
+                        <p className="text-sm text-muted-foreground">
+                            {isTenantRequired
+                                ? 'Información de la persona que arrendará la propiedad'
+                                : 'Opcional — usted representa al Arrendador'}
+                        </p>
+                    </div>
+                </div>
 
+                {isTenantRequired && (
+                    <ContactPickerInline
+                        onSelectContact={handleContactSelect}
+                        label="Pre-llenar datos del arrendatario"
+                    />
+                )}
+
+                <form onSubmit={handleSubmit} className="space-y-5">
+                    {isTenantRequired && (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                <Label>Nombre {isTenantRequired && '*'}</Label>
+                                <Label>Nombre <span className="text-red-500">*</span></Label>
                                 <Input
-                                    value={data.arrendatarioNombre || ''}
-                                    onChange={(e) => onUpdate('arrendatarioNombre', e.target.value)}
-                                    required={isTenantRequired}
-                                    autoFocus
+                                    value={data.arrendatarioNombre}
+                                    onChange={e => onUpdate('arrendatarioNombre', e.target.value)}
                                     placeholder="Nombre"
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label>Apellido {isTenantRequired && '*'}</Label>
+                                <Label>Apellido <span className="text-red-500">*</span></Label>
                                 <Input
-                                    value={data.arrendatarioApellido || ''}
-                                    onChange={(e) => onUpdate('arrendatarioApellido', e.target.value)}
-                                    required={isTenantRequired}
+                                    value={data.arrendatarioApellido}
+                                    onChange={e => onUpdate('arrendatarioApellido', e.target.value)}
                                     placeholder="Apellido"
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label>RUT {isTenantRequired && '*'}</Label>
+                                <Label>RUT <span className="text-red-500">*</span></Label>
                                 <Input
-                                    value={data.arrendatarioRut || ''}
-                                    onChange={(e) => handleRutChange('arrendatarioRut', e.target.value)}
+                                    value={data.arrendatarioRut}
+                                    onChange={e => onUpdate('arrendatarioRut', e.target.value)}
                                     placeholder="12.345.678-9"
-                                    required={isTenantRequired}
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label>Teléfono {isTenantRequired && '*'}</Label>
+                                <Label>Email <span className="text-red-500">*</span></Label>
                                 <Input
-                                    type="tel"
-                                    value={data.arrendatarioTelefono || ''}
-                                    onChange={(e) => onUpdate('arrendatarioTelefono', e.target.value)}
-                                    required={isTenantRequired}
-                                    placeholder="56 9 ..."
+                                    type="email"
+                                    value={data.arrendatarioEmail}
+                                    onChange={e => onUpdate('arrendatarioEmail', e.target.value)}
+                                    placeholder="email@ejemplo.com"
                                 />
                             </div>
                             <div className="space-y-2 md:col-span-2">
-                                <Label>Email {isTenantRequired && '*'}</Label>
+                                <Label>Teléfono <span className="text-red-500">*</span></Label>
                                 <Input
-                                    type="email"
-                                    value={data.arrendatarioEmail || ''}
-                                    onChange={(e) => onUpdate('arrendatarioEmail', e.target.value)}
-                                    required={isTenantRequired}
-                                    placeholder="nombre@ejemplo.com"
+                                    value={data.arrendatarioTelefono}
+                                    onChange={e => onUpdate('arrendatarioTelefono', e.target.value)}
+                                    placeholder="+56 9 1234 5678"
                                 />
                             </div>
                         </div>
-                    </div>
+                    )}
 
-                    <div className="flex justify-between pt-6 gap-4">
-                        <Button type="button" variant="outline" onClick={onBack} className="w-full md:w-auto">
-                            Atrás
-                        </Button>
-                        <Button type="submit" disabled={!isTenantComplete} className="w-full md:w-auto">
-                            Siguiente
-                        </Button>
+                    {!isTenantRequired && (
+                        <div className="text-center py-8 text-muted-foreground">
+                            <p>No se requiere arrendatario en este flujo.</p>
+                            <p className="text-sm mt-1">Puede continuar al siguiente paso.</p>
+                        </div>
+                    )}
+
+                    <div className="flex justify-between pt-4">
+                        <Button type="button" variant="outline" onClick={onBack}>← Atrás</Button>
+                        <Button type="submit" disabled={!isTenantComplete}>Siguiente →</Button>
                     </div>
                 </form>
             </CardContent>
-        </Card >
+        </Card>
     )
 }

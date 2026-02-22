@@ -1,13 +1,15 @@
 import { useState, useRef, useEffect } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
-import { toast } from 'sonner'
-import { useAuth } from '../context/AuthContext'
+import { Calendar as CalendarIcon, Upload, Plus, Trash2, MapPin, Search, ChevronRight, FileText, FileSignature, Handshake, CheckCircle2, ChevronDown, UserPlus, Users } from 'lucide-react'
 import { supabase } from '../services/supabase'
-import { generateExcel } from '../lib/generateExcel'
-import { generatePDF } from '../lib/generatePDF'
-import { triggerLegalWebhook } from '../services/api'
+
+import { useAuth } from '../context/AuthContext'
+import DatePicker from 'react-datepicker'
+import "react-datepicker/dist/react-datepicker.css"
+import ContactPickerInline from '../components/ui/ContactPickerInline'
+import PropertyPickerInline from '../components/ui/PropertyPickerInline'
+import { autoLinkContactProperty } from '../services/autoLink'
 import { Button, Card, CardContent, CardHeader, CardTitle, CardDescription, Input, Label, Textarea } from '@/components/ui'
-import { ArrowLeft, Building2, Key, Save, Plus, Trash2, UploadCloud, FilePlus, Search } from 'lucide-react'
+import { ArrowLeft, Building2, Key, Save, UploadCloud, FilePlus } from 'lucide-react'
 
 // --- HELPER COMPONENTS ---
 
@@ -26,7 +28,7 @@ function CardSection({ title, children }) {
 
 function Field({ label, name, type = "text", placeholder, defaultValue, className, required = false }) {
     return (
-        <div className={`space-y-2 ${className}`}>
+        <div className={"space-y-2 " + (className || "")}>
             <Label htmlFor={name} className="text-xs font-semibold uppercase text-slate-500">
                 {label} {required && <span className="text-red-500">*</span>}
             </Label>
@@ -85,12 +87,12 @@ function FileUploadField({ label, name, accept, multiple = false }) {
     return (
         <div className="space-y-4">
             <Label className="text-sm font-semibold text-slate-700">{label}</Label>
-            <Card className={`border-dashed border-2 cursor-pointer transition-colors ${files.length > 0 ? 'bg-blue-50/50 border-primary/30' : 'bg-slate-50/50 border-slate-200 hover:bg-slate-100'}`} onClick={() => inputRef.current?.click()}>
+            <Card className={"border-dashed border-2 cursor-pointer transition-colors " + (files.length > 0 ? 'bg-blue-50/50 border-primary/30' : 'bg-slate-50/50 border-slate-200 hover:bg-slate-100')} onClick={() => inputRef.current?.click()}>
                 <CardContent className="flex flex-col items-center justify-center py-8 text-center">
                     <Input
                         ref={inputRef}
                         type="file"
-                        name={multiple ? `${name}[]` : name}
+                        name={multiple ? name + '[]' : name}
                         accept={accept}
                         multiple={multiple}
                         className="hidden"
@@ -137,7 +139,13 @@ function PartyForm({ typeLabel, index, prefix, initialData = {}, onRemove, isRem
     const [personType, setPersonType] = useState('natural') // natural | juridica
 
     // Helper to get value
-    const getValue = (suffix) => initialData[`${prefix}_${suffix}`] || ''
+    const getValue = (suffix) => initialData[`${prefix}_${suffix} `] || ''
+
+    // State for CRM pre-fill
+    const [prefilledData, setPrefilledData] = useState({})
+
+    // Helper to get effective value (prefer prefilled over initial)
+    const getEffectiveValue = (suffix) => prefilledData[`${prefix}_${suffix} `] !== undefined ? prefilledData[`${prefix}_${suffix} `] : getValue(suffix)
 
     // Check if we have initial data effectively switching the type
     useEffect(() => {
@@ -145,6 +153,19 @@ function PartyForm({ typeLabel, index, prefix, initialData = {}, onRemove, isRem
             setPersonType('juridica')
         }
     }, [])
+
+    const handleContactSelect = (contact) => {
+        setPrefilledData(prev => ({
+            ...prev,
+            [`${prefix} _nombres`]: contact.first_name || '',
+            [`${prefix} _apellidos`]: contact.last_name || '',
+            [`${prefix} _rut`]: contact.rut || '',
+            [`${prefix} _email`]: contact.email || '',
+            [`${prefix} _telefono`]: contact.phone || '',
+            [`${prefix} _direccion`]: contact.address || '',
+            [`${prefix} _contact_id`]: contact.id
+        }))
+    }
 
     return (
         <div className="bg-slate-50/50 p-6 rounded-lg border space-y-4 relative animate-in fade-in slide-in-from-top-2">
@@ -158,14 +179,14 @@ function PartyForm({ typeLabel, index, prefix, initialData = {}, onRemove, isRem
                         <button
                             type="button"
                             onClick={() => setPersonType('natural')}
-                            className={`text-xs px-2 py-1 rounded transition-colors ${personType === 'natural' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-100'}`}
+                            className={`text - xs px - 2 py - 1 rounded transition - colors ${personType === 'natural' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-100'} `}
                         >
                             Natural
                         </button>
                         <button
                             type="button"
                             onClick={() => setPersonType('juridica')}
-                            className={`text-xs px-2 py-1 rounded transition-colors ${personType === 'juridica' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-100'}`}
+                            className={`text - xs px - 2 py - 1 rounded transition - colors ${personType === 'juridica' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-100'} `}
                         >
                             Jurídica
                         </button>
@@ -178,21 +199,29 @@ function PartyForm({ typeLabel, index, prefix, initialData = {}, onRemove, isRem
                 </div>
             </div>
 
-            <input type="hidden" name={`${prefix}_tipo_persona`} value={personType} />
+            <input type="hidden" name={`${prefix} _tipo_persona`} value={personType} />
+            <input type="hidden" name={`${prefix} _contact_id`} value={prefilledData[`${prefix} _contact_id`] || ''} />
+
+            {personType === 'natural' && (
+                <ContactPickerInline
+                    onSelectContact={handleContactSelect}
+                    label={`Pre - llenar datos del ${typeLabel.toLowerCase()} `}
+                />
+            )}
 
             {personType === 'natural' ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <Field label="Nombres" name={`${prefix}_nombres`} defaultValue={getValue('nombres')} required />
-                    <Field label="Apellidos" name={`${prefix}_apellidos`} defaultValue={getValue('apellidos')} required />
-                    <Field label="RUT / Pasaporte" name={`${prefix}_rut`} defaultValue={getValue('rut')} required />
-                    <Field label="Nacionalidad" name={`${prefix}_nacionalidad`} defaultValue={getValue('nacionalidad')} />
+                    <Field label="Nombres" name={`${prefix} _nombres`} defaultValue={getEffectiveValue('nombres')} required />
+                    <Field label="Apellidos" name={`${prefix} _apellidos`} defaultValue={getEffectiveValue('apellidos')} required />
+                    <Field label="RUT / Pasaporte" name={`${prefix} _rut`} defaultValue={getEffectiveValue('rut')} required />
+                    <Field label="Nacionalidad" name={`${prefix} _nacionalidad`} defaultValue={getEffectiveValue('nacionalidad')} />
 
                     {['Vendedor', 'Comprador'].includes(typeLabel) ? (
                         <div className="space-y-2">
-                            <Label htmlFor={`${prefix}_civil`} className="text-xs font-semibold uppercase text-slate-500">Estado Civil</Label>
+                            <Label htmlFor={`${prefix} _civil`} className="text-xs font-semibold uppercase text-slate-500">Estado Civil</Label>
                             <select
-                                id={`${prefix}_civil`}
-                                name={`${prefix}_civil`}
+                                id={`${prefix} _civil`}
+                                name={`${prefix} _civil`}
                                 defaultValue={getValue('civil')}
                                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                             >
@@ -202,26 +231,28 @@ function PartyForm({ typeLabel, index, prefix, initialData = {}, onRemove, isRem
                                 <option value="Casado con Separación de Bienes">Casado con Separación de Bienes</option>
                                 <option value="Viudo">Viudo</option>
                                 <option value="Divorciado">Divorciado</option>
+                                <option value="Conviviente civil con Separación de Bienes">Conviviente Civil con Separación de Bienes</option>
+                                <option value="Conviviente Civil con Comunidad de Bienes">Conviviente Civil con Comunidad de Bienes</option>
                             </select>
                         </div>
                     ) : (
-                        <Field label="Estado Civil" name={`${prefix}_civil`} defaultValue={getValue('civil')} />
+                        <Field label="Estado Civil" name={`${prefix} _civil`} defaultValue={getEffectiveValue('civil')} />
                     )}
 
-                    <DateField label="Fecha Nacimiento" name={`${prefix}_nacimiento`} defaultValue={getValue('nacimiento')} />
-                    <Field label="Correo" name={`${prefix}_email`} type="email" defaultValue={getValue('email')} required />
-                    <Field label="Teléfono" name={`${prefix}_telefono`} defaultValue={getValue('telefono')} required />
-                    <Field label="Profesión" name={`${prefix}_ocupacion`} defaultValue={getValue('ocupacion')} />
-                    <Field label="Domicilio Particular" name={`${prefix}_direccion`} className="md:col-span-3" defaultValue={getValue('direccion')} />
+                    <DateField label="Fecha Nacimiento" name={`${prefix} _nacimiento`} defaultValue={getEffectiveValue('nacimiento')} />
+                    <Field label="Correo" name={`${prefix} _email`} type="email" defaultValue={getEffectiveValue('email')} required />
+                    <Field label="Teléfono" name={`${prefix} _telefono`} defaultValue={getEffectiveValue('telefono')} required />
+                    <Field label="Profesión" name={`${prefix} _ocupacion`} defaultValue={getEffectiveValue('ocupacion')} />
+                    <Field label="Domicilio Particular" name={`${prefix} _direccion`} className="md:col-span-3" defaultValue={getEffectiveValue('direccion')} />
 
                     {!hideLaborData && (
                         <div className="md:col-span-3 bg-white p-4 rounded border mt-2">
-                            <Label className="uppercase text-xs font-bold text-slate-400 mb-4 block">Datos Laborales (Obligatorio)</Label>
+                            <Label className="uppercase text-xs font-bold text-slate-400 mb-4 block">Datos Laborales</Label>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <Field label="Empleador" name={`${prefix}_empleador`} defaultValue={getValue('empleador')} required />
-                                <Field label="RUT Empleador" name={`${prefix}_empleador_rut`} defaultValue={getValue('empleador_rut')} />
-                                <Field label="Teléfono Laboral" name={`${prefix}_telefono_lab`} defaultValue={getValue('telefono_lab')} />
-                                <Field label="Dirección Laboral" name={`${prefix}_direccion_lab`} className="md:col-span-2" defaultValue={getValue('direccion_lab')} />
+                                <Field label="Empleador" name={`${prefix} _empleador`} defaultValue={getValue('empleador')} />
+                                <Field label="RUT Empleador" name={`${prefix} _empleador_rut`} defaultValue={getValue('empleador_rut')} />
+                                <Field label="Teléfono Laboral" name={`${prefix} _telefono_lab`} defaultValue={getValue('telefono_lab')} />
+                                <Field label="Dirección Laboral" name={`${prefix} _direccion_lab`} className="md:col-span-2" defaultValue={getValue('direccion_lab')} />
                             </div>
                         </div>
                     )}
@@ -229,22 +260,22 @@ function PartyForm({ typeLabel, index, prefix, initialData = {}, onRemove, isRem
             ) : (
                 <div className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <Field label="Razón Social" name={`${prefix}_juridica_razon`} className="md:col-span-2" defaultValue={getValue('juridica_razon')} required />
-                        <Field label="RUT Empresa" name={`${prefix}_juridica_rut`} defaultValue={getValue('juridica_rut')} required />
-                        <Field label="Domicilio Comercial" name={`${prefix}_juridica_direccion`} className="md:col-span-2" defaultValue={getValue('juridica_direccion')} />
-                        <Field label="Teléfono" name={`${prefix}_juridica_telefono`} defaultValue={getValue('juridica_telefono')} />
+                        <Field label="Razón Social" name={`${prefix} _juridica_razon`} className="md:col-span-2" defaultValue={getValue('juridica_razon')} required />
+                        <Field label="RUT Empresa" name={`${prefix} _juridica_rut`} defaultValue={getValue('juridica_rut')} required />
+                        <Field label="Domicilio Comercial" name={`${prefix} _juridica_direccion`} className="md:col-span-2" defaultValue={getValue('juridica_direccion')} />
+                        <Field label="Teléfono" name={`${prefix} _juridica_telefono`} defaultValue={getValue('juridica_telefono')} />
                     </div>
                     <div className="bg-white p-4 rounded-lg border space-y-4">
                         <h4 className="text-xs font-bold uppercase text-slate-500">Representante Legal (Obligatorio)</h4>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <Field label="Nombres" name={`${prefix}_juridica_rep_nombres`} defaultValue={getValue('juridica_rep_nombres')} required />
-                            <Field label="Apellidos" name={`${prefix}_juridica_rep_apellidos`} defaultValue={getValue('juridica_rep_apellidos')} required />
-                            <Field label="RUT Rep. Legal" name={`${prefix}_juridica_rep_rut`} defaultValue={getValue('juridica_rep_rut')} required />
-                            <Field label="Nacionalidad" name={`${prefix}_juridica_rep_nacionalidad`} defaultValue={getValue('juridica_rep_nacionalidad')} />
-                            <Field label="Estado Civil" name={`${prefix}_juridica_rep_civil`} defaultValue={getValue('juridica_rep_civil')} />
-                            <Field label="Correo" name={`${prefix}_juridica_rep_email`} type="email" defaultValue={getValue('juridica_rep_email')} required />
-                            <DateField label="Fecha Nacimiento" name={`${prefix}_juridica_rep_nacimiento`} defaultValue={getValue('juridica_rep_nacimiento')} />
-                            <Field label="Domicilio Particular" name={`${prefix}_juridica_rep_direccion`} className="md:col-span-2" defaultValue={getValue('juridica_rep_direccion')} />
+                            <Field label="Nombres" name={`${prefix} _juridica_rep_nombres`} defaultValue={getValue('juridica_rep_nombres')} required />
+                            <Field label="Apellidos" name={`${prefix} _juridica_rep_apellidos`} defaultValue={getValue('juridica_rep_apellidos')} required />
+                            <Field label="RUT Rep. Legal" name={`${prefix} _juridica_rep_rut`} defaultValue={getValue('juridica_rep_rut')} required />
+                            <Field label="Nacionalidad" name={`${prefix} _juridica_rep_nacionalidad`} defaultValue={getValue('juridica_rep_nacionalidad')} />
+                            <Field label="Estado Civil" name={`${prefix} _juridica_rep_civil`} defaultValue={getValue('juridica_rep_civil')} />
+                            <Field label="Correo" name={`${prefix} _juridica_rep_email`} type="email" defaultValue={getValue('juridica_rep_email')} required />
+                            <DateField label="Fecha Nacimiento" name={`${prefix} _juridica_rep_nacimiento`} defaultValue={getValue('juridica_rep_nacimiento')} />
+                            <Field label="Domicilio Particular" name={`${prefix} _juridica_rep_direccion`} className="md:col-span-2" defaultValue={getValue('juridica_rep_direccion')} />
                         </div>
                     </div>
                 </div>
@@ -262,7 +293,7 @@ function PartyArraySection({ title, typeLabel, prefixRoot, initialData = {}, hid
         // Check up to 4
         for (let i = 2; i <= 4; i++) {
             // Check a discriminatory field, e.g., name or rut
-            if (initialData[`${prefixRoot}_${i}_nombres`] || initialData[`${prefixRoot}_${i}_juridica_razon`]) {
+            if (initialData[`${prefixRoot}_${i} _nombres`] || initialData[`${prefixRoot}_${i} _juridica_razon`]) {
                 count = i
             }
         }
@@ -292,7 +323,7 @@ function PartyArraySection({ title, typeLabel, prefixRoot, initialData = {}, hid
                         key={id}
                         typeLabel={typeLabel}
                         index={index} // Display index 0..N -> 1..N+1
-                        prefix={`${prefixRoot}_${index + 1}`} // Store as prefix_1, prefix_2...
+                        prefix={`${prefixRoot}_${index + 1} `} // Store as prefix_1, prefix_2...
                         initialData={initialData}
                         onRemove={() => removeParty(id)}
                         isRemovable={ids.length > 1}
@@ -450,9 +481,71 @@ export default function ContractForm() {
 
 function BuySellFormLogic({ user, profile, navigate, initialData = {}, requestId = null }) {
     const [isSubmitting, setIsSubmitting] = useState(false)
+    const [isSavingDraft, setIsSavingDraft] = useState(false)
+    const formRef = useRef(null)
     const [currency, setCurrency] = useState(initialData?.moneda_venta || 'clp')
     const [paymentMethod, setPaymentMethod] = useState(initialData?.forma_pago || 'contado')
     const [reservationCurrency, setReservationCurrency] = useState(initialData?.moneda_reserva || 'clp')
+
+    const handleSaveDraft = async () => {
+        if (!formRef.current) return
+        const formData = new FormData(formRef.current)
+
+        setIsSavingDraft(true)
+        try {
+            const agentName = `${profile?.first_name || ''} ${profile?.last_name || ''} `.trim()
+
+            const jsonData = {
+                contract_type: 'buy-sell',
+                agente_nombre: agentName,
+                agente_email: user.email,
+                agente_telefono: profile?.phone || '',
+                tipo_solicitud: 'compraventa',
+                moneda_venta: currency,
+                forma_pago: paymentMethod,
+                moneda_reserva: reservationCurrency,
+            }
+
+            for (const [key, value] of formData.entries()) {
+                if (!(value instanceof File)) {
+                    if (jsonData[key]) {
+                        if (!Array.isArray(jsonData[key])) jsonData[key] = [jsonData[key]]
+                        jsonData[key].push(value)
+                    } else {
+                        jsonData[key] = value
+                    }
+                }
+            }
+
+            let error;
+            if (requestId) {
+                const { error: updateError } = await supabase.from('requests').update({
+                    status: 'draft',
+                    updated_at: new Date(),
+                    data: jsonData
+                }).eq('id', requestId)
+                error = updateError
+            } else {
+                const { error: insertError } = await supabase.from('requests').insert({
+                    user_id: user.id,
+                    status: 'draft',
+                    step: 5,
+                    data: jsonData
+                })
+                error = insertError
+            }
+
+            if (error) throw error
+
+            toast.success('Borrador guardado exitosamente.')
+            navigate('/dashboard')
+        } catch (error) {
+            console.error('Error:', error)
+            toast.error('Error al guardar borrador: ' + error.message)
+        } finally {
+            setIsSavingDraft(false)
+        }
+    }
 
     const handleSubmit = async (e) => {
         e.preventDefault()
@@ -484,7 +577,7 @@ function BuySellFormLogic({ user, profile, navigate, initialData = {}, requestId
         setIsSubmitting(true)
         try {
             // Append context data
-            const agentName = `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim()
+            const agentName = `${profile?.first_name || ''} ${profile?.last_name || ''} `.trim()
             formData.append('agente_nombre', agentName)
             formData.append('agente_email', user.email)
             formData.append('agente_telefono', profile?.phone || '')
@@ -515,11 +608,11 @@ function BuySellFormLogic({ user, profile, navigate, initialData = {}, requestId
             const fileFields = ['dominio_vigente', 'gp_certificado', 'otros_documentos']
             fileFields.forEach(field => {
                 // Try both array syntax and plain syntax to catch all
-                const filesArray = formData.getAll(`${field}[]`).length > 0 ? formData.getAll(`${field}[]`) : formData.getAll(field);
+                const filesArray = formData.getAll(`${field} []`).length > 0 ? formData.getAll(`${field} []`) : formData.getAll(field);
                 if (filesArray.length > 0) {
                     filesArray.forEach(file => {
                         if (file instanceof File && file.size > 0) {
-                            webhookData.append(`${field}[]`, file)
+                            webhookData.append(`${field} []`, file)
                         }
                     })
                 }
@@ -568,6 +661,36 @@ function BuySellFormLogic({ user, profile, navigate, initialData = {}, requestId
 
             if (error) throw error
 
+            // --- AUTO-LINKING LOGIC ---
+            const propId = formData.get('crm_property_id')
+            const agentId = user?.id
+            if (propId && agentId) {
+                // Determine total number of parties using formData directly
+                const partyCount = (prefix) => {
+                    let count = 0;
+                    for (let i = 1; i <= 4; i++) {
+                        if (formData.get(`${prefix}_${i} _contact_id`)) count++;
+                    }
+                    return count || 1; // At least one if they filled it manually but no CRM ID, but loop below will safely ignore empty ones anyway.
+                }
+
+                // Vendedores
+                for (let i = 1; i <= 4; i++) {
+                    const contactId = formData.get(`vendedor_${i} _contact_id`);
+                    if (contactId) {
+                        await autoLinkContactProperty(contactId, propId, 'vendedor', agentId);
+                    }
+                }
+
+                // Compradores
+                for (let i = 1; i <= 4; i++) {
+                    const contactId = formData.get(`comprador_${i} _contact_id`);
+                    if (contactId) {
+                        await autoLinkContactProperty(contactId, propId, 'comprador', agentId);
+                    }
+                }
+            }
+
             toast.success(requestId ? 'Solicitud actualizada exitosamente.' : 'Solicitud de contrato enviada exitosamente.')
             navigate('/dashboard')
 
@@ -580,7 +703,7 @@ function BuySellFormLogic({ user, profile, navigate, initialData = {}, requestId
     }
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-8 pb-12">
+        <form ref={formRef} onSubmit={handleSubmit} className="space-y-8 pb-12">
             <div className="grid gap-8">
                 <CardSection title="1. Información de la Operación">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -593,7 +716,32 @@ function BuySellFormLogic({ user, profile, navigate, initialData = {}, requestId
                 </CardSection>
 
                 <CardSection title="2. Identificación de la Propiedad">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <PropertyPickerInline
+                        onSelectProperty={(property) => {
+                            // Find and update the inputs directly since they are uncontrolled via Field component
+                            const form = formRef.current
+                            if (!form) return
+                            const setInputValue = (name, value) => {
+                                const el = form.elements[name]
+                                if (el) el.value = value || ''
+                            }
+                            setInputValue('rol_propiedad', property.tax_id || '')
+                            setInputValue('tipo_propiedad', property.property_type || '')
+                            setInputValue('comuna', property.commune || '')
+                            setInputValue('direccion_propiedad', property.address || '')
+                            // Create hidden input to store ID for auto-linking if it doesn't exist
+                            let hiddenInput = form.querySelector('input[name="crm_property_id"]')
+                            if (!hiddenInput) {
+                                hiddenInput = document.createElement('input')
+                                hiddenInput.type = 'hidden'
+                                hiddenInput.name = 'crm_property_id'
+                                form.appendChild(hiddenInput)
+                            }
+                            hiddenInput.value = property.id
+                        }}
+                        label="Pre-llenar datos de la propiedad"
+                    />
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-4">
                         <Field label="ROL Propiedad" name="rol_propiedad" placeholder="940-146" defaultValue={initialData.rol_propiedad} />
                         <Field label="Tipo de Propiedad" name="tipo_propiedad" placeholder="Departamento, Casa..." defaultValue={initialData.tipo_propiedad} />
                         <Field label="Comuna" name="comuna" placeholder="Las Condes" defaultValue={initialData.comuna} />
@@ -602,13 +750,13 @@ function BuySellFormLogic({ user, profile, navigate, initialData = {}, requestId
                         <div className="space-y-2">
                             <Label>Moneda de Venta</Label>
                             <div className="flex bg-white rounded-md border p-1 h-10 items-center">
-                                <button type="button" onClick={() => setCurrency('clp')} className={`flex-1 text-sm font-medium h-full rounded transition-colors ${currency === 'clp' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-100'}`}>CLP ($)</button>
-                                <button type="button" onClick={() => setCurrency('uf')} className={`flex-1 text-sm font-medium h-full rounded transition-colors ${currency === 'uf' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-100'}`}>UF</button>
+                                <button type="button" onClick={() => setCurrency('clp')} className={`flex - 1 text - sm font - medium h - full rounded transition - colors ${currency === 'clp' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-100'} `}>CLP ($)</button>
+                                <button type="button" onClick={() => setCurrency('uf')} className={`flex - 1 text - sm font - medium h - full rounded transition - colors ${currency === 'uf' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-100'} `}>UF</button>
                             </div>
                         </div>
 
                         <Field
-                            label={`Valor de Venta (${currency === 'clp' ? '$' : 'UF'})`}
+                            label={`Valor de Venta(${currency === 'clp' ? '$' : 'UF'})`}
                             name="valor_venta"
                             placeholder={currency === 'clp' ? "$ 198.000.000" : "UF 5.000"}
                             defaultValue={initialData.valor_venta}
@@ -664,8 +812,8 @@ function BuySellFormLogic({ user, profile, navigate, initialData = {}, requestId
                                 <Label>Monto Reserva / Vale Vista</Label>
                                 <div className="flex gap-2">
                                     <div className="flex bg-white rounded-md border p-1 h-10 items-center w-32 shrink-0">
-                                        <button type="button" onClick={() => setReservationCurrency('clp')} className={`flex-1 text-xs font-medium h-full rounded transition-colors ${reservationCurrency === 'clp' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-100'}`}>CLP</button>
-                                        <button type="button" onClick={() => setReservationCurrency('uf')} className={`flex-1 text-xs font-medium h-full rounded transition-colors ${reservationCurrency === 'uf' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-100'}`}>UF</button>
+                                        <button type="button" onClick={() => setReservationCurrency('clp')} className={`flex - 1 text - xs font - medium h - full rounded transition - colors ${reservationCurrency === 'clp' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-100'} `}>CLP</button>
+                                        <button type="button" onClick={() => setReservationCurrency('uf')} className={`flex - 1 text - xs font - medium h - full rounded transition - colors ${reservationCurrency === 'uf' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-100'} `}>UF</button>
                                     </div>
                                     <Input name="monto_reserva" placeholder={reservationCurrency === 'clp' ? "$" : "UF"} defaultValue={initialData.monto_reserva} className="flex-1" />
                                 </div>
@@ -727,9 +875,13 @@ function BuySellFormLogic({ user, profile, navigate, initialData = {}, requestId
 
                 <div className="sticky bottom-4 z-10">
                     <Card className="shadow-lg border-2 border-primary/20 bg-white/95 backdrop-blur">
-                        <CardContent className="p-4 flex justify-end">
-                            <Button type="submit" size="lg" disabled={isSubmitting} className="w-full md:w-auto">
+                        <CardContent className="p-4 flex flex-col md:flex-row justify-end items-center gap-4">
+                            <Button type="button" variant="outline" size="lg" disabled={isSubmitting || isSavingDraft} onClick={handleSaveDraft} className="w-full md:w-auto">
                                 <Save className="mr-2 h-5 w-5" />
+                                {isSavingDraft ? 'Guardando...' : 'Guardar Borrador'}
+                            </Button>
+                            <Button type="submit" size="lg" disabled={isSubmitting || isSavingDraft} className="w-full md:w-auto bg-primary text-white">
+                                <UploadCloud className="mr-2 h-5 w-5" />
                                 {isSubmitting ? 'Enviando...' : (requestId ? 'Actualizar Solicitud' : 'Enviar Solicitud')}
                             </Button>
                         </CardContent>
@@ -744,9 +896,73 @@ function LeaseFormLogic({ user, profile, navigate, initialData = {}, requestId =
     const [hasGuarantor, setHasGuarantor] = useState(initialData?.tiene_fiador === 'si')
     const [conAdministracion, setConAdministracion] = useState(initialData?.con_administracion === 'SI')
     const [isSubmitting, setIsSubmitting] = useState(false)
+    const [isSavingDraft, setIsSavingDraft] = useState(false)
+    const formRef = useRef(null)
     const [currency, setCurrency] = useState(initialData?.moneda_arriendo || 'clp')
 
     const [conRestitucion, setConRestitucion] = useState(initialData?.con_restitucion === 'SI')
+
+    const handleSaveDraft = async () => {
+        if (!formRef.current) return
+        const formData = new FormData(formRef.current)
+
+        setIsSavingDraft(true)
+        try {
+            const agentName = `${profile?.first_name || ''} ${profile?.last_name || ''} `.trim()
+
+            const jsonData = {
+                contract_type: 'lease',
+                agente_nombre: agentName,
+                agente_email: user.email,
+                agente_telefono: profile?.phone || '',
+                tipo_solicitud: 'arriendo',
+                tiene_fiador: hasGuarantor ? 'si' : 'no',
+                con_administracion: conAdministracion ? 'SI' : 'NO',
+                con_restitucion: conRestitucion ? 'SI' : 'NO',
+                moneda_arriendo: currency
+            }
+
+            for (const [key, value] of formData.entries()) {
+                if (!(value instanceof File)) {
+                    if (jsonData[key]) {
+                        if (!Array.isArray(jsonData[key])) jsonData[key] = [jsonData[key]]
+                        jsonData[key].push(value)
+                    } else {
+                        jsonData[key] = value
+                    }
+                }
+            }
+
+            let error;
+            if (requestId) {
+                const { error: updateError } = await supabase.from('requests').update({
+                    status: 'draft',
+                    updated_at: new Date(),
+                    data: jsonData
+                }).eq('id', requestId)
+                error = updateError
+            } else {
+                // If it's a new request, insert
+                const { error: insertError } = await supabase.from('requests').insert({
+                    user_id: user.id,
+                    status: 'draft',
+                    step: 5,
+                    data: jsonData
+                })
+                error = insertError
+            }
+
+            if (error) throw error
+
+            toast.success('Borrador guardado exitosamente.')
+            navigate('/dashboard')
+        } catch (error) {
+            console.error('Error:', error)
+            toast.error('Error al guardar borrador: ' + error.message)
+        } finally {
+            setIsSavingDraft(false)
+        }
+    }
 
     useEffect(() => {
         if (currency === 'uf') {
@@ -791,7 +1007,7 @@ function LeaseFormLogic({ user, profile, navigate, initialData = {}, requestId =
 
         try {
             // Append context data
-            const agentName = `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim()
+            const agentName = `${profile?.first_name || ''} ${profile?.last_name || ''} `.trim()
             formData.append('agente_nombre', agentName)
             formData.append('agente_email', user.email)
             formData.append('agente_telefono', profile?.phone || '')
@@ -829,13 +1045,13 @@ function LeaseFormLogic({ user, profile, navigate, initialData = {}, requestId =
                 // Check both "name" and "name[]" to be safe
                 const files = formData.getAll(baseFieldName).length > 0
                     ? formData.getAll(baseFieldName)
-                    : formData.getAll(`${baseFieldName}[]`);
+                    : formData.getAll(`${baseFieldName} []`);
 
                 files.forEach((file) => {
                     if (file instanceof File && file.size > 0) {
                         // We append with the base name (common in webhooks) or array syntax if preferred
                         // Let's use array syntax for destination to ensure lists are clear
-                        webhookData.append(`${baseFieldName}[]`, file);
+                        webhookData.append(`${baseFieldName} []`, file);
                     }
                 });
             }
@@ -947,7 +1163,7 @@ function LeaseFormLogic({ user, profile, navigate, initialData = {}, requestId =
                     arrendatario_direccion: formData.get('arrendatario_1_direccion') || formData.get('arrendatario_1_juridica_direccion') || '',
 
                     // Owner (Dueño/Arrendador)
-                    arrendador_nombre: (formData.get('arrendador_1_nombres') ? `${formData.get('arrendador_1_nombres')} ${formData.get('arrendador_1_apellidos')}` : formData.get('arrendador_1_juridica_razon')) || '',
+                    arrendador_nombre: (formData.get('arrendador_1_nombres') ? `${formData.get('arrendador_1_nombres')} ${formData.get('arrendador_1_apellidos')} ` : formData.get('arrendador_1_juridica_razon')) || '',
                     arrendador_rut: formData.get('arrendador_1_rut') || formData.get('arrendador_1_juridica_rut') || '',
                     arrendador_email: formData.get('arrendador_1_email') || formData.get('arrendador_1_juridica_rep_email') || '',
                     arrendador_telefono: formData.get('arrendador_1_telefono') || formData.get('arrendador_1_juridica_telefono') || '',
@@ -1002,7 +1218,7 @@ function LeaseFormLogic({ user, profile, navigate, initialData = {}, requestId =
     }
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-8 pb-12">
+        <form ref={formRef} onSubmit={handleSubmit} className="space-y-8 pb-12">
             <div className="grid gap-8">
                 <CardSection title="1. Datos del Contrato y Propiedad">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
@@ -1012,13 +1228,13 @@ function LeaseFormLogic({ user, profile, navigate, initialData = {}, requestId =
                         <div className="space-y-2">
                             <Label>Moneda</Label>
                             <div className="flex bg-white rounded-md border p-1 h-10 items-center">
-                                <button type="button" onClick={() => setCurrency('clp')} className={`flex-1 text-sm font-medium h-full rounded transition-colors ${currency === 'clp' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-100'}`}>CLP ($)</button>
-                                <button type="button" onClick={() => setCurrency('uf')} className={`flex-1 text-sm font-medium h-full rounded transition-colors ${currency === 'uf' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-100'}`}>UF</button>
+                                <button type="button" onClick={() => setCurrency('clp')} className={`flex - 1 text - sm font - medium h - full rounded transition - colors ${currency === 'clp' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-100'} `}>CLP ($)</button>
+                                <button type="button" onClick={() => setCurrency('uf')} className={`flex - 1 text - sm font - medium h - full rounded transition - colors ${currency === 'uf' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-100'} `}>UF</button>
                             </div>
                         </div>
 
                         <Field
-                            label={`Canon de Arriendo (${currency === 'clp' ? '$' : 'UF'})`}
+                            label={`Canon de Arriendo(${currency === 'clp' ? '$' : 'UF'})`}
                             name="canon_arriendo"
                             placeholder={currency === 'clp' ? "$ 420.000" : "UF 15,5"}
                             defaultValue={initialData.canon_arriendo}
@@ -1084,7 +1300,7 @@ function LeaseFormLogic({ user, profile, navigate, initialData = {}, requestId =
                         {conRestitucion && (
                             <div className="animate-in fade-in slide-in-from-top-2">
                                 <Field
-                                    label={`Monto Seguro Restitución (${currency === 'clp' ? '$' : 'UF'})`}
+                                    label={`Monto Seguro Restitución(${currency === 'clp' ? '$' : 'UF'})`}
                                     name="monto_seguro_restitucion"
                                     placeholder={currency === 'clp' ? "$ 150.000" : "UF 5"}
                                     defaultValue={initialData.monto_seguro_restitucion}
@@ -1171,9 +1387,13 @@ function LeaseFormLogic({ user, profile, navigate, initialData = {}, requestId =
 
                 <div className="sticky bottom-4 z-10">
                     <Card className="shadow-lg border-2 border-primary/20 bg-white/95 backdrop-blur">
-                        <CardContent className="p-4 flex justify-end">
-                            <Button type="submit" size="lg" disabled={isSubmitting} className="w-full md:w-auto">
+                        <CardContent className="p-4 flex flex-col md:flex-row justify-end items-center gap-4">
+                            <Button type="button" variant="outline" size="lg" disabled={isSubmitting || isSavingDraft} onClick={handleSaveDraft} className="w-full md:w-auto">
                                 <Save className="mr-2 h-5 w-5" />
+                                {isSavingDraft ? 'Guardando...' : 'Guardar Borrador'}
+                            </Button>
+                            <Button type="submit" size="lg" disabled={isSubmitting || isSavingDraft} className="w-full md:w-auto bg-primary text-white">
+                                <UploadCloud className="mr-2 h-5 w-5" />
                                 {isSubmitting ? 'Enviando...' : (requestId ? 'Actualizar Solicitud' : 'Enviar Solicitud')}
                             </Button>
                         </CardContent>
@@ -1186,9 +1406,68 @@ function LeaseFormLogic({ user, profile, navigate, initialData = {}, requestId =
 
 function AnnexFormLogic({ user, profile, navigate, initialData = {}, requestId = null }) {
     const [isSubmitting, setIsSubmitting] = useState(false)
+    const [isSavingDraft, setIsSavingDraft] = useState(false)
+    const formRef = useRef(null)
     const [properties, setProperties] = useState([])
     const [loadingProperties, setLoadingProperties] = useState(false)
     const [selectedPropertyId, setSelectedPropertyId] = useState('')
+
+    const handleSaveDraft = async () => {
+        if (!formRef.current) return
+        const formData = new FormData(formRef.current)
+
+        setIsSavingDraft(true)
+        try {
+            const agentName = `${profile?.first_name || ''} ${profile?.last_name || ''} `.trim()
+
+            const jsonData = {
+                contract_type: 'annex',
+                agente_nombre: agentName,
+                agente_email: user.email,
+                agente_telefono: profile?.phone || '',
+                tipo_solicitud: 'anexo',
+            }
+
+            for (const [key, value] of formData.entries()) {
+                if (!(value instanceof File)) {
+                    if (jsonData[key]) {
+                        if (!Array.isArray(jsonData[key])) jsonData[key] = [jsonData[key]]
+                        jsonData[key].push(value)
+                    } else {
+                        jsonData[key] = value
+                    }
+                }
+            }
+
+            let error;
+            if (requestId) {
+                const { error: updateError } = await supabase.from('requests').update({
+                    status: 'draft',
+                    updated_at: new Date(),
+                    data: jsonData
+                }).eq('id', requestId)
+                error = updateError
+            } else {
+                const { error: insertError } = await supabase.from('requests').insert({
+                    user_id: user.id,
+                    status: 'draft',
+                    step: 1,
+                    data: jsonData
+                })
+                error = insertError
+            }
+
+            if (error) throw error
+
+            toast.success('Borrador guardado exitosamente.')
+            navigate('/dashboard')
+        } catch (error) {
+            console.error('Error:', error)
+            toast.error('Error al guardar borrador: ' + error.message)
+        } finally {
+            setIsSavingDraft(false)
+        }
+    }
 
     // Fetch Agent's Properties for Autocomplete
     useEffect(() => {
@@ -1245,7 +1524,7 @@ function AnnexFormLogic({ user, profile, navigate, initialData = {}, requestId =
 
         try {
             // Append context data
-            const agentName = `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim()
+            const agentName = `${profile?.first_name || ''} ${profile?.last_name || ''} `.trim()
             formData.append('agente_nombre', agentName)
             formData.append('agente_email', user.email)
             formData.append('agente_telefono', profile?.phone || '')
@@ -1265,11 +1544,11 @@ function AnnexFormLogic({ user, profile, navigate, initialData = {}, requestId =
             const appendFiles = (baseFieldName) => {
                 const files = formData.getAll(baseFieldName).length > 0
                     ? formData.getAll(baseFieldName)
-                    : formData.getAll(`${baseFieldName}[]`);
+                    : formData.getAll(`${baseFieldName} []`);
 
                 files.forEach((file) => {
                     if (file instanceof File && file.size > 0) {
-                        webhookData.append(`${baseFieldName}[]`, file);
+                        webhookData.append(`${baseFieldName} []`, file);
                     }
                 });
             }
@@ -1321,7 +1600,7 @@ function AnnexFormLogic({ user, profile, navigate, initialData = {}, requestId =
     }
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-8 pb-12">
+        <form ref={formRef} onSubmit={handleSubmit} className="space-y-8 pb-12">
             <div className="grid gap-8">
                 <CardSection title="1. Propiedad y Datos Básicos">
                     <div className="mb-6 p-4 bg-slate-50 border rounded-lg">
@@ -1338,7 +1617,7 @@ function AnnexFormLogic({ user, profile, navigate, initialData = {}, requestId =
                                     <option value="">Seleccionar propiedad...</option>
                                     {properties.map(p => (
                                         <option key={p.id} value={p.id}>
-                                            {p.address} {p.commune ? `- ${p.commune}` : ''}
+                                            {p.address} {p.commune ? `- ${p.commune} ` : ''}
                                         </option>
                                     ))}
                                 </select>
@@ -1391,10 +1670,16 @@ function AnnexFormLogic({ user, profile, navigate, initialData = {}, requestId =
                                 <span className="font-bold block">Aviso Importante:</span>
                                 Al enviar, la solicitud será procesada por el equipo legal. Asegúrate de adjuntar el contrato base.
                             </div>
-                            <Button type="submit" size="lg" disabled={isSubmitting} className="w-full md:w-auto">
-                                <Save className="mr-2 h-5 w-5" />
-                                {isSubmitting ? 'Enviando...' : (requestId ? 'Actualizar Solicitud' : 'Enviar Solicitud')}
-                            </Button>
+                            <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto">
+                                <Button type="button" variant="outline" size="lg" disabled={isSubmitting || isSavingDraft} onClick={handleSaveDraft} className="w-full md:w-auto">
+                                    <Save className="mr-2 h-5 w-5" />
+                                    {isSavingDraft ? 'Guardando...' : 'Guardar Borrador'}
+                                </Button>
+                                <Button type="submit" size="lg" disabled={isSubmitting || isSavingDraft} className="w-full md:w-auto bg-primary text-white">
+                                    <UploadCloud className="mr-2 h-5 w-5" />
+                                    {isSubmitting ? 'Enviando...' : (requestId ? 'Actualizar Solicitud' : 'Enviar Solicitud')}
+                                </Button>
+                            </div>
                         </CardContent>
                     </Card>
                 </div>

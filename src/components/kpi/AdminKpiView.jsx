@@ -2,14 +2,14 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../../services/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { toast } from 'sonner'
-import { Settings, Save, Search, Filter, Calendar as CalendarIcon, ArrowRightLeft, GripHorizontal } from 'lucide-react'
+import { Settings, Save, Search, Filter, Calendar as CalendarIcon, ArrowRightLeft, GripHorizontal, Columns3, Eye, EyeOff } from 'lucide-react'
 import {
     Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
     Tabs, TabsContent, TabsList, TabsTrigger,
     Button, Input, Card, CardHeader, CardTitle, CardContent, CardDescription,
     Popover, PopoverContent, PopoverTrigger,
-    Calendar, Label, Switch, Badge
+    Calendar, Label, Switch, Badge, Checkbox
 } from "@/components/ui"
 import { format, subMonths, startOfMonth, endOfMonth, eachMonthOfInterval, isSameMonth, subYears, isWithinInterval, startOfDay, endOfDay } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -52,6 +52,27 @@ const formatDateRange = (from, to) => {
     return `${format(from, 'dd/MM/yyyy')} - ${format(to, 'dd/MM/yyyy')}`
 }
 
+// Column definitions for the records table
+const RECORD_COLUMNS = [
+    { key: 'conversations_started', label: 'I.C.', align: 'center' },
+    { key: 'relational_coffees', label: 'Cafés', align: 'center' },
+    { key: 'sales_interviews', label: 'Ent. Venta', align: 'center' },
+    { key: 'buying_interviews', label: 'Ent. Compra', align: 'center' },
+    { key: 'commercial_evaluations', label: 'Eval. Com.', align: 'center' },
+    { key: 'new_listings', label: 'Captaciones', align: 'center' },
+    { key: 'active_portfolio', label: 'Cartera', align: 'center' },
+    { key: 'price_reductions', label: 'Bajas Precio', align: 'center' },
+    { key: 'portfolio_visits', label: 'Vis. Prop.', align: 'center' },
+    { key: 'buyer_visits', label: 'Vis. Comp.', align: 'center' },
+    { key: 'offers_in_negotiation', label: 'Ofertas Neg.', align: 'center' },
+    { key: 'signed_promises', label: 'Promesas', align: 'center' },
+    { key: 'referrals_count', label: 'Referidos', align: 'center' },
+    { key: 'billing_primary', label: 'Fact. Prim.', align: 'right', isCurrency: true },
+    { key: 'billing_secondary', label: 'Fact. Sec.', align: 'right', isCurrency: true },
+]
+
+const DEFAULT_VISIBLE = RECORD_COLUMNS.map(c => c.key)
+
 export default function AdminKpiView() {
     const { user } = useAuth()
     const [loading, setLoading] = useState(false)
@@ -64,6 +85,20 @@ export default function AdminKpiView() {
     const [tempDate, setTempDate] = useState({ from: undefined, to: undefined }) // Temp state for calendar
     const [comparisonMode] = useState('none') // Fixed to none
     const [isCustomDateOpen, setIsCustomDateOpen] = useState(false)
+    const [visibleColumns, setVisibleColumns] = useState(() => {
+        const saved = localStorage.getItem('kpi_records_visible_cols')
+        return saved ? JSON.parse(saved) : DEFAULT_VISIBLE
+    })
+
+    const toggleColumn = (key) => {
+        setVisibleColumns(prev => {
+            const next = prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
+            localStorage.setItem('kpi_records_visible_cols', JSON.stringify(next))
+            return next
+        })
+    }
+
+    const activeColumns = RECORD_COLUMNS.filter(c => visibleColumns.includes(c.key))
 
     // Data States
     const [kpiData, setKpiData] = useState([])
@@ -392,7 +427,7 @@ export default function AdminKpiView() {
     }
 
     return (
-        <div className="max-w-[1600px] mx-auto p-4 md:p-8 space-y-8 bg-slate-50 min-h-screen">
+        <div className="w-full space-y-8 min-h-0 overflow-hidden">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight text-slate-900">Tablero CEO</h1>
@@ -582,55 +617,137 @@ export default function AdminKpiView() {
                 </TabsContent>
 
                 <TabsContent value="records">
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Fecha</TableHead>
-                                    <TableHead>Agente</TableHead>
-                                    <TableHead>Tipo</TableHead>
-                                    <TableHead>Conversaciones</TableHead>
-                                    <TableHead>Entrevistas</TableHead>
-                                    <TableHead>Captaciones</TableHead>
-                                    <TableHead>Ventas</TableHead>
-                                    <TableHead className="text-right">Facturación</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {loading ? (
-                                    <TableRow><TableCell colSpan={8} className="text-center py-8">Cargando...</TableCell></TableRow>
-                                ) : kpiData.length === 0 ? (
-                                    <TableRow><TableCell colSpan={8} className="text-center py-8">No hay registros para este periodo.</TableCell></TableRow>
-                                ) : (
-                                    kpiData.map((kpi) => (
-                                        <TableRow key={kpi.id}>
-                                            <TableCell className="font-medium">
-                                                {format(new Date(kpi.date), 'dd/MM/yyyy')}
-                                            </TableCell>
-                                            <TableCell>
-                                                {kpi.profiles?.first_name} {kpi.profiles?.last_name}
-                                            </TableCell>
-                                            <TableCell>
-                                                <span className={`px-2 py-1 rounded-full text-xs font-semibold capitalize ${kpi.period_type === 'daily' ? 'bg-blue-100 text-blue-700' :
-                                                    kpi.period_type === 'weekly' ? 'bg-indigo-100 text-indigo-700' :
-                                                        'bg-purple-100 text-purple-700'
-                                                    }`}>
-                                                    {kpi.period_type === 'daily' ? 'Diario' : kpi.period_type === 'weekly' ? 'Semanal' : 'Mensual'}
-                                                </span>
-                                            </TableCell>
-                                            <TableCell>{kpi.conversations_started}</TableCell>
-                                            <TableCell>{(kpi.sales_interviews || 0) + (kpi.buying_interviews || 0)}</TableCell>
-                                            <TableCell>{kpi.new_listings}</TableCell>
-                                            <TableCell>{kpi.signed_promises}</TableCell>
-                                            <TableCell className="text-right">
-                                                {new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(kpi.billing_primary || 0)}
-                                            </TableCell>
-                                        </TableRow>
-                                    ))
-                                )}
-                            </TableBody>
-                        </Table>
-                    </div>
+                    {(() => {
+                        // Aggregate DAILY kpi_records per agent
+                        const dailyRecords = kpiData.filter(r => r.period_type === 'daily');
+                        const agentMap = {};
+                        dailyRecords.forEach(r => {
+                            const aid = r.agent_id;
+                            if (!agentMap[aid]) {
+                                agentMap[aid] = {
+                                    agent_id: aid,
+                                    name: r.profiles ? `${r.profiles.first_name || ''} ${r.profiles.last_name || ''}`.trim() : 'Sin nombre',
+                                    conversations_started: 0, relational_coffees: 0, sales_interviews: 0,
+                                    buying_interviews: 0, commercial_evaluations: 0, new_listings: 0,
+                                    active_portfolio: 0, price_reductions: 0, portfolio_visits: 0,
+                                    buyer_visits: 0, offers_in_negotiation: 0, signed_promises: 0,
+                                    billing_primary: 0, billing_secondary: 0, referrals_count: 0,
+                                };
+                            }
+                            const a = agentMap[aid];
+                            a.conversations_started += (r.conversations_started || 0);
+                            a.relational_coffees += (r.relational_coffees || 0);
+                            a.sales_interviews += (r.sales_interviews || 0);
+                            a.buying_interviews += (r.buying_interviews || 0);
+                            a.commercial_evaluations += (r.commercial_evaluations || 0);
+                            a.new_listings += (r.new_listings || 0);
+                            a.active_portfolio = Math.max(a.active_portfolio, r.active_portfolio || 0);
+                            a.price_reductions += (r.price_reductions || 0);
+                            a.portfolio_visits += (r.portfolio_visits || 0);
+                            a.buyer_visits += (r.buyer_visits || 0);
+                            a.offers_in_negotiation += (r.offers_in_negotiation || 0);
+                            a.signed_promises += (r.signed_promises || 0);
+                            a.billing_primary += Number(r.billing_primary || 0);
+                            a.billing_secondary += Number(r.billing_secondary || 0);
+                            a.referrals_count += (r.referrals_count || 0);
+                        });
+                        const rows = Object.values(agentMap).sort((a, b) => b.billing_primary - a.billing_primary);
+                        const totals = rows.reduce((acc, r) => {
+                            RECORD_COLUMNS.forEach(c => { acc[c.key] = (acc[c.key] || 0) + (r[c.key] || 0) });
+                            return acc;
+                        }, {});
+                        const fmtCLP = (v) => new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(v);
+                        const colSpan = activeColumns.length + 1;
+
+                        return (
+                            <div className="space-y-3">
+                                {/* Column toggle toolbar */}
+                                <div className="flex justify-end">
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                            <Button variant="outline" size="sm" className="gap-2">
+                                                <Columns3 className="h-4 w-4" />
+                                                Columnas ({activeColumns.length}/{RECORD_COLUMNS.length})
+                                            </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent align="end" className="w-56 p-3">
+                                            <div className="space-y-1">
+                                                <div className="flex justify-between items-center mb-2 pb-2 border-b">
+                                                    <span className="text-sm font-medium">Columnas visibles</span>
+                                                    <button
+                                                        className="text-xs text-indigo-600 hover:underline"
+                                                        onClick={() => {
+                                                            const allKeys = RECORD_COLUMNS.map(c => c.key)
+                                                            const next = visibleColumns.length === allKeys.length ? allKeys.slice(0, 6) : allKeys
+                                                            setVisibleColumns(next)
+                                                            localStorage.setItem('kpi_records_visible_cols', JSON.stringify(next))
+                                                        }}
+                                                    >
+                                                        {visibleColumns.length === RECORD_COLUMNS.length ? 'Mostrar mínimo' : 'Mostrar todas'}
+                                                    </button>
+                                                </div>
+                                                {RECORD_COLUMNS.map(col => (
+                                                    <label key={col.key} className="flex items-center gap-2 py-1 px-1 rounded hover:bg-slate-50 cursor-pointer text-sm">
+                                                        <Checkbox
+                                                            checked={visibleColumns.includes(col.key)}
+                                                            onCheckedChange={() => toggleColumn(col.key)}
+                                                        />
+                                                        {col.label}
+                                                    </label>
+                                                ))}
+                                            </div>
+                                        </PopoverContent>
+                                    </Popover>
+                                </div>
+
+                                {/* Table */}
+                                <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden w-full">
+                                    <div className="overflow-x-auto">
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow className="bg-slate-50">
+                                                    <TableHead className="sticky left-0 bg-slate-50 z-10 min-w-[140px]">Agente</TableHead>
+                                                    {activeColumns.map(col => (
+                                                        <TableHead key={col.key} className={col.align === 'right' ? 'text-right' : 'text-center'}>
+                                                            {col.label}
+                                                        </TableHead>
+                                                    ))}
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {loading ? (
+                                                    <TableRow><TableCell colSpan={colSpan} className="text-center py-8">Cargando...</TableCell></TableRow>
+                                                ) : rows.length === 0 ? (
+                                                    <TableRow><TableCell colSpan={colSpan} className="text-center py-8">No hay registros diarios para este periodo.</TableCell></TableRow>
+                                                ) : (
+                                                    <>
+                                                        {rows.map(row => (
+                                                            <TableRow key={row.agent_id} className="hover:bg-slate-50/50">
+                                                                <TableCell className="sticky left-0 bg-white z-10 font-medium">{row.name}</TableCell>
+                                                                {activeColumns.map(col => (
+                                                                    <TableCell key={col.key} className={`${col.align === 'right' ? 'text-right font-mono' : 'text-center'}`}>
+                                                                        {col.isCurrency ? fmtCLP(row[col.key]) : row[col.key]}
+                                                                    </TableCell>
+                                                                ))}
+                                                            </TableRow>
+                                                        ))}
+                                                        <TableRow className="bg-slate-100 font-bold border-t-2 border-slate-300">
+                                                            <TableCell className="sticky left-0 bg-slate-100 z-10">TOTAL ({rows.length} agentes)</TableCell>
+                                                            {activeColumns.map(col => (
+                                                                <TableCell key={col.key} className={`${col.align === 'right' ? 'text-right font-mono' : 'text-center'}`}>
+                                                                    {col.isCurrency ? fmtCLP(totals[col.key] || 0) : (totals[col.key] || 0)}
+                                                                </TableCell>
+                                                            ))}
+                                                        </TableRow>
+                                                    </>
+                                                )}
+                                            </TableBody>
+                                        </Table>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })()}
                 </TabsContent>
 
                 <TabsContent value="settings" className="mt-6">

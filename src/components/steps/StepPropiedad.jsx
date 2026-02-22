@@ -1,6 +1,7 @@
 import React from 'react'
 import { Card, CardContent, Button, Input, Label } from '@/components/ui'
 import { Building2, MapPin } from 'lucide-react'
+import PropertyPickerInline from '@/components/ui/PropertyPickerInline'
 
 export default function StepPropiedad({ data, onUpdate, onNext, onBack }) {
     const isComplete = data.tipoPropiedad && data.direccion && data.comuna
@@ -10,69 +11,71 @@ export default function StepPropiedad({ data, onUpdate, onNext, onBack }) {
         if (isComplete) onNext()
     }
 
+    const handlePropertySelect = (property) => {
+        onUpdate('tipoPropiedad', property.property_type || '')
+        onUpdate('direccion', property.address || '')
+        onUpdate('comuna', property.commune || '')
+        // Store the CRM property ID for auto-linking later
+        onUpdate('_crmPropertyId', property.id)
+    }
+
     return (
         <Card className="max-w-xl mx-auto border-0 shadow-none sm:border sm:shadow-sm">
-            <CardContent className="pt-6">
-                <div className="mb-6 space-y-2">
-                    <h2 className="text-2xl font-bold tracking-tight text-primary flex items-center gap-2">
-                        <Building2 className="w-6 h-6" />
-                        Datos de la Propiedad
-                    </h2>
-                    <p className="text-muted-foreground text-sm">Ingrese la información básica del inmueble de la operación.</p>
+            <CardContent className="p-6 sm:p-8 space-y-6">
+                <div className="flex items-center gap-3 mb-2">
+                    <div className="p-2 rounded-lg bg-blue-50 text-blue-600">
+                        <Building2 className="w-5 h-5" />
+                    </div>
+                    <div>
+                        <h2 className="text-xl font-bold tracking-tight">Propiedad</h2>
+                        <p className="text-sm text-muted-foreground">Información de la propiedad en operación</p>
+                    </div>
                 </div>
 
-                <form onSubmit={handleSubmit} className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <Label>Tipo de Propiedad</Label>
-                            <select
-                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                value={data.tipoPropiedad}
-                                onChange={(e) => onUpdate('tipoPropiedad', e.target.value)}
-                                required
-                                autoFocus
-                            >
-                                <option value="">Seleccionar...</option>
-                                <option value="Departamento">Departamento</option>
-                                <option value="Casa">Casa</option>
-                                <option value="Oficina">Oficina</option>
-                                <option value="Local Comercial">Local Comercial</option>
-                                <option value="Bodega">Bodega</option>
-                            </select>
-                        </div>
+                <PropertyPickerInline onSelectProperty={handlePropertySelect} />
 
-                        <div className="space-y-2">
-                            <Label>Comuna</Label>
-                            <Input
-                                value={data.comuna}
-                                onChange={(e) => onUpdate('comuna', e.target.value)}
-                                placeholder="Ej: Providencia"
-                                required
-                            />
-                        </div>
+                <form onSubmit={handleSubmit} className="space-y-5">
+                    <div className="space-y-2">
+                        <Label>Tipo de Propiedad <span className="text-red-500">*</span></Label>
+                        <select
+                            value={data.tipoPropiedad}
+                            onChange={e => onUpdate('tipoPropiedad', e.target.value)}
+                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                            <option value="">Seleccionar...</option>
+                            <option value="Departamento">Departamento</option>
+                            <option value="Casa">Casa</option>
+                            <option value="Oficina">Oficina</option>
+                            <option value="Local Comercial">Local Comercial</option>
+                            <option value="Estacionamiento">Estacionamiento</option>
+                            <option value="Bodega">Bodega</option>
+                        </select>
                     </div>
 
                     <div className="space-y-2">
-                        <Label>Dirección Completa</Label>
-                        <div className="relative">
-                            <MapPin className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                            <Input
-                                className="pl-8"
-                                value={data.direccion}
-                                onChange={(e) => onUpdate('direccion', e.target.value)}
-                                placeholder="Calle, Número, Depto..."
-                                required
-                            />
-                        </div>
+                        <Label className="flex items-center gap-1.5">
+                            <MapPin className="w-3.5 h-3.5" />
+                            Dirección <span className="text-red-500">*</span>
+                        </Label>
+                        <Input
+                            value={data.direccion}
+                            onChange={e => onUpdate('direccion', e.target.value)}
+                            placeholder="Ej: Av. Providencia 1234, Depto 501"
+                        />
                     </div>
 
-                    <div className="flex justify-between pt-4 gap-4">
-                        <Button type="button" variant="outline" onClick={onBack} className="w-full md:w-auto">
-                            Atrás
-                        </Button>
-                        <Button type="submit" disabled={!isComplete} className="w-full md:w-auto">
-                            Siguiente
-                        </Button>
+                    <div className="space-y-2">
+                        <Label>Comuna <span className="text-red-500">*</span></Label>
+                        <Input
+                            value={data.comuna}
+                            onChange={e => onUpdate('comuna', e.target.value)}
+                            placeholder="Ej: Providencia"
+                        />
+                    </div>
+
+                    <div className="flex justify-between pt-4">
+                        {onBack && <Button type="button" variant="outline" onClick={onBack}>← Atrás</Button>}
+                        <Button type="submit" disabled={!isComplete} className="ml-auto">Siguiente →</Button>
                     </div>
                 </form>
             </CardContent>

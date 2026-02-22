@@ -621,10 +621,19 @@ const NewMandate = () => {
                             {/* Informative Note */}
                             <div className="mt-4 p-4 bg-slate-100 dark:bg-slate-800/80 rounded-xl border border-dashed border-slate-300 dark:border-slate-700">
                                 <h5 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2 mb-2">
-                                    Nota Importante - Fotógrafo Profesional
+                                    NOTA IMPORTANTE: BENEFICIOS DE MARKETING CÁMARA 360° Y FOTOGRAFÍA PROFESIONAL
                                 </h5>
-                                <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed italic">
-                                    "Las sesiones de fotos profesionales son cortesía de la oficina para captaciones que cumplen los requisitos (Exclusiva, Metropolitana, $4000+ UF). Es responsabilidad del agente coordinar el acceso a la propiedad y cubrir cualquier costo de traslado si el fotógrafo lo requiere fuera de áreas urbanas primarias."
+                                <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                                    El uso de Cámara 360° y la sesión de fotografía profesional, a través del fotógrafo contratado por la oficina, son beneficios exclusivos otorgados por RE/MAX Exclusive para potenciar las captaciones.
+                                    Para acceder a estos beneficios se deben cumplir las siguientes condiciones:
+                                    <br /><br />
+                                    <strong>1. Cámara 360°</strong><br />
+                                    Disponible para propiedades captadas en exclusividad.
+                                    <br /><br />
+                                    <strong>2. Fotografía Profesional</strong><br />
+                                    Disponible para propiedades que se encuentren ubicadas en la Región Metropolitana de Santiago, que hayan sido captadas en exclusividad y cuyo valor, en el caso de propiedades en venta, sea de 4.000 UF o más, o su equivalente en pesos chilenos; y en el caso de arriendos, que el canon mensual sea de $1.000.000 o más.
+                                    <br /><br />
+                                    Adicionalmente, el agente deberá coordinar el acceso a la propiedad y asumir, a su costo, los gastos de traslado del fotógrafo.
                                 </p>
                             </div>
                         </CardContent>

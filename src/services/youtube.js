@@ -64,24 +64,41 @@ export const fetchVideoMetadata = async (url) => {
 
 export const fetchPlaylistItems = async (playlistId) => {
     try {
-        const response = await fetch(`https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId=${playlistId}&key=${API_KEY}`);
-        const data = await response.json();
+        let allItems = [];
+        let nextPageToken = '';
 
-        if (!response.ok) {
-            throw new Error(data.error?.message || 'Error fetching playlist items');
-        }
+        do {
+            const url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId=${playlistId}&key=${API_KEY}${nextPageToken ? `&pageToken=${nextPageToken}` : ''}`;
+            const response = await fetch(url);
+            const data = await response.json();
 
-        const items = data.items.filter(item => item.snippet.title !== 'Private video' && item.snippet.title !== 'Deleted video');
+            if (!response.ok) {
+                throw new Error(data.error?.message || 'Error fetching playlist items');
+            }
 
-        // Fetch durations
-        const videoIds = items.map(item => item.snippet.resourceId.videoId).join(',');
-        const videosResponse = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=contentDetails&id=${videoIds}&key=${API_KEY}`);
-        const videosData = await videosResponse.json();
+            allItems = allItems.concat(data.items);
+            nextPageToken = data.nextPageToken;
+        } while (nextPageToken);
+
+        const items = allItems.filter(item => item.snippet.title !== 'Private video' && item.snippet.title !== 'Deleted video');
+
         const videosMap = {};
-        if (videosData.items) {
-            videosData.items.forEach(v => {
-                videosMap[v.id] = parseDuration(v.contentDetails.duration);
-            });
+
+        // Fetch durations in chunks of 50
+        for (let i = 0; i < items.length; i += 50) {
+            const chunk = items.slice(i, i + 50);
+            const videoIds = chunk.map(item => item.snippet.resourceId.videoId).join(',');
+
+            if (videoIds) {
+                const videosResponse = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=contentDetails&id=${videoIds}&key=${API_KEY}`);
+                const videosData = await videosResponse.json();
+
+                if (videosData.items) {
+                    videosData.items.forEach(v => {
+                        videosMap[v.id] = parseDuration(v.contentDetails.duration);
+                    });
+                }
+            }
         }
 
         return items.map(item => ({
