@@ -53,6 +53,36 @@ export const AuthProvider = ({ children }) => {
         return () => subscription.unsubscribe()
     }, [])
 
+    // Sync Chatwoot Identity on load or profile change
+    useEffect(() => {
+        const handleChatwootReady = () => {
+            if (profile && window.$chatwoot) {
+                const userName = `${profile.first_name || ''} ${profile.last_name || ''}`.trim();
+                const userPhone = profile.phone ? (profile.phone.startsWith('+') ? profile.phone : `+56${profile.phone.replace(/^56/, '')}`) : undefined;
+
+                window.$chatwoot.setUser(profile.id, {
+                    email: profile.email,
+                    name: userName,
+                    ...(userPhone && { phone_number: userPhone })
+                });
+
+                window.$chatwoot.setCustomAttributes({
+                    correoBase: profile.email,
+                    telefonoBase: profile.phone || 'No especificado',
+                });
+            }
+        };
+
+        window.addEventListener('chatwoot:ready', handleChatwootReady);
+
+        // Also call it immediately in case Chatwoot is already ready
+        if (window.$chatwoot && profile) {
+            handleChatwootReady();
+        }
+
+        return () => window.removeEventListener('chatwoot:ready', handleChatwootReady);
+    }, [profile])
+
     const fetchProfile = async (userId) => {
         try {
             const { data, error } = await supabase
@@ -65,6 +95,23 @@ export const AuthProvider = ({ children }) => {
                 throw error
             }
             setProfile(data)
+
+            // Set Chatwoot User Identity
+            if (data && window.$chatwoot) {
+                const userName = `${data.first_name || ''} ${data.last_name || ''}`.trim();
+                const userPhone = data.phone ? (data.phone.startsWith('+') ? data.phone : `+56${data.phone.replace(/^56/, '')}`) : undefined;
+
+                window.$chatwoot.setUser(userId, {
+                    email: data.email,
+                    name: userName,
+                    ...(userPhone && { phone_number: userPhone })
+                });
+
+                window.$chatwoot.setCustomAttributes({
+                    correoBase: data.email,
+                    telefonoBase: data.phone || 'No especificado',
+                });
+            }
         } catch (error) {
             console.error('Error fetching profile:', error)
             toast.error('Error al cargar perfil de usuario')
@@ -77,6 +124,11 @@ export const AuthProvider = ({ children }) => {
         await supabase.auth.signOut()
         setUser(null)
         setProfile(null)
+
+        // Clear Chatwoot session
+        if (window.$chatwoot) {
+            window.$chatwoot.reset()
+        }
     }
 
     return (

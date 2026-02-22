@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { Button, Input, Textarea, Select, Label, Switch, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem, Badge } from '@/components/ui'
-import { X, Save } from 'lucide-react'
+import { X, Save, Home, Plus, Trash2 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '../../services/supabase'
 import { useAuth } from '../../context/AuthContext'
@@ -11,6 +11,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui"
 import { cn } from "@/lib/utils"
 import { logActivity } from '../../services/activityService'
+import { ROLES, ROLE_COLORS } from './AddParticipantModal'
 
 const Section = ({ title, children }) => (
     <div className="mb-6">
@@ -25,12 +26,19 @@ const ContactForm = ({ contact, isOpen, onClose, isSimplified = false }) => {
     const { profile, user } = useAuth()
     const [loading, setLoading] = useState(false)
     const [properties, setProperties] = useState([])
+
+    // Property links management
+    const [existingLinks, setExistingLinks] = useState([])
+    const [pendingLinks, setPendingLinks] = useState([])
+    const [removedLinkIds, setRemovedLinkIds] = useState([])
+    const [newLinkRole, setNewLinkRole] = useState('propietario')
+    const [newLinkPropertyId, setNewLinkPropertyId] = useState(null)
     const [openPropertySelect, setOpenPropertySelect] = useState(false)
-    const [selectedPropertyId, setSelectedPropertyId] = useState(null)
 
     const [formData, setFormData] = useState({
         first_name: '',
         last_name: '',
+        rut: '',
         sex: '',
         dob: '',
         religion: '',
@@ -55,7 +63,10 @@ const ContactForm = ({ contact, isOpen, onClose, isSimplified = false }) => {
         last_contact_date: '',
         next_contact_date: '',
         current_action: '',
-        observations: ''
+        observations: '',
+        bank_name: '',
+        bank_account_type: '',
+        bank_account_number: ''
     })
 
     // Internal state for multi-select need
@@ -81,28 +92,69 @@ const ContactForm = ({ contact, isOpen, onClose, isSimplified = false }) => {
             setSelectedNeeds(['Comprar'])
         }
         fetchProperties()
+        if (contact?.id) {
+            fetchExistingLinks(contact.id)
+        } else {
+            setExistingLinks([])
+            setPendingLinks([])
+            setRemovedLinkIds([])
+        }
     }, [contact])
 
     const fetchProperties = async () => {
         try {
-            const { data } = await supabase.from('properties').select('id, address, commune')
+            const { data } = await supabase.from('properties').select('id, address, commune, property_type')
             setProperties(data || [])
-
-            // Try to find if this contact is already an owner of a property (just taking the first found for now)
-            if (contact?.id) {
-                const { data: ownedProps } = await supabase
-                    .from('properties')
-                    .select('id')
-                    .eq('owner_id', contact.id)
-                    .limit(1)
-
-                if (ownedProps && ownedProps.length > 0) {
-                    setSelectedPropertyId(ownedProps[0].id)
-                }
-            }
         } catch (error) {
             console.error('Error fetching properties', error)
         }
+    }
+
+    const fetchExistingLinks = async (contactId) => {
+        try {
+            const { data } = await supabase
+                .from('property_contacts')
+                .select('id, property_id, role, property:property_id(id, address, commune, property_type)')
+                .eq('contact_id', contactId)
+
+            setExistingLinks(data || [])
+            setRemovedLinkIds([])
+            setPendingLinks([])
+        } catch (error) {
+            console.error('Error fetching property links', error)
+        }
+    }
+
+    const handleAddPendingLink = () => {
+        if (!newLinkPropertyId) {
+            toast.error('Selecciona una propiedad')
+            return
+        }
+        // Check for duplicates in existing + pending
+        const isDuplicate = [...existingLinks, ...pendingLinks].some(
+            l => (l.property_id === newLinkPropertyId) && (l.role === newLinkRole)
+        )
+        if (isDuplicate) {
+            toast.error('Esta propiedad ya tiene ese rol asignado')
+            return
+        }
+        const prop = properties.find(p => p.id === newLinkPropertyId)
+        setPendingLinks(prev => [...prev, {
+            _tempId: Date.now(),
+            property_id: newLinkPropertyId,
+            role: newLinkRole,
+            property: prop
+        }])
+        setNewLinkPropertyId(null)
+        setNewLinkRole('propietario')
+    }
+
+    const handleRemoveExistingLink = (linkId) => {
+        setRemovedLinkIds(prev => [...prev, linkId])
+    }
+
+    const handleRemovePendingLink = (tempId) => {
+        setPendingLinks(prev => prev.filter(l => l._tempId !== tempId))
     }
 
     const handleChange = (e) => {
@@ -115,8 +167,16 @@ const ContactForm = ({ contact, isOpen, onClose, isSimplified = false }) => {
         setLoading(true)
 
         try {
+            // Resolve custom bank name if 'Otro' was selected
+            const resolvedBankName = formData.bank_name === 'Otro'
+                ? (formData.bank_name_custom || 'Otro')
+                : formData.bank_name
+
+            const { bank_name_custom, ...restFormData } = formData
+
             const dataToSave = {
-                ...formData,
+                ...restFormData,
+                bank_name: resolvedBankName,
                 need: selectedNeeds.join(', '), // Save as comma separated string
                 agent_id: profile?.id || user?.id,
                 updated_at: new Date().toISOString()
@@ -137,8 +197,6 @@ const ContactForm = ({ contact, isOpen, onClose, isSimplified = false }) => {
 
                 if (insertError) throw insertError
 
-                // If property selected, update property owner
-                // Log Creation Activity
                 await logActivity({
                     action: 'Creó',
                     entity_type: 'Contacto',
@@ -147,24 +205,8 @@ const ContactForm = ({ contact, isOpen, onClose, isSimplified = false }) => {
                     contact_id: newContactData.id
                 })
 
-                if (selectedPropertyId && newContactData) {
-                    await supabase
-                        .from('properties')
-                        .update({ owner_id: newContactData.id })
-                        .eq('id', selectedPropertyId)
-
-                    // Log Property Link Activity
-                    const propAddress = properties.find(p => p.id === selectedPropertyId)?.address || 'Propiedad'
-
-                    await logActivity({
-                        action: 'Vinculó',
-                        entity_type: 'Propiedad',
-                        entity_id: selectedPropertyId,
-                        description: `Se vinculó como dueño de la propiedad: ${propAddress}`,
-                        contact_id: newContactData.id,
-                        property_id: selectedPropertyId
-                    })
-                }
+                // Save pending property links
+                await savePropertyLinks(newContactData.id)
 
                 toast.success('Contacto creado')
                 onClose(newContactData)
@@ -176,8 +218,6 @@ const ContactForm = ({ contact, isOpen, onClose, isSimplified = false }) => {
                     .eq('id', contact.id)
                 if (updateError) throw updateError
 
-                // If property selected, update property owner
-                // Log Update Activity
                 await logActivity({
                     action: 'Editó',
                     entity_type: 'Contacto',
@@ -186,24 +226,8 @@ const ContactForm = ({ contact, isOpen, onClose, isSimplified = false }) => {
                     contact_id: contact.id
                 })
 
-                if (selectedPropertyId) {
-                    await supabase
-                        .from('properties')
-                        .update({ owner_id: contact.id })
-                        .eq('id', selectedPropertyId)
-
-                    // Log Property Link Activity
-                    const propAddress = properties.find(p => p.id === selectedPropertyId)?.address || 'Propiedad'
-
-                    await logActivity({
-                        action: 'Vinculó',
-                        entity_type: 'Propiedad',
-                        entity_id: selectedPropertyId,
-                        description: `Se vinculó como dueño de la propiedad: ${propAddress}`,
-                        contact_id: contact.id,
-                        property_id: selectedPropertyId
-                    })
-                }
+                // Save pending property links and remove deleted ones
+                await savePropertyLinks(contact.id)
 
                 toast.success('Contacto actualizado')
                 onClose({ ...dataToSave, id: contact.id })
@@ -217,12 +241,52 @@ const ContactForm = ({ contact, isOpen, onClose, isSimplified = false }) => {
         }
     }
 
+    const savePropertyLinks = async (contactId) => {
+        const userId = profile?.id || user?.id
+
+        // 1. Delete removed links
+        for (const linkId of removedLinkIds) {
+            const removedLink = existingLinks.find(l => l.id === linkId)
+            await supabase.from('property_contacts').delete().eq('id', linkId)
+            // If it was propietario, clear owner_id
+            if (removedLink?.role === 'propietario') {
+                await supabase.from('properties').update({ owner_id: null }).eq('id', removedLink.property_id)
+            }
+        }
+
+        // 2. Insert pending links
+        for (const link of pendingLinks) {
+            const { error } = await supabase.from('property_contacts').insert({
+                property_id: link.property_id,
+                contact_id: contactId,
+                role: link.role,
+                agent_id: userId
+            })
+            if (error && error.code !== '23505') {
+                console.error('Error inserting property link', error)
+            }
+            // If propietario, sync owner_id
+            if (link.role === 'propietario') {
+                await supabase.from('properties').update({ owner_id: contactId }).eq('id', link.property_id)
+            }
+            // Log activity
+            await logActivity({
+                action: 'Vinculó',
+                entity_type: 'Propiedad',
+                entity_id: link.property_id,
+                description: `Vinculado como ${link.role} de: ${link.property?.address || 'Propiedad'}`,
+                contact_id: contactId,
+                property_id: link.property_id
+            })
+        }
+    }
+
     if (!isOpen) return null
 
     return createPortal(
         <AnimatePresence>
             {isOpen && (
-                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" style={{ pointerEvents: 'auto' }}>
                     <motion.div
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
@@ -263,6 +327,10 @@ const ContactForm = ({ contact, isOpen, onClose, isSimplified = false }) => {
                                             <Label>Teléfono</Label>
                                             <Input type="tel" name="phone" value={formData.phone} onChange={handleChange} placeholder="+56 9 1234 5678" />
                                         </div>
+                                        <div className="space-y-2">
+                                            <Label>RUT</Label>
+                                            <Input name="rut" value={formData.rut || ''} onChange={handleChange} placeholder="12.345.678-9" />
+                                        </div>
                                     </div>
                                 </div>
 
@@ -283,6 +351,8 @@ const ContactForm = ({ contact, isOpen, onClose, isSimplified = false }) => {
                                                     <option value="Redes Sociales">Redes Sociales</option>
                                                     <option value="Web">Web</option>
                                                     <option value="Llamado">Llamado Directo</option>
+                                                    <option value="Guardia">Guardia</option>
+                                                    <option value="Turno">Turno</option>
                                                     <option value="Otro">Otro</option>
                                                 </select>
                                             </div>
@@ -337,7 +407,7 @@ const ContactForm = ({ contact, isOpen, onClose, isSimplified = false }) => {
                                         </Section>
 
                                         {/* Section: Ubicación */}
-                                        <Section title="Ubicación y Propiedad">
+                                        <Section title="Ubicación">
                                             <div className="space-y-2">
                                                 <Label>Barrio / Comuna</Label>
                                                 <Input name="barrio_comuna" value={formData.barrio_comuna || formData.comuna} onChange={handleChange} />
@@ -346,55 +416,138 @@ const ContactForm = ({ contact, isOpen, onClose, isSimplified = false }) => {
                                                 <Label>Dirección Particular</Label>
                                                 <Input name="address" value={formData.address} onChange={handleChange} placeholder="Calle 123, Depto 4" />
                                             </div>
-
-                                            {/* Propiedad Asignada (Dueño) */}
-                                            <div className="space-y-2">
-                                                <Label>Propiedad (Dueño)</Label>
-                                                <Popover open={openPropertySelect} onOpenChange={setOpenPropertySelect}>
-                                                    <PopoverTrigger asChild>
-                                                        <Button
-                                                            variant="outline"
-                                                            role="combobox"
-                                                            aria-expanded={openPropertySelect}
-                                                            className="w-full justify-between"
-                                                        >
-                                                            <span className="truncate">
-                                                                {selectedPropertyId
-                                                                    ? properties.find((p) => p.id === selectedPropertyId)?.address
-                                                                    : "Seleccionar propiedad..."}
-                                                            </span>
-                                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                                        </Button>
-                                                    </PopoverTrigger>
-                                                    <PopoverContent className="w-[300px] p-0 z-[200]">
-                                                        <Command>
-                                                            <CommandInput placeholder="Buscar propiedad..." />
-                                                            <CommandList>
-                                                                <CommandEmpty>No encontrada.</CommandEmpty>
-                                                                <CommandGroup>
-                                                                    {properties.map((prop) => (
-                                                                        <CommandItem
-                                                                            key={prop.id}
-                                                                            value={prop.address} // Filter by address
-                                                                            onSelect={() => {
-                                                                                setSelectedPropertyId(prop.id)
-                                                                                setOpenPropertySelect(false)
-                                                                            }}
-                                                                        >
-                                                                            <Check
-                                                                                className={cn("mr-2 h-4 w-4", selectedPropertyId === prop.id ? "opacity-100" : "opacity-0")}
-                                                                            />
-                                                                            {prop.address}
-                                                                        </CommandItem>
-                                                                    ))}
-                                                                </CommandGroup>
-                                                            </CommandList>
-                                                        </Command>
-                                                    </PopoverContent>
-                                                </Popover>
-                                                <p className="text-[10px] text-muted-foreground">Este contacto quedará registrado como dueño de la propiedad seleccionada.</p>
-                                            </div>
                                         </Section>
+
+                                        {/* Section: Propiedades Vinculadas */}
+                                        <div className="mb-6">
+                                            <h3 className="text-lg font-semibold mb-4 text-gray-800 dark:text-gray-200 border-b pb-2 flex items-center gap-2">
+                                                <Home className="w-5 h-5" /> Propiedades
+                                            </h3>
+
+                                            {/* Existing links (minus removed) */}
+                                            <div className="space-y-2 mb-4">
+                                                {existingLinks
+                                                    .filter(l => !removedLinkIds.includes(l.id))
+                                                    .map(link => (
+                                                        <div key={link.id} className="flex items-center gap-2 p-2.5 rounded-lg border bg-gray-50 dark:bg-gray-800/50 group">
+                                                            <div className="flex-1 min-w-0">
+                                                                <div className="text-sm font-medium truncate">{link.property?.address}</div>
+                                                                <div className="text-xs text-muted-foreground">{link.property?.commune}</div>
+                                                            </div>
+                                                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium capitalize whitespace-nowrap ${ROLE_COLORS[link.role] || 'bg-gray-100 text-gray-800'}`}>
+                                                                {link.role}
+                                                            </span>
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-7 w-7 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                                onClick={() => handleRemoveExistingLink(link.id)}
+                                                            >
+                                                                <Trash2 className="w-3.5 h-3.5" />
+                                                            </Button>
+                                                        </div>
+                                                    ))}
+
+                                                {/* Pending links (not yet saved) */}
+                                                {pendingLinks.map(link => (
+                                                    <div key={link._tempId} className="flex items-center gap-2 p-2.5 rounded-lg border border-dashed border-primary/30 bg-primary/5 group">
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="text-sm font-medium truncate">{link.property?.address}</div>
+                                                            <div className="text-xs text-muted-foreground">{link.property?.commune}</div>
+                                                        </div>
+                                                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium capitalize whitespace-nowrap ${ROLE_COLORS[link.role] || 'bg-gray-100 text-gray-800'}`}>
+                                                            {link.role}
+                                                        </span>
+                                                        <span className="text-[9px] text-primary font-medium">nuevo</span>
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-7 w-7 text-red-500 hover:text-red-600"
+                                                            onClick={() => handleRemovePendingLink(link._tempId)}
+                                                        >
+                                                            <Trash2 className="w-3.5 h-3.5" />
+                                                        </Button>
+                                                    </div>
+                                                ))}
+
+                                                {existingLinks.filter(l => !removedLinkIds.includes(l.id)).length === 0 && pendingLinks.length === 0 && (
+                                                    <p className="text-sm text-muted-foreground text-center py-3">Sin propiedades vinculadas</p>
+                                                )}
+                                            </div>
+
+                                            {/* Add new link row */}
+                                            <div className="flex gap-2 items-end">
+                                                <div className="flex-1">
+                                                    <Label className="text-xs mb-1 block">Propiedad</Label>
+                                                    <Popover open={openPropertySelect} onOpenChange={setOpenPropertySelect}>
+                                                        <PopoverTrigger asChild>
+                                                            <Button
+                                                                type="button"
+                                                                variant="outline"
+                                                                role="combobox"
+                                                                className="w-full justify-between text-left h-9 text-sm"
+                                                            >
+                                                                <span className="truncate">
+                                                                    {newLinkPropertyId
+                                                                        ? properties.find(p => p.id === newLinkPropertyId)?.address
+                                                                        : "Seleccionar..."}
+                                                                </span>
+                                                                <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
+                                                            </Button>
+                                                        </PopoverTrigger>
+                                                        <PopoverContent className="w-[320px] p-0 z-[300]">
+                                                            <Command>
+                                                                <CommandInput placeholder="Buscar propiedad..." />
+                                                                <CommandList>
+                                                                    <CommandEmpty>No encontrada.</CommandEmpty>
+                                                                    <CommandGroup>
+                                                                        {properties.map((prop) => (
+                                                                            <CommandItem
+                                                                                key={prop.id}
+                                                                                value={prop.address}
+                                                                                onSelect={() => {
+                                                                                    setNewLinkPropertyId(prop.id)
+                                                                                    setOpenPropertySelect(false)
+                                                                                }}
+                                                                            >
+                                                                                <Check className={cn("mr-2 h-4 w-4", newLinkPropertyId === prop.id ? "opacity-100" : "opacity-0")} />
+                                                                                <div className="flex-1 min-w-0">
+                                                                                    <div className="truncate text-sm">{prop.address}</div>
+                                                                                    <div className="text-xs text-muted-foreground">{prop.commune}</div>
+                                                                                </div>
+                                                                            </CommandItem>
+                                                                        ))}
+                                                                    </CommandGroup>
+                                                                </CommandList>
+                                                            </Command>
+                                                        </PopoverContent>
+                                                    </Popover>
+                                                </div>
+                                                <div className="w-36">
+                                                    <Label className="text-xs mb-1 block">Rol</Label>
+                                                    <select
+                                                        value={newLinkRole}
+                                                        onChange={(e) => setNewLinkRole(e.target.value)}
+                                                        className="flex h-9 w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
+                                                    >
+                                                        {ROLES.map(r => (
+                                                            <option key={r.value} value={r.value}>{r.label}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="h-9 gap-1"
+                                                    onClick={handleAddPendingLink}
+                                                >
+                                                    <Plus className="w-3.5 h-3.5" /> Agregar
+                                                </Button>
+                                            </div>
+                                        </div>
 
                                         {/* Section: Detalles Personales */}
                                         <Section title="Detalles Personales">
@@ -468,6 +621,74 @@ const ContactForm = ({ contact, isOpen, onClose, isSimplified = false }) => {
                                             <div className="col-span-2 space-y-2">
                                                 <Label>Observaciones</Label>
                                                 <Textarea name="observations" value={formData.observations} onChange={handleChange} rows={3} />
+                                            </div>
+                                        </Section>
+
+                                        {/* Section: Datos Bancarios */}
+                                        <Section title="Datos Bancarios">
+                                            <div className="space-y-2">
+                                                <Label>Banco</Label>
+                                                <select
+                                                    name="bank_name"
+                                                    value={formData.bank_name}
+                                                    onChange={handleChange}
+                                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                                >
+                                                    <option value="">Seleccionar banco...</option>
+                                                    <option value="Banco de Chile">Banco de Chile</option>
+                                                    <option value="Banco Estado">Banco Estado</option>
+                                                    <option value="Banco Santander">Banco Santander</option>
+                                                    <option value="Banco BCI">Banco BCI</option>
+                                                    <option value="Banco Scotiabank">Banco Scotiabank</option>
+                                                    <option value="Banco Itaú">Banco Itaú</option>
+                                                    <option value="Banco Falabella">Banco Falabella</option>
+                                                    <option value="Banco Ripley">Banco Ripley</option>
+                                                    <option value="Banco Security">Banco Security</option>
+                                                    <option value="Banco BICE">Banco BICE</option>
+                                                    <option value="Banco Internacional">Banco Internacional</option>
+                                                    <option value="Banco Consorcio">Banco Consorcio</option>
+                                                    <option value="HSBC Bank">HSBC Bank</option>
+                                                    <option value="Banco BTG Pactual">Banco BTG Pactual</option>
+                                                    <option value="Coopeuch">Coopeuch</option>
+                                                    <option value="Tenpo">Tenpo</option>
+                                                    <option value="Mercado Pago">Mercado Pago</option>
+                                                    <option value="MACH">MACH</option>
+                                                    <option value="Otro">Otro</option>
+                                                </select>
+                                                {formData.bank_name === 'Otro' && (
+                                                    <div className="mt-2 animate-in fade-in slide-in-from-top-1 duration-300">
+                                                        <Input
+                                                            name="bank_name_custom"
+                                                            placeholder="Escribe el nombre del banco..."
+                                                            value={formData.bank_name_custom || ''}
+                                                            onChange={(e) => setFormData(prev => ({ ...prev, bank_name_custom: e.target.value }))}
+                                                        />
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label>Tipo de Cuenta</Label>
+                                                <select
+                                                    name="bank_account_type"
+                                                    value={formData.bank_account_type}
+                                                    onChange={handleChange}
+                                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                                >
+                                                    <option value="">Seleccionar...</option>
+                                                    <option value="Cuenta Corriente">Cuenta Corriente</option>
+                                                    <option value="Cuenta Vista">Cuenta Vista</option>
+                                                    <option value="Cuenta de Ahorro">Cuenta de Ahorro</option>
+                                                    <option value="Cuenta RUT">Cuenta RUT</option>
+                                                </select>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label>Número de Cuenta</Label>
+                                                <Input
+                                                    name="bank_account_number"
+                                                    value={formData.bank_account_number || ''}
+                                                    onChange={handleChange}
+                                                    placeholder="Ej: 000123456789"
+                                                />
                                             </div>
                                         </Section>
                                     </>

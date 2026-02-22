@@ -14,7 +14,8 @@ import { cn } from '@/lib/utils'
 
 import GlobalSearch from '../components/dashboard/GlobalSearch'
 import KpiDataEntry from '../components/kpi/KpiDataEntry'
-import { Activity } from 'lucide-react'
+import { Activity, Plus } from 'lucide-react'
+import ActionModal from '../components/crm/ActionModal'
 
 export default function Dashboard() {
     const { user } = useAuth()
@@ -28,6 +29,7 @@ export default function Dashboard() {
     const [filterStatus, setFilterStatus] = useState('all') // 'all', 'pending', 'finalized'
     const [isContactModalOpen, setIsContactModalOpen] = useState(false)
     const [isKpiModalOpen, setIsKpiModalOpen] = useState(false)
+    const [isActionModalOpen, setIsActionModalOpen] = useState(false)
 
     useEffect(() => {
         startTour()
@@ -201,6 +203,12 @@ export default function Dashboard() {
             icon: FileText,
             path: '/request/invoice/new',
             color: 'bg-amber-600 hover:bg-amber-700 text-white border-transparent'
+        },
+        {
+            label: 'Agregar Acción',
+            icon: Plus,
+            action: () => setIsActionModalOpen(true),
+            color: 'bg-indigo-600 hover:bg-indigo-700 text-white border-transparent'
         },
         {
             label: 'Carga Rápida KPI',
@@ -424,6 +432,11 @@ export default function Dashboard() {
                     </div>
                 </DialogContent>
             </Dialog>
+
+            <ActionModal
+                isOpen={isActionModalOpen}
+                onClose={() => setIsActionModalOpen(false)}
+            />
         </div>
     )
 }

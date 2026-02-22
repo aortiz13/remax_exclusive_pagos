@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Users, ClipboardList, Home } from 'lucide-react'
+import { Users, ClipboardList, Home, Activity } from 'lucide-react'
 import ContactList from '../components/crm/ContactList'
 import PropertyList from '../components/crm/PropertyList'
 import TaskBoard from '../components/crm/TaskBoard'
+import ActionList from '../components/crm/ActionList'
 
 const CRM = () => {
     const [activeTab, setActiveTab] = useState("contacts")
@@ -16,7 +17,7 @@ const CRM = () => {
             </div>
 
             <Tabs defaultValue="contacts" className="w-full" onValueChange={setActiveTab}>
-                <TabsList className="grid w-full max-w-[600px] grid-cols-3">
+                <TabsList className="grid w-full max-w-[600px] grid-cols-4">
                     <TabsTrigger value="contacts" className="flex items-center gap-2">
                         <Users className="h-4 w-4" />
                         Contactos
@@ -28,6 +29,10 @@ const CRM = () => {
                     <TabsTrigger value="tasks" className="flex items-center gap-2">
                         <ClipboardList className="h-4 w-4" />
                         Tareas
+                    </TabsTrigger>
+                    <TabsTrigger value="actions" className="flex items-center gap-2">
+                        <Activity className="h-4 w-4" />
+                        Acciones
                     </TabsTrigger>
                 </TabsList>
 
@@ -41,6 +46,10 @@ const CRM = () => {
 
                 <TabsContent value="tasks" className="mt-6">
                     <TaskBoard />
+                </TabsContent>
+
+                <TabsContent value="actions" className="mt-6">
+                    <ActionList />
                 </TabsContent>
             </Tabs>
         </div>

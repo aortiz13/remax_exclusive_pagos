@@ -2,13 +2,15 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../../services/supabase'
 import { Button, AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, Input, Label } from "@/components/ui"
-import { ArrowLeft, Edit, Calendar, CheckCircle2, Circle, Trash2, AlertTriangle } from 'lucide-react'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs' // Our custom tabs
+import { ArrowLeft, Edit, Calendar, CheckCircle2, Circle, Trash2, AlertTriangle, Plus, Home } from 'lucide-react'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import ContactForm from './ContactForm'
 import TaskModal from './TaskModal'
+import AddParticipantModal, { ROLE_COLORS } from './AddParticipantModal'
 import { toast } from 'sonner'
 import Storyline from './Storyline'
 import { logActivity } from '../../services/activityService'
+import ActionModal from './ActionModal'
 
 const ContactDetail = () => {
     const { id } = useParams()
@@ -21,6 +23,7 @@ const ContactDetail = () => {
     const [isEditOpen, setIsEditOpen] = useState(false)
     const [isTaskModalOpen, setIsTaskModalOpen] = useState(false)
     const [selectedTask, setSelectedTask] = useState(null)
+    const [isAddPropertyOpen, setIsAddPropertyOpen] = useState(false)
     const [note, setNote] = useState('')
     const [noteLoading, setNoteLoading] = useState(false)
 
@@ -33,6 +36,9 @@ const ContactDetail = () => {
     const [isDeleteLinkOpen, setIsDeleteLinkOpen] = useState(false)
     const [linkToDelete, setLinkToDelete] = useState(null)
     const [isDeletingLink, setIsDeletingLink] = useState(false)
+
+    // Action Modal State
+    const [isActionModalOpen, setIsActionModalOpen] = useState(false)
 
     useEffect(() => {
         fetchData()
@@ -64,14 +70,7 @@ const ContactDetail = () => {
             if (taskError) throw taskError
             setTasks(taskData || [])
 
-            // 4. Fetch Related Properties (Owned + Linked)
-            // A. Owned
-            const { data: ownedData } = await supabase
-                .from('properties')
-                .select('*')
-                .eq('owner_id', id)
-
-            // B. Linked via property_contacts
+            // 4. Fetch Related Properties via property_contacts (single source of truth)
             const { data: linkedData } = await supabase
                 .from('property_contacts')
                 .select(`
@@ -81,22 +80,11 @@ const ContactDetail = () => {
                 `)
                 .eq('contact_id', id)
 
-            // Combine
             const combined = []
-
-            // Add owned
-            if (ownedData) {
-                ownedData.forEach(p => {
-                    combined.push({ ...p, role: 'Dueño', linkId: `owned_${p.id}` })
-                })
-            }
-
-            // Add linked
             if (linkedData) {
                 linkedData.forEach(link => {
                     const prop = link.property
-                    // Avoid duplicates if also owner (unlikely but possible if data dirty)
-                    if (prop && !combined.find(c => c.id === prop.id && c.role === 'Dueño')) {
+                    if (prop) {
                         combined.push({ ...prop, role: link.role, linkId: link.id })
                     }
                 })
@@ -200,25 +188,23 @@ const ContactDetail = () => {
         try {
             setIsDeletingLink(true)
 
-            // If it's an "owned" link, we clear the owner_id in the properties table
-            if (linkToDelete.linkId.startsWith('owned_')) {
-                const { error } = await supabase
+            // Delete from property_contacts
+            const { error } = await supabase
+                .from('property_contacts')
+                .delete()
+                .eq('id', linkToDelete.linkId)
+
+            if (error) throw error
+
+            // If role was propietario, clear owner_id in properties table
+            if (linkToDelete.role === 'propietario') {
+                await supabase
                     .from('properties')
                     .update({ owner_id: null })
                     .eq('id', linkToDelete.id)
-
-                if (error) throw error
-            } else {
-                // Otherwise it's a link in property_contacts
-                const { error } = await supabase
-                    .from('property_contacts')
-                    .delete()
-                    .eq('id', linkToDelete.linkId)
-
-                if (error) throw error
             }
 
-            // Log activity for both contact and property
+            // Log activity
             await logActivity({
                 action: 'Desvinculó',
                 entity_type: 'Contacto',
@@ -251,6 +237,9 @@ const ContactDetail = () => {
                     <ArrowLeft className="w-4 h-4" /> Volver
                 </Button>
                 <div className="flex items-center gap-2">
+                    <Button onClick={() => setIsActionModalOpen(true)} className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white">
+                        <Plus className="w-4 h-4" /> Agregar Acción
+                    </Button>
                     <Button variant="destructive" size="sm" onClick={() => setIsDeleteOpen(true)} className="gap-2">
                         <Trash2 className="w-4 h-4" /> Eliminar
                     </Button>
@@ -283,6 +272,7 @@ const ContactDetail = () => {
                             <p><span className="font-medium text-gray-900 dark:text-gray-200">Teléfono:</span> {contact.phone || '-'}</p>
                             <p><span className="font-medium text-gray-900 dark:text-gray-200">Profesión:</span> {contact.profession || '-'}</p>
                             <p><span className="font-medium text-gray-900 dark:text-gray-200">Fuente:</span> {contact.source || '-'}</p>
+                            <p><span className="font-medium text-gray-900 dark:text-gray-200">RUT:</span> {contact.rut || '-'}</p>
                         </div>
                     </div>
                 </div>
@@ -408,13 +398,38 @@ const ContactDetail = () => {
                                     <div className="grid grid-cols-2"><dt className="text-gray-500">Observaciones:</dt><dd>{contact.observations || '-'}</dd></div>
                                 </dl>
                             </div>
+                            {(contact.bank_name || contact.bank_account_type || contact.bank_account_number) && (
+                                <div className="md:col-span-2">
+                                    <h3 className="font-medium text-gray-900 dark:text-white border-b pb-2 mb-3">Datos Bancarios</h3>
+                                    <dl className="space-y-2 text-sm">
+                                        <div className="grid grid-cols-2"><dt className="text-gray-500">Banco:</dt><dd>{contact.bank_name || '-'}</dd></div>
+                                        <div className="grid grid-cols-2"><dt className="text-gray-500">Tipo de Cuenta:</dt><dd>{contact.bank_account_type || '-'}</dd></div>
+                                        <div className="grid grid-cols-2"><dt className="text-gray-500">Número de Cuenta:</dt><dd>{contact.bank_account_number || '-'}</dd></div>
+                                    </dl>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </TabsContent>
 
-                {relatedProperties.length > 0 && (
-                    <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 p-6 mt-6">
-                        <h2 className="text-xl font-semibold mb-4">Propiedades Asociadas</h2>
+                {/* Propiedades Asociadas — always shown */}
+                <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 p-6 mt-6">
+                    <div className="flex justify-between items-center mb-4">
+                        <h2 className="text-xl font-semibold flex items-center gap-2">
+                            <Home className="w-5 h-5" /> Propiedades ({relatedProperties.length})
+                        </h2>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setIsAddPropertyOpen(true)}
+                            className="gap-1"
+                        >
+                            <Plus className="w-4 h-4" /> Agregar Propiedad
+                        </Button>
+                    </div>
+                    {relatedProperties.length === 0 ? (
+                        <p className="text-sm text-muted-foreground text-center py-4">No hay propiedades vinculadas a este contacto.</p>
+                    ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             {relatedProperties.map(prop => (
                                 <div
@@ -423,7 +438,7 @@ const ContactDetail = () => {
                                     onClick={() => navigate(`/crm/property/${prop.id}`)}
                                 >
                                     <div className="flex justify-between items-start">
-                                        <div className="flex-1" onClick={() => navigate(`/crm/property/${prop.id}`)}>
+                                        <div className="flex-1">
                                             <h3 className="font-semibold text-sm group-hover:text-primary transition-colors">{prop.address}</h3>
                                             <div className="text-xs text-muted-foreground">
                                                 {prop.commune}
@@ -431,10 +446,7 @@ const ContactDetail = () => {
                                         </div>
                                         <div className="flex flex-col items-end gap-1">
                                             <div className="flex items-center gap-2">
-                                                <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${prop.role === 'Dueño'
-                                                    ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
-                                                    : 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'
-                                                    }`}>
+                                                <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium capitalize ${ROLE_COLORS[prop.role] || 'bg-gray-100 text-gray-800'}`}>
                                                     {prop.role}
                                                 </span>
                                                 <Button
@@ -458,8 +470,8 @@ const ContactDetail = () => {
                                 </div>
                             ))}
                         </div>
-                    </div>
-                )}
+                    )}
+                </div>
             </Tabs>
 
             <ContactForm
@@ -477,6 +489,25 @@ const ContactDetail = () => {
                 }}
                 contactId={id}
                 task={selectedTask}
+            />
+
+            <AddParticipantModal
+                isOpen={isAddPropertyOpen}
+                mode="from-contact"
+                contactId={id}
+                onClose={(refresh) => {
+                    setIsAddPropertyOpen(false)
+                    if (refresh) fetchData()
+                }}
+            />
+
+            <ActionModal
+                isOpen={isActionModalOpen}
+                onClose={(refresh) => {
+                    setIsActionModalOpen(false)
+                    if (refresh) fetchData()
+                }}
+                defaultContactId={id}
             />
 
             {/* Delete Confirmation Alert */}

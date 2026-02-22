@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { Button, Input, Textarea, Select, Label, Switch, Checkbox, Badge } from '@/components/ui'
-import { X, Save, Search, Plus, Check, ChevronsUpDown } from 'lucide-react'
+import { X, Save, Search, Plus, Check, ChevronsUpDown, Trash2, UserPlus } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { supabase } from '../../services/supabase'
 import { useAuth } from '../../context/AuthContext'
@@ -12,6 +12,7 @@ import AddressAutocomplete from "@/components/ui/AddressAutocomplete"
 import ContactForm from './ContactForm'
 import { cn } from "@/lib/utils"
 import { logActivity } from '../../services/activityService'
+import { ROLES, ROLE_COLORS } from './AddParticipantModal'
 
 
 
@@ -28,8 +29,15 @@ const PropertyForm = ({ property, isOpen, onClose }) => {
     const { user } = useAuth()
     const [loading, setLoading] = useState(false)
     const [contacts, setContacts] = useState([])
-    const [openOwnerSelect, setOpenOwnerSelect] = useState(false)
     const [isContactFormOpen, setIsContactFormOpen] = useState(false)
+
+    // Contact links management
+    const [existingLinks, setExistingLinks] = useState([])
+    const [pendingLinks, setPendingLinks] = useState([])
+    const [removedLinkIds, setRemovedLinkIds] = useState([])
+    const [newLinkRole, setNewLinkRole] = useState('propietario')
+    const [newLinkContactId, setNewLinkContactId] = useState(null)
+    const [openContactSelect, setOpenContactSelect] = useState(false)
 
     const [formData, setFormData] = useState({
         property_type: 'Departamento',
@@ -67,16 +75,69 @@ const PropertyForm = ({ property, isOpen, onClose }) => {
                 bathrooms: property.bathrooms || '',
                 status: property.status || []
             })
+            if (property.id) {
+                fetchExistingLinks(property.id)
+            }
+        } else {
+            setExistingLinks([])
+            setPendingLinks([])
+            setRemovedLinkIds([])
         }
     }, [property, isOpen])
 
     const fetchContacts = async () => {
         const { data } = await supabase
             .from('contacts')
-            .select('id, first_name, last_name')
-            .limit(1000) // Reasonable limit
+            .select('id, first_name, last_name, email')
+            .limit(1000)
             .order('first_name')
         if (data) setContacts(data)
+    }
+
+    const fetchExistingLinks = async (propertyId) => {
+        try {
+            const { data } = await supabase
+                .from('property_contacts')
+                .select('id, contact_id, role, contact:contact_id(id, first_name, last_name, email)')
+                .eq('property_id', propertyId)
+
+            setExistingLinks(data || [])
+            setRemovedLinkIds([])
+            setPendingLinks([])
+        } catch (error) {
+            console.error('Error fetching contact links', error)
+        }
+    }
+
+    const handleAddPendingLink = () => {
+        if (!newLinkContactId) {
+            toast.error('Selecciona un contacto')
+            return
+        }
+        const isDuplicate = [...existingLinks, ...pendingLinks].some(
+            l => (l.contact_id === newLinkContactId) && (l.role === newLinkRole)
+        )
+        if (isDuplicate) {
+            toast.error('Este contacto ya tiene ese rol asignado')
+            return
+        }
+        const c = contacts.find(c => c.id === newLinkContactId)
+        setPendingLinks(prev => [...prev, {
+            _tempId: Date.now(),
+            contact_id: newLinkContactId,
+            role: newLinkRole,
+            contact: c
+        }])
+        setNewLinkContactId(null)
+        setNewLinkRole('propietario')
+    }
+
+    const handleRemoveExistingLink = (linkId) => {
+        setRemovedLinkIds(prev => [...prev, linkId])
+    }
+
+    const handleRemovePendingLink = (tempId) => {
+        setPendingLinks(prev => prev.filter(l => l._tempId !== tempId))
     }
 
     const handleChange = (e) => {
@@ -137,48 +198,23 @@ const PropertyForm = ({ property, isOpen, onClose }) => {
 
             if (queryError) throw queryError
 
-            // Log activity and sync owner
+            // Log activity and save contact links
             if (savedProperty) {
-                // 1. Log creation/edit
                 await logActivity({
                     action: property?.id ? 'Editó' : 'Creó',
                     entity_type: 'Propiedad',
                     entity_id: savedProperty.id,
                     description: property?.id ? 'Editó la propiedad' : 'Creó una nueva propiedad',
                     property_id: savedProperty.id,
-                    details: { address: savedProperty.address } // context
+                    details: { address: savedProperty.address }
                 })
 
-                // 2. Sync owner with property_contacts table
-                if (dataToSave.owner_id) {
-                    const { error: relError } = await supabase
-                        .from('property_contacts')
-                        .upsert({
-                            property_id: savedProperty.id,
-                            contact_id: dataToSave.owner_id,
-                            role: 'Dueño'
-                        }, { onConflict: 'property_id,contact_id,role' }) // Ensure we don't duplicate exact same role
-
-                    if (relError) console.error('Error syncing owner relation:', relError)
-                }
-
-                // 3. Log owner link if changed
-                if (dataToSave.owner_id && dataToSave.owner_id !== property?.owner_id) {
-                    const activityDescription = `Vinculó propiedad: ${savedProperty.address}`
-
-                    await logActivity({
-                        action: 'Vinculó',
-                        entity_type: 'Propiedad',
-                        entity_id: savedProperty.id,
-                        description: activityDescription,
-                        contact_id: dataToSave.owner_id,
-                        property_id: savedProperty.id
-                    })
-                }
+                // Save contact links (add pending + remove deleted)
+                await saveContactLinks(savedProperty.id)
             }
 
             toast.success(property ? 'Propiedad actualizada' : 'Propiedad creada')
-            onClose(true)
+            onClose(savedProperty)
         } catch (error) {
             console.error('Error saving property:', error)
             toast.error('Error al guardar propiedad')
@@ -187,10 +223,47 @@ const PropertyForm = ({ property, isOpen, onClose }) => {
         }
     }
 
+    const saveContactLinks = async (propertyId) => {
+        const userId = user?.id
+
+        // 1. Delete removed links
+        for (const linkId of removedLinkIds) {
+            const removedLink = existingLinks.find(l => l.id === linkId)
+            await supabase.from('property_contacts').delete().eq('id', linkId)
+            if (removedLink?.role === 'propietario') {
+                await supabase.from('properties').update({ owner_id: null }).eq('id', propertyId)
+            }
+        }
+
+        // 2. Insert pending links
+        for (const link of pendingLinks) {
+            const { error } = await supabase.from('property_contacts').insert({
+                property_id: propertyId,
+                contact_id: link.contact_id,
+                role: link.role,
+                agent_id: userId
+            })
+            if (error && error.code !== '23505') {
+                console.error('Error inserting contact link', error)
+            }
+            if (link.role === 'propietario') {
+                await supabase.from('properties').update({ owner_id: link.contact_id }).eq('id', propertyId)
+            }
+            await logActivity({
+                action: 'Vinculó',
+                entity_type: 'Contacto',
+                entity_id: link.contact_id,
+                description: `Vinculado como ${link.role} de la propiedad`,
+                contact_id: link.contact_id,
+                property_id: propertyId
+            })
+        }
+    }
+
     if (!isOpen) return null
 
     return createPortal(
-        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 sm:p-6">
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 sm:p-6" style={{ pointerEvents: 'auto' }}>
             <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => onClose(false)} />
             <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
@@ -282,63 +355,150 @@ const PropertyForm = ({ property, isOpen, onClose }) => {
                             <label className="text-sm font-medium">Número de Unidad (Opcional)</label>
                             <Input name="unit_number" value={formData.unit_number} onChange={handleChange} placeholder="Depto 101, etc." />
                         </div>
+                    </Section>
 
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium">Dueño (Contacto)</label>
-                            <Popover open={openOwnerSelect} onOpenChange={setOpenOwnerSelect}>
-                                <PopoverTrigger asChild>
+                    {/* Contactos Section — replaces old single Dueño picker */}
+                    <div className="mb-6">
+                        <h4 className="text-sm font-semibold mb-3 text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                            <UserPlus className="w-4 h-4" /> Contactos Vinculados
+                        </h4>
+
+                        <div className="space-y-2 mb-3">
+                            {existingLinks
+                                .filter(l => !removedLinkIds.includes(l.id))
+                                .map(link => (
+                                    <div key={link.id} className="flex items-center gap-2 p-2.5 rounded-lg border bg-gray-50 dark:bg-gray-800/50 group">
+                                        <div className="flex-1 min-w-0">
+                                            <div className="text-sm font-medium truncate">{link.contact?.first_name} {link.contact?.last_name}</div>
+                                            <div className="text-xs text-muted-foreground">{link.contact?.email}</div>
+                                        </div>
+                                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium capitalize whitespace-nowrap ${ROLE_COLORS[link.role] || 'bg-gray-100 text-gray-800'}`}>
+                                            {link.role}
+                                        </span>
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-7 w-7 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 opacity-0 group-hover:opacity-100 transition-opacity"
+                                            onClick={() => handleRemoveExistingLink(link.id)}
+                                        >
+                                            <Trash2 className="w-3.5 h-3.5" />
+                                        </Button>
+                                    </div>
+                                ))}
+
+                            {pendingLinks.map(link => (
+                                <div key={link._tempId} className="flex items-center gap-2 p-2.5 rounded-lg border border-dashed border-primary/30 bg-primary/5 group">
+                                    <div className="flex-1 min-w-0">
+                                        <div className="text-sm font-medium truncate">{link.contact?.first_name} {link.contact?.last_name}</div>
+                                        <div className="text-xs text-muted-foreground">{link.contact?.email}</div>
+                                    </div>
+                                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium capitalize whitespace-nowrap ${ROLE_COLORS[link.role] || 'bg-gray-100 text-gray-800'}`}>
+                                        {link.role}
+                                    </span>
+                                    <span className="text-[9px] text-primary font-medium">nuevo</span>
                                     <Button
-                                        variant="outline"
-                                        role="combobox"
-                                        aria-expanded={openOwnerSelect}
-                                        className="w-full justify-between"
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-7 w-7 text-red-500 hover:text-red-600"
+                                        onClick={() => handleRemovePendingLink(link._tempId)}
                                     >
-                                        {formData.owner_id
-                                            ? contacts.find((contact) => contact.id === formData.owner_id)?.first_name + " " + contacts.find((contact) => contact.id === formData.owner_id)?.last_name
-                                            : "Seleccionar dueño..."}
-                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                        <Trash2 className="w-3.5 h-3.5" />
                                     </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-[300px] p-0 z-[200]">
-                                    <Command>
-                                        <CommandInput placeholder="Buscar contacto..." />
-                                        <CommandList>
-                                            <CommandEmpty>No encontrado.</CommandEmpty>
-                                            <CommandGroup>
-                                                <CommandItem
-                                                    onSelect={() => {
-                                                        setOpenOwnerSelect(false)
-                                                        setIsContactFormOpen(true)
-                                                    }}
-                                                    className="font-medium text-primary cursor-pointer border-b mb-1 pb-1"
-                                                >
-                                                    <Plus className="mr-2 h-4 w-4" />
-                                                    Crear nuevo contacto
-                                                </CommandItem>
-                                                {contacts.map((contact) => (
-                                                    <CommandItem
-                                                        key={contact.id}
-                                                        value={contact.first_name + " " + contact.last_name}
-                                                        onSelect={(currentValue) => {
-                                                            setFormData(prev => ({ ...prev, owner_id: contact.id }))
-                                                            setOpenOwnerSelect(false)
-                                                        }}
-                                                    >
-                                                        <Check
-                                                            className={cn("mr-2 h-4 w-4", formData.owner_id === contact.id ? "opacity-100" : "opacity-0")}
-                                                        />
-                                                        {contact.first_name} {contact.last_name}
-                                                    </CommandItem>
-                                                ))}
-                                            </CommandGroup>
-                                        </CommandList>
-                                    </Command>
-                                </PopoverContent>
-                            </Popover>
+                                </div>
+                            ))}
+
+                            {existingLinks.filter(l => !removedLinkIds.includes(l.id)).length === 0 && pendingLinks.length === 0 && (
+                                <p className="text-sm text-muted-foreground text-center py-3">Sin contactos vinculados</p>
+                            )}
                         </div>
 
-                        <div className="space-y-2 lg:col-span-2">
-                            <label className="text-sm font-medium block mb-2">Estado Comercial (Selección Múltiple)</label>
+                        {/* Add new link row */}
+                        <div className="flex gap-2 items-end">
+                            <div className="flex-1">
+                                <Label className="text-xs mb-1 block">Contacto</Label>
+                                <Popover open={openContactSelect} onOpenChange={setOpenContactSelect}>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            role="combobox"
+                                            className="w-full justify-between text-left h-9 text-sm"
+                                        >
+                                            <span className="truncate">
+                                                {newLinkContactId
+                                                    ? (() => {
+                                                        const c = contacts.find(c => c.id === newLinkContactId)
+                                                        return c ? `${c.first_name} ${c.last_name}` : 'Seleccionar...'
+                                                    })()
+                                                    : "Seleccionar..."}
+                                            </span>
+                                            <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-[320px] p-0 z-[300]">
+                                        <Command>
+                                            <CommandInput placeholder="Buscar contacto..." />
+                                            <CommandList>
+                                                <CommandEmpty>No encontrado.</CommandEmpty>
+                                                <CommandGroup>
+                                                    <CommandItem
+                                                        onSelect={() => {
+                                                            setOpenContactSelect(false)
+                                                            setIsContactFormOpen(true)
+                                                        }}
+                                                        className="font-medium text-primary cursor-pointer border-b mb-1 pb-1"
+                                                    >
+                                                        <Plus className="mr-2 h-4 w-4" />
+                                                        Crear nuevo contacto
+                                                    </CommandItem>
+                                                    {contacts.map((contact) => (
+                                                        <CommandItem
+                                                            key={contact.id}
+                                                            value={contact.first_name + " " + contact.last_name}
+                                                            onSelect={() => {
+                                                                setNewLinkContactId(contact.id)
+                                                                setOpenContactSelect(false)
+                                                            }}
+                                                        >
+                                                            <Check className={cn("mr-2 h-4 w-4", newLinkContactId === contact.id ? "opacity-100" : "opacity-0")} />
+                                                            {contact.first_name} {contact.last_name}
+                                                            {contact.email && <span className="ml-2 text-xs text-muted-foreground truncate">({contact.email})</span>}
+                                                        </CommandItem>
+                                                    ))}
+                                                </CommandGroup>
+                                            </CommandList>
+                                        </Command>
+                                    </PopoverContent>
+                                </Popover>
+                            </div>
+                            <div className="w-36">
+                                <Label className="text-xs mb-1 block">Rol</Label>
+                                <select
+                                    value={newLinkRole}
+                                    onChange={(e) => setNewLinkRole(e.target.value)}
+                                    className="flex h-9 w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
+                                >
+                                    {ROLES.map(r => (
+                                        <option key={r.value} value={r.value}>{r.label}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="h-9 gap-1"
+                                onClick={handleAddPendingLink}
+                            >
+                                <Plus className="w-3.5 h-3.5" /> Agregar
+                            </Button>
+                        </div>
+                    </div>
+
+                    <Section title="Estado Comercial">
+                        <div className="space-y-2 col-span-2">
                             <div className="flex flex-wrap gap-2">
                                 {STATUS_OPTIONS.map(status => (
                                     <Badge
@@ -415,12 +575,13 @@ const PropertyForm = ({ property, isOpen, onClose }) => {
                         setIsContactFormOpen(false)
                         if (newContact) {
                             setContacts(prev => [...prev, newContact])
-                            setFormData(prev => ({ ...prev, owner_id: newContact.id }))
+                            // Auto-select the new contact in the picker
+                            setNewLinkContactId(newContact.id)
                         }
                     }}
                 />
             )}
-        </div>,
+        </div >,
         document.body
     )
 }

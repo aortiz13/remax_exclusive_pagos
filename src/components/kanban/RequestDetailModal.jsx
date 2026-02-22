@@ -1,9 +1,10 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, Badge } from '@/components/ui'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/services/supabase'
+import { triggerEvaluacionComercialCompletionWebhook } from '@/services/api'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { FileText, Receipt, User, Building2, Calendar, ClipboardList } from 'lucide-react'
+import { FileText, Receipt, User, Building2, Calendar, ClipboardList, ExternalLink } from 'lucide-react'
 import { toast } from 'sonner'
 
 export function RequestDetailModal({ request, isOpen, onClose }) {
@@ -14,6 +15,7 @@ export function RequestDetailModal({ request, isOpen, onClose }) {
     const [contractFiles, setContractFiles] = useState([])
     const [attachmentFiles, setAttachmentFiles] = useState([])
     const [completionNotes, setCompletionNotes] = useState('')
+    const [hasObservaciones, setHasObservaciones] = useState('none') // 'none', 'true', 'false'
     const [isCompleting, setIsCompleting] = useState(false)
     const [isAdmin, setIsAdmin] = useState(false)
 
@@ -65,7 +67,8 @@ export function RequestDetailModal({ request, isOpen, onClose }) {
     const typeConfig = {
         'contract': { icon: FileText, label: 'Contrato', color: 'text-indigo-600' },
         'invoice': { icon: Receipt, label: 'Factura', color: 'text-emerald-600' },
-        'calculation': { icon: Receipt, label: 'Cálculo', color: 'text-blue-600' }
+        'calculation': { icon: Receipt, label: 'Cálculo', color: 'text-blue-600' },
+        'evaluacion_comercial': { icon: ClipboardList, label: 'Eval. Comercial', color: 'text-amber-600' }
     }
     const typeParams = typeConfig[request.type || 'contract'] || typeConfig['contract']
     const Icon = typeParams.icon
@@ -101,37 +104,85 @@ export function RequestDetailModal({ request, isOpen, onClose }) {
         return uploadedUrls
     }
 
+    const fileToBase64 = (file) => {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = error => reject(error);
+        });
+    };
+
     const handleComplete = async () => {
-        if (contractFiles.length === 0) {
-            toast.error('Por favor adjunta al menos un archivo de contrato.')
-            return
+        if (request.type === 'evaluacion_comercial') {
+            if (hasObservaciones === 'none') {
+                toast.error('Por favor indica si la evaluación tiene o no observaciones.')
+                return
+            }
+        } else {
+            if (contractFiles.length === 0) {
+                toast.error('Por favor adjunta al menos un archivo de contrato.')
+                return
+            }
         }
 
         setIsCompleting(true)
         try {
-            // 1. Upload Files
-            const contractUrls = await uploadFiles(Array.from(contractFiles), 'contracts')
-            const attachmentUrls = await uploadFiles(Array.from(attachmentFiles), 'attachments')
+            // 1. Upload Files and Convert to Base64
+            const contractArray = Array.from(contractFiles)
+            const attachmentArray = Array.from(attachmentFiles)
+
+            const [contractUrls, attachmentUrls, base64Documents] = await Promise.all([
+                request.type === 'evaluacion_comercial'
+                    ? uploadFiles(contractArray, 'evaluaciones')
+                    : uploadFiles(contractArray, 'contracts'),
+                request.type === 'evaluacion_comercial'
+                    ? uploadFiles(attachmentArray, 'evaluaciones_adjuntos')
+                    : uploadFiles(attachmentArray, 'attachments'),
+                Promise.all(
+                    [...contractArray, ...attachmentArray].map(async (file) => ({
+                        nombre: file.name,
+                        tipo: file.type,
+                        base64: await fileToBase64(file)
+                    }))
+                )
+            ])
 
             // 2. Prepare Webhook Payload
-            const payload = {
-                request_id: request.id,
-                agente_nombre: request.data?.agente?.nombre || request.data?.agenteNombre || request.user?.first_name,
-                agente_email: request.data?.agente?.email || request.data?.agenteEmail || request.user?.email,
-                tipo_solicitud: (request.data?.contract_type === 'buy-sell' ? 'Compraventa' : request.data?.contract_type === 'lease' ? 'Arriendo' : 'Contrato'),
-                contexto_solicitud: request.data?.direccion || request.data?.propiedadDireccion || request.data?.direccion_propiedad || request.data?.vendedorNombre || request.data?.arrendador_nombres || "Solicitud Genérica",
-                notas: completionNotes,
-                contratos: contractUrls,
-                adjuntos: attachmentUrls,
-                admin_email: 'departamento.legal@remax-exclusive.cl' // Or current user email
-            }
+            let webhookRes
+            if (request.type === 'evaluacion_comercial') {
+                const payload = {
+                    request_id: request.id,
+                    estado: "Realizada",
+                    observaciones: hasObservaciones === 'true',
+                    notas: completionNotes,
+                    agente: request.data?.agente,
+                    propiedad: request.data?.propiedad,
+                    propietario: request.data?.propietario,
+                    documentos: base64Documents
+                }
 
-            // 3. Send Webhook
-            const webhookRes = await fetch('https://workflow.remax-exclusive.cl/webhook/enviar-contrato', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            })
+                await triggerEvaluacionComercialCompletionWebhook(payload)
+                webhookRes = { ok: true }
+            } else {
+                const payload = {
+                    request_id: request.id,
+                    agente_nombre: request.data?.agente?.nombre || request.data?.agenteNombre || request.user?.first_name,
+                    agente_email: request.data?.agente?.email || request.data?.agenteEmail || request.user?.email,
+                    tipo_solicitud: (request.data?.contract_type === 'buy-sell' ? 'Compraventa' : request.data?.contract_type === 'lease' ? 'Arriendo' : 'Contrato'),
+                    contexto_solicitud: request.data?.direccion || request.data?.propiedadDireccion || request.data?.direccion_propiedad || request.data?.vendedorNombre || request.data?.arrendador_nombres || "Solicitud Genérica",
+                    notas: completionNotes,
+                    contratos: contractUrls,
+                    adjuntos: attachmentUrls,
+                    admin_email: 'departamento.legal@remax-exclusive.cl' // Or current user email
+                }
+
+                webhookRes = await fetch('https://workflow.remax-exclusive.cl/webhook/enviar-contrato', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                })
+            }
 
             if (!webhookRes.ok) throw new Error('Error enviando notificación al agente via Webhook')
 
@@ -236,12 +287,15 @@ export function RequestDetailModal({ request, isOpen, onClose }) {
                         {/* Property Info */}
                         <Section title="Propiedad" icon={Building2}>
                             <Field label="Dirección" value={
+                                request.data?.propiedad?.direccion ||
                                 request.data?.direccion ||
                                 request.data?.propiedadDireccion ||
                                 request.data?.direccion_propiedad
                             } className="md:col-span-2" />
-                            <Field label="Comuna" value={request.data?.comuna || request.data?.comuna_propiedad || request.data?.propiedadComuna || request.data?.arrendador_comuna} />
+                            <Field label="Comuna" value={request.data?.propiedad?.comuna || request.data?.comuna || request.data?.comuna_propiedad || request.data?.propiedadComuna || request.data?.arrendador_comuna} />
+                            <Field label="Rol" value={request.data?.propiedad?.rol || '-'} />
                             <Field label="Tipo" value={
+                                request.data?.tipo_evaluacion ||
                                 request.data?.tipoPropiedad ||
                                 (request.data?.contract_type === 'lease' ? 'Arriendo' :
                                     request.data?.contract_type === 'buy-sell' ? 'Compraventa' :
@@ -283,6 +337,10 @@ export function RequestDetailModal({ request, isOpen, onClose }) {
                                     <Field label="Monto Comisión" value={request.data?.montoComision} />
                                     <Field label="Notas" value={request.data?.notas} className="md:col-span-2" />
                                 </>
+                            ) : request.type === 'evaluacion_comercial' ? (
+                                <>
+                                    {/* Eval Comercial specific details if any */}
+                                </>
                             ) : (
                                 <>
                                     <Field label={request.data?.contract_type === 'buy-sell' ? 'Valor Venta' : 'Canon Arriendo'}
@@ -300,6 +358,30 @@ export function RequestDetailModal({ request, isOpen, onClose }) {
                                 </>
                             )}
                         </Section>
+
+                        {/* Uploaded Documents */}
+                        {request.data?.archivos_adjuntos && request.data.archivos_adjuntos.length > 0 && (
+                            <Section title="Documentos Subidos por el Agente" icon={FileText}>
+                                <div className="space-y-3 col-span-1 md:col-span-2">
+                                    {request.data.archivos_adjuntos.map((file, idx) => (
+                                        <div key={idx} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-800">
+                                            <div className="flex items-center gap-3">
+                                                <FileText className="h-4 w-4 text-primary" />
+                                                <span className="text-sm font-medium text-slate-900 dark:text-slate-100">{file.name}</span>
+                                            </div>
+                                            <a
+                                                href={file.url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-xs text-primary hover:underline flex items-center gap-1 font-medium bg-primary/10 px-2 py-1 rounded-md"
+                                            >
+                                                Ver Archivo <ExternalLink className="h-3 w-3" />
+                                            </a>
+                                        </div>
+                                    ))}
+                                </div>
+                            </Section>
+                        )}
                     </div>
 
                     {/* Admin Completion Section */}
@@ -312,7 +394,7 @@ export function RequestDetailModal({ request, isOpen, onClose }) {
                             <div className="bg-slate-50 dark:bg-slate-900/50 p-6 rounded-lg border border-slate-200 dark:border-slate-800 space-y-6">
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                                        Contrato Redactado (Obligatorio)
+                                        {request.type === 'evaluacion_comercial' ? 'Archivos Adicionales' : 'Contrato Redactado (Obligatorio)'}
                                     </label>
                                     <input
                                         type="file"
@@ -320,21 +402,42 @@ export function RequestDetailModal({ request, isOpen, onClose }) {
                                         className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
                                         onChange={(e) => setContractFiles(e.target.files)}
                                     />
-                                    <p className="text-xs text-slate-400 mt-1">Sube el contrato final en PDF o Word.</p>
+                                    <p className="text-xs text-slate-400 mt-1">
+                                        {request.type === 'evaluacion_comercial' ? 'Sube documentos adicionales de resultados.' : 'Sube el contrato final en PDF o Word.'}
+                                    </p>
                                 </div>
 
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                                        Adjuntos Adicionales (Opcional)
-                                    </label>
-                                    <input
-                                        type="file"
-                                        multiple
-                                        className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
-                                        onChange={(e) => setAttachmentFiles(e.target.files)}
-                                    />
-                                    <p className="text-xs text-slate-400 mt-1">Instrucciones notariales, borradores, etc.</p>
-                                </div>
+                                {request.type !== 'evaluacion_comercial' && (
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                                            Adjuntos Adicionales (Opcional)
+                                        </label>
+                                        <input
+                                            type="file"
+                                            multiple
+                                            className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+                                            onChange={(e) => setAttachmentFiles(e.target.files)}
+                                        />
+                                        <p className="text-xs text-slate-400 mt-1">Instrucciones notariales, borradores, etc.</p>
+                                    </div>
+                                )}
+
+                                {request.type === 'evaluacion_comercial' && (
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                                            Estado de Observaciones <span className="text-red-500">*</span>
+                                        </label>
+                                        <select
+                                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                            value={hasObservaciones}
+                                            onChange={(e) => setHasObservaciones(e.target.value)}
+                                        >
+                                            <option value="none" disabled>Seleccione una opción</option>
+                                            <option value="true">Con Observaciones</option>
+                                            <option value="false">Sin Observaciones</option>
+                                        </select>
+                                    </div>
+                                )}
 
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
