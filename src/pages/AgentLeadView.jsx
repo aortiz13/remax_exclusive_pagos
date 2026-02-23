@@ -4,7 +4,7 @@ import { supabase } from '../services/supabase'
 import { Card, CardContent, CardHeader, CardTitle, Badge } from "@/components/ui"
 import {
     Loader2, AlertCircle, Phone, Mail, MessageCircle, MapPin,
-    Home, DollarSign, User, ChevronDown, ChevronUp, Copy
+    Home, DollarSign, User, ChevronDown, ChevronUp, Copy, UserCheck
 } from "lucide-react"
 import { toast } from 'sonner'
 

@@ -311,14 +311,14 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
                                     <SelectValue placeholder="Seleccione propiedad" />
                                 </SelectTrigger>
                                 <SelectContent>
+                                    <SelectItem value="new" className="text-primary font-medium">
+                                        + Crear nueva propiedad
+                                    </SelectItem>
+                                    <div className="h-px bg-muted my-1" />
                                     <SelectItem value="none">Ninguna</SelectItem>
                                     {properties.map(p => (
                                         <SelectItem key={p.id} value={p.id}>{p.address}</SelectItem>
                                     ))}
-                                    <div className="h-px bg-muted my-1" />
-                                    <SelectItem value="new" className="text-primary font-medium">
-                                        + Crear nueva propiedad
-                                    </SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
@@ -328,7 +328,7 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
                             <Label>Contactos Asociados {viewOnly ? '' : <span className="text-red-500">*</span>}</Label>
                             <Popover open={openContactCombo} onOpenChange={(open) => {
                                 if (!viewOnly) setOpenContactCombo(open);
-                            }}>
+                            }} modal={false}>
                                 <PopoverTrigger asChild>
                                     <Button
                                         variant="outline"
@@ -362,10 +362,10 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
                                         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                     </Button>
                                 </PopoverTrigger>
-                                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                                <PopoverContent className="w-[--radix-popover-trigger-width] p-0 pointer-events-auto" align="start" onWheel={(e) => e.stopPropagation()}>
                                     <Command>
                                         <CommandInput placeholder="Buscar contacto..." />
-                                        <CommandList>
+                                        <CommandList className="max-h-[200px]" onWheel={(e) => e.stopPropagation()}>
                                             <CommandEmpty>No se encontraron contactos.</CommandEmpty>
                                             <CommandGroup>
                                                 <CommandItem

@@ -53,12 +53,17 @@ export default function Header() {
                             <SheetContent side="left" className="w-[280px] p-0 border-r-0">
                                 <SheetHeader className="p-6 border-b border-slate-100">
                                     <SheetTitle className="flex items-center gap-3">
-                                        <img
-                                            src="https://res.cloudinary.com/dhzmkxbek/image/upload/v1769611638/ChatGPT_Image_28_ene_2026_11_47_11_a.m._n41jc4.png"
-                                            alt="RE/MAX"
-                                            className="h-8 w-auto object-contain"
-                                        />
-                                        <span className="font-display font-bold text-xl">Exclusive</span>
+                                        <div className="shrink-0 flex items-center justify-center p-1.5 bg-gradient-to-br from-blue-50 to-white dark:from-slate-800 dark:to-slate-900 rounded-lg shadow-sm border border-slate-100 dark:border-slate-800">
+                                            <img
+                                                src="https://res.cloudinary.com/dhzmkxbek/image/upload/v1770205777/Globo_REMAX_sin_fondo_PNG_xiqr1a.png"
+                                                alt="RE/MAX Exclusive"
+                                                className="h-6 w-auto object-contain"
+                                            />
+                                        </div>
+                                        <div className="flex flex-col items-start text-left">
+                                            <span className="font-display font-bold text-lg leading-none text-slate-900">Exclusive</span>
+                                            <span className="text-[9px] text-slate-400 font-semibold tracking-widest uppercase mt-0.5">Workspace</span>
+                                        </div>
                                     </SheetTitle>
                                 </SheetHeader>
                                 <div className="p-4 space-y-2">
@@ -100,12 +105,14 @@ export default function Header() {
                             </SheetContent>
                         </Sheet>
                     )}
-                    <Link to={user ? "/dashboard" : "/"} className="flex items-center gap-3">
-                        <img
-                            src="https://res.cloudinary.com/dhzmkxbek/image/upload/v1769611638/ChatGPT_Image_28_ene_2026_11_47_11_a.m._n41jc4.png"
-                            alt="RE/MAX Exclusive"
-                            className="h-8 w-auto object-contain"
-                        />
+                    <Link to={user ? "/dashboard" : "/"} className="flex items-center gap-2">
+                        <div className="shrink-0 flex items-center justify-center p-1.5 bg-gradient-to-br from-blue-50 to-white dark:from-slate-800 dark:to-slate-900 rounded-lg shadow-sm border border-white/50">
+                            <img
+                                src="https://res.cloudinary.com/dhzmkxbek/image/upload/v1770205777/Globo_REMAX_sin_fondo_PNG_xiqr1a.png"
+                                alt="RE/MAX Exclusive"
+                                className="h-6 w-auto object-contain"
+                            />
+                        </div>
                     </Link>
                 </div>
 
