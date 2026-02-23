@@ -36,7 +36,7 @@ export default function Login() {
                         Iniciar Sesión
                     </CardTitle>
                     <CardDescription className="text-center">
-                        Bienvenido al Generador de Solicitudes RE/MAX
+                        Bienvenido al Workspace de Remax Excusive
                     </CardDescription>
                 </CardHeader>
                 <form onSubmit={handleAuth}>
