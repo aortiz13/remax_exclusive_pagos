@@ -56,8 +56,16 @@ serve(async (req) => {
         );
 
         const body = await req.json().catch(() => ({}));
-        const { action } = body;
+        const { action, reset } = body;
         const agentId = user.id; // Always use the authenticated user's ID
+
+        // Force reset if requested
+        if (reset) {
+            await adminClient
+                .from('profiles')
+                .update({ google_sync_token: null })
+                .eq('id', agentId);
+        }
 
         const { data: profile, error: profileError } = await adminClient
             .from('profiles')
@@ -77,9 +85,18 @@ serve(async (req) => {
         // --- SYNC FROM GOOGLE TO CRM ---
         if (action === 'sync_from_google') {
             let url = 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
-            if (profile.google_sync_token) {
-                url += `?syncToken=${profile.google_sync_token}`;
+            const params = new URLSearchParams();
+
+            if (profile.google_sync_token && !reset) {
+                params.set('syncToken', profile.google_sync_token);
+            } else {
+                // Initial sync or reset: fetch from 6 months ago to future
+                const sixMonthsAgo = new Date();
+                sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+                params.set('timeMin', sixMonthsAgo.toISOString());
             }
+
+            url += `?${params.toString()}`;
 
             const response = await fetch(url, {
                 headers: { Authorization: `Bearer ${accessToken}` },
@@ -95,12 +112,16 @@ serve(async (req) => {
 
             const data = await response.json();
             const events = data.items || [];
+            let processed = 0;
+
+            console.log(`Processing ${events.length} events for agent ${agentId} (Action: ${action}, Reset: ${reset})`);
 
             for (const event of events) {
                 const isDeleted = event.status === 'cancelled';
 
                 if (isDeleted) {
-                    await adminClient.from('crm_tasks').delete().eq('google_event_id', event.id);
+                    const { error: delErr } = await adminClient.from('crm_tasks').delete().eq('google_event_id', event.id);
+                    if (delErr) console.error(`Delete error for ${event.id}:`, delErr);
                 } else {
                     const taskData = {
                         agent_id: agentId,
@@ -112,7 +133,17 @@ serve(async (req) => {
                         last_synced_at: new Date().toISOString(),
                     };
 
-                    await adminClient.from('crm_tasks').upsert(taskData, { onConflict: 'google_event_id' });
+                    if (!taskData.execution_date) {
+                        console.warn(`Skipping event ${event.id} due to missing date`);
+                        continue;
+                    }
+
+                    const { error: upsertErr } = await adminClient.from('crm_tasks').upsert(taskData, { onConflict: 'google_event_id' });
+                    if (upsertErr) {
+                        console.error(`Upsert error for ${event.id}:`, upsertErr);
+                    } else {
+                        processed++;
+                    }
                 }
             }
 
@@ -120,7 +151,8 @@ serve(async (req) => {
                 await adminClient.from('profiles').update({ google_sync_token: data.nextSyncToken }).eq('id', agentId);
             }
 
-            return new Response(JSON.stringify({ success: true, count: events.length }), {
+            console.log(`Sync complete. Processed: ${processed}`);
+            return new Response(JSON.stringify({ success: true, count: processed }), {
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             });
         }
@@ -128,15 +160,15 @@ serve(async (req) => {
         // --- PUSH LOCAL TASK TO GOOGLE ---
         if (action === 'push_to_google') {
             const { taskId } = body;
-            const { data: task } = await adminClient.from('crm_tasks').select('*').eq('id', taskId).single();
+            const { data: task, error: taskErr } = await adminClient.from('crm_tasks').select('*').eq('id', taskId).single();
 
-            if (!task) throw new Error('Task not found');
+            if (taskErr || !task) throw new Error('Task not found');
             if (task.agent_id !== agentId) throw new Error('Unauthorized');
 
             const googleEvent = {
                 summary: task.action,
                 description: task.description,
-                start: { dateTime: task.execution_date },
+                start: { dateTime: new Date(task.execution_date).toISOString() },
                 end: { dateTime: new Date(new Date(task.execution_date).getTime() + 3600000).toISOString() }, // Default 1h
             };
 
@@ -165,11 +197,15 @@ serve(async (req) => {
                     google_etag: result.etag,
                     last_synced_at: new Date().toISOString()
                 }).eq('id', taskId);
+                return new Response(JSON.stringify({ success: true, google_id: result.id }), {
+                    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                });
+            } else {
+                console.error('Google Push Error:', result);
+                return new Response(JSON.stringify({ success: false, error: result }), {
+                    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                });
             }
-
-            return new Response(JSON.stringify({ success: response.ok, google_id: result.id }), {
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            });
         }
 
         return new Response(JSON.stringify({ error: 'Action not found' }), {
