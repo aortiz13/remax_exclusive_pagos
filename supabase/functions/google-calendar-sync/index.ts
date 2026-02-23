@@ -171,13 +171,21 @@ serve(async (req) => {
             if (taskErr || !task) throw new Error('Task not found');
             if (task.agent_id !== agentId) throw new Error('Unauthorized');
 
+            const attendees = [...(task.attendees || [])];
+            if (task.contact_id) {
+                const { data: contact } = await adminClient.from('contacts').select('email').eq('id', task.contact_id).single();
+                if (contact?.email && !attendees.some((a: any) => a.email === contact.email)) {
+                    attendees.push({ email: contact.email });
+                }
+            }
+
             const googleEvent: any = {
                 summary: task.action,
                 description: task.description_html || task.description,
                 location: task.location || '',
                 start: { dateTime: new Date(task.execution_date).toISOString() },
                 end: { dateTime: new Date(task.end_date || (new Date(task.execution_date).getTime() + 3600000)).toISOString() },
-                attendees: task.attendees || [],
+                attendees,
             };
 
             if (create_meet) {

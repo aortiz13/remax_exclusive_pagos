@@ -652,7 +652,8 @@ export default function CalendarPage() {
 
         switch (event.type) {
             case 'call': backgroundColor = '#3b82f6'; borderColor = '#2563eb'; break;
-            case 'email': backgroundColor = '#f59e0b'; borderColor = '#d97706'; break;
+            case 'email': backgroundColor = '#f43f5e'; borderColor = '#e11d48'; break; // rose for emails
+            case 'task': backgroundColor = '#f59e0b'; borderColor = '#d97706'; break;
             case 'meeting':
                 backgroundColor = '#10b981'
                 borderColor = '#059669'
@@ -1000,10 +1001,8 @@ export default function CalendarPage() {
                                                 <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent>
+                                                <SelectItem value="meeting">Evento / Reunión</SelectItem>
                                                 <SelectItem value="task">Tarea</SelectItem>
-                                                <SelectItem value="call">Llamada</SelectItem>
-                                                <SelectItem value="meeting">Reunión / Visita</SelectItem>
-                                                <SelectItem value="email">Correo</SelectItem>
                                             </SelectContent>
                                         </Select>
                                     </div>
@@ -1034,23 +1033,45 @@ export default function CalendarPage() {
 
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="space-y-1.5">
-                                        <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Inicio</Label>
+                                        <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                                            {formData.type === 'task' ? 'Fecha Límite' : 'Inicio'}
+                                        </Label>
                                         <Input
                                             type="datetime-local"
                                             className="h-9 text-sm"
                                             value={formData.start}
-                                            onChange={e => setFormData({ ...formData, start: e.target.value })}
+                                            onChange={e => {
+                                                const newStart = e.target.value;
+                                                const updates = { start: newStart };
+                                                if (formData.type === 'task') {
+                                                    // For tasks, end_date is start + 15 mins
+                                                    const startDate = new Date(newStart);
+                                                    if (!isNaN(startDate.getTime())) {
+                                                        const endDate = new Date(startDate.getTime() + 15 * 60000);
+                                                        // format to YYYY-MM-DDTHH:mm
+                                                        const year = endDate.getFullYear();
+                                                        const month = String(endDate.getMonth() + 1).padStart(2, '0');
+                                                        const day = String(endDate.getDate()).padStart(2, '0');
+                                                        const hours = String(endDate.getHours()).padStart(2, '0');
+                                                        const minutes = String(endDate.getMinutes()).padStart(2, '0');
+                                                        updates.end = `${year}-${month}-${day}T${hours}:${minutes}`;
+                                                    }
+                                                }
+                                                setFormData({ ...formData, ...updates });
+                                            }}
                                         />
                                     </div>
-                                    <div className="space-y-1.5">
-                                        <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Fin</Label>
-                                        <Input
-                                            type="datetime-local"
-                                            className="h-9 text-sm"
-                                            value={formData.end}
-                                            onChange={e => setFormData({ ...formData, end: e.target.value })}
-                                        />
-                                    </div>
+                                    {formData.type !== 'task' && (
+                                        <div className="space-y-1.5">
+                                            <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Fin</Label>
+                                            <Input
+                                                type="datetime-local"
+                                                className="h-9 text-sm"
+                                                value={formData.end}
+                                                onChange={e => setFormData({ ...formData, end: e.target.value })}
+                                            />
+                                        </div>
+                                    )}
                                 </div>
 
                                 {profile?.google_refresh_token && (
@@ -1104,7 +1125,18 @@ export default function CalendarPage() {
                                 </div>
 
                                 <div className="space-y-2">
-                                    <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Invitados</Label>
+                                    <div className="flex justify-between items-center">
+                                        <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                                            Invitados ({(() => {
+                                                const contact = contacts.find(c => c.id === formData.contactId);
+                                                const contactEmail = contact?.email;
+                                                const attendees = formData.attendees || [];
+                                                const uniqueEmails = new Set(attendees.map(a => a.email));
+                                                if (contactEmail) uniqueEmails.add(contactEmail);
+                                                return uniqueEmails.size;
+                                            })()})
+                                        </Label>
+                                    </div>
                                     <div className="flex gap-2">
                                         <Input
                                             className="h-9 text-sm bg-slate-50/50"
@@ -1117,18 +1149,31 @@ export default function CalendarPage() {
                                             Añadir
                                         </Button>
                                     </div>
-                                    {formData.attendees.length > 0 && (
-                                        <div className="flex flex-wrap gap-1.5 max-h-[80px] overflow-y-auto p-2 bg-slate-50/50 rounded-lg border border-slate-100">
-                                            {formData.attendees.map((attendee, idx) => (
-                                                <div key={idx} className="flex items-center gap-1.5 bg-white border border-slate-200 px-2 py-1 rounded shadow-sm text-[11px] text-slate-600">
-                                                    <span className="truncate max-w-[140px] font-medium">{attendee.email}</span>
-                                                    <button onClick={() => removeGuest(attendee.email)} className="text-slate-400 hover:text-red-500 transition-colors p-0.5">
-                                                        <X className="w-3 h-3" />
-                                                    </button>
+                                    <div className="space-y-1.5">
+                                        {formData.attendees.length > 0 && (
+                                            <div className="flex flex-wrap gap-1.5 max-h-[80px] overflow-y-auto p-2 bg-slate-50/50 rounded-lg border border-slate-100">
+                                                {formData.attendees.map((attendee, idx) => (
+                                                    <div key={idx} className="flex items-center gap-1.5 bg-white border border-slate-200 px-2 py-1 rounded shadow-sm text-[11px] text-slate-600">
+                                                        <span className="truncate max-w-[140px] font-medium">{attendee.email}</span>
+                                                        <button onClick={() => removeGuest(attendee.email)} className="text-slate-400 hover:text-red-500 transition-colors p-0.5">
+                                                            <X className="w-3 h-3" />
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                        {(() => {
+                                            const contact = contacts.find(c => c.id === formData.contactId);
+                                            return contact?.email && (
+                                                <div className="flex items-center justify-between text-xs py-1.5 px-3 bg-blue-50/50 rounded-lg border border-blue-100/50">
+                                                    <div className="flex items-center gap-2 truncate">
+                                                        <span className="text-blue-700 font-medium truncate">{contact.email}</span>
+                                                        <span className="text-[10px] text-blue-500 bg-blue-100/50 px-1.5 rounded uppercase font-bold">Cliente</span>
+                                                    </div>
                                                 </div>
-                                            ))}
-                                        </div>
-                                    )}
+                                            );
+                                        })()}
+                                    </div>
                                 </div>
 
                                 <div className="space-y-1.5">
