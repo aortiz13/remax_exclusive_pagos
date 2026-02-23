@@ -174,6 +174,61 @@ export default function CalendarPage() {
         }
     }, [user])
 
+    // Realtime subscription
+    useEffect(() => {
+        if (!user) return;
+
+        const channel = supabase
+            .channel('crm_tasks_calendar')
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'crm_tasks',
+                filter: `agent_id=eq.${user.id}`
+            }, () => {
+                fetchEvents(true)
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [user]);
+
+    // Background polling for Google Calendar (Auto-Sync)
+    useEffect(() => {
+        if (!user || !profile?.google_refresh_token) return;
+
+        const interval = setInterval(() => {
+            // Perform silent sync in background
+            supabase.functions.invoke('google-calendar-sync', {
+                body: { agentId: user.id, action: 'sync_from_google' }
+            }).then(({ error }) => {
+                // Sync action handles the DB update, Realtime handles the UI refresh
+                // But we call fetchEvents(true) just in case to be sure
+                if (!error) fetchEvents(true);
+            });
+        }, 60000); // Polling every 1 minute
+
+        return () => clearInterval(interval);
+    }, [user, profile?.google_refresh_token]);
+
+    // Sync on window focus (when returning from another tab)
+    useEffect(() => {
+        const handleFocus = () => {
+            if (user && profile?.google_refresh_token) {
+                supabase.functions.invoke('google-calendar-sync', {
+                    body: { agentId: user.id, action: 'sync_from_google' }
+                }).then(({ error }) => {
+                    if (!error) fetchEvents(true);
+                });
+            }
+        };
+
+        window.addEventListener('focus', handleFocus);
+        return () => window.removeEventListener('focus', handleFocus);
+    }, [user, profile?.google_refresh_token]);
+
     const fetchContacts = async () => {
         try {
             const { data } = await supabase.from('contacts').select('id, first_name, last_name').eq('agent_id', user.id)
@@ -192,8 +247,9 @@ export default function CalendarPage() {
         }
     }
 
-    const fetchEvents = async () => {
+    const fetchEvents = async (silent = false) => {
         try {
+            if (!silent) setLoading(true)
             const { data, error } = await supabase
                 .from('crm_tasks')
                 .select(`
