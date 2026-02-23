@@ -11,7 +11,7 @@ import { es } from 'date-fns/locale'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
 import 'react-big-calendar/lib/addons/dragAndDrop/styles.css'
 import { Card, CardContent, Button, Checkbox, Label, Input, Textarea, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription, AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui'
-import { ChevronLeft, ChevronRight, Filter, Plus, Clock, Calendar as CalendarIcon, MapPin, User, Bell, Trash2, RefreshCw, Phone, Mail, Users, CheckCircle } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Filter, Plus, Clock, Calendar as CalendarIcon, MapPin, User, Bell, Trash2, RefreshCw, Phone, Mail, Users, CheckCircle, Pencil, ExternalLink } from 'lucide-react'
 import { toast } from 'sonner'
 import { DayPicker } from 'react-day-picker'
 import 'react-day-picker/dist/style.css'
@@ -51,12 +51,14 @@ export default function CalendarPage() {
         type: 'task',
         contactId: 'none',
         propertyId: 'none',
-        reminder: 'none'
+        reminder: 'none',
+        location: ''
     })
     const [isSaving, setIsSaving] = useState(false)
     const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false)
     const [isDeleting, setIsDeleting] = useState(false)
     const [isSyncing, setIsSyncing] = useState(false)
+    const [isEditing, setIsEditing] = useState(false)
 
     useEffect(() => {
         if (user) {
@@ -96,6 +98,7 @@ export default function CalendarPage() {
                     description,
                     description_html,
                     task_type,
+                    location,
                     completed,
                     reminder_minutes,
                     google_event_id,
@@ -125,6 +128,7 @@ export default function CalendarPage() {
                     propertyId: task.property?.id,
                     propertyName: task.property?.address,
                     reminder: task.reminder_minutes,
+                    location: task.location,
                     isGoogleEvent: !!task.google_event_id
                 }
             })
@@ -193,8 +197,10 @@ export default function CalendarPage() {
             type: 'task',
             contactId: 'none',
             propertyId: 'none',
-            reminder: 'none'
+            reminder: 'none',
+            location: ''
         })
+        setIsEditing(true)
         setIsModalOpen(true)
     }
 
@@ -209,8 +215,10 @@ export default function CalendarPage() {
             type: event.type || 'task',
             contactId: event.contactId || 'none',
             propertyId: event.propertyId || 'none',
-            reminder: event.reminder ? event.reminder.toString() : 'none'
+            reminder: event.reminder ? event.reminder.toString() : 'none',
+            location: event.location || ''
         })
+        setIsEditing(false)
         setIsModalOpen(true)
     }
 
@@ -231,7 +239,8 @@ export default function CalendarPage() {
                 task_type: formData.type,
                 contact_id: formData.contactId === 'none' ? null : formData.contactId,
                 property_id: formData.propertyId === 'none' ? null : formData.propertyId,
-                reminder_minutes: formData.reminder === 'none' ? null : parseInt(formData.reminder)
+                reminder_minutes: formData.reminder === 'none' ? null : parseInt(formData.reminder),
+                location: formData.location
             }
 
             if (selectedEvent) {
@@ -308,6 +317,24 @@ export default function CalendarPage() {
             setIsDeleting(false)
             setIsDeleteConfirmOpen(false)
         }
+    }
+
+    const toggleCompleted = async () => {
+        if (!selectedEvent) return
+        const newStatus = !selectedEvent.completed
+        const { error } = await supabase
+            .from('crm_tasks')
+            .update({ completed: newStatus })
+            .eq('id', selectedEvent.id)
+
+        if (error) {
+            toast.error('Error al actualizar estado')
+            return
+        }
+
+        setSelectedEvent(prev => prev ? { ...prev, completed: newStatus } : null)
+        setEvents(prev => prev.map(e => e.id === selectedEvent.id ? { ...e, completed: newStatus } : e))
+        toast.success(newStatus ? 'Tarea completada' : 'Tarea pendiente')
     }
 
     const onEventDrop = async ({ event, start, end }) => {
@@ -387,9 +414,13 @@ export default function CalendarPage() {
         switch (event.type) {
             case 'call': backgroundColor = '#3b82f6'; borderColor = '#2563eb'; break;
             case 'email': backgroundColor = '#f59e0b'; borderColor = '#d97706'; break;
-            case 'meeting': backgroundColor = '#10b981'; borderColor = '#059669'; break;
+            case 'meeting':
+                backgroundColor = '#10b981'
+                borderColor = '#059669'
+                break;
         }
 
+        const isMeeting = event.type === 'meeting'
         const isGoogle = event.isGoogleEvent;
 
         return {
@@ -398,14 +429,16 @@ export default function CalendarPage() {
                 color: isGoogle ? 'white' : borderColor,
                 border: isGoogle ? 'none' : `1px solid ${backgroundColor}40`,
                 borderLeft: isGoogle ? 'none' : `4px solid ${borderColor}`,
+                borderTop: isMeeting && !isGoogle ? `2px solid ${borderColor}` : 'none',
                 borderRadius: '4px',
-                fontWeight: '500',
+                fontWeight: isMeeting ? '700' : '500',
                 fontSize: '0.8rem',
                 padding: '2px 5px',
-                boxShadow: isGoogle ? '0 1px 2px rgba(0,0,0,0.1)' : 'none',
+                boxShadow: isMeeting ? (isGoogle ? '0 2px 4px rgba(0,0,0,0.2)' : '0 1px 2px rgba(0,0,0,0.05)') : 'none',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '4px'
+                gap: '4px',
+                zIndex: isMeeting ? 5 : 1
             }
         }
     }
@@ -617,167 +650,262 @@ export default function CalendarPage() {
 
             {/* Create/Edit Modal */}
             <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-                <DialogContent className="sm:max-w-[500px]">
-                    <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2">
-                            {getModalConfig().icon}
-                            {getModalConfig().title}
-                        </DialogTitle>
-                        <DialogDescription>
-                            {selectedEvent?.isGoogleEvent
-                                ? 'Este evento se sincroniza con tu Google Calendar.'
-                                : 'Completa los detalles de tu actividad.'}
-                        </DialogDescription>
-                    </DialogHeader>
+                <DialogContent className="sm:max-w-[440px] p-0 overflow-hidden border-none shadow-2xl">
+                    {!isEditing && selectedEvent ? (
+                        <div className="flex flex-col">
+                            {/* View Mode Header */}
+                            <div className="h-2 w-full" style={{ backgroundColor: eventStyleGetter(selectedEvent).style.borderColor }} />
+                            <div className="p-6 space-y-4">
+                                <div className="flex justify-between items-start gap-4">
+                                    <div className="space-y-1 flex-1">
+                                        <h2 className="text-xl font-bold leading-tight">{selectedEvent.title}</h2>
+                                        <div className="flex items-center gap-2 text-slate-500 text-sm">
+                                            <CalendarIcon className="w-4 h-4" />
+                                            <span>
+                                                {format(selectedEvent.start, "EEEE, d 'de' MMMM", { locale: es })}
+                                                <br />
+                                                {format(selectedEvent.start, "p")} - {format(selectedEvent.end, "p")}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-1">
+                                        <Button variant="ghost" size="icon" onClick={() => setIsEditing(true)}>
+                                            <Pencil className="w-4 h-4 text-slate-500" />
+                                        </Button>
+                                        <Button variant="ghost" size="icon" onClick={() => setIsDeleteConfirmOpen(true)}>
+                                            <Trash2 className="w-4 h-4 text-slate-400 hover:text-red-500" />
+                                        </Button>
+                                    </div>
+                                </div>
 
-                    <div className="space-y-4 py-4">
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label>Tipo de Actividad</Label>
-                                <Select
-                                    value={formData.type}
-                                    onValueChange={v => setFormData({ ...formData, type: v })}
-                                    disabled={selectedEvent?.isGoogleEvent}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="task">Tarea</SelectItem>
-                                        <SelectItem value="call">Llamada</SelectItem>
-                                        <SelectItem value="meeting">Reunión / Visita</SelectItem>
-                                        <SelectItem value="email">Correo</SelectItem>
-                                    </SelectContent>
-                                </Select>
+                                <div className="space-y-3 pt-2">
+                                    <div className="flex items-center gap-3 text-sm text-slate-600">
+                                        {getModalConfig().icon}
+                                        <span className="capitalize">{formData.type === 'task' ? 'Tarea' : formData.type}</span>
+                                        <span className="mx-1">•</span>
+                                        <button
+                                            onClick={toggleCompleted}
+                                            className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-xs font-semibold transition-colors ${selectedEvent.completed ? 'bg-emerald-50 border-emerald-200 text-emerald-600' : 'bg-slate-50 border-slate-200 text-slate-500'}`}
+                                        >
+                                            {selectedEvent.completed ? <CheckCircle className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
+                                            {selectedEvent.completed ? 'Completada' : 'Pendiente'}
+                                        </button>
+                                    </div>
+
+                                    {formData.location && (
+                                        <div className="flex items-start gap-3 text-sm text-slate-600">
+                                            <MapPin className="w-5 h-5 text-slate-400 mt-0.5" />
+                                            <span>{formData.location}</span>
+                                        </div>
+                                    )}
+
+                                    {(selectedEvent.contactName || selectedEvent.propertyName) && (
+                                        <div className="flex flex-col gap-2 pl-8 pt-1">
+                                            {selectedEvent.contactName && (
+                                                <div className="flex items-center gap-2 text-sm text-slate-500">
+                                                    <User className="w-4 h-4" />
+                                                    <span>{selectedEvent.contactName}</span>
+                                                </div>
+                                            )}
+                                            {selectedEvent.propertyName && (
+                                                <div className="flex items-center gap-2 text-sm text-slate-500">
+                                                    <MapPin className="w-4 h-4" />
+                                                    <span className="truncate">{selectedEvent.propertyName}</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {formData.descriptionHtml || formData.description ? (
+                                        <div className="flex items-start gap-3 pt-3 border-t border-slate-100">
+                                            <div className="flex-1 text-sm text-slate-600 leading-relaxed">
+                                                {selectedEvent.isGoogleEvent && formData.descriptionHtml ? (
+                                                    <div className="prose prose-sm max-h-[200px] overflow-auto" dangerouslySetInnerHTML={{ __html: formData.descriptionHtml }} />
+                                                ) : (
+                                                    <p className="whitespace-pre-wrap">{formData.description}</p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ) : null}
+                                </div>
                             </div>
-                            <div className="space-y-2">
-                                <Label>Estado</Label>
-                                <Button
-                                    variant="outline"
-                                    className={`w-full justify-start gap-2 ${selectedEvent?.completed ? 'text-emerald-500 border-emerald-200 bg-emerald-50' : ''}`}
-                                    onClick={() => setSelectedEvent(prev => ({ ...prev, completed: !prev.completed }))}
-                                >
-                                    {selectedEvent?.completed ? <CheckCircle className="w-4 h-4" /> : <Clock className="w-4 h-4" />}
-                                    {selectedEvent?.completed ? 'Completado' : 'Pendiente'}
+                            <div className="p-4 bg-slate-50 flex justify-end gap-2 border-t border-slate-100">
+                                <Button variant="ghost" onClick={() => setIsModalOpen(false)}>Cerrar</Button>
+                                {!selectedEvent.isGoogleEvent && (
+                                    <Button onClick={() => setIsEditing(true)}>Editar</Button>
+                                )}
+                            </div>
+                        </div>
+                    ) : (
+                        /* Edit Mode */
+                        <div className="p-6 space-y-6">
+                            <DialogHeader>
+                                <DialogTitle className="flex items-center gap-2">
+                                    {getModalConfig().icon}
+                                    {getModalConfig().title}
+                                </DialogTitle>
+                                <DialogDescription>
+                                    {selectedEvent?.isGoogleEvent
+                                        ? 'Este evento se sincroniza con tu Google Calendar.'
+                                        : 'Completa los detalles de tu actividad.'}
+                                </DialogDescription>
+                            </DialogHeader>
+
+                            <div className="space-y-4">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label>Tipo de Actividad</Label>
+                                        <Select
+                                            value={formData.type}
+                                            onValueChange={v => setFormData({ ...formData, type: v })}
+                                            disabled={selectedEvent?.isGoogleEvent}
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="task">Tarea</SelectItem>
+                                                <SelectItem value="call">Llamada</SelectItem>
+                                                <SelectItem value="meeting">Reunión / Visita</SelectItem>
+                                                <SelectItem value="email">Correo</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Estado</Label>
+                                        <Button
+                                            variant="outline"
+                                            className={`w-full justify-start gap-2 ${selectedEvent?.completed ? 'text-emerald-500 border-emerald-200 bg-emerald-50' : ''}`}
+                                            onClick={toggleCompleted}
+                                        >
+                                            {selectedEvent?.completed ? <CheckCircle className="w-4 h-4" /> : <Clock className="w-4 h-4" />}
+                                            {selectedEvent?.completed ? 'Completado' : 'Pendiente'}
+                                        </Button>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label>Título *</Label>
+                                    <Input
+                                        placeholder="Ej: Llamar a cliente..."
+                                        value={formData.title}
+                                        onChange={e => setFormData({ ...formData, title: e.target.value })}
+                                    />
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label>Ubicación</Label>
+                                    <div className="relative">
+                                        <MapPin className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                                        <Input
+                                            className="pl-9"
+                                            placeholder="Dirección o link de reunión"
+                                            value={formData.location}
+                                            onChange={e => setFormData({ ...formData, location: e.target.value })}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label>Inicio *</Label>
+                                        <Input
+                                            type="datetime-local"
+                                            value={formData.start}
+                                            onChange={e => setFormData({ ...formData, start: e.target.value })}
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Fin *</Label>
+                                        <Input
+                                            type="datetime-local"
+                                            value={formData.end}
+                                            onChange={e => setFormData({ ...formData, end: e.target.value })}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label>Recordatorio</Label>
+                                    <Select
+                                        value={formData.reminder}
+                                        onValueChange={v => setFormData({ ...formData, reminder: v })}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Sin recordatorio" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="none">Sin recordatorio</SelectItem>
+                                            <SelectItem value="10">10 min antes</SelectItem>
+                                            <SelectItem value="30">30 min antes</SelectItem>
+                                            <SelectItem value="60">1 hora antes</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label>Contacto</Label>
+                                        <Select
+                                            value={formData.contactId}
+                                            onValueChange={v => setFormData({ ...formData, contactId: v })}
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Ninguno" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="none">Ninguno</SelectItem>
+                                                {contacts.map(c => (
+                                                    <SelectItem key={c.id} value={c.id}>{c.first_name} {c.last_name}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label>Propiedad</Label>
+                                        <Select
+                                            value={formData.propertyId}
+                                            onValueChange={v => setFormData({ ...formData, propertyId: v })}
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Ninguna" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="none">Ninguna</SelectItem>
+                                                {properties.map(p => (
+                                                    <SelectItem key={p.id} value={p.id}>{p.address}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label>Descripción</Label>
+                                    <Textarea
+                                        placeholder="Detalles adicionales..."
+                                        value={formData.description}
+                                        onChange={e => setFormData({ ...formData, description: e.target.value })}
+                                    />
+                                </div>
+                            </div>
+
+                            <DialogFooter className="flex-col-reverse sm:flex-row gap-2">
+                                {selectedEvent && (
+                                    <Button variant="destructive" type="button" onClick={() => setIsDeleteConfirmOpen(true)} className="sm:mr-auto">
+                                        <Trash2 className="w-4 h-4 mr-2" /> Eliminar
+                                    </Button>
+                                )}
+                                <Button variant="outline" onClick={() => selectedEvent ? setIsEditing(false) : setIsModalOpen(false)}>
+                                    {selectedEvent ? 'Atrás' : 'Cancelar'}
                                 </Button>
-                            </div>
+                                <Button onClick={handleSave} disabled={isSaving}>
+                                    {isSaving ? 'Guardando...' : selectedEvent ? 'Actualizar' : 'Crear Tarea'}
+                                </Button>
+                            </DialogFooter>
                         </div>
-
-                        <div className="space-y-2">
-                            <Label>Título *</Label>
-                            <Input
-                                placeholder="Ej: Llamar a cliente..."
-                                value={formData.title}
-                                onChange={e => setFormData({ ...formData, title: e.target.value })}
-                            />
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label>Inicio *</Label>
-                                <Input
-                                    type="datetime-local"
-                                    value={formData.start}
-                                    onChange={e => setFormData({ ...formData, start: e.target.value })}
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Fin *</Label>
-                                <Input
-                                    type="datetime-local"
-                                    value={formData.end}
-                                    onChange={e => setFormData({ ...formData, end: e.target.value })}
-                                />
-                            </div>
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label>Recordatorio</Label>
-                            <Select
-                                value={formData.reminder}
-                                onValueChange={v => setFormData({ ...formData, reminder: v })}
-                            >
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Sin recordatorio" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="none">Sin recordatorio</SelectItem>
-                                    <SelectItem value="10">10 min antes</SelectItem>
-                                    <SelectItem value="20">20 min antes</SelectItem>
-                                    <SelectItem value="30">30 min antes</SelectItem>
-                                    <SelectItem value="40">40 min antes</SelectItem>
-                                    <SelectItem value="50">50 min antes</SelectItem>
-                                    <SelectItem value="60">1 hora antes</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label>Contacto (Opcional)</Label>
-                                <Select
-                                    value={formData.contactId}
-                                    onValueChange={v => setFormData({ ...formData, contactId: v })}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Seleccionar contacto..." />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="none">Ninguno</SelectItem>
-                                        {contacts.map(c => (
-                                            <SelectItem key={c.id} value={c.id}>{c.first_name} {c.last_name}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label>Propiedad (Opcional)</Label>
-                                <Select
-                                    value={formData.propertyId}
-                                    onValueChange={v => setFormData({ ...formData, propertyId: v })}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Seleccionar propiedad..." />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="none">Ninguna</SelectItem>
-                                        {properties.map(p => (
-                                            <SelectItem key={p.id} value={p.id}>{p.address}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label>Descripción</Label>
-                            {selectedEvent?.isGoogleEvent && formData.descriptionHtml ? (
-                                <div
-                                    className="p-3 rounded-md bg-slate-50 border border-slate-200 text-sm overflow-auto max-h-[150px] leading-relaxed"
-                                    dangerouslySetInnerHTML={{ __html: formData.descriptionHtml }}
-                                />
-                            ) : (
-                                <Textarea
-                                    placeholder="Detalles adicionales..."
-                                    value={formData.description}
-                                    onChange={e => setFormData({ ...formData, description: e.target.value })}
-                                />
-                            )}
-                        </div>
-                    </div>
-
-                    <DialogFooter className="flex-col-reverse sm:flex-row gap-2">
-                        {selectedEvent && (
-                            <Button variant="destructive" type="button" onClick={() => setIsDeleteConfirmOpen(true)} className="sm:mr-auto">
-                                <Trash2 className="w-4 h-4 mr-2" /> Eliminar
-                            </Button>
-                        )}
-                        <Button variant="outline" onClick={() => setIsModalOpen(false)}>Cancelar</Button>
-                        <Button onClick={handleSave} disabled={isSaving}>
-                            {isSaving ? 'Guardando...' : selectedEvent ? 'Actualizar' : 'Crear Tarea'}
-                        </Button>
-                    </DialogFooter>
+                    )}
                 </DialogContent>
             </Dialog>
             <AlertDialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
