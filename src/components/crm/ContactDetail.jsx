@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../../services/supabase'
+import { useAuth } from '../../context/AuthContext'
 import { Button, AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, Input, Label } from "@/components/ui"
 import { ArrowLeft, Edit, Calendar, CheckCircle2, Circle, Trash2, AlertTriangle, Plus, Home } from 'lucide-react'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
@@ -13,6 +14,7 @@ import { logActivity } from '../../services/activityService'
 import ActionModal from './ActionModal'
 
 const ContactDetail = () => {
+    const { profile, user } = useAuth()
     const { id } = useParams()
     const navigate = useNavigate()
     const [contact, setContact] = useState(null)
@@ -141,6 +143,15 @@ const ContactDetail = () => {
 
             if (error) throw error
 
+            const task = tasks.find(t => t.id === taskId)
+
+            // Google Sync
+            if (profile?.google_refresh_token && task?.google_event_id) {
+                supabase.functions.invoke('google-calendar-sync', {
+                    body: { agentId: user.id, action: 'push_to_google', taskId: taskId }
+                })
+            }
+
             // Log activity for completion
             if (!currentStatus) {
                 await logActivity({
@@ -148,7 +159,7 @@ const ContactDetail = () => {
                     action: 'Tarea',
                     entity_type: 'Contacto',
                     entity_id: id,
-                    description: `Tarea completada: ${tasks.find(t => t.id === taskId)?.action}`
+                    description: `Tarea completada: ${task?.action}`
                 })
             }
 

@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { Button, Badge, Separator, AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui'
 import { ArrowLeft, User, MapPin, Building, Ruler, BedDouble, Bath, Link as LinkIcon, FileText, Briefcase, Plus, Filter, Trash2 } from 'lucide-react'
 import { supabase } from '../../services/supabase'
+import { useAuth } from '../../context/AuthContext'
 import PropertyForm from './PropertyForm'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import TaskModal from './TaskModal'
@@ -13,6 +14,7 @@ import { toast } from 'sonner'
 import ActionModal from './ActionModal'
 
 const PropertyDetail = () => {
+    const { profile, user } = useAuth()
     const { id } = useParams()
     const navigate = useNavigate()
     const [property, setProperty] = useState(null)
@@ -124,8 +126,16 @@ const PropertyDetail = () => {
         setTasks(prev => prev.map(t => t.id === taskId ? { ...t, completed: !currentStatus } : t))
         await supabase.from('crm_tasks').update({ completed: !currentStatus }).eq('id', taskId)
 
+        const task = tasks.find(t => t.id === taskId)
+
+        // Google Sync
+        if (profile?.google_refresh_token && task?.google_event_id) {
+            supabase.functions.invoke('google-calendar-sync', {
+                body: { agentId: user.id, action: 'push_to_google', taskId: taskId }
+            })
+        }
+
         if (!currentStatus) {
-            const task = tasks.find(t => t.id === taskId)
             await logActivity({
                 action: 'Tarea',
                 entity_type: 'Propiedad',

@@ -511,6 +511,13 @@ export default function CalendarPage() {
 
         setSelectedEvent(prev => prev ? { ...prev, completed: newStatus } : null)
         setEvents(prev => prev.map(e => e.id === selectedEvent.id ? { ...e, completed: newStatus } : e))
+
+        if (profile?.google_refresh_token && selectedEvent.resource?.google_event_id) {
+            supabase.functions.invoke('google-calendar-sync', {
+                body: { agentId: user.id, action: 'push_to_google', taskId: selectedEvent.id }
+            })
+        }
+
         toast.success(newStatus ? 'Tarea completada' : 'Tarea pendiente')
     }
 
