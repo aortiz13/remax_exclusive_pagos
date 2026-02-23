@@ -85,17 +85,24 @@ const TaskModal = ({ task, contactId, propertyId, isOpen, onClose }) => {
             }
 
             let error;
+            let savedTask = null;
             if (task?.id) {
-                const { error: updateError } = await supabase
+                const { data, error: updateError } = await supabase
                     .from('crm_tasks')
                     .update(dataToSave)
                     .eq('id', task.id)
+                    .select()
+                    .single()
                 error = updateError
+                savedTask = data
             } else {
-                const { error: insertError } = await supabase
+                const { data, error: insertError } = await supabase
                     .from('crm_tasks')
                     .insert([dataToSave])
+                    .select()
+                    .single()
                 error = insertError
+                savedTask = data
 
                 // Also add activity log if new task
                 if (!error) {
@@ -112,6 +119,13 @@ const TaskModal = ({ task, contactId, propertyId, isOpen, onClose }) => {
             }
 
             if (error) throw error
+
+            // Trigger Google Sync
+            if (profile?.google_refresh_token && savedTask) {
+                supabase.functions.invoke('google-calendar-sync', {
+                    body: { agentId: user.id, action: 'push_to_google', taskId: savedTask.id }
+                })
+            }
 
             toast.success(task ? 'Tarea actualizada' : 'Tarea creada')
             onClose(true)

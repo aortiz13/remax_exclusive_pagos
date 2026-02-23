@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../services/supabase'
+import { useAuth } from '../../context/AuthContext'
 import { Button } from "@/components/ui"
 import { CheckCircle2, Circle, Calendar, Clock, User, Plus } from 'lucide-react'
 import TaskModal from './TaskModal'
@@ -7,6 +8,7 @@ import { toast } from 'sonner'
 import { useNavigate } from 'react-router-dom'
 
 const TaskBoard = () => {
+    const { profile, user } = useAuth()
     const [tasks, setTasks] = useState([])
     const [loading, setLoading] = useState(true)
     const [isModalOpen, setIsModalOpen] = useState(false)
@@ -48,6 +50,13 @@ const TaskBoard = () => {
 
             // Optimistic update
             setTasks(prev => prev.map(t => t.id === taskId ? { ...t, completed: !currentStatus } : t))
+
+            const task = tasks.find(t => t.id === taskId)
+            if (profile?.google_refresh_token && task?.google_event_id) {
+                supabase.functions.invoke('google-calendar-sync', {
+                    body: { agentId: user.id, action: 'push_to_google', taskId: taskId }
+                })
+            }
 
             // Log completion
             if (!currentStatus) {
