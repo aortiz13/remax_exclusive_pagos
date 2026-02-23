@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../services/supabase'
 import { Calendar, dateFnsLocalizer, Views } from 'react-big-calendar'
@@ -886,7 +887,14 @@ export default function CalendarPage() {
                                                         <div className="w-5 h-5 flex items-center justify-center flex-none">
                                                             <User className="w-4 h-4 text-slate-400" />
                                                         </div>
-                                                        <span className="font-medium text-blue-600">{selectedEvent.contactName}</span>
+                                                        <Link
+                                                            to={`/crm/contact/${selectedEvent.contactId}`}
+                                                            target="_blank"
+                                                            className="font-medium text-blue-600 hover:text-blue-700 hover:underline flex items-center gap-1"
+                                                        >
+                                                            {selectedEvent.contactName}
+                                                            <ExternalLink className="w-3 h-3 shrink-0" />
+                                                        </Link>
                                                     </div>
                                                 )}
                                                 {selectedEvent.propertyName && (
@@ -894,7 +902,14 @@ export default function CalendarPage() {
                                                         <div className="w-5 h-5 flex items-center justify-center flex-none">
                                                             <MapPin className="w-4 h-4 text-slate-400" />
                                                         </div>
-                                                        <span className="truncate italic text-slate-500">{selectedEvent.propertyName}</span>
+                                                        <Link
+                                                            to={`/crm/property/${selectedEvent.propertyId}`}
+                                                            target="_blank"
+                                                            className="truncate italic text-slate-500 hover:text-blue-600 hover:underline flex items-center gap-1 min-w-0"
+                                                        >
+                                                            <span className="truncate">{selectedEvent.propertyName}</span>
+                                                            <ExternalLink className="w-3 h-3 shrink-0" />
+                                                        </Link>
                                                     </div>
                                                 )}
                                             </div>
