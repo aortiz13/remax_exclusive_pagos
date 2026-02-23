@@ -3,13 +3,17 @@ import { supabase } from '../../services/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { Search, Building2 } from 'lucide-react'
 
-export default function PropertyPickerInline({ onSelectProperty, label = 'Pre-llenar desde CRM' }) {
+export default function PropertyPickerInline({ onSelectProperty, label = 'Pre-llenar desde CRM', value, disabled = false }) {
     const { user } = useAuth()
     const [properties, setProperties] = useState([])
     const [loading, setLoading] = useState(true)
     const [searchTerm, setSearchTerm] = useState('')
     const [isOpen, setIsOpen] = useState(false)
-    const [selectedId, setSelectedId] = useState('')
+    const [selectedId, setSelectedId] = useState(value || '')
+
+    useEffect(() => {
+        if (value) setSelectedId(value)
+    }, [value])
 
     useEffect(() => {
         const fetchProperties = async () => {
@@ -62,8 +66,8 @@ export default function PropertyPickerInline({ onSelectProperty, label = 'Pre-ll
             </label>
             <div className="relative">
                 <div
-                    onClick={() => setIsOpen(!isOpen)}
-                    className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm cursor-pointer hover:bg-accent/50 transition-colors ring-offset-background focus:outline-none"
+                    onClick={() => !disabled && setIsOpen(!isOpen)}
+                    className={`flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm cursor-pointer hover:bg-accent/50 transition-colors ring-offset-background focus:outline-none ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                     <span className={selectedProperty ? 'text-foreground' : 'text-muted-foreground'}>
                         {loading
