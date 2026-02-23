@@ -3,14 +3,17 @@ import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../services/supabase'
 import { Button, Input, Label, Card, CardHeader, CardTitle, CardContent, CardFooter, CardDescription } from '@/components/ui'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom'
+import { Calendar } from 'lucide-react'
 
 export default function Profile() {
     const { user, profile, refreshProfile } = useAuth()
     const [loading, setLoading] = useState(false)
+    const [connectingGoogle, setConnectingGoogle] = useState(false)
     const [firstName, setFirstName] = useState('')
     const [lastName, setLastName] = useState('')
     const [phone, setPhone] = useState('')
+    const [searchParams, setSearchParams] = useSearchParams()
     const location = useLocation()
     const navigate = useNavigate()
 
@@ -27,6 +30,55 @@ export default function Profile() {
             setPhone(profile.phone || '')
         }
     }, [profile])
+
+    // Handle Google OAuth Callback
+    useEffect(() => {
+        const code = searchParams.get('code')
+        if (code) {
+            handleGoogleCallback(code)
+        }
+    }, [searchParams])
+
+    const handleGoogleCallback = async (code) => {
+        setConnectingGoogle(true)
+        const toastId = toast.loading('Finalizando conexión con Google...')
+        try {
+            const { data, error } = await supabase.functions.invoke('google-auth', {
+                method: 'POST',
+                body: { action: 'callback', code }
+            })
+
+            if (error) throw error
+
+            toast.success('Google Calendar vinculado correctamente', { id: toastId })
+            await refreshProfile()
+            // Clear URL params
+            setSearchParams({})
+        } catch (error) {
+            console.error(error)
+            toast.error(error.message || 'Error al vincular Google Calendar', { id: toastId })
+        } finally {
+            setConnectingGoogle(false)
+        }
+    }
+
+    const connectGoogleCalendar = async () => {
+        setConnectingGoogle(true)
+        try {
+            const { data, error } = await supabase.functions.invoke('google-auth', {
+                method: 'POST',
+                body: { action: 'authorize' }
+            })
+
+            if (error) throw error
+            if (data?.url) window.location.href = data.url
+        } catch (error) {
+            console.error(error)
+            toast.error('Error al iniciar vinculación con Google')
+        } finally {
+            setConnectingGoogle(false)
+        }
+    }
 
     const updateProfile = async (e) => {
         e.preventDefault()
@@ -130,10 +182,36 @@ export default function Profile() {
                                 <p className="text-[10px] text-muted-foreground">Este ID es asignado por administración.</p>
                             </div>
                         )}
+
+                        <div className="pt-4 border-t border-slate-200 dark:border-slate-800">
+                            <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
+                                <Calendar className="w-5 h-5 text-indigo-500" />
+                                Integraciones
+                            </h3>
+                            <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-4 border border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                                <div className="space-y-1">
+                                    <p className="text-sm font-medium">Google Calendar</p>
+                                    <p className="text-xs text-slate-500">
+                                        {profile?.google_refresh_token
+                                            ? 'Tu calendario está sincronizado bidireccionalmente.'
+                                            : 'Sincroniza tus tareas con tu calendario de Google.'}
+                                    </p>
+                                </div>
+                                <Button
+                                    type="button"
+                                    variant={profile?.google_refresh_token ? "outline" : "default"}
+                                    size="sm"
+                                    onClick={connectGoogleCalendar}
+                                    disabled={connectingGoogle}
+                                >
+                                    {connectingGoogle ? 'Conectando...' : profile?.google_refresh_token ? 'Reconectar' : 'Conectar'}
+                                </Button>
+                            </div>
+                        </div>
                     </CardContent>
-                    <CardFooter>
+                    <CardFooter className="flex justify-between items-center">
                         <Button type="submit" disabled={loading} className="w-full sm:w-auto">
-                            {loading ? 'Guardando...' : 'Guardar y Continuar'}
+                            {loading ? 'Guardando Perfil...' : 'Guardar y Continuar'}
                         </Button>
                     </CardFooter>
                 </form>

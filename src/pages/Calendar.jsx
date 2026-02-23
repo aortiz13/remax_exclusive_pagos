@@ -31,7 +31,7 @@ const localizer = dateFnsLocalizer({
 const DnDCalendar = withDragAndDrop(Calendar)
 
 export default function CalendarPage() {
-    const { user } = useAuth()
+    const { user, profile } = useAuth()
     const [events, setEvents] = useState([])
     const [loading, setLoading] = useState(true)
     const [view, setView] = useState(Views.WEEK)
@@ -191,12 +191,28 @@ export default function CalendarPage() {
                     .eq('id', selectedEvent.id)
                 if (error) throw error
                 toast.success('Tarea actualizada')
+
+                // Trigger Google Sync
+                if (profile?.google_refresh_token) {
+                    supabase.functions.invoke('google-calendar-sync', {
+                        body: { agentId: user.id, action: 'push_to_google', taskId: selectedEvent.id }
+                    })
+                }
             } else {
-                const { error } = await supabase
+                const { data: newTask, error } = await supabase
                     .from('crm_tasks')
                     .insert([payload])
+                    .select()
+                    .single()
                 if (error) throw error
                 toast.success('Tarea creada')
+
+                // Trigger Google Sync
+                if (profile?.google_refresh_token && newTask) {
+                    supabase.functions.invoke('google-calendar-sync', {
+                        body: { agentId: user.id, action: 'push_to_google', taskId: newTask.id }
+                    })
+                }
             }
 
             setIsModalOpen(false)
@@ -214,6 +230,18 @@ export default function CalendarPage() {
 
         try {
             setIsDeleting(true)
+
+            // Sync delete to Google first if it exists
+            if (profile?.google_refresh_token && selectedEvent.resource?.google_event_id) {
+                supabase.functions.invoke('google-calendar-sync', {
+                    body: {
+                        agentId: user.id,
+                        action: 'delete_from_google',
+                        googleEventId: selectedEvent.resource.google_event_id
+                    }
+                })
+            }
+
             const { error } = await supabase
                 .from('crm_tasks')
                 .delete()
@@ -243,6 +271,13 @@ export default function CalendarPage() {
 
             if (error) throw error
             toast.success('Evento reprogramado')
+
+            // Trigger Google Sync
+            if (profile?.google_refresh_token) {
+                supabase.functions.invoke('google-calendar-sync', {
+                    body: { agentId: user.id, action: 'push_to_google', taskId: event.id }
+                })
+            }
 
             // Optimistic update
             setEvents(prev => prev.map(e => e.id === event.id ? { ...e, start, end } : e))
