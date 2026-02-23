@@ -127,7 +127,13 @@ serve(async (req) => {
                         agent_id: agentId,
                         action: event.summary || '(Sin título)',
                         description: event.description || '',
+                        description_html: event.description || '', // Google often returns HTML here
                         execution_date: event.start?.dateTime || event.start?.date,
+                        end_date: event.end?.dateTime || event.end?.date,
+                        location: event.location || '',
+                        hangout_link: event.hangoutLink || '',
+                        attendees: event.attendees || [],
+                        task_type: (event.attendees && event.attendees.length > 0) || event.location ? 'meeting' : 'task',
                         google_event_id: event.id,
                         google_etag: event.etag,
                         last_synced_at: new Date().toISOString(),
@@ -159,25 +165,42 @@ serve(async (req) => {
 
         // --- PUSH LOCAL TASK TO GOOGLE ---
         if (action === 'push_to_google') {
-            const { taskId } = body;
+            const { taskId, create_meet } = body;
             const { data: task, error: taskErr } = await adminClient.from('crm_tasks').select('*').eq('id', taskId).single();
 
             if (taskErr || !task) throw new Error('Task not found');
             if (task.agent_id !== agentId) throw new Error('Unauthorized');
 
-            const googleEvent = {
+            const googleEvent: any = {
                 summary: task.action,
-                description: task.description,
+                description: task.description_html || task.description,
+                location: task.location || '',
                 start: { dateTime: new Date(task.execution_date).toISOString() },
-                end: { dateTime: new Date(new Date(task.execution_date).getTime() + 3600000).toISOString() }, // Default 1h
+                end: { dateTime: new Date(task.end_date || (new Date(task.execution_date).getTime() + 3600000)).toISOString() },
+                attendees: task.attendees || [],
             };
+
+            if (create_meet) {
+                googleEvent.conferenceData = {
+                    createRequest: {
+                        requestId: crypto.randomUUID(),
+                        conferenceSolutionKey: { type: "hangoutsMeet" }
+                    }
+                };
+            }
 
             let method = 'POST';
             let url = 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
 
+            if (create_meet) {
+                url += '?conferenceDataVersion=1';
+            }
+
             if (task.google_event_id) {
                 method = 'PUT';
-                url += `/${task.google_event_id}`;
+                // If it's a PUT, we need specific ID in URL. If we appended params earlier, we must be careful.
+                const baseIdUrl = `https://www.googleapis.com/calendar/v3/calendars/primary/events/${task.google_event_id}`;
+                url = create_meet ? `${baseIdUrl}?conferenceDataVersion=1` : baseIdUrl;
             }
 
             const response = await fetch(url, {
@@ -195,9 +218,11 @@ serve(async (req) => {
                 await adminClient.from('crm_tasks').update({
                     google_event_id: result.id,
                     google_etag: result.etag,
+                    hangout_link: result.hangoutLink || (result.conferenceData?.entryPoints?.find((ep: any) => ep.entryPointType === 'video')?.uri) || task.hangout_link,
+                    attendees: result.attendees || task.attendees,
                     last_synced_at: new Date().toISOString()
                 }).eq('id', taskId);
-                return new Response(JSON.stringify({ success: true, google_id: result.id }), {
+                return new Response(JSON.stringify({ success: true, google_id: result.id, hangout_link: result.hangoutLink }), {
                     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
                 });
             } else {
