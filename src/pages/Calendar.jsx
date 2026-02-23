@@ -15,6 +15,8 @@ import { ChevronLeft, ChevronRight, Filter, Plus, Clock, Calendar as CalendarIco
 import { toast } from 'sonner'
 import { DayPicker } from 'react-day-picker'
 import 'react-day-picker/dist/style.css'
+import PropertyPickerInline from '../components/ui/PropertyPickerInline'
+import ContactPickerInline from '../components/ui/ContactPickerInline'
 
 // Setup date-fns localizer
 const locales = {
@@ -1069,38 +1071,20 @@ export default function CalendarPage() {
 
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="space-y-1.5">
-                                        <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Cliente</Label>
-                                        <Select
-                                            value={formData.contactId}
-                                            onValueChange={v => setFormData({ ...formData, contactId: v })}
-                                        >
-                                            <SelectTrigger className="h-9 text-sm">
-                                                <SelectValue placeholder="Seleccionar..." />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="none">Ninguno</SelectItem>
-                                                {contacts.map(c => (
-                                                    <SelectItem key={c.id} value={c.id}>{c.first_name} {c.last_name}</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                        <ContactPickerInline
+                                            label="Cliente"
+                                            value={formData.contactId !== 'none' ? formData.contactId : ''}
+                                            onSelectContact={contact => setFormData({ ...formData, contactId: contact?.id || 'none' })}
+                                            disabled={selectedEvent?.isGoogleEvent}
+                                        />
                                     </div>
                                     <div className="space-y-1.5">
-                                        <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Propiedad</Label>
-                                        <Select
-                                            value={formData.propertyId}
-                                            onValueChange={v => setFormData({ ...formData, propertyId: v })}
-                                        >
-                                            <SelectTrigger className="h-9 text-sm">
-                                                <SelectValue placeholder="Seleccionar..." />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="none">Ninguna</SelectItem>
-                                                {properties.map(p => (
-                                                    <SelectItem key={p.id} value={p.id}>{p.address}</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                        <PropertyPickerInline
+                                            label="Propiedad"
+                                            value={formData.propertyId !== 'none' ? formData.propertyId : ''}
+                                            onSelectProperty={property => setFormData({ ...formData, propertyId: property?.id || 'none' })}
+                                            disabled={selectedEvent?.isGoogleEvent}
+                                        />
                                     </div>
                                 </div>
 
