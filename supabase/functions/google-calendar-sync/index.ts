@@ -30,22 +30,46 @@ serve(async (req) => {
         return new Response('ok', { headers: corsHeaders });
     }
 
-    const supabase = createClient(
-        Deno.env.get('SUPABASE_URL') ?? '',
-        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
-
     try {
-        const { agentId, action } = await req.json();
+        const authHeader = req.headers.get('Authorization');
+        if (!authHeader) throw new Error('Missing Authorization header');
 
-        const { data: profile, error: profileError } = await supabase
+        const supabase = createClient(
+            Deno.env.get('SUPABASE_URL') ?? '',
+            Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+            { global: { headers: { Authorization: authHeader } } }
+        );
+
+        // Verify user identity
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        if (authError || !user) {
+            console.error('Auth Error:', authError);
+            return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+                status: 401,
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
+        }
+
+        const adminClient = createClient(
+            Deno.env.get('SUPABASE_URL') ?? '',
+            Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+        );
+
+        const body = await req.json().catch(() => ({}));
+        const { action } = body;
+        const agentId = user.id; // Always use the authenticated user's ID
+
+        const { data: profile, error: profileError } = await adminClient
             .from('profiles')
             .select('google_refresh_token, google_sync_token')
             .eq('id', agentId)
             .single();
 
         if (profileError || !profile?.google_refresh_token) {
-            throw new Error('Google Calendar not linked');
+            return new Response(JSON.stringify({ error: 'Google Calendar not linked' }), {
+                status: 400,
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
         }
 
         const accessToken = await getAccessToken(profile.google_refresh_token);
@@ -63,8 +87,10 @@ serve(async (req) => {
 
             if (response.status === 410) {
                 // Sync token expired, clear and re-sync
-                await supabase.from('profiles').update({ google_sync_token: null }).eq('id', agentId);
-                return new Response(JSON.stringify({ retry: true }));
+                await adminClient.from('profiles').update({ google_sync_token: null }).eq('id', agentId);
+                return new Response(JSON.stringify({ retry: true }), {
+                    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                });
             }
 
             const data = await response.json();
@@ -74,7 +100,7 @@ serve(async (req) => {
                 const isDeleted = event.status === 'cancelled';
 
                 if (isDeleted) {
-                    await supabase.from('crm_tasks').delete().eq('google_event_id', event.id);
+                    await adminClient.from('crm_tasks').delete().eq('google_event_id', event.id);
                 } else {
                     const taskData = {
                         agent_id: agentId,
@@ -86,23 +112,26 @@ serve(async (req) => {
                         last_synced_at: new Date().toISOString(),
                     };
 
-                    await supabase.from('crm_tasks').upsert(taskData, { onConflict: 'google_event_id' });
+                    await adminClient.from('crm_tasks').upsert(taskData, { onConflict: 'google_event_id' });
                 }
             }
 
             if (data.nextSyncToken) {
-                await supabase.from('profiles').update({ google_sync_token: data.nextSyncToken }).eq('id', agentId);
+                await adminClient.from('profiles').update({ google_sync_token: data.nextSyncToken }).eq('id', agentId);
             }
 
-            return new Response(JSON.stringify({ success: true, count: events.length }));
+            return new Response(JSON.stringify({ success: true, count: events.length }), {
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
         }
 
         // --- PUSH LOCAL TASK TO GOOGLE ---
         if (action === 'push_to_google') {
-            const { taskId } = await req.json();
-            const { data: task } = await supabase.from('crm_tasks').select('*').eq('id', taskId).single();
+            const { taskId } = body;
+            const { data: task } = await adminClient.from('crm_tasks').select('*').eq('id', taskId).single();
 
             if (!task) throw new Error('Task not found');
+            if (task.agent_id !== agentId) throw new Error('Unauthorized');
 
             const googleEvent = {
                 summary: task.action,
@@ -131,18 +160,28 @@ serve(async (req) => {
             const result = await response.json();
 
             if (response.ok) {
-                await supabase.from('crm_tasks').update({
+                await adminClient.from('crm_tasks').update({
                     google_event_id: result.id,
                     google_etag: result.etag,
                     last_synced_at: new Date().toISOString()
                 }).eq('id', taskId);
             }
 
-            return new Response(JSON.stringify({ success: response.ok, google_id: result.id }));
+            return new Response(JSON.stringify({ success: response.ok, google_id: result.id }), {
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
         }
+
+        return new Response(JSON.stringify({ error: 'Action not found' }), {
+            status: 404,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
 
     } catch (error) {
         console.error('Sync Error:', error);
-        return new Response(JSON.stringify({ error: error.message }), { status: 400 });
+        return new Response(JSON.stringify({ error: error.message }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
     }
 });
