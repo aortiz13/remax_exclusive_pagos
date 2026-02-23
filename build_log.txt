@@ -4,20 +4,47 @@
 
 vite v7.3.1 building client environment for production...
 transforming...
-✓ 45 modules transformed.
+✓ 53 modules transformed.
 ✗ Build failed in 1.31s
 error during build:
-[vite:esbuild] Transform failed with 1 error:
-/Users/adrianortiz/Desktop/miniapp_remax/remax-exclusive-requests/src/pages/kpi/BusinessPlan.jsx:382:191: ERROR: Expected "]" but found ","
-file: /Users/adrianortiz/Desktop/miniapp_remax/remax-exclusive-requests/src/pages/kpi/BusinessPlan.jsx:382:191
+[vite:esbuild] Transform failed with 4 errors:
+/Users/adrianortiz/Desktop/miniapp_remax/remax-exclusive-requests/src/pages/Calendar.jsx:679:22: ERROR: Unexpected closing "div" tag does not match opening "DialogContent" tag
+/Users/adrianortiz/Desktop/miniapp_remax/remax-exclusive-requests/src/pages/Calendar.jsx:692:18: ERROR: Unexpected closing "DialogContent" tag does not match opening "Dialog" tag
+/Users/adrianortiz/Desktop/miniapp_remax/remax-exclusive-requests/src/pages/Calendar.jsx:693:14: ERROR: Unexpected closing "Dialog" tag does not match opening "div" tag
+/Users/adrianortiz/Desktop/miniapp_remax/remax-exclusive-requests/src/pages/Calendar.jsx:694:25: ERROR: Expected ")" but found "open"
+file: /Users/adrianortiz/Desktop/miniapp_remax/remax-exclusive-requests/src/pages/Calendar.jsx:679:22
 
-Expected "]" but found ","
-380 |                                              {
-381 |                                                  [
-382 |  ...ext-blue-600', border: 'border-blue-100', bg: 'bg-blue-50' },
-    |                                                                 ^
-383 |                                                  { key: 'technology', label: 'Tecnología y Operaciones', color: 'bg-pu...
-384 |                                                  { key: 'office', label: 'Oficina', color: 'bg-amber-500', text: 'text...
+Unexpected closing "div" tag does not match opening "DialogContent" tag
+677 |                              />
+678 |                          </div>
+679 |                      </div>
+    |                        ^
+680 |  
+681 |                      <DialogFooter className="flex-col-reverse sm:flex-row gap-2">
+
+Unexpected closing "DialogContent" tag does not match opening "Dialog" tag
+690 |                          </Button>
+691 |                      </DialogFooter>
+692 |                  </DialogContent>
+    |                    ^
+693 |              </Dialog>
+694 |              <AlertDialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
+
+Unexpected closing "Dialog" tag does not match opening "div" tag
+691 |                      </DialogFooter>
+692 |                  </DialogContent>
+693 |              </Dialog>
+    |                ^
+694 |              <AlertDialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
+695 |                  <AlertDialogContent>
+
+Expected ")" but found "open"
+692 |                  </DialogContent>
+693 |              </Dialog>
+694 |              <AlertDialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
+    |                           ^
+695 |                  <AlertDialogContent>
+696 |                      <AlertDialogHeader>
 
     at failureErrorWithLog (/Users/adrianortiz/Desktop/miniapp_remax/remax-exclusive-requests/node_modules/esbuild/lib/main.js:1467:15)
     at /Users/adrianortiz/Desktop/miniapp_remax/remax-exclusive-requests/node_modules/esbuild/lib/main.js:736:50

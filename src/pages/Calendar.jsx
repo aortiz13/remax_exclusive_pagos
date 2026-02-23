@@ -11,7 +11,7 @@ import { es } from 'date-fns/locale'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
 import 'react-big-calendar/lib/addons/dragAndDrop/styles.css'
 import { Card, CardContent, Button, Checkbox, Label, Input, Textarea, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription, AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui'
-import { ChevronLeft, ChevronRight, Filter, Plus, Clock, Calendar as CalendarIcon, MapPin, User, Bell, Trash2, RefreshCw } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Filter, Plus, Clock, Calendar as CalendarIcon, MapPin, User, Bell, Trash2, RefreshCw, Phone, Mail, Users, CheckCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { DayPicker } from 'react-day-picker'
 import 'react-day-picker/dist/style.css'
@@ -45,8 +45,10 @@ export default function CalendarPage() {
     const [formData, setFormData] = useState({
         title: '',
         description: '',
+        descriptionHtml: '',
         start: '',
         end: '',
+        type: 'task',
         contactId: 'none',
         propertyId: 'none',
         reminder: 'none'
@@ -92,6 +94,8 @@ export default function CalendarPage() {
                     end_date,
                     action,
                     description,
+                    description_html,
+                    task_type,
                     completed,
                     reminder_minutes,
                     google_event_id,
@@ -110,11 +114,12 @@ export default function CalendarPage() {
                     id: task.id,
                     title: task.action,
                     description: task.description,
+                    descriptionHtml: task.description_html,
                     start: startDate,
                     end: endDate,
                     resource: task,
                     completed: task.completed,
-                    type: getEventType(task.action),
+                    type: task.task_type || getEventType(task.action),
                     contactId: task.contact?.id,
                     contactName: task.contact ? `${task.contact.first_name} ${task.contact.last_name}` : null,
                     propertyId: task.property?.id,
@@ -182,8 +187,10 @@ export default function CalendarPage() {
         setFormData({
             title: '',
             description: '',
+            descriptionHtml: '',
             start: format(start, "yyyy-MM-dd'T'HH:mm"),
             end: format(end, "yyyy-MM-dd'T'HH:mm"),
+            type: 'task',
             contactId: 'none',
             propertyId: 'none',
             reminder: 'none'
@@ -196,8 +203,10 @@ export default function CalendarPage() {
         setFormData({
             title: event.title || '',
             description: event.description || '',
+            descriptionHtml: event.descriptionHtml || '',
             start: format(event.start, "yyyy-MM-dd'T'HH:mm"),
             end: format(event.end, "yyyy-MM-dd'T'HH:mm"),
+            type: event.type || 'task',
             contactId: event.contactId || 'none',
             propertyId: event.propertyId || 'none',
             reminder: event.reminder ? event.reminder.toString() : 'none'
@@ -219,6 +228,7 @@ export default function CalendarPage() {
                 description: formData.description,
                 execution_date: new Date(formData.start).toISOString(),
                 end_date: new Date(formData.end).toISOString(),
+                task_type: formData.type,
                 contact_id: formData.contactId === 'none' ? null : formData.contactId,
                 property_id: formData.propertyId === 'none' ? null : formData.propertyId,
                 reminder_minutes: formData.reminder === 'none' ? null : parseInt(formData.reminder)
@@ -360,6 +370,7 @@ export default function CalendarPage() {
     const eventStyleGetter = (event) => {
         let backgroundColor = '#6366f1'
         let borderColor = '#4f46e5'
+        let icon = null
 
         if (event.completed) {
             backgroundColor = '#e2e8f0'
@@ -379,7 +390,6 @@ export default function CalendarPage() {
             case 'meeting': backgroundColor = '#10b981'; borderColor = '#059669'; break;
         }
 
-        // Distinct style for Google Events to make them feel integrated but identifiable
         const isGoogle = event.isGoogleEvent;
 
         return {
@@ -397,6 +407,26 @@ export default function CalendarPage() {
                 alignItems: 'center',
                 gap: '4px'
             }
+        }
+    }
+
+    const getModalConfig = () => {
+        const type = formData.type
+        const isGoogle = selectedEvent?.isGoogleEvent
+
+        const configs = {
+            call: { title: 'Llamada', icon: <Phone className="w-5 h-5 text-blue-500" /> },
+            email: { title: 'Correo', icon: <Mail className="w-5 h-5 text-orange-500" /> },
+            meeting: { title: 'Reunión', icon: <Users className="w-5 h-5 text-emerald-500" /> },
+            task: { title: 'Tarea', icon: <CheckCircle className="w-5 h-5 text-indigo-500" /> }
+        }
+
+        const config = configs[type] || configs.task
+        const prefix = selectedEvent ? 'Editar' : 'Nueva'
+
+        return {
+            title: isGoogle ? 'Evento de Google Calendar' : `${prefix} ${config.title}`,
+            icon: isGoogle ? <RefreshCw className="w-5 h-5 text-slate-400" /> : config.icon
         }
     }
 
@@ -553,7 +583,20 @@ export default function CalendarPage() {
                             onView={setView}
                             date={date}
                             onNavigate={setDate}
-                            components={{ toolbar: CustomToolbar }}
+                            components={{
+                                toolbar: CustomToolbar,
+                                event: ({ event }) => {
+                                    const Icon = event.type === 'call' ? Phone :
+                                        event.type === 'email' ? Mail :
+                                            event.type === 'meeting' ? Users : CheckCircle
+                                    return (
+                                        <div className="flex items-center gap-1 overflow-hidden">
+                                            <Icon className="w-3 h-3 flex-none" />
+                                            <span className="truncate">{event.title}</span>
+                                        </div>
+                                    )
+                                }
+                            }}
                             eventPropGetter={eventStyleGetter}
                             onEventDrop={onEventDrop}
                             onEventResize={onEventResize}
@@ -576,11 +619,50 @@ export default function CalendarPage() {
             <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
                 <DialogContent className="sm:max-w-[500px]">
                     <DialogHeader>
-                        <DialogTitle>{selectedEvent ? 'Editar Tarea' : 'Nueva Tarea'}</DialogTitle>
-                        <DialogDescription>Completa los detalles de tu evento o tarea.</DialogDescription>
+                        <DialogTitle className="flex items-center gap-2">
+                            {getModalConfig().icon}
+                            {getModalConfig().title}
+                        </DialogTitle>
+                        <DialogDescription>
+                            {selectedEvent?.isGoogleEvent
+                                ? 'Este evento se sincroniza con tu Google Calendar.'
+                                : 'Completa los detalles de tu actividad.'}
+                        </DialogDescription>
                     </DialogHeader>
 
                     <div className="space-y-4 py-4">
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label>Tipo de Actividad</Label>
+                                <Select
+                                    value={formData.type}
+                                    onValueChange={v => setFormData({ ...formData, type: v })}
+                                    disabled={selectedEvent?.isGoogleEvent}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="task">Tarea</SelectItem>
+                                        <SelectItem value="call">Llamada</SelectItem>
+                                        <SelectItem value="meeting">Reunión / Visita</SelectItem>
+                                        <SelectItem value="email">Correo</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Estado</Label>
+                                <Button
+                                    variant="outline"
+                                    className={`w-full justify-start gap-2 ${selectedEvent?.completed ? 'text-emerald-500 border-emerald-200 bg-emerald-50' : ''}`}
+                                    onClick={() => setSelectedEvent(prev => ({ ...prev, completed: !prev.completed }))}
+                                >
+                                    {selectedEvent?.completed ? <CheckCircle className="w-4 h-4" /> : <Clock className="w-4 h-4" />}
+                                    {selectedEvent?.completed ? 'Completado' : 'Pendiente'}
+                                </Button>
+                            </div>
+                        </div>
+
                         <div className="space-y-2">
                             <Label>Título *</Label>
                             <Input
@@ -670,11 +752,18 @@ export default function CalendarPage() {
 
                         <div className="space-y-2">
                             <Label>Descripción</Label>
-                            <Textarea
-                                placeholder="Detalles adicionales..."
-                                value={formData.description}
-                                onChange={e => setFormData({ ...formData, description: e.target.value })}
-                            />
+                            {selectedEvent?.isGoogleEvent && formData.descriptionHtml ? (
+                                <div
+                                    className="p-3 rounded-md bg-slate-50 border border-slate-200 text-sm overflow-auto max-h-[150px] leading-relaxed"
+                                    dangerouslySetInnerHTML={{ __html: formData.descriptionHtml }}
+                                />
+                            ) : (
+                                <Textarea
+                                    placeholder="Detalles adicionales..."
+                                    value={formData.description}
+                                    onChange={e => setFormData({ ...formData, description: e.target.value })}
+                                />
+                            )}
                         </div>
                     </div>
 
