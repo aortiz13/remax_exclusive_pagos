@@ -89,10 +89,12 @@ export default function CalendarPage() {
                 .select(`
                     id,
                     execution_date,
+                    end_date,
                     action,
                     description,
                     completed,
                     reminder_minutes,
+                    google_event_id,
                     contact:contacts(id, first_name, last_name),
                     property:properties(id, address)
                 `)
@@ -102,7 +104,7 @@ export default function CalendarPage() {
 
             const formattedEvents = data.map(task => {
                 const startDate = new Date(task.execution_date)
-                const endDate = new Date(startDate.getTime() + 60 * 60000) // Default 1 hour
+                const endDate = task.end_date ? new Date(task.end_date) : new Date(startDate.getTime() + 60 * 60000)
 
                 return {
                     id: task.id,
@@ -117,7 +119,8 @@ export default function CalendarPage() {
                     contactName: task.contact ? `${task.contact.first_name} ${task.contact.last_name}` : null,
                     propertyId: task.property?.id,
                     propertyName: task.property?.address,
-                    reminder: task.reminder_minutes
+                    reminder: task.reminder_minutes,
+                    isGoogleEvent: !!task.google_event_id
                 }
             })
 
@@ -215,6 +218,7 @@ export default function CalendarPage() {
                 action: formData.title,
                 description: formData.description,
                 execution_date: new Date(formData.start).toISOString(),
+                end_date: new Date(formData.end).toISOString(),
                 contact_id: formData.contactId === 'none' ? null : formData.contactId,
                 property_id: formData.propertyId === 'none' ? null : formData.propertyId,
                 reminder_minutes: formData.reminder === 'none' ? null : parseInt(formData.reminder)
@@ -301,12 +305,13 @@ export default function CalendarPage() {
             const { error } = await supabase
                 .from('crm_tasks')
                 .update({
-                    execution_date: start.toISOString()
+                    execution_date: start.toISOString(),
+                    end_date: end.toISOString()
                 })
                 .eq('id', event.id)
 
             if (error) throw error
-            toast.success('Evento reprogramado')
+            toast.success('Evento actualizado')
 
             // Trigger Google Sync
             if (profile?.google_refresh_token) {
@@ -315,12 +320,39 @@ export default function CalendarPage() {
                 })
             }
 
-            // Optimistic update
             setEvents(prev => prev.map(e => e.id === event.id ? { ...e, start, end } : e))
         } catch (error) {
             console.error('Error updating event:', error)
             toast.error('Error al actualizar fecha')
-            fetchEvents() // Revert
+            fetchEvents()
+        }
+    }
+
+    const onEventResize = async ({ event, start, end }) => {
+        try {
+            const { error } = await supabase
+                .from('crm_tasks')
+                .update({
+                    execution_date: start.toISOString(),
+                    end_date: end.toISOString()
+                })
+                .eq('id', event.id)
+
+            if (error) throw error
+            toast.success('Duración actualizada')
+
+            // Trigger Google Sync
+            if (profile?.google_refresh_token) {
+                supabase.functions.invoke('google-calendar-sync', {
+                    body: { agentId: user.id, action: 'push_to_google', taskId: event.id }
+                })
+            }
+
+            setEvents(prev => prev.map(e => e.id === event.id ? { ...e, start, end } : e))
+        } catch (error) {
+            console.error('Error resizing event:', error)
+            toast.error('Error al actualizar duración')
+            fetchEvents()
         }
     }
 
@@ -335,7 +367,7 @@ export default function CalendarPage() {
             return {
                 style: {
                     backgroundColor, borderColor, color: '#94a3b8',
-                    textDecoration: 'line-through', borderRadius: '6px',
+                    textDecoration: 'line-through', borderRadius: '4px',
                     borderLeft: `4px solid ${borderColor}`, opacity: 0.8
                 }
             }
@@ -347,15 +379,23 @@ export default function CalendarPage() {
             case 'meeting': backgroundColor = '#10b981'; borderColor = '#059669'; break;
         }
 
+        // Distinct style for Google Events to make them feel integrated but identifiable
+        const isGoogle = event.isGoogleEvent;
+
         return {
             style: {
-                backgroundColor: `${backgroundColor}1A`,
-                color: borderColor,
-                border: `1px solid ${backgroundColor}40`,
-                borderLeft: `4px solid ${borderColor}`,
-                borderRadius: '6px',
+                backgroundColor: isGoogle ? `${backgroundColor}CC` : `${backgroundColor}1A`,
+                color: isGoogle ? 'white' : borderColor,
+                border: isGoogle ? 'none' : `1px solid ${backgroundColor}40`,
+                borderLeft: isGoogle ? 'none' : `4px solid ${borderColor}`,
+                borderRadius: '4px',
                 fontWeight: '500',
-                fontSize: '0.85rem'
+                fontSize: '0.8rem',
+                padding: '2px 5px',
+                boxShadow: isGoogle ? '0 1px 2px rgba(0,0,0,0.1)' : 'none',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
             }
         }
     }
@@ -516,6 +556,8 @@ export default function CalendarPage() {
                             components={{ toolbar: CustomToolbar }}
                             eventPropGetter={eventStyleGetter}
                             onEventDrop={onEventDrop}
+                            onEventResize={onEventResize}
+                            resizable
                             selectable
                             onSelectSlot={handleSelectSlot}
                             onSelectEvent={handleSelectEvent}
@@ -550,23 +592,28 @@ export default function CalendarPage() {
 
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                <Label>Fecha/Hora Inicio *</Label>
-                                <div className="relative">
-                                    <Input
-                                        type="datetime-local"
-                                        value={formData.start}
-                                        onChange={e => setFormData({ ...formData, start: e.target.value })}
-                                        className="pr-8 block w-full"
-                                    />
-                                    {/* Fix for calendar icon overlap if native icon is hidden or misaligned */}
-                                </div>
+                                <Label>Inicio *</Label>
+                                <Input
+                                    type="datetime-local"
+                                    value={formData.start}
+                                    onChange={e => setFormData({ ...formData, start: e.target.value })}
+                                />
                             </div>
                             <div className="space-y-2">
-                                <Label>Recordatorio</Label>
-                                <Select
-                                    value={formData.reminder}
-                                    onValueChange={v => setFormData({ ...formData, reminder: v })}
-                                >
+                                <Label>Fin *</Label>
+                                <Input
+                                    type="datetime-local"
+                                    value={formData.end}
+                                    onChange={e => setFormData({ ...formData, end: e.target.value })}
+                                />
+                            </div>
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Recordatorio</Label>
+                            <Select
+                                value={formData.reminder}
+                                onValueChange={v => setFormData({ ...formData, reminder: v })}
+                            >
                                     <SelectTrigger>
                                         <SelectValue placeholder="Sin recordatorio" />
                                     </SelectTrigger>
@@ -664,6 +711,6 @@ export default function CalendarPage() {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
-        </div>
+        </div >
     )
 }
