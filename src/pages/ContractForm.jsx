@@ -1,13 +1,17 @@
 import { useState, useRef, useEffect } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
 import { Calendar as CalendarIcon, Upload, Plus, Trash2, MapPin, Search, ChevronRight, FileText, FileSignature, Handshake, CheckCircle2, ChevronDown, UserPlus, Users } from 'lucide-react'
 import { supabase } from '../services/supabase'
-
 import { useAuth } from '../context/AuthContext'
+import { toast } from 'sonner'
 import DatePicker from 'react-datepicker'
 import "react-datepicker/dist/react-datepicker.css"
 import ContactPickerInline from '../components/ui/ContactPickerInline'
 import PropertyPickerInline from '../components/ui/PropertyPickerInline'
 import { autoLinkContactProperty } from '../services/autoLink'
+import { generateExcel } from '../lib/generateExcel'
+import { generatePDF } from '../lib/generatePDF'
+import { triggerLegalWebhook } from '../services/api'
 import { Button, Card, CardContent, CardHeader, CardTitle, CardDescription, Input, Label, Textarea } from '@/components/ui'
 import { ArrowLeft, Building2, Key, Save, UploadCloud, FilePlus } from 'lucide-react'
 
@@ -179,14 +183,14 @@ function PartyForm({ typeLabel, index, prefix, initialData = {}, onRemove, isRem
                         <button
                             type="button"
                             onClick={() => setPersonType('natural')}
-                            className={`text - xs px - 2 py - 1 rounded transition - colors ${personType === 'natural' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-100'} `}
+                            className={`text-xs px-2 py-1 rounded transition-colors ${personType === 'natural' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-100'}`}
                         >
                             Natural
                         </button>
                         <button
                             type="button"
                             onClick={() => setPersonType('juridica')}
-                            className={`text - xs px - 2 py - 1 rounded transition - colors ${personType === 'juridica' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-100'} `}
+                            className={`text-xs px-2 py-1 rounded transition-colors ${personType === 'juridica' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-100'}`}
                         >
                             Jurídica
                         </button>
@@ -205,7 +209,7 @@ function PartyForm({ typeLabel, index, prefix, initialData = {}, onRemove, isRem
             {personType === 'natural' && (
                 <ContactPickerInline
                     onSelectContact={handleContactSelect}
-                    label={`Pre - llenar datos del ${typeLabel.toLowerCase()} `}
+                    label={`Pre-llenar datos del ${typeLabel.toLowerCase()}`}
                 />
             )}
 
@@ -750,8 +754,8 @@ function BuySellFormLogic({ user, profile, navigate, initialData = {}, requestId
                         <div className="space-y-2">
                             <Label>Moneda de Venta</Label>
                             <div className="flex bg-white rounded-md border p-1 h-10 items-center">
-                                <button type="button" onClick={() => setCurrency('clp')} className={`flex - 1 text - sm font - medium h - full rounded transition - colors ${currency === 'clp' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-100'} `}>CLP ($)</button>
-                                <button type="button" onClick={() => setCurrency('uf')} className={`flex - 1 text - sm font - medium h - full rounded transition - colors ${currency === 'uf' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-100'} `}>UF</button>
+                                <button type="button" onClick={() => setCurrency('clp')} className={`flex-1 text-sm font-medium h-full rounded transition-colors ${currency === 'clp' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-100'}`}>CLP ($)</button>
+                                <button type="button" onClick={() => setCurrency('uf')} className={`flex-1 text-sm font-medium h-full rounded transition-colors ${currency === 'uf' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-100'}`}>UF</button>
                             </div>
                         </div>
 
@@ -812,8 +816,8 @@ function BuySellFormLogic({ user, profile, navigate, initialData = {}, requestId
                                 <Label>Monto Reserva / Vale Vista</Label>
                                 <div className="flex gap-2">
                                     <div className="flex bg-white rounded-md border p-1 h-10 items-center w-32 shrink-0">
-                                        <button type="button" onClick={() => setReservationCurrency('clp')} className={`flex - 1 text - xs font - medium h - full rounded transition - colors ${reservationCurrency === 'clp' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-100'} `}>CLP</button>
-                                        <button type="button" onClick={() => setReservationCurrency('uf')} className={`flex - 1 text - xs font - medium h - full rounded transition - colors ${reservationCurrency === 'uf' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-100'} `}>UF</button>
+                                        <button type="button" onClick={() => setReservationCurrency('clp')} className={`flex-1 text-xs font-medium h-full rounded transition-colors ${reservationCurrency === 'clp' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-100'}`}>CLP</button>
+                                        <button type="button" onClick={() => setReservationCurrency('uf')} className={`flex-1 text-xs font-medium h-full rounded transition-colors ${reservationCurrency === 'uf' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-100'}`}>UF</button>
                                     </div>
                                     <Input name="monto_reserva" placeholder={reservationCurrency === 'clp' ? "$" : "UF"} defaultValue={initialData.monto_reserva} className="flex-1" />
                                 </div>
@@ -1228,8 +1232,8 @@ function LeaseFormLogic({ user, profile, navigate, initialData = {}, requestId =
                         <div className="space-y-2">
                             <Label>Moneda</Label>
                             <div className="flex bg-white rounded-md border p-1 h-10 items-center">
-                                <button type="button" onClick={() => setCurrency('clp')} className={`flex - 1 text - sm font - medium h - full rounded transition - colors ${currency === 'clp' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-100'} `}>CLP ($)</button>
-                                <button type="button" onClick={() => setCurrency('uf')} className={`flex - 1 text - sm font - medium h - full rounded transition - colors ${currency === 'uf' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-100'} `}>UF</button>
+                                <button type="button" onClick={() => setCurrency('clp')} className={`flex-1 text-sm font-medium h-full rounded transition-colors ${currency === 'clp' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-100'}`}>CLP ($)</button>
+                                <button type="button" onClick={() => setCurrency('uf')} className={`flex-1 text-sm font-medium h-full rounded transition-colors ${currency === 'uf' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-100'}`}>UF</button>
                             </div>
                         </div>
 
