@@ -48,12 +48,21 @@ export default function Profile() {
                 body: { action: 'callback', code }
             })
 
-            if (error) throw error
+            if (data?.success) {
+                toast.success('Google Calendar vinculado correctamente', { id: toastId })
 
-            toast.success('Google Calendar vinculado correctamente', { id: toastId })
-            await refreshProfile()
-            // Clear URL params
-            setSearchParams({})
+                // Trigger initial sync
+                supabase.functions.invoke('google-calendar-sync', {
+                    body: { agentId: user.id, action: 'sync_from_google' }
+                }).then(({ data: syncData, error: syncError }) => {
+                    if (syncError) console.error('Initial sync error:', syncError)
+                    else toast.success(`Sincronizados ${syncData?.count || 0} eventos de Google`)
+                })
+
+                await refreshProfile()
+                // Clear URL params
+                setSearchParams({})
+            }
         } catch (error) {
             console.error(error)
             toast.error(error.message || 'Error al vincular Google Calendar', { id: toastId })

@@ -11,7 +11,7 @@ import { es } from 'date-fns/locale'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
 import 'react-big-calendar/lib/addons/dragAndDrop/styles.css'
 import { Card, CardContent, Button, Checkbox, Label, Input, Textarea, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription, AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui'
-import { ChevronLeft, ChevronRight, Filter, Plus, Clock, Calendar as CalendarIcon, MapPin, User, Bell, Trash2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Filter, Plus, Clock, Calendar as CalendarIcon, MapPin, User, Bell, Trash2, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
 import { DayPicker } from 'react-day-picker'
 import 'react-day-picker/dist/style.css'
@@ -54,6 +54,7 @@ export default function CalendarPage() {
     const [isSaving, setIsSaving] = useState(false)
     const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false)
     const [isDeleting, setIsDeleting] = useState(false)
+    const [isSyncing, setIsSyncing] = useState(false)
 
     useEffect(() => {
         if (user) {
@@ -138,6 +139,41 @@ export default function CalendarPage() {
     }
 
     // Handlers
+    const handleSync = async () => {
+        if (!profile?.google_refresh_token) {
+            toast.error('Google Calendar no está vinculado')
+            return
+        }
+
+        setIsSyncing(true)
+        const toastId = toast.loading('Sincronizando con Google Calendar...')
+        try {
+            const { data, error } = await supabase.functions.invoke('google-calendar-sync', {
+                body: { agentId: user.id, action: 'sync_from_google' }
+            })
+
+            if (error) throw error
+
+            if (data?.retry) {
+                // Handle token expiration/refresh if function returns retry
+                const retryResponse = await supabase.functions.invoke('google-calendar-sync', {
+                    body: { agentId: user.id, action: 'sync_from_google' }
+                })
+                if (retryResponse.error) throw retryResponse.error
+                toast.success(`Sincronizados ${retryResponse.data?.count || 0} eventos`, { id: toastId })
+            } else {
+                toast.success(`Sincronizados ${data?.count || 0} eventos`, { id: toastId })
+            }
+
+            fetchEvents()
+        } catch (error) {
+            console.error('Sync error:', error)
+            toast.error('Error al sincronizar con Google', { id: toastId })
+        } finally {
+            setIsSyncing(false)
+        }
+    }
+
     const handleSelectSlot = ({ start, end }) => {
         setSelectedEvent(null)
         setFormData({
@@ -431,6 +467,19 @@ export default function CalendarPage() {
                 >
                     <Plus className="w-5 h-5" /> Nueva Tarea
                 </Button>
+
+                {profile?.google_refresh_token && (
+                    <Button
+                        className="w-full justify-start gap-2"
+                        variant="outline"
+                        size="lg"
+                        onClick={handleSync}
+                        disabled={isSyncing}
+                    >
+                        <RefreshCw className={`w-5 h-5 ${isSyncing ? 'animate-spin' : ''}`} />
+                        {isSyncing ? 'Sincronizando...' : 'Sincronizar con Google'}
+                    </Button>
+                )}
 
                 <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4 shadow-sm flex justify-center">
                     <style>{dayPickerStyles}</style>
