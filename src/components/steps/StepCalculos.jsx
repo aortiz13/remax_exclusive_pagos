@@ -6,6 +6,50 @@ import {
     AlertTriangle, CheckCircle, Building, Home
 } from 'lucide-react'
 
+// ── Toggle Switch Component ──────────────────────────────────────────────
+const ToggleSwitch = ({ checked, onChange, id }) => (
+    <label htmlFor={id} className="relative inline-flex items-center cursor-pointer">
+        <input
+            id={id}
+            type="checkbox"
+            className="sr-only peer"
+            checked={checked}
+            onChange={onChange}
+        />
+        <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary transition-colors" />
+    </label>
+)
+
+// ── Currency Input ───────────────────────────────────────────────────────
+const CurrencyInput = ({ value, onChange, placeholder = '$ 0', className = '', large = false }) => (
+    <div className="relative">
+        <span className={`absolute inset-y-0 left-3 flex items-center text-slate-400 font-bold pointer-events-none ${large ? 'text-xl' : 'text-sm'}`}>$</span>
+        <input
+            type="number"
+            value={value}
+            onChange={onChange}
+            placeholder={placeholder.replace('$ ', '')}
+            className={`block w-full pl-8 pr-4 border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all ${large ? 'py-3 text-2xl font-bold text-slate-900' : 'py-2 text-base font-semibold text-slate-800'} ${className}`}
+        />
+    </div>
+)
+
+// ── Section Label ────────────────────────────────────────────────────────
+const SectionLabel = ({ icon: Icon, children }) => (
+    <div className="flex items-center gap-2 mb-4">
+        {Icon && <Icon className="w-4 h-4 text-slate-400" />}
+        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest">{children}</h3>
+    </div>
+)
+
+// ── Summary Row ──────────────────────────────────────────────────────────
+const SummaryRow = ({ label, value, className = '' }) => (
+    <div className={`flex justify-between items-center text-sm ${className}`}>
+        <span className="text-white/70">{label}</span>
+        <span className="font-medium font-mono">{value}</span>
+    </div>
+)
+
 export default function StepCalculos({ data, onUpdate, onNext, onBack }) {
     const [results, setResults] = useState({
         totalArriendoInicial: 0,
@@ -182,49 +226,6 @@ export default function StepCalculos({ data, onUpdate, onNext, onBack }) {
         }
     }, [isCommercial])
 
-    // ── Toggle Switch Component ──────────────────────────────────────────────
-    const ToggleSwitch = ({ checked, onChange, id }) => (
-        <label htmlFor={id} className="relative inline-flex items-center cursor-pointer">
-            <input
-                id={id}
-                type="checkbox"
-                className="sr-only peer"
-                checked={checked}
-                onChange={onChange}
-            />
-            <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary transition-colors" />
-        </label>
-    )
-
-    // ── Currency Input ───────────────────────────────────────────────────────
-    const CurrencyInput = ({ value, onChange, placeholder = '$ 0', className = '', large = false }) => (
-        <div className="relative">
-            <span className={`absolute inset-y-0 left-3 flex items-center text-slate-400 font-bold pointer-events-none ${large ? 'text-xl' : 'text-sm'}`}>$</span>
-            <input
-                type="number"
-                value={value}
-                onChange={onChange}
-                placeholder={placeholder.replace('$ ', '')}
-                className={`block w-full pl-8 pr-4 border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all ${large ? 'py-3 text-2xl font-bold text-slate-900' : 'py-2 text-base font-semibold text-slate-800'} ${className}`}
-            />
-        </div>
-    )
-
-    // ── Section Label ────────────────────────────────────────────────────────
-    const SectionLabel = ({ icon: Icon, children }) => (
-        <div className="flex items-center gap-2 mb-4">
-            {Icon && <Icon className="w-4 h-4 text-slate-400" />}
-            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest">{children}</h3>
-        </div>
-    )
-
-    // ── Summary Row ──────────────────────────────────────────────────────────
-    const SummaryRow = ({ label, value, className = '' }) => (
-        <div className={`flex justify-between items-center text-sm ${className}`}>
-            <span className="text-white/70">{label}</span>
-            <span className="font-medium font-mono">{value}</span>
-        </div>
-    )
 
     return (
         <div className="max-w-6xl mx-auto">
