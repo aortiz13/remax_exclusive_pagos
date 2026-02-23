@@ -69,7 +69,7 @@ export default function PropertyPickerInline({ onSelectProperty, label = 'Pre-ll
                     onClick={() => !disabled && setIsOpen(!isOpen)}
                     className={`flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm cursor-pointer hover:bg-accent/50 transition-colors ring-offset-background focus:outline-none ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
-                    <span className={selectedProperty ? 'text-foreground' : 'text-muted-foreground'}>
+                    <span className={`truncate flex-1 min-w-0 ${selectedProperty ? 'text-foreground' : 'text-muted-foreground'}`}>
                         {loading
                             ? 'Cargando propiedades...'
                             : selectedProperty
