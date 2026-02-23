@@ -980,10 +980,17 @@ export default function CalendarPage() {
                                         {getModalConfig().icon}
                                         {getModalConfig().title}
                                     </DialogTitle>
-                                    <DialogDescription className="text-xs text-slate-500">
-                                        {selectedEvent?.isGoogleEvent
-                                            ? 'Este evento se sincroniza con Google Calendar.'
-                                            : 'Completa los detalles de tu actividad.'}
+                                    <DialogDescription className="text-xs text-slate-500 flex flex-col gap-1">
+                                        <span>
+                                            {selectedEvent?.isGoogleEvent
+                                                ? 'Este evento se sincroniza con Google Calendar.'
+                                                : 'Completa los detalles de tu actividad.'}
+                                        </span>
+                                        {formData.type === 'task' && profile?.google_refresh_token && (
+                                            <span className="text-[10px] text-amber-600 font-medium bg-amber-50 px-2 py-0.5 rounded-full w-fit border border-amber-100 italic">
+                                                Reconecta tu cuenta de Google para activar la sincronización nativa de Tareas.
+                                            </span>
+                                        )}
                                     </DialogDescription>
                                 </DialogHeader>
                             </div>
@@ -1074,7 +1081,7 @@ export default function CalendarPage() {
                                     )}
                                 </div>
 
-                                {profile?.google_refresh_token && (
+                                {formData.type !== 'task' && profile?.google_refresh_token && (
                                     <div className="flex items-center space-x-3 py-2.5 bg-blue-50/50 rounded-xl px-4 border border-blue-100 transition-all hover:bg-blue-50">
                                         <Checkbox
                                             id="create_meet"
@@ -1092,18 +1099,20 @@ export default function CalendarPage() {
                                     </div>
                                 )}
 
-                                <div className="space-y-1.5">
-                                    <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Ubicación</Label>
-                                    <div className="relative group">
-                                        <MapPin className="absolute left-3 top-2.5 w-4 h-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
-                                        <Input
-                                            className="pl-9 h-9 text-sm"
-                                            placeholder="Añadir ubicación..."
-                                            value={formData.location}
-                                            onChange={e => setFormData({ ...formData, location: e.target.value })}
-                                        />
+                                {formData.type !== 'task' && (
+                                    <div className="space-y-1.5">
+                                        <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Ubicación</Label>
+                                        <div className="relative group">
+                                            <MapPin className="absolute left-3 top-2.5 w-4 h-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+                                            <Input
+                                                className="pl-9 h-9 text-sm"
+                                                placeholder="Añadir ubicación..."
+                                                value={formData.location}
+                                                onChange={e => setFormData({ ...formData, location: e.target.value })}
+                                            />
+                                        </div>
                                     </div>
-                                </div>
+                                )}
 
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="space-y-1.5">
@@ -1124,57 +1133,59 @@ export default function CalendarPage() {
                                     </div>
                                 </div>
 
-                                <div className="space-y-2">
-                                    <div className="flex justify-between items-center">
-                                        <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                                            Invitados ({(() => {
-                                                const contact = contacts.find(c => c.id === formData.contactId);
-                                                const contactEmail = contact?.email;
-                                                const attendees = formData.attendees || [];
-                                                const uniqueEmails = new Set(attendees.map(a => a.email));
-                                                if (contactEmail) uniqueEmails.add(contactEmail);
-                                                return uniqueEmails.size;
-                                            })()})
-                                        </Label>
-                                    </div>
-                                    <div className="flex gap-2">
-                                        <Input
-                                            className="h-9 text-sm bg-slate-50/50"
-                                            placeholder="ejemplo@correo.com"
-                                            value={guestInput}
-                                            onChange={e => setGuestInput(e.target.value)}
-                                            onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addGuest())}
-                                        />
-                                        <Button type="button" variant="outline" size="sm" onClick={addGuest} className="shrink-0 h-9 px-4 font-semibold hover:bg-slate-50">
-                                            Añadir
-                                        </Button>
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        {formData.attendees.length > 0 && (
-                                            <div className="flex flex-wrap gap-1.5 max-h-[80px] overflow-y-auto p-2 bg-slate-50/50 rounded-lg border border-slate-100">
-                                                {formData.attendees.map((attendee, idx) => (
-                                                    <div key={idx} className="flex items-center gap-1.5 bg-white border border-slate-200 px-2 py-1 rounded shadow-sm text-[11px] text-slate-600">
-                                                        <span className="truncate max-w-[140px] font-medium">{attendee.email}</span>
-                                                        <button onClick={() => removeGuest(attendee.email)} className="text-slate-400 hover:text-red-500 transition-colors p-0.5">
-                                                            <X className="w-3 h-3" />
-                                                        </button>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-                                        {(() => {
-                                            const contact = contacts.find(c => c.id === formData.contactId);
-                                            return contact?.email && (
-                                                <div className="flex items-center justify-between text-xs py-1.5 px-3 bg-blue-50/50 rounded-lg border border-blue-100/50">
-                                                    <div className="flex items-center gap-2 truncate">
-                                                        <span className="text-blue-700 font-medium truncate">{contact.email}</span>
-                                                        <span className="text-[10px] text-blue-500 bg-blue-100/50 px-1.5 rounded uppercase font-bold">Cliente</span>
-                                                    </div>
+                                {formData.type !== 'task' && (
+                                    <div className="space-y-2">
+                                        <div className="flex justify-between items-center">
+                                            <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                                                Invitados ({(() => {
+                                                    const contact = contacts.find(c => c.id === formData.contactId);
+                                                    const contactEmail = contact?.email;
+                                                    const attendees = formData.attendees || [];
+                                                    const uniqueEmails = new Set(attendees.map(a => a.email));
+                                                    if (contactEmail) uniqueEmails.add(contactEmail);
+                                                    return uniqueEmails.size;
+                                                })()})
+                                            </Label>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <Input
+                                                className="h-9 text-sm bg-slate-50/50"
+                                                placeholder="ejemplo@correo.com"
+                                                value={guestInput}
+                                                onChange={e => setGuestInput(e.target.value)}
+                                                onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addGuest())}
+                                            />
+                                            <Button type="button" variant="outline" size="sm" onClick={addGuest} className="shrink-0 h-9 px-4 font-semibold hover:bg-slate-50">
+                                                Añadir
+                                            </Button>
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            {formData.attendees.length > 0 && (
+                                                <div className="flex flex-wrap gap-1.5 max-h-[80px] overflow-y-auto p-2 bg-slate-50/50 rounded-lg border border-slate-100">
+                                                    {formData.attendees.map((attendee, idx) => (
+                                                        <div key={idx} className="flex items-center gap-1.5 bg-white border border-slate-200 px-2 py-1 rounded shadow-sm text-[11px] text-slate-600">
+                                                            <span className="truncate max-w-[140px] font-medium">{attendee.email}</span>
+                                                            <button onClick={() => removeGuest(attendee.email)} className="text-slate-400 hover:text-red-500 transition-colors p-0.5">
+                                                                <X className="w-3 h-3" />
+                                                            </button>
+                                                        </div>
+                                                    ))}
                                                 </div>
-                                            );
-                                        })()}
+                                            )}
+                                            {(() => {
+                                                const contact = contacts.find(c => c.id === formData.contactId);
+                                                return contact?.email && (
+                                                    <div className="flex items-center justify-between text-xs py-1.5 px-3 bg-blue-50/50 rounded-lg border border-blue-100/50">
+                                                        <div className="flex items-center gap-2 truncate">
+                                                            <span className="text-blue-700 font-medium truncate">{contact.email}</span>
+                                                            <span className="text-[10px] text-blue-500 bg-blue-100/50 px-1.5 rounded uppercase font-bold">Cliente</span>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })()}
+                                        </div>
                                     </div>
-                                </div>
+                                )}
 
                                 <div className="space-y-1.5">
                                     <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Descripción</Label>
