@@ -608,26 +608,26 @@ export default function CalendarPage() {
                                 />
                             </div>
                         </div>
+
                         <div className="space-y-2">
                             <Label>Recordatorio</Label>
                             <Select
                                 value={formData.reminder}
                                 onValueChange={v => setFormData({ ...formData, reminder: v })}
                             >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Sin recordatorio" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="none">Sin recordatorio</SelectItem>
-                                        <SelectItem value="10">10 min antes</SelectItem>
-                                        <SelectItem value="20">20 min antes</SelectItem>
-                                        <SelectItem value="30">30 min antes</SelectItem>
-                                        <SelectItem value="40">40 min antes</SelectItem>
-                                        <SelectItem value="50">50 min antes</SelectItem>
-                                        <SelectItem value="60">1 hora antes</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Sin recordatorio" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="none">Sin recordatorio</SelectItem>
+                                    <SelectItem value="10">10 min antes</SelectItem>
+                                    <SelectItem value="20">20 min antes</SelectItem>
+                                    <SelectItem value="30">30 min antes</SelectItem>
+                                    <SelectItem value="40">40 min antes</SelectItem>
+                                    <SelectItem value="50">50 min antes</SelectItem>
+                                    <SelectItem value="60">1 hora antes</SelectItem>
+                                </SelectContent>
+                            </Select>
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
