@@ -71,7 +71,7 @@ export default function ContactPickerInline({ onSelectContact, label = 'Pre-llen
                     onClick={() => !disabled && setIsOpen(!isOpen)}
                     className={`flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm cursor-pointer hover:bg-accent/50 transition-colors ring-offset-background focus:outline-none ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
-                    <span className={selectedContact ? 'text-foreground' : 'text-muted-foreground'}>
+                    <span className={`truncate flex-1 min-w-0 ${selectedContact ? 'text-foreground' : 'text-muted-foreground'}`}>
                         {loading
                             ? 'Cargando contactos...'
                             : selectedContact
