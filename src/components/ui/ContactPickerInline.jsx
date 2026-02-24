@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext'
 import { Search, User, Plus } from 'lucide-react'
 import ContactForm from '../crm/ContactForm'
 
-export default function ContactPickerInline({ onSelectContact, label = 'Pre-llenar desde CRM', value, disabled = false }) {
+export default function ContactPickerInline({ onSelectContact, label = 'Pre-llenar desde CRM', value, disabled = false, showNoneOption = false }) {
     const { user } = useAuth()
     const [contacts, setContacts] = useState([])
     const [loading, setLoading] = useState(true)
@@ -47,8 +47,9 @@ export default function ContactPickerInline({ onSelectContact, label = 'Pre-llen
         : contacts
 
     const handleSelect = (contactId) => {
-        if (!contactId) {
-            setSelectedId('')
+        if (!contactId || contactId === 'none') {
+            setSelectedId(contactId === 'none' ? 'none' : '')
+            onSelectContact(null)
             setIsOpen(false)
             return
         }
@@ -74,12 +75,14 @@ export default function ContactPickerInline({ onSelectContact, label = 'Pre-llen
                     onClick={() => !disabled && setIsOpen(!isOpen)}
                     className={`flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none transition-all ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-accent/50 hover:border-accent'}`}
                 >
-                    <span className={`truncate flex-1 min-w-0 ${selectedContact ? 'text-foreground' : 'text-muted-foreground'}`}>
+                    <span className={`truncate flex-1 min-w-0 ${selectedContact || selectedId === 'none' ? 'text-foreground' : 'text-muted-foreground'}`}>
                         {loading
                             ? 'Cargando contactos...'
                             : selectedContact
                                 ? `${selectedContact.first_name} ${selectedContact.last_name}${selectedContact.rut ? ` · ${selectedContact.rut}` : ''}`
-                                : 'Seleccionar contacto del CRM...'
+                                : selectedId === 'none'
+                                    ? 'Ningún contacto seleccionado'
+                                    : 'Seleccionar contactos...'
                         }
                     </span>
                     <Search className="h-4 w-4 opacity-50" />
@@ -112,6 +115,16 @@ export default function ContactPickerInline({ onSelectContact, label = 'Pre-llen
                                 <Plus className="w-4 h-4" />
                                 Agregar nuevo contacto
                             </button>
+
+                            {showNoneOption && (
+                                <button
+                                    type="button"
+                                    onClick={() => handleSelect('none')}
+                                    className="w-full text-left px-3 py-2.5 text-sm text-muted-foreground italic hover:bg-accent transition-colors border-b border-border/50"
+                                >
+                                    Ningún contacto
+                                </button>
+                            )}
 
                             <button
                                 type="button"

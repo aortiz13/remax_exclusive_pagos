@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { Button, Input, Label, Textarea } from '@/components/ui'
-import { X, Save, Calendar, Clock, Check, ChevronsUpDown, Plus } from 'lucide-react'
+import { X, Save, Calendar, Clock, Check, ChevronsUpDown, Plus, Activity } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { supabase } from '../../services/supabase'
 import { useAuth } from '../../context/AuthContext'
@@ -9,7 +9,7 @@ import { toast } from 'sonner'
 import { logActivity } from '../../services/activityService'
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
-import { cn } from "@/lib/utils"
+import { cn, toISOLocal } from "../../lib/utils"
 import ContactForm from './ContactForm'
 import PropertyForm from './PropertyForm'
 
@@ -29,7 +29,8 @@ const TaskModal = ({ task, contactId, propertyId, isOpen, onClose }) => {
         description: '',
         execution_date: '',
         execution_time: '',
-        reminder_minutes: 'none'
+        reminder_minutes: 'none',
+        is_all_day: false
     })
 
     useEffect(() => {
@@ -38,15 +39,28 @@ const TaskModal = ({ task, contactId, propertyId, isOpen, onClose }) => {
             fetchProperties()
         }
         if (task) {
-            const dateObj = task.execution_date ? new Date(task.execution_date) : new Date()
+            let executionDateStr = '';
+            let executionTimeStr = '';
+
+            if (task.execution_date) {
+                if (task.is_all_day) {
+                    executionDateStr = task.execution_date.split('T')[0];
+                } else {
+                    const dateObj = new Date(task.execution_date);
+                    executionDateStr = task.execution_date.split('T')[0];
+                    executionTimeStr = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+                }
+            }
+
             setFormData({
                 contact_id: task.contact_id || contactId || '',
                 property_id: task.property_id || propertyId || '',
                 action: task.action || '',
                 description: task.description || '',
-                execution_date: task.execution_date ? task.execution_date.split('T')[0] : '',
-                execution_time: task.execution_date ? dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '',
+                execution_date: executionDateStr,
+                execution_time: executionTimeStr,
                 reminder_minutes: task.reminder_minutes ? task.reminder_minutes.toString() : 'none',
+                is_all_day: !!task.is_all_day
             })
         }
     }, [isOpen, contactId, propertyId, task])
@@ -72,7 +86,13 @@ const TaskModal = ({ task, contactId, propertyId, isOpen, onClose }) => {
 
         try {
             // Combine date and time
-            const dateTime = new Date(`${formData.execution_date}T${formData.execution_time || '00:00'}`)
+            let dateTime;
+            if (formData.is_all_day) {
+                // Force 12:00:00 UTC to ensure same local day across timezones
+                dateTime = new Date(`${formData.execution_date}T12:00:00Z`);
+            } else {
+                dateTime = new Date(`${formData.execution_date}T${formData.execution_time || '00:00'}`);
+            }
 
             const dataToSave = {
                 contact_id: formData.contact_id || contactId,
@@ -81,7 +101,9 @@ const TaskModal = ({ task, contactId, propertyId, isOpen, onClose }) => {
                 action: formData.action,
                 description: formData.description,
                 execution_date: dateTime.toISOString(),
-                reminder_minutes: formData.reminder_minutes === 'none' ? null : parseInt(formData.reminder_minutes)
+                reminder_minutes: formData.reminder_minutes === 'none' ? null : parseInt(formData.reminder_minutes),
+                task_type: 'task',
+                is_all_day: !!formData.is_all_day
             }
 
             let error;
@@ -122,7 +144,7 @@ const TaskModal = ({ task, contactId, propertyId, isOpen, onClose }) => {
 
             // Trigger Google Sync
             if (profile?.google_refresh_token && savedTask) {
-                supabase.functions.invoke('google-calendar-sync', {
+                await supabase.functions.invoke('google-calendar-sync', {
                     body: { agentId: user.id, action: 'push_to_google', taskId: savedTask.id }
                 })
             }
@@ -157,6 +179,20 @@ const TaskModal = ({ task, contactId, propertyId, isOpen, onClose }) => {
 
                 <div className="flex-1 overflow-y-auto custom-scrollbar" onWheel={(e) => e.stopPropagation()}>
                     <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                        {task?.crm_actions && (
+                            <div className="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-xl border border-blue-100 dark:border-blue-900/50 space-y-2">
+                                <div className="flex items-center gap-2 text-blue-700 dark:text-blue-400 font-bold text-xs uppercase tracking-wider">
+                                    <Activity className="w-4 h-4" />
+                                    Acción Relacionada: {task.crm_actions.action_type}
+                                </div>
+                                {task.crm_actions.note && (
+                                    <p className="text-sm text-blue-600 dark:text-blue-300 italic">
+                                        "{task.crm_actions.note}"
+                                    </p>
+                                )}
+                            </div>
+                        )}
+
                         {!contactId && (
                             <div className="space-y-2">
                                 <Label>Contacto <span className="text-red-500">*</span></Label>

@@ -19,8 +19,8 @@ import {
 } from "@/components/ui";
 import { supabase } from '../../services/supabase';
 import { toast } from 'sonner';
-import { Check, ChevronsUpDown, X } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Check, ChevronsUpDown, X, Plus, Trash2, Clock } from "lucide-react";
+import { cn, toISOLocal } from "@/lib/utils";
 import {
     Command,
     CommandEmpty,
@@ -78,17 +78,26 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
     const [otherActionType, setOtherActionType] = useState('');
     const [selectedPropertyId, setSelectedPropertyId] = useState(defaultPropertyId || 'none');
     const [selectedContactIds, setSelectedContactIds] = useState(defaultContactId ? [defaultContactId] : []);
-    const [actionDate, setActionDate] = useState(new Date().toISOString().slice(0, 16)); // YYYY-MM-DDTHH:mm
+    const [actionDate, setActionDate] = useState(toISOLocal()); // YYYY-MM-DDTHH:mm
     const [note, setNote] = useState('');
+    const [hasSelectedNone, setHasSelectedNone] = useState(false);
 
     // New state for call result
     const [callResult, setCallResult] = useState('');
     const [otherCallResult, setOtherCallResult] = useState('');
+    const [associatedTasks, setAssociatedTasks] = useState([]);
 
-    // New state for follow-up task
+    // Data state for follow-up tasks
     const [createFollowUp, setCreateFollowUp] = useState(false);
-    const [followUpDelay, setFollowUpDelay] = useState('2_business_days');
-    const [customFollowUpDate, setCustomFollowUpDate] = useState(new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16));
+    const [followUpTasks, setFollowUpTasks] = useState([
+        {
+            id: Date.now(),
+            delay: '2_business_days',
+            customDate: toISOLocal(new Date(Date.now() + 2 * 24 * 60 * 60 * 1000)),
+            useSpecificTime: false,
+            specificTime: '09:00'
+        }
+    ]);
 
     // Data state
     const [properties, setProperties] = useState([]);
@@ -121,10 +130,24 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
                         if (!dateStr.includes('T')) dateStr += 'T00:00';
                         setActionDate(dateStr.slice(0, 16));
                     } catch (e) {
-                        setActionDate(new Date().toISOString().slice(0, 16));
+                        setActionDate(toISOLocal());
                     }
                 }
                 setNote(actionData.note || '');
+
+                // Load call result
+                if (actionData.call_result) {
+                    const isStandardResult = CALL_RESULTS.includes(actionData.call_result);
+                    setCallResult(isStandardResult ? actionData.call_result : 'Otra');
+                    setOtherCallResult(isStandardResult ? '' : actionData.call_result);
+                } else {
+                    setCallResult('');
+                    setOtherCallResult('');
+                }
+
+                if (viewOnly) {
+                    fetchAssociatedTasks(actionData.id);
+                }
             } else {
                 setActionType('');
                 setOtherActionType('');
@@ -135,7 +158,13 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
                 setCallResult('');
                 setOtherCallResult('');
                 setCreateFollowUp(false);
-                setFollowUpDelay('2_business_days');
+                setFollowUpTasks([{
+                    id: Date.now(),
+                    delay: '2_business_days',
+                    customDate: toISOLocal(new Date(Date.now() + 2 * 24 * 60 * 60 * 1000)),
+                    useSpecificTime: false,
+                    specificTime: '09:00'
+                }]);
             }
         }
     }, [isOpen, defaultContactId, defaultPropertyId, actionData]);
@@ -188,6 +217,21 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
         }
     };
 
+    const fetchAssociatedTasks = async (actionId) => {
+        try {
+            const { data, error } = await supabase
+                .from('crm_tasks')
+                .select('*')
+                .eq('action_id', actionId)
+                .order('execution_date', { ascending: true });
+
+            if (error) throw error;
+            setAssociatedTasks(data || []);
+        } catch (error) {
+            console.error('Error fetching associated tasks:', error);
+        }
+    };
+
     const addBusinessDays = (date, days) => {
         let added = 0;
         const result = new Date(date);
@@ -201,12 +245,14 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
         return result;
     };
 
-    const getFollowUpLabel = (delayValue) => {
+    const getFollowUpLabel = (delayValue, customDateValue = null) => {
         const delay = FOLLOW_UP_DELAYS.find(d => d.value === delayValue);
-        if (!delay || delayValue === 'custom') return delay?.label || '';
+        if (!delay) return '';
 
         const baseDate = actionDate ? new Date(actionDate) : new Date();
-        const targetDate = calculateFollowUpDate(delayValue, baseDate);
+        const targetDate = delayValue === 'custom' && customDateValue
+            ? new Date(customDateValue)
+            : calculateFollowUpDate(delayValue, baseDate);
 
         const dayName = new Intl.DateTimeFormat('es-ES', { weekday: 'long' }).format(targetDate);
         const capitalizedDay = dayName.charAt(0).toUpperCase() + dayName.slice(1);
@@ -214,13 +260,15 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
         return `${delay.label} (${capitalizedDay})`;
     };
 
-    const calculateFollowUpDate = (delay, baseDate = new Date()) => {
-        const date = new Date(baseDate);
+    const calculateFollowUpDate = (delay, baseDate = new Date(), customDateStr = null) => {
+        let date = new Date(baseDate);
         switch (delay) {
             case '2_business_days':
-                return addBusinessDays(date, 2);
+                date = addBusinessDays(date, 2);
+                break;
             case '3_business_days':
-                return addBusinessDays(date, 3);
+                date = addBusinessDays(date, 3);
+                break;
             case '2_weeks':
                 date.setDate(date.getDate() + 14);
                 break;
@@ -231,8 +279,12 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
                 date.setMonth(date.getMonth() + 3);
                 break;
             case 'custom':
-                return new Date(customFollowUpDate);
-            default:
+                if (customDateStr) {
+                    // Robust parsing for custom date to avoid UTC shift
+                    const datePart = customDateStr.split('T')[0];
+                    const [y, m, d] = datePart.split('-').map(Number);
+                    return new Date(y, m - 1, d, 0, 0, 0);
+                }
                 break;
         }
         return date;
@@ -247,10 +299,11 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
             toast.error('Debe especificar la otra acción.');
             return;
         }
-        if (selectedContactIds.length === 0) {
-            toast.error('Debe asociar al menos un contacto.');
-            return;
-        }
+        // Note: Contacts are now optional via the "Ningún contacto" choice
+        // if (selectedContactIds.length === 0) {
+        //     toast.error('Debe asociar al menos un contacto.');
+        //     return;
+        // }
 
         const requiresProperty = ['Visita Propiedad', 'Visita Comprador', 'Evaluación Comercial'].includes(actionType);
         if (requiresProperty && (!selectedPropertyId || selectedPropertyId === 'none')) {
@@ -291,27 +344,52 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
 
                         if (actionError) throw actionError;
 
-                        // Create follow-up task if requested
-                        let followUpTaskRow = null;
-                        if (createFollowUp && selectedContactIds.length > 0) {
-                            const followUpDate = calculateFollowUpDate(followUpDelay);
-                            const { data: taskRow, error: taskError } = await supabase
-                                .from('crm_tasks')
-                                .insert({
-                                    agent_id: user.id,
-                                    contact_id: selectedContactIds[0],
-                                    property_id: selectedPropertyId === 'none' ? null : selectedPropertyId,
-                                    action: `Seguimiento: ${resolvedType}`,
-                                    execution_date: followUpDate.toISOString(),
-                                    action_id: actionRow.id
-                                })
-                                .select()
-                                .single();
+                        // Create follow-up tasks if requested
+                        if (createFollowUp) {
+                            for (const task of followUpTasks) {
+                                let followUpDate = calculateFollowUpDate(task.delay, actionDate, task.customDate);
 
-                            if (taskError) {
-                                console.error('Error creating follow-up task:', taskError);
-                            } else {
-                                followUpTaskRow = taskRow;
+                                if (task.useSpecificTime && task.specificTime) {
+                                    const [hours, minutes] = task.specificTime.split(':');
+                                    followUpDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+                                } else {
+                                    // Set to local midnight and mark as all-day
+                                    // Robust parsing: extract year, month, day to avoid any UTC shift
+                                    const y = followUpDate.getFullYear();
+                                    const m = followUpDate.getMonth();
+                                    const d = followUpDate.getDate();
+                                    followUpDate = new Date(y, m, d, 0, 0, 0);
+                                }
+
+                                const { data: taskRow, error: taskError } = await supabase
+                                    .from('crm_tasks')
+                                    .insert({
+                                        agent_id: user.id,
+                                        contact_id: selectedContactIds[0] || null,
+                                        property_id: selectedPropertyId === 'none' ? null : selectedPropertyId,
+                                        action: `Seguimiento: ${resolvedType}`,
+                                        execution_date: followUpDate.toISOString(),
+                                        action_id: actionRow.id,
+                                        task_type: 'task',
+                                        is_all_day: !task.useSpecificTime
+                                    })
+                                    .select()
+                                    .single();
+
+                                if (taskError) {
+                                    console.error('Error creating follow-up task:', taskError);
+                                } else if (user.id) {
+                                    try {
+                                        const { data: profile } = await supabase.from('profiles').select('google_refresh_token').eq('id', user.id).single();
+                                        if (profile?.google_refresh_token) {
+                                            supabase.functions.invoke('google-calendar-sync', {
+                                                body: { agentId: user.id, action: 'push_to_google', taskId: taskRow.id }
+                                            });
+                                        }
+                                    } catch (error) {
+                                        console.error('Error triggering google sync:', error);
+                                    }
+                                }
                             }
                         }
 
@@ -329,19 +407,7 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
 
                         toast.success('Acción registrada exitosamente');
 
-                        // Trigger Google Sync for the new task if created
-                        if (followUpTaskRow && user.id) {
-                            try {
-                                const { data: profile } = await supabase.from('profiles').select('google_refresh_token').eq('id', user.id).single();
-                                if (profile?.google_refresh_token) {
-                                    supabase.functions.invoke('google-calendar-sync', {
-                                        body: { agentId: user.id, action: 'push_to_google', taskId: followUpTaskRow.id }
-                                    });
-                                }
-                            } catch (error) {
-                                console.error('Error triggering google sync:', error);
-                            }
-                        }
+                        toast.success('Acción registrada exitosamente');
 
                         if (onActionSaved) onActionSaved();
                         onClose();
@@ -360,6 +426,7 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
     };
 
     const toggleContactSelect = (contactId) => {
+        setHasSelectedNone(false);
         setSelectedContactIds(prev =>
             prev.includes(contactId)
                 ? prev.filter(id => id !== contactId)
@@ -370,6 +437,10 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
     const removeContact = (contactId, e) => {
         e.stopPropagation();
         setSelectedContactIds(prev => prev.filter(id => id !== contactId));
+        if (selectedContactIds.length === 1 && selectedContactIds[0] === contactId) {
+            // If we're removing the last contact, we might want to keep hasSelectedNone false
+            // unless the user explicitly clicks None.
+        }
     };
 
     return (
@@ -385,6 +456,9 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
                 >
                     <DialogHeader>
                         <DialogTitle>{viewOnly ? 'Detalles de Acción' : 'Agregar Acción'}</DialogTitle>
+                        <DialogDescription className="sr-only">
+                            {viewOnly ? 'Detalles de la acción seleccionada' : 'Formulario para agregar una nueva acción al CRM'}
+                        </DialogDescription>
                     </DialogHeader>
 
                     <div className="space-y-4 py-4">
@@ -484,7 +558,9 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
                                         disabled={viewOnly}
                                     >
                                         <div className="flex flex-wrap gap-1 items-center">
-                                            {selectedContactIds.length === 0 ? "Seleccionar contactos..." : null}
+                                            {selectedContactIds.length === 0
+                                                ? (hasSelectedNone ? "Ningún contacto seleccionado" : "Seleccionar contactos...")
+                                                : null}
                                             {selectedContactIds.map(id => {
                                                 const contact = contacts.find(c => c.id === id);
                                                 const role = propertyContactsRoles[id];
@@ -523,6 +599,17 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
                                                     className="text-primary font-medium cursor-pointer"
                                                 >
                                                     + Crear nuevo contacto
+                                                </CommandItem>
+                                                <CommandItem
+                                                    value="none"
+                                                    onSelect={() => {
+                                                        setSelectedContactIds([]);
+                                                        setHasSelectedNone(true);
+                                                        setOpenContactCombo(false);
+                                                    }}
+                                                    className="text-muted-foreground italic cursor-pointer"
+                                                >
+                                                    Ningún contacto
                                                 </CommandItem>
                                                 {contacts.map((contact) => (
                                                     <CommandItem
@@ -580,56 +667,175 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
                         </div>
 
                         {/* Follow-up Task Option */}
+                        {/* Follow-up Tasks Section */}
                         {!viewOnly && (
-                            <div className="pt-2 pb-4 space-y-3 border-t mt-4">
-                                <div className="flex items-center space-x-2">
-                                    <Checkbox
-                                        id="followup"
-                                        checked={createFollowUp}
-                                        onCheckedChange={setCreateFollowUp}
-                                    />
-                                    <div
-                                        className="text-sm font-medium leading-none flex items-center gap-1"
-                                    >
-                                        <Label htmlFor="followup" className="cursor-pointer">
-                                            Crea una tarea por hacer para hacer seguimiento en
-                                        </Label>{" "}
-                                        <Popover>
-                                            <PopoverTrigger asChild>
-                                                <span
-                                                    className="text-primary hover:underline underline-offset-4 font-bold decoration-primary/30 cursor-pointer"
-                                                    onClick={(e) => e.stopPropagation()}
-                                                >
-                                                    {getFollowUpLabel(followUpDelay).toLowerCase()}
-                                                </span>
-                                            </PopoverTrigger>
-                                            <PopoverContent className="w-56 p-0" align="start">
-                                                <div className="flex flex-col">
-                                                    {FOLLOW_UP_DELAYS.map((delay) => (
-                                                        <Button
-                                                            key={delay.value}
-                                                            variant="ghost"
-                                                            className="justify-start font-normal h-9 px-4 rounded-none border-b last:border-0"
-                                                            onClick={() => setFollowUpDelay(delay.value)}
-                                                        >
-                                                            {getFollowUpLabel(delay.value)}
-                                                        </Button>
-                                                    ))}
-                                                </div>
-                                            </PopoverContent>
-                                        </Popover>
+                            <div className="pt-2 pb-4 space-y-4 border-t mt-4">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center space-x-2">
+                                        <Checkbox
+                                            id="followup-master"
+                                            checked={createFollowUp}
+                                            onCheckedChange={setCreateFollowUp}
+                                        />
+                                        <Label htmlFor="followup-master" className="text-sm font-bold cursor-pointer">
+                                            Crear tareas de seguimiento
+                                        </Label>
                                     </div>
+                                    {createFollowUp && (
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-8 text-primary"
+                                            onClick={() => setFollowUpTasks(prev => [
+                                                ...prev,
+                                                {
+                                                    id: Date.now(),
+                                                    delay: '2_business_days',
+                                                    customDate: toISOLocal(new Date(Date.now() + 2 * 24 * 60 * 60 * 1000)),
+                                                    useSpecificTime: false,
+                                                    specificTime: '09:00'
+                                                }
+                                            ])}
+                                        >
+                                            <Plus className="h-4 w-4 mr-1" /> Agregar otra tarea
+                                        </Button>
+                                    )}
                                 </div>
 
-                                {createFollowUp && followUpDelay === 'custom' && (
-                                    <div className="ml-6 animate-in fade-in slide-in-from-top-1 duration-200">
-                                        <Input
-                                            type="datetime-local"
-                                            value={customFollowUpDate}
-                                            onChange={(e) => setCustomFollowUpDate(e.target.value)}
-                                        />
+                                {createFollowUp && (
+                                    <div className="space-y-4 ml-6">
+                                        {followUpTasks.map((task, index) => (
+                                            <div key={task.id} className="p-3 bg-muted/30 rounded-lg space-y-3 relative border border-muted/50">
+                                                <div className="flex flex-wrap items-center gap-2 pr-8">
+                                                    <span className="text-sm">Hacer seguimiento en</span>
+                                                    <Popover>
+                                                        <PopoverTrigger asChild>
+                                                            <span
+                                                                className="text-primary hover:underline underline-offset-4 font-bold cursor-pointer text-sm"
+                                                                onClick={(e) => e.stopPropagation()}
+                                                            >
+                                                                {getFollowUpLabel(task.delay, task.customDate).toLowerCase()}
+                                                            </span>
+                                                        </PopoverTrigger>
+                                                        <PopoverContent className="w-56 p-0" align="start">
+                                                            <div className="flex flex-col">
+                                                                {FOLLOW_UP_DELAYS.map((delay) => (
+                                                                    <Button
+                                                                        key={delay.value}
+                                                                        variant="ghost"
+                                                                        className="justify-start font-normal h-9 px-4 rounded-none border-b last:border-0"
+                                                                        onClick={() => {
+                                                                            const updatedTasks = [...followUpTasks];
+                                                                            updatedTasks[index].delay = delay.value;
+                                                                            setFollowUpTasks(updatedTasks);
+                                                                        }}
+                                                                    >
+                                                                        {getFollowUpLabel(delay.value)}
+                                                                    </Button>
+                                                                ))}
+                                                            </div>
+                                                        </PopoverContent>
+                                                    </Popover>
+
+                                                    <div className="flex items-center gap-1 ml-auto">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className={cn("h-7 w-7", task.useSpecificTime ? "text-primary bg-primary/10" : "text-muted-foreground")}
+                                                            onClick={() => {
+                                                                const updatedTasks = [...followUpTasks];
+                                                                updatedTasks[index].useSpecificTime = !task.useSpecificTime;
+                                                                setFollowUpTasks(updatedTasks);
+                                                            }}
+                                                            title="A la hora..."
+                                                        >
+                                                            <Clock className="h-4 w-4" />
+                                                        </Button>
+
+                                                        {followUpTasks.length > 1 && (
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                                                onClick={() => setFollowUpTasks(prev => prev.filter(t => t.id !== task.id))}
+                                                            >
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </Button>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex flex-wrap gap-4 items-end">
+                                                    {task.delay === 'custom' && (
+                                                        <div className="space-y-1">
+                                                            <Label className="text-[10px] uppercase text-muted-foreground">Fecha personalizada</Label>
+                                                            <Input
+                                                                type="datetime-local"
+                                                                value={task.customDate}
+                                                                onChange={(e) => {
+                                                                    const updatedTasks = [...followUpTasks];
+                                                                    updatedTasks[index].customDate = e.target.value;
+                                                                    setFollowUpTasks(updatedTasks);
+                                                                }}
+                                                                className="h-8 py-1 text-sm bg-background"
+                                                            />
+                                                        </div>
+                                                    )}
+
+                                                    {task.useSpecificTime && (
+                                                        <div className="space-y-1 animate-in fade-in slide-in-from-left-2 duration-200">
+                                                            <Label className="text-[10px] uppercase text-muted-foreground">A la hora...</Label>
+                                                            <Input
+                                                                type="time"
+                                                                value={task.specificTime}
+                                                                onChange={(e) => {
+                                                                    const updatedTasks = [...followUpTasks];
+                                                                    updatedTasks[index].specificTime = e.target.value;
+                                                                    setFollowUpTasks(updatedTasks);
+                                                                }}
+                                                                className="h-8 py-1 text-sm bg-background w-[110px]"
+                                                            />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
                                     </div>
                                 )}
+                            </div>
+                        )}
+
+                        {/* Display associated tasks in viewOnly mode */}
+                        {viewOnly && associatedTasks.length > 0 && (
+                            <div className="pt-4 border-t mt-4 space-y-3">
+                                <Label className="text-sm font-bold flex items-center gap-2">
+                                    <Clock className="w-4 h-4 text-primary" />
+                                    Tareas de Seguimiento Generadas
+                                </Label>
+                                <div className="space-y-2">
+                                    {associatedTasks.map((task) => (
+                                        <div key={task.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg border border-border/50">
+                                            <div className="flex-1 min-w-0">
+                                                <div className="text-sm font-medium truncate">{task.action}</div>
+                                                <div className="text-[11px] text-muted-foreground">
+                                                    {new Date(task.execution_date).toLocaleString('es-ES', {
+                                                        day: '2-digit',
+                                                        month: '2-digit',
+                                                        year: 'numeric',
+                                                        hour: '2-digit',
+                                                        minute: '2-digit'
+                                                    })}
+                                                </div>
+                                            </div>
+                                            <div className={`px-2 py-0.5 rounded-full text-[10px] font-medium border ${task.completed
+                                                ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
+                                                : 'bg-amber-50 text-amber-600 border-amber-100'
+                                                }`}>
+                                                {task.completed ? 'Completada' : 'Pendiente'}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         )}
                     </div>

@@ -34,30 +34,43 @@ serve(async (req) => {
         const authHeader = req.headers.get('Authorization');
         if (!authHeader) throw new Error('Missing Authorization header');
 
-        const supabase = createClient(
-            Deno.env.get('SUPABASE_URL') ?? '',
-            Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-            { global: { headers: { Authorization: authHeader } } }
-        );
-
-        // Verify user identity
-        const { data: { user }, error: authError } = await supabase.auth.getUser();
-        if (authError || !user) {
-            console.error('Auth Error:', authError);
-            return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-                status: 401,
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            });
-        }
-
         const adminClient = createClient(
             Deno.env.get('SUPABASE_URL') ?? '',
             Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
         );
 
         const body = await req.json().catch(() => ({}));
-        const { action, reset } = body;
-        const agentId = user.id; // Always use the authenticated user's ID
+        const { action, reset, agentId: bodyAgentId } = body;
+        console.log(`Action requested: ${action}, bodyKeys: ${Object.keys(body)}`);
+
+        // AUTH LOGIC:
+        // 1. If called with service_role (webhooks), use agentId from body.
+        // 2. If called with user auth (frontend), use user.id.
+        let agentId: string | undefined;
+
+        // Check if the auth token is the service role key
+        const isServiceCall = authHeader.includes(Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || 'NEVER_MATCH_THIS_RANDOM_STRING_999');
+
+        if (isServiceCall) {
+            if (!bodyAgentId) throw new Error('Missing agentId in service call');
+            agentId = bodyAgentId;
+        } else {
+            // Verify user identity
+            const supabase = createClient(
+                Deno.env.get('SUPABASE_URL') ?? '',
+                Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+                { global: { headers: { Authorization: authHeader } } }
+            );
+            const { data: { user }, error: authError } = await supabase.auth.getUser();
+            if (authError || !user) {
+                console.error('Auth Error:', authError);
+                return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+                    status: 401,
+                    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                });
+            }
+            agentId = user.id;
+        }
 
         // Force reset if requested
         if (reset) {
@@ -81,6 +94,38 @@ serve(async (req) => {
         }
 
         const accessToken = await getAccessToken(profile.google_refresh_token);
+
+        // --- DELETE FROM GOOGLE ---
+        if (action === 'delete_from_google') {
+            const { googleEventId } = body;
+            if (!googleEventId) throw new Error('Missing googleEventId');
+
+            let url, method = 'DELETE';
+            if (googleEventId.startsWith('GT_')) {
+                const taskId = googleEventId.replace('GT_', '');
+                url = `https://www.googleapis.com/tasks/v1/lists/@default/tasks/${taskId}`;
+            } else {
+                url = `https://www.googleapis.com/calendar/v3/calendars/primary/events/${googleEventId}`;
+            }
+
+            const response = await fetch(url, {
+                method,
+                headers: { Authorization: `Bearer ${accessToken}` },
+            });
+
+            if (response.ok || response.status === 404) {
+                return new Response(JSON.stringify({ success: true }), {
+                    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                });
+            } else {
+                const errorData = await response.json().catch(() => ({}));
+                console.error('Google Delete Error:', errorData);
+                return new Response(JSON.stringify({ success: false, error: errorData }), {
+                    status: response.status,
+                    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                });
+            }
+        }
 
         // --- SYNC FROM GOOGLE TO CRM ---
         if (action === 'sync_from_google') {

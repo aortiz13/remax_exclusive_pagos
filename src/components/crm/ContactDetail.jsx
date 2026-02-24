@@ -364,7 +364,14 @@ const ContactDetail = () => {
                                             )}
                                             <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
                                                 <Calendar className="w-3 h-3" />
-                                                {new Date(task.execution_date).toLocaleString()}
+                                                {task.is_all_day ? (
+                                                    <span className="flex items-center gap-2">
+                                                        <span className="font-bold uppercase tracking-tighter text-[9px] bg-blue-100 text-blue-700 px-1 rounded">Todo el día</span>
+                                                        <span>{new Date(task.execution_date.split('T')[0] + 'T00:00:00').toLocaleDateString()}</span>
+                                                    </span>
+                                                ) : (
+                                                    new Date(task.execution_date).toLocaleString()
+                                                )}
                                             </p>
                                         </div>
                                     </li>

@@ -110,7 +110,11 @@ export default function DailyCalendarWidget() {
                                     <div className="flex items-center gap-2 mt-1">
                                         <span className="text-xs text-slate-500 flex items-center gap-1">
                                             <Clock className="w-3 h-3" />
-                                            {format(parseISO(task.execution_date), 'HH:mm')}
+                                            {task.is_all_day ? (
+                                                <span className="font-bold uppercase tracking-tighter text-[9px] bg-blue-100 text-blue-700 px-1 rounded">Todo el día</span>
+                                            ) : (
+                                                format(parseISO(task.execution_date), 'HH:mm')
+                                            )}
                                         </span>
                                         {task.contact && (
                                             <span className="text-xs text-indigo-500 bg-indigo-50 dark:bg-indigo-950 px-1.5 py-0.5 rounded flex items-center gap-1 truncate max-w-[120px]">
