@@ -42,11 +42,26 @@ const EmailList = ({ userProfile, onSelectThread, currentFolder }) => {
 
     // Filter by folder
     const folderFilteredThreads = (threads || []).filter(t => {
-        // Map 'active' DB status to 'inbox' frontend folder
-        const status = t.status === 'active' ? 'inbox' : (t.status || 'inbox');
+        const labels = t.labels || [];
 
-        if (currentFolder === 'inbox') return status === 'inbox';
-        return status === currentFolder;
+        switch (currentFolder) {
+            case 'inbox':
+                return labels.includes('INBOX');
+            case 'starred':
+                return labels.includes('STARRED');
+            case 'sent':
+                return labels.includes('SENT');
+            case 'drafts':
+                return labels.includes('DRAFT');
+            case 'trashed':
+                return labels.includes('TRASH');
+            case 'archived':
+                // Archived typically means it was in inbox but no longer is, 
+                // and it's not in trash or drafts.
+                return !labels.includes('INBOX') && !labels.includes('TRASH') && !labels.includes('DRAFT');
+            default:
+                return true;
+        }
     });
 
     // Filter by search

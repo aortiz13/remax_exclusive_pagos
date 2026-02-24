@@ -171,11 +171,13 @@ const EmailComposer = ({ onClose, onSuccess, replyTo = null, userProfile }) => {
 
     const editor = useEditor({
         extensions: [
-            StarterKit,
+            StarterKit.configure({
+                // Explicitly disable history if needed or just keep defaults correctly
+            }),
             Link.configure({
                 openOnClick: false,
                 HTMLAttributes: {
-                    class: 'text-blue-600 underline cursor-pointer',
+                    class: 'text-blue-600 underline cursor-pointer hover:text-blue-800',
                 },
             }),
             Underline,
@@ -237,7 +239,19 @@ const EmailComposer = ({ onClose, onSuccess, replyTo = null, userProfile }) => {
                 })
             );
 
+            const { data: sessionData } = await supabase.auth.getSession();
+            const token = sessionData?.session?.access_token;
+
+            console.log('Enviando gmail-send, ¿token presente?:', !!token);
+
+            if (!token) {
+                throw new Error('No se pudo encontrar una sesión activa para autenticar la petición.');
+            }
+
             const { data, error } = await supabase.functions.invoke('gmail-send', {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
                 body: {
                     to,
                     subject,

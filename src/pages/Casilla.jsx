@@ -43,7 +43,19 @@ const Casilla = () => {
 
   const handleLoginGoogle = async () => {
     try {
-      const { data, error } = await supabase.functions.invoke('gmail-auth-url');
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+
+      console.log('Iniciando login Google, ¿token presente?:', !!token);
+      if (!token) {
+        throw new Error('No se encontró una sesión activa.');
+      }
+
+      const { data, error } = await supabase.functions.invoke('gmail-auth-url', {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
       if (error) throw error;
       if (data && data.url) {
         window.location.href = data.url;
@@ -68,7 +80,18 @@ const Casilla = () => {
       const processCode = async () => {
         toast.loading("Sincronizando cuenta de Gmail...", { id: "gmail-sync" });
         try {
+          const { data: sessionData } = await supabase.auth.getSession();
+          const token = sessionData?.session?.access_token;
+
+          console.log('Procesando callback Google, ¿token presente?:', !!token);
+          if (!token) {
+            throw new Error('No se encontró una sesión activa para procesar la vinculación.');
+          }
+
           const { data, error } = await supabase.functions.invoke('gmail-auth-callback', {
+            headers: {
+              Authorization: `Bearer ${token}`
+            },
             body: { code }
           });
           if (error) throw error;

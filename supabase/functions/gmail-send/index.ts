@@ -19,6 +19,7 @@ serve(async (req) => {
     }
 
     const authHeader = req.headers.get('Authorization');
+    console.log('Auth header present:', !!authHeader);
     if (!authHeader) {
       throw new Error('No authorization header');
     }
@@ -31,7 +32,10 @@ serve(async (req) => {
     });
 
     const { data: { user }, error: userError } = await supabase.auth.getUser();
-    if (userError || !user) throw new Error('Usuario no autenticado');
+    if (userError || !user) {
+      console.error('Auth error detailed:', userError);
+      throw new Error('Usuario no autenticado');
+    }
 
     // Mismo cliente pero con service_role_key para bypass RLS de tabla gmail_accounts
     const supabaseService = createClient(supabaseUrl, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
@@ -43,6 +47,7 @@ serve(async (req) => {
       .single();
 
     if (accountError || !account || !account.access_token) {
+      console.error('Account lookup error:', accountError);
       throw new Error('No se encontró una cuenta de Gmail conectada o el token es inválido.');
     }
 
@@ -54,8 +59,8 @@ serve(async (req) => {
     messageStr += `To: ${to}\r\n`;
     messageStr += `Subject: =?utf-8?B?${btoa(unescape(encodeURIComponent(subject)))}?=\r\n`; // Subject encoded
     if (replyToMessageId) {
-      messageStr += `In-Reply-To: ${replyToMessageId}\r\n`;
-      messageStr += `References: ${replyToMessageId}\r\n`;
+      messageStr += `In-Reply-To: <${replyToMessageId}>\r\n`;
+      messageStr += `References: <${replyToMessageId}>\r\n`;
     }
 
     // Check if we have attachments to use multipart/mixed
@@ -91,7 +96,7 @@ serve(async (req) => {
       .replace(/\//g, '_')
       .replace(/=+$/, '');
 
-    const url = 'https://gmail.googleapis.com/upload/gmail/v1/users/me/messages/send';
+    const url = 'https://gmail.googleapis.com/gmail/v1/users/me/messages/send';
     const requestBody: any = {
       raw: encodedMessage,
     };
@@ -101,7 +106,7 @@ serve(async (req) => {
       requestBody.threadId = threadId;
     }
 
-    const response = await fetch(url + '?uploadType=multipart', {
+    const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${account.access_token}`,
@@ -111,11 +116,9 @@ serve(async (req) => {
     });
 
     if (!response.ok) {
-      // Token might be expired, a real prod app would refresh the token here
-      // using the refresh_token and then retry.
       const errText = await response.text();
       console.error('Gmail API error:', errText);
-      throw new Error(`Gmail API Error: ${response.status}`);
+      throw new Error(`Gmail API Error: ${response.status} - ${errText}`);
     }
 
     const result = await response.json();
