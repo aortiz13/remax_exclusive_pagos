@@ -8,7 +8,7 @@ const corsHeaders = {
 
 const GOOGLE_CLIENT_ID = Deno.env.get('GOOGLE_CLIENT_ID');
 const GOOGLE_CLIENT_SECRET = Deno.env.get('GOOGLE_CLIENT_SECRET');
-const GOOGLE_REDIRECT_URI = Deno.env.get('GOOGLE_REDIRECT_URI');
+const GOOGLE_GMAIL_REDIRECT_URI = Deno.env.get('GOOGLE_GMAIL_REDIRECT_URI');
 const GOOGLE_PUBSUB_TOPIC = Deno.env.get('GOOGLE_PUBSUB_TOPIC'); // e.g., projects/my-project/topics/gmail-notifications
 
 serve(async (req) => {
@@ -52,7 +52,7 @@ serve(async (req) => {
                 client_secret: GOOGLE_CLIENT_SECRET!,
                 code,
                 grant_type: 'authorization_code',
-                redirect_uri: GOOGLE_REDIRECT_URI!,
+                redirect_uri: GOOGLE_GMAIL_REDIRECT_URI!,
             }),
         });
 

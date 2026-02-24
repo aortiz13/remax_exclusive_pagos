@@ -6,7 +6,7 @@ const corsHeaders = {
 };
 
 const GOOGLE_CLIENT_ID = Deno.env.get('GOOGLE_CLIENT_ID');
-const GOOGLE_REDIRECT_URI = Deno.env.get('GOOGLE_REDIRECT_URI');
+const GOOGLE_GMAIL_REDIRECT_URI = Deno.env.get('GOOGLE_GMAIL_REDIRECT_URI');
 
 serve(async (req) => {
     if (req.method === 'OPTIONS') {
@@ -16,7 +16,7 @@ serve(async (req) => {
     try {
         const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
         authUrl.searchParams.set('client_id', GOOGLE_CLIENT_ID!);
-        authUrl.searchParams.set('redirect_uri', GOOGLE_REDIRECT_URI!);
+        authUrl.searchParams.set('redirect_uri', GOOGLE_GMAIL_REDIRECT_URI!);
         authUrl.searchParams.set('response_type', 'code');
         // Scopes para Gmail: leer y enviar
         authUrl.searchParams.set('scope', 'https://mail.google.com/ https://www.googleapis.com/auth/userinfo.email');
