@@ -137,9 +137,9 @@ const Casilla = () => {
   return (
     <div className="h-[calc(100vh-100px)] flex bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
       <Split
-        sizes={[15, 30, 40, 15]}
-        minSize={[150, 250, 400, 150]}
-        maxSize={[250, 400, Infinity, 350]}
+        sizes={[15, 60, 25]}
+        minSize={[150, 500, 250]}
+        maxSize={[250, Infinity, 400]}
         gutterSize={4}
         gutterAlign="center"
         snapOffset={30}
@@ -160,21 +160,13 @@ const Casilla = () => {
           />
         </div>
 
-        {/* 2. Email List (Virtualizado idealmente) */}
-        <div className="border-r border-gray-200 h-full bg-white flex flex-col">
-          <EmailList
-            userProfile={userProfile}
-            onSelectThread={setSelectedThread}
-            currentFolder={currentFolder}
-          />
-        </div>
-
-        {/* 3. Email Detail / Conversation Thread */}
-        <div className="border-r border-gray-200 h-full bg-gray-50 flex flex-col overflow-y-auto">
+        {/* 2. Main Content (Email List OR Email Detail) */}
+        <div className="border-r border-gray-200 h-full bg-white flex flex-col overflow-hidden">
           {selectedThread ? (
             <EmailDetail
               thread={selectedThread}
               userProfile={userProfile}
+              onBack={() => setSelectedThread(null)}
               onReply={(replyContext) => {
                 setReplyConfig(replyContext);
                 setIsComposerOpen(true);
@@ -182,10 +174,11 @@ const Casilla = () => {
               onThreadDeleted={() => setSelectedThread(null)}
             />
           ) : (
-            <div className="flex-1 flex flex-col items-center justify-center text-gray-400">
-              <Inbox className="w-16 h-16 mb-4 text-gray-300" />
-              <p>Selecciona un correo para leerlo</p>
-            </div>
+            <EmailList
+              userProfile={userProfile}
+              onSelectThread={setSelectedThread}
+              currentFolder={currentFolder}
+            />
           )}
         </div>
 
