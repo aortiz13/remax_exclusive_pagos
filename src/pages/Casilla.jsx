@@ -137,8 +137,8 @@ const Casilla = () => {
   return (
     <div className="h-[calc(100vh-100px)] flex bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
       <Split
-        sizes={[11, 31, 43, 15]}
-        minSize={[120, 250, 400, 150]}
+        sizes={[15, 30, 40, 15]}
+        minSize={[150, 250, 400, 150]}
         maxSize={[250, 400, Infinity, 350]}
         gutterSize={4}
         gutterAlign="center"
