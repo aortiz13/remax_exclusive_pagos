@@ -8,9 +8,9 @@ export default function ViajeExitoRoadmap({ videos, progress = {}, markCompleted
     const [showModal, setShowModal] = useState(false)
     const [activeVideo, setActiveVideo] = useState(null)
 
-    // Sort videos by position or created_at
+    // Sort videos by position or video_date
     const sortedVideos = useMemo(() => {
-        return [...videos].sort((a, b) => (a.position || 0) - (b.position || 0) || new Date(a.created_at) - new Date(b.created_at))
+        return [...videos].sort((a, b) => (a.position || 0) - (b.position || 0) || new Date(a.video_date) - new Date(b.video_date))
     }, [videos])
 
     // Determine status for each video

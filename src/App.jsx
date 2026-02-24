@@ -1,5 +1,6 @@
 
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import Header from './components/layout/Header'
 import Sidebar from './components/layout/Sidebar'
@@ -32,6 +33,7 @@ import AgentDocuments from './pages/AgentDocuments'
 import CalendarPage from './pages/Calendar'
 import VirtualClassroom from './pages/VirtualClassroom'
 import AdminVirtualClassroom from './pages/AdminVirtualClassroom'
+import Casilla from './pages/Casilla'
 import NewMandate from './pages/crm/NewMandate'
 import ChatwootWidget from './components/chatwoot/ChatwootWidget'
 import { Toaster } from 'sonner'
@@ -77,195 +79,205 @@ const Layout = ({ children }) => {
   )
 }
 
+const queryClient = new QueryClient()
+
 function App() {
   return (
-    <AuthProvider>
-      <Router>
-        <Layout>
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
-            <Route path="/update-password" element={<UpdatePassword />} />
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <Router>
+          <Layout>
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/update-password" element={<UpdatePassword />} />
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
-            <Route path="/dashboard" element={
-              <ProtectedRoute>
-                <Dashboard />
-              </ProtectedRoute>
-            } />
+              <Route path="/dashboard" element={
+                <ProtectedRoute>
+                  <Dashboard />
+                </ProtectedRoute>
+              } />
 
-            <Route path="/calendar" element={
-              <ProtectedRoute>
-                <CalendarPage />
-              </ProtectedRoute>
-            } />
+              <Route path="/calendar" element={
+                <ProtectedRoute>
+                  <CalendarPage />
+                </ProtectedRoute>
+              } />
 
-            <Route path="/profile" element={
-              <ProtectedRoute>
-                <Profile />
-              </ProtectedRoute>
-            } />
+              <Route path="/casilla" element={
+                <ProtectedRoute>
+                  <Casilla />
+                </ProtectedRoute>
+              } />
 
-            <Route path="/new-request" element={
-              <ProtectedRoute>
-                <NewRequestSelection />
-              </ProtectedRoute>
-            } />
+              <Route path="/profile" element={
+                <ProtectedRoute>
+                  <Profile />
+                </ProtectedRoute>
+              } />
 
-            <Route path="/request/payment/new" element={
-              <ProtectedRoute>
-                <RequestForm />
-              </ProtectedRoute>
-            } />
+              <Route path="/new-request" element={
+                <ProtectedRoute>
+                  <NewRequestSelection />
+                </ProtectedRoute>
+              } />
 
-            <Route path="/request/contract/new" element={
-              <ProtectedRoute>
-                <ContractForm />
-              </ProtectedRoute>
-            } />
+              <Route path="/request/payment/new" element={
+                <ProtectedRoute>
+                  <RequestForm />
+                </ProtectedRoute>
+              } />
 
-            <Route path="/request/contract/:id" element={
-              <ProtectedRoute>
-                <ContractForm />
-              </ProtectedRoute>
-            } />
+              <Route path="/request/contract/new" element={
+                <ProtectedRoute>
+                  <ContractForm />
+                </ProtectedRoute>
+              } />
 
-            <Route path="/request/evaluacion-comercial/new" element={
-              <ProtectedRoute>
-                <EvaluacionComercialForm />
-              </ProtectedRoute>
-            } />
+              <Route path="/request/contract/:id" element={
+                <ProtectedRoute>
+                  <ContractForm />
+                </ProtectedRoute>
+              } />
 
-            <Route path="/request/:id" element={
-              <ProtectedRoute>
-                <RequestForm />
-              </ProtectedRoute>
-            } />
+              <Route path="/request/evaluacion-comercial/new" element={
+                <ProtectedRoute>
+                  <EvaluacionComercialForm />
+                </ProtectedRoute>
+              } />
 
-            <Route path="/request/invoice/new" element={
-              <ProtectedRoute>
-                <InvoiceForm />
-              </ProtectedRoute>
-            } />
+              <Route path="/request/:id" element={
+                <ProtectedRoute>
+                  <RequestForm />
+                </ProtectedRoute>
+              } />
 
-            <Route path="/request/invoice/:id" element={
-              <ProtectedRoute>
-                <InvoiceForm />
-              </ProtectedRoute>
-            } />
+              <Route path="/request/invoice/new" element={
+                <ProtectedRoute>
+                  <InvoiceForm />
+                </ProtectedRoute>
+              } />
+
+              <Route path="/request/invoice/:id" element={
+                <ProtectedRoute>
+                  <InvoiceForm />
+                </ProtectedRoute>
+              } />
 
 
 
-            <Route path="/admin/invites" element={
-              <ProtectedRoute>
-                <AdminInvites />
-              </ProtectedRoute>
-            } />
+              <Route path="/admin/invites" element={
+                <ProtectedRoute>
+                  <AdminInvites />
+                </ProtectedRoute>
+              } />
 
-            <Route path="/admin/requests" element={
-              <ProtectedRoute>
-                <AdminRequests />
-              </ProtectedRoute>
-            } />
-            <Route path="/admin/kpis" element={
-              <ProtectedRoute>
-                <AdminKpiView />
-              </ProtectedRoute>
-            } />
-            <Route path="/admin/import" element={
-              <ProtectedRoute>
-                <AdminPropertyImport />
-              </ProtectedRoute>
-            } />
+              <Route path="/admin/requests" element={
+                <ProtectedRoute>
+                  <AdminRequests />
+                </ProtectedRoute>
+              } />
+              <Route path="/admin/kpis" element={
+                <ProtectedRoute>
+                  <AdminKpiView />
+                </ProtectedRoute>
+              } />
+              <Route path="/admin/import" element={
+                <ProtectedRoute>
+                  <AdminPropertyImport />
+                </ProtectedRoute>
+              } />
 
-            <Route path="/crm" element={
-              <ProtectedRoute>
-                <CRM />
-              </ProtectedRoute>
-            } />
+              <Route path="/crm" element={
+                <ProtectedRoute>
+                  <CRM />
+                </ProtectedRoute>
+              } />
 
-            <Route path="/crm/contact/:id" element={
-              <ProtectedRoute>
-                <ContactDetail />
-              </ProtectedRoute>
-            } />
+              <Route path="/crm/contact/:id" element={
+                <ProtectedRoute>
+                  <ContactDetail />
+                </ProtectedRoute>
+              } />
 
-            <Route path="/crm/property/:id" element={
-              <ProtectedRoute>
-                <PropertyDetail />
-              </ProtectedRoute>
-            } />
+              <Route path="/crm/property/:id" element={
+                <ProtectedRoute>
+                  <PropertyDetail />
+                </ProtectedRoute>
+              } />
 
-            <Route path="/crm/map" element={
-              <ProtectedRoute>
-                <PropertyMapPage />
-              </ProtectedRoute>
-            } />
+              <Route path="/crm/map" element={
+                <ProtectedRoute>
+                  <PropertyMapPage />
+                </ProtectedRoute>
+              } />
 
-            <Route path="/new-mandate" element={
-              <ProtectedRoute>
-                <NewMandate />
-              </ProtectedRoute>
-            } />
+              <Route path="/new-mandate" element={
+                <ProtectedRoute>
+                  <NewMandate />
+                </ProtectedRoute>
+              } />
 
-            <Route path="/documents" element={
-              <ProtectedRoute>
-                <DocumentsHub />
-              </ProtectedRoute>
-            } />
+              <Route path="/documents" element={
+                <ProtectedRoute>
+                  <DocumentsHub />
+                </ProtectedRoute>
+              } />
 
-            <Route path="/my-documents" element={
-              <ProtectedRoute>
-                <AgentDocuments />
-              </ProtectedRoute>
-            } />
+              <Route path="/my-documents" element={
+                <ProtectedRoute>
+                  <AgentDocuments />
+                </ProtectedRoute>
+              } />
 
-            {/* KPI Routes */}
-            <Route path="/kpis/entry" element={
-              <ProtectedRoute>
-                <WeeklyKpiForm />
-              </ProtectedRoute>
-            } />
+              {/* KPI Routes */}
+              <Route path="/kpis/entry" element={
+                <ProtectedRoute>
+                  <WeeklyKpiForm />
+                </ProtectedRoute>
+              } />
 
-            <Route path="/kpis/dashboard" element={
-              <ProtectedRoute>
-                <KpiDashboard />
-              </ProtectedRoute>
-            } />
-            <Route path="/kpis/business-plan" element={
-              <ProtectedRoute>
-                <BusinessPlan />
-              </ProtectedRoute>
-            } />
+              <Route path="/kpis/dashboard" element={
+                <ProtectedRoute>
+                  <KpiDashboard />
+                </ProtectedRoute>
+              } />
+              <Route path="/kpis/business-plan" element={
+                <ProtectedRoute>
+                  <BusinessPlan />
+                </ProtectedRoute>
+              } />
 
-            {/* Public Route for Lead Assignment */}
-            <Route path="/busqueda/:id" element={<LeadDetail />} />
+              {/* Public Route for Lead Assignment */}
+              <Route path="/busqueda/:id" element={<LeadDetail />} />
 
-            {/* Public Route for Agents to View Lead */}
-            <Route path="/nuevolead/:id" element={<AgentLeadView />} />
+              {/* Public Route for Agents to View Lead */}
+              <Route path="/nuevolead/:id" element={<AgentLeadView />} />
 
-            {/* Public Route for Agents to View Lead */}
-            <Route path="/nuevolead/:id" element={<AgentLeadView />} />
+              {/* Public Route for Agents to View Lead */}
+              <Route path="/nuevolead/:id" element={<AgentLeadView />} />
 
-            {/* Aula Virtual Routes */}
-            <Route path="/aula-virtual" element={
-              <ProtectedRoute>
-                <VirtualClassroom />
-              </ProtectedRoute>
-            } />
-            <Route path="/admin/aula-virtual" element={
-              <ProtectedRoute>
-                <AdminVirtualClassroom />
-              </ProtectedRoute>
-            } />
+              {/* Aula Virtual Routes */}
+              <Route path="/aula-virtual" element={
+                <ProtectedRoute>
+                  <VirtualClassroom />
+                </ProtectedRoute>
+              } />
+              <Route path="/admin/aula-virtual" element={
+                <ProtectedRoute>
+                  <AdminVirtualClassroom />
+                </ProtectedRoute>
+              } />
 
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </Layout>
-      </Router>
-      <Toaster position="top-right" richColors theme="light" closeButton className="font-sans" />
-      <ChatwootWidget />
-    </AuthProvider>
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </Layout>
+        </Router>
+        <Toaster position="top-right" richColors theme="light" closeButton className="font-sans" />
+        <ChatwootWidget />
+      </AuthProvider>
+    </QueryClientProvider>
   )
 }
 

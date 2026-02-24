@@ -67,7 +67,8 @@ export default function AdminVirtualClassroom() {
                 description: metadata.description,
                 category: category,
                 duration: metadata.duration,
-                youtube_id: youtubeId
+                youtube_id: youtubeId,
+                video_date: metadata.video_date
             })
 
             if (error) throw error
@@ -142,12 +143,23 @@ export default function AdminVirtualClassroom() {
                             description: video.description,
                             category: playlist.category,
                             duration: video.duration,
-                            youtube_id: video.youtube_id
+                            youtube_id: video.youtube_id,
+                            video_date: video.video_date
                         })
                         addedCount++
                     } else {
-                        // Existing - Optional: update metadata if changed
-                        // For now we skip to keep it fast
+                        // Existing - Update metadata to ensure all fields (like video_date) are current
+                        await supabase
+                            .from('virtual_classroom_videos')
+                            .update({
+                                title: video.title,
+                                video_url: video.video_url,
+                                thumbnail_url: video.thumbnail_url,
+                                description: video.description,
+                                duration: video.duration,
+                                video_date: video.video_date
+                            })
+                            .eq('youtube_id', video.youtube_id)
                     }
                 }
 

@@ -53,7 +53,8 @@ export const fetchVideoMetadata = async (url) => {
             video_url: `https://www.youtube.com/watch?v=${videoId}`,
             embed_url: `https://www.youtube.com/embed/${videoId}`,
             description: snippet.description,
-            duration: parseDuration(contentDetails.duration)
+            duration: parseDuration(contentDetails.duration),
+            video_date: snippet.publishedAt
         };
 
     } catch (error) {
@@ -107,7 +108,7 @@ export const fetchPlaylistItems = async (playlistId) => {
             thumbnail_url: item.snippet.thumbnails?.maxres?.url || item.snippet.thumbnails?.high?.url || item.snippet.thumbnails?.medium?.url,
             video_url: `https://www.youtube.com/watch?v=${item.snippet.resourceId.videoId}`,
             description: item.snippet.description,
-            publishedAt: item.snippet.publishedAt,
+            video_date: item.snippet.publishedAt,
             duration: videosMap[item.snippet.resourceId.videoId] || '0:00'
         }));
     } catch (error) {

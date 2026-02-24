@@ -74,7 +74,7 @@ export default function VirtualClassroom() {
             const { data, error } = await supabase
                 .from('virtual_classroom_videos')
                 .select('*')
-                .order('created_at', { ascending: false })
+                .order('video_date', { ascending: false })
 
             if (error) throw error
             setVideos(data || [])
@@ -304,12 +304,13 @@ export default function VirtualClassroom() {
                                         onVideoSelect={(video) => console.log('Select video', video)}
                                     />
                                 ) : (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                                    <div className="flex flex-col gap-4">
                                         {filteredVideos().length > 0 ? (
                                             filteredVideos().map((video, idx) => (
                                                 <div key={video.id} style={{ animationDelay: `${idx * 0.1}s` }} className="animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-backwards">
                                                     <VideoCard
                                                         video={video}
+                                                        variant="list"
                                                         isFavorite={favorites.has(video.id)}
                                                         isCompleted={progress[video.id]}
                                                         onToggleFavorite={() => toggleFavorite(video.id)}

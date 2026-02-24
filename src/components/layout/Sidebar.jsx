@@ -55,6 +55,11 @@ export default function Sidebar() {
                     icon: Calendar,
                     path: '/calendar',
                 },
+                {
+                    title: 'Casilla',
+                    icon: MessageSquare,
+                    path: '/casilla',
+                },
             ]
         },
         {
