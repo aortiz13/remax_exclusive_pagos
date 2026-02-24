@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../services/supabase';
-import { Loader2, Reply, Trash2, Printer, Archive } from 'lucide-react';
+import { Loader2, Reply, Trash2, Printer, Archive, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui";
 import { toast } from 'sonner';
@@ -22,7 +22,7 @@ const fetchThreadDetails = async (threadId) => {
     return data;
 };
 
-const EmailDetail = ({ thread, userProfile, onReply, onThreadDeleted }) => {
+const EmailDetail = ({ thread, userProfile, onReply, onThreadDeleted, onBack }) => {
     const queryClient = useQueryClient();
     const [isUpdating, setIsUpdating] = useState(false);
 
@@ -68,7 +68,12 @@ const EmailDetail = ({ thread, userProfile, onReply, onThreadDeleted }) => {
     return (
         <div className="flex flex-col h-full bg-white">
             <div className="flex items-center justify-between p-4 border-b border-gray-100 bg-white sticky top-0 z-10">
-                <div className="flex gap-2">
+                <div className="flex gap-2 items-center">
+                    {onBack && (
+                        <Button variant="ghost" size="icon" onClick={onBack} className="mr-2 text-gray-500 hover:text-gray-900">
+                            <ArrowLeft className="w-5 h-5" />
+                        </Button>
+                    )}
                     <Button
                         variant="outline"
                         size="sm"
