@@ -133,6 +133,7 @@ const Casilla = () => {
               setReplyConfig(null);
               setIsComposerOpen(true);
             }}
+            onReconnect={handleLoginGoogle}
           />
         </div>
 
