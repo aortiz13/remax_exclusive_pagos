@@ -7,6 +7,7 @@ import EmailSidebar from '../components/Casilla/EmailSidebar';
 import EmailList from '../components/Casilla/EmailList';
 import EmailDetail from '../components/Casilla/EmailDetail';
 import ContextSidebar from '../components/Casilla/ContextSidebar';
+import EmailComposer from '../components/Casilla/EmailComposer';
 import { Button } from '@/components/ui';
 import { RefreshCw, Inbox, FileText, Send, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
@@ -28,6 +29,11 @@ const Casilla = () => {
   const { profile: userProfile } = useAuth();
   const [selectedThread, setSelectedThread] = useState(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+
+  // Folder state
+  const [currentFolder, setCurrentFolder] = useState('inbox');
+  const [isComposerOpen, setIsComposerOpen] = useState(false);
+  const [replyConfig, setReplyConfig] = useState(null);
 
   const { data: gmailAccount, isLoading: isAccountLoading, refetch: refetchAccount } = useQuery({
     queryKey: ['gmailAccount', userProfile?.id],
@@ -120,18 +126,37 @@ const Casilla = () => {
       >
         {/* 1. Sidebar (Folders) */}
         <div className="bg-gray-50 border-r border-gray-200 h-full overflow-y-auto">
-          <EmailSidebar />
+          <EmailSidebar
+            currentFolder={currentFolder}
+            onFolderChange={setCurrentFolder}
+            onCompose={() => {
+              setReplyConfig(null);
+              setIsComposerOpen(true);
+            }}
+          />
         </div>
 
         {/* 2. Email List (Virtualizado idealmente) */}
         <div className="border-r border-gray-200 h-full bg-white flex flex-col">
-          <EmailList userProfile={userProfile} onSelectThread={setSelectedThread} />
+          <EmailList
+            userProfile={userProfile}
+            onSelectThread={setSelectedThread}
+            currentFolder={currentFolder}
+          />
         </div>
 
         {/* 3. Email Detail / Conversation Thread */}
         <div className="border-r border-gray-200 h-full bg-gray-50 flex flex-col overflow-y-auto">
           {selectedThread ? (
-            <EmailDetail thread={selectedThread} userProfile={userProfile} />
+            <EmailDetail
+              thread={selectedThread}
+              userProfile={userProfile}
+              onReply={(replyContext) => {
+                setReplyConfig(replyContext);
+                setIsComposerOpen(true);
+              }}
+              onThreadDeleted={() => setSelectedThread(null)}
+            />
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center text-gray-400">
               <Inbox className="w-16 h-16 mb-4 text-gray-300" />
@@ -145,6 +170,23 @@ const Casilla = () => {
           <ContextSidebar thread={selectedThread} />
         </div>
       </Split>
+
+      {/* Modals and Overlays */}
+      {isComposerOpen && (
+        <EmailComposer
+          onClose={() => {
+            setIsComposerOpen(false);
+            setReplyConfig(null);
+          }}
+          onSuccess={() => {
+            toast.success('Correo enviado con éxito');
+            setIsComposerOpen(false);
+            setReplyConfig(null);
+          }}
+          replyTo={replyConfig}
+          userProfile={userProfile}
+        />
+      )}
     </div>
   );
 };

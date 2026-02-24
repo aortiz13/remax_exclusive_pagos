@@ -25,7 +25,7 @@ const fetchThreads = async (agentId) => {
     return data;
 };
 
-const EmailList = ({ userProfile, onSelectThread }) => {
+const EmailList = ({ userProfile, onSelectThread, currentFolder }) => {
     const [searchTerm, setSearchTerm] = useState('');
 
     const { data: threads, isLoading } = useQuery({
@@ -40,8 +40,15 @@ const EmailList = ({ userProfile, onSelectThread }) => {
         return <div className="p-4 flex justify-center"><Loader2 className="animate-spin text-gray-400 w-6 h-6" /></div>;
     }
 
-    // Since we don't have real data yet, let's map it safely
-    const filteredThreads = (threads || []).filter(t =>
+    // Filter by folder
+    const folderFilteredThreads = (threads || []).filter(t => {
+        const status = t.status || 'inbox'; // default is inbox
+        if (currentFolder === 'inbox') return status === 'inbox';
+        return status === currentFolder;
+    });
+
+    // Filter by search
+    const filteredThreads = folderFilteredThreads.filter(t =>
         t.subject?.toLowerCase().includes(searchTerm.toLowerCase())
     );
 

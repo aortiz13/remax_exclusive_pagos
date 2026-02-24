@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../services/supabase';
 import { Loader2, Reply, Trash2, Printer, Archive } from 'lucide-react';
 import { Button } from '@/components/ui';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui";
+import { toast } from 'sonner';
 
 const fetchThreadDetails = async (threadId) => {
     // Fetch thread and its messages
@@ -22,8 +23,9 @@ const fetchThreadDetails = async (threadId) => {
     return data;
 };
 
-const EmailDetail = ({ thread, userProfile }) => {
-    const { data: threadDetails, isLoading } = useQuery({
+const EmailDetail = ({ thread, userProfile, onReply, onThreadDeleted }) => {
+    const queryClient = useQueryClient();
+    const { data: threadDetails, isLoading, refetch } = useQuery({
         queryKey: ['threadDetails', thread.id],
         queryFn: () => fetchThreadDetails(thread.id),
         enabled: !!thread.id,
@@ -37,15 +39,56 @@ const EmailDetail = ({ thread, userProfile }) => {
     // Sort oldest to newest for reading flow
     messages.sort((a, b) => new Date(a.received_at) - new Date(b.received_at));
 
+    const [isUpdating, setIsUpdating] = useState(false);
+
+    const handleUpdateStatus = async (newStatus, successMessage) => {
+        setIsUpdating(true);
+        try {
+            const { error } = await supabase
+                .from('email_threads')
+                .update({ status: newStatus })
+                .eq('id', thread.id);
+
+            if (error) throw error;
+            toast.success(successMessage);
+
+            // Refetch the list immediately
+            queryClient.invalidateQueries({ queryKey: ['emailThreads', userProfile?.id] });
+
+            if (onThreadDeleted) {
+                onThreadDeleted();
+            } else {
+                refetch();
+            }
+        } catch (e) {
+            console.error('Update status error', e);
+            toast.error('Error al actualizar el estado: ' + e.message);
+        } finally {
+            setIsUpdating(false);
+        }
+    };
+
     return (
         <div className="flex flex-col h-full bg-white">
             {/* Header Actions */}
             <div className="flex items-center justify-between p-4 border-b border-gray-100 bg-white sticky top-0 z-10">
                 <div className="flex gap-2">
-                    <Button variant="outline" size="sm" className="text-gray-600">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-gray-600"
+                        onClick={() => handleUpdateStatus('archived', 'Hilo archivado')}
+                        disabled={isUpdating}
+                    >
                         <Archive className="w-4 h-4 mr-2" /> Archivar
                     </Button>
-                    <Button variant="outline" size="sm" className="text-gray-600">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-red-500 hover:text-red-600 hover:bg-red-50 border-red-200"
+                        onClick={() => handleUpdateStatus('trashed', 'Hilo enviado a papelera')}
+                        disabled={isUpdating}
+                    >
                         <Trash2 className="w-4 h-4 mr-2" /> Eliminar
                     </Button>
                 </div>
@@ -100,7 +143,11 @@ const EmailDetail = ({ thread, userProfile }) => {
                                 {/* Quick Reply Button usually goes on the last message */}
                                 {isLast && (
                                     <div className="mt-6">
-                                        <Button variant="outline" className="text-blue-600 border-blue-200 hover:bg-blue-50">
+                                        <Button
+                                            variant="outline"
+                                            className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                                            onClick={() => onReply && onReply(threadDetails)}
+                                        >
                                             <Reply className="w-4 h-4 mr-2" /> Responder
                                         </Button>
                                     </div>
