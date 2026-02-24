@@ -89,7 +89,7 @@ serve(async (req) => {
         if (!watchResponse.ok) {
             const watchError = await watchResponse.text();
             console.error('Failed to setup Gmail Watch:', watchError);
-            throw new Error('No se pudo establecer la suscripción de correo (Webhook)');
+            throw new Error(`Google API Watch Error: ${watchError}`);
         }
 
         const watchData = await watchResponse.json();
