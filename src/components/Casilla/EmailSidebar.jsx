@@ -1,6 +1,6 @@
 import React from 'react';
 import { Button } from '@/components/ui';
-import { Inbox, Send, File, Star, Trash2, PenBox, Archive } from 'lucide-react';
+import { Inbox, Send, File, Star, Trash2, PenBox, Archive, RefreshCw } from 'lucide-react';
 
 const EmailSidebar = ({ onCompose, currentFolder, onFolderChange, onReconnect }) => {
     const folders = [
