@@ -160,9 +160,7 @@ const EmailComposer = ({ onClose, onSuccess, replyTo = null, userProfile }) => {
         ? (lastMessage.from_address?.includes('remax-exclusive.cl') ? lastMessage.to_address : lastMessage.from_address)
         : '';
 
-    const initialBody = lastMessage
-        ? `<br/><br/><div class="gmail_quote" dir="ltr"><div dir="ltr">El ${lastMessage.received_at ? new Date(lastMessage.received_at).toLocaleString() : ''}, ${lastMessage.from_address} escribió:<br/></div><blockquote style="margin:0px 0px 0px 0.8ex;border-left:1px solid rgb(204,204,204);padding-left:1ex">${lastMessage.body_html || lastMessage.body_plain || ''}</blockquote></div>`
-        : '<p></p>';
+    const initialBody = '<p></p>';
 
     const [to, setTo] = useState(defaultTo || '');
     const [subject, setSubject] = useState(replyTo ? (replyTo.subject?.toLowerCase().startsWith('re:') ? replyTo.subject : `Re: ${replyTo.subject}`) : '');
