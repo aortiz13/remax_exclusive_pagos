@@ -93,24 +93,51 @@ serve(async (req) => {
         }
 
         const watchData = await watchResponse.json();
-        // ESTO ES CLAVE: historyId del momento exacto de la conexión
         const currentHistoryId = watchData.historyId;
 
         // 5. Upsert to database
-        const { error: dbError } = await supabase
+        const { data: updatedAccount, error: dbError } = await supabase
             .from('gmail_accounts')
             .upsert({
                 agent_id: user.id,
                 email_address: userInfo.email,
                 access_token: tokens.access_token,
-                refresh_token: tokens.refresh_token || undefined, // Don't nullify if undefined in subsequent logins
+                refresh_token: tokens.refresh_token || undefined,
                 last_history_id: currentHistoryId,
                 updated_at: new Date().toISOString()
-            }, { onConflict: 'email_address' });
+            }, { onConflict: 'email_address' })
+            .select('*')
+            .single();
 
         if (dbError) {
             throw new Error(`Database error: ${dbError.message}`);
         }
+
+        // 6. INITIAL SYNC: Fetch last 20 threads to warm up the inbox
+        const initialSync = async () => {
+            try {
+                const listUrl = `https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=20&q=in:anywhere`;
+                const listResponse = await fetch(listUrl, {
+                    headers: { Authorization: `Bearer ${tokens.access_token}` },
+                });
+
+                if (listResponse.ok) {
+                    const listData = await listResponse.json();
+                    if (listData.messages) {
+                        console.log(`Initial sync: processing ${listData.messages.length} messages`);
+                        for (const msg of listData.messages) {
+                            await processAndSaveMessage(userInfo.email, msg.id, updatedAccount, supabase);
+                        }
+                    }
+                }
+            } catch (syncErr) {
+                console.error('Initial sync warning:', syncErr);
+                // We don't throw here to not break the whole callback if just the initial sync fails
+            }
+        };
+
+        // Run sync in background (or wait for it if we want immediate results)
+        await initialSync();
 
         return new Response(JSON.stringify({ success: true, email: userInfo.email }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -124,3 +151,87 @@ serve(async (req) => {
         });
     }
 });
+
+/** HELPERS (Duplicated from webhook for portability) **/
+
+async function processAndSaveMessage(emailAddress: string, messageId: string, account: any, supabase: any) {
+    const url = `https://gmail.googleapis.com/gmail/v1/users/${emailAddress}/messages/${messageId}?format=full`;
+    const response = await fetch(url, { headers: { Authorization: `Bearer ${account.access_token}` } });
+
+    if (!response.ok) return;
+
+    const messageData = await response.json();
+    const headers = messageData.payload.headers;
+    const getHeader = (name: string) => headers.find((h: any) => h.name.toLowerCase() === name.toLowerCase())?.value || '';
+
+    const fromHeader = getHeader('From');
+    const toHeader = getHeader('To');
+    const subject = getHeader('Subject');
+    const fromAddress = extractEmail(fromHeader);
+    const toAddress = extractEmail(toHeader);
+
+    let contactId = null;
+    const targetEmailToMatch = fromAddress === emailAddress ? toAddress : fromAddress;
+
+    if (targetEmailToMatch) {
+        const { data: contacts } = await supabase
+            .from('contacts')
+            .select('id')
+            .eq('email', targetEmailToMatch)
+            .limit(1);
+
+        if (contacts && contacts.length > 0) {
+            contactId = contacts[0].id;
+        }
+    }
+
+    const { data: threadRecord } = await supabase.from('email_threads').upsert({
+        gmail_thread_id: messageData.threadId,
+        agent_id: account.agent_id,
+        subject: subject || '(Sin Asunto)',
+        contact_id: contactId
+    }, { onConflict: 'gmail_thread_id' }).select('id').single();
+
+    if (!threadRecord) return;
+
+    const body = await extractBody(messageData.payload);
+
+    await supabase.from('email_messages').upsert({
+        gmail_message_id: messageData.id,
+        thread_id: threadRecord.id,
+        agent_id: account.agent_id,
+        from_address: fromAddress,
+        to_address: toAddress,
+        cc_address: extractEmail(getHeader('Cc')),
+        subject: subject,
+        snippet: messageData.snippet,
+        body_html: body.html,
+        body_plain: body.plain,
+        received_at: new Date(parseInt(messageData.internalDate)).toISOString(),
+    }, { onConflict: 'gmail_message_id' });
+}
+
+function extractEmail(headerValue: string): string | null {
+    if (!headerValue) return null;
+    const match = headerValue.match(/([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)/);
+    return match ? match[1] : headerValue;
+}
+
+async function extractBody(payload: any): Promise<{ html: string | null, plain: string | null }> {
+    let html = null;
+    let plain = null;
+
+    if (payload.mimeType === 'text/html') {
+        html = atob(payload.body.data.replace(/-/g, '+').replace(/_/g, '/'));
+    } else if (payload.mimeType === 'text/plain') {
+        plain = atob(payload.body.data.replace(/-/g, '+').replace(/_/g, '/'));
+    } else if (payload.parts) {
+        for (const part of payload.parts) {
+            const result = await extractBody(part);
+            if (result.html) html = result.html;
+            if (result.plain) plain = result.plain;
+        }
+    }
+
+    return { html, plain };
+}
