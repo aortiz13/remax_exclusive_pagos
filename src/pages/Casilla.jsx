@@ -9,6 +9,7 @@ import EmailDetail from '../components/Casilla/EmailDetail';
 import ContextSidebar from '../components/Casilla/ContextSidebar';
 import { Button } from '@/components/ui';
 import { RefreshCw, Inbox, FileText, Send, AlertCircle } from 'lucide-react';
+import { toast } from 'sonner';
 
 const fetchGmailAccount = async (agentId) => {
   const { data, error } = await supabase
@@ -51,19 +52,32 @@ const Casilla = () => {
     // Check if we just came back from auth callback
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get('code');
-    if (code) {
+    const errorParam = urlParams.get('error');
+
+    if (errorParam) {
+      toast.error(`Error de Google: ${errorParam}`);
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (code) {
       // Process code with edge function
       const processCode = async () => {
+        toast.loading("Sincronizando cuenta de Gmail...", { id: "gmail-sync" });
         try {
           const { data, error } = await supabase.functions.invoke('gmail-auth-callback', {
             body: { code }
           });
           if (error) throw error;
+
+          if (data?.error) {
+            throw new Error(data.error);
+          }
+
+          toast.success("¡Cuenta de Gmail conectada con éxito!", { id: "gmail-sync" });
           // Clean url
           window.history.replaceState({}, document.title, window.location.pathname);
           refetchAccount();
         } catch (e) {
           console.error("Auth callback failed", e);
+          toast.error(`Falló la conexión: ${e.message}`, { id: "gmail-sync", duration: 8000 });
         }
       };
       processCode();
