@@ -84,81 +84,100 @@ serve(async (req) => {
 
         // --- SYNC FROM GOOGLE TO CRM ---
         if (action === 'sync_from_google') {
-            let url = 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
-            const params = new URLSearchParams();
+            const results = { events: 0, tasks: 0 };
 
+            // 1. Fetch Calendar Events
+            let calendarUrl = 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
+            const calParams = new URLSearchParams();
             if (profile.google_sync_token && !reset) {
-                params.set('syncToken', profile.google_sync_token);
+                calParams.set('syncToken', profile.google_sync_token);
             } else {
-                // Initial sync or reset: fetch from 6 months ago to future
                 const sixMonthsAgo = new Date();
                 sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-                params.set('timeMin', sixMonthsAgo.toISOString());
+                calParams.set('timeMin', sixMonthsAgo.toISOString());
             }
+            calendarUrl += `?${calParams.toString()}`;
 
-            url += `?${params.toString()}`;
-
-            const response = await fetch(url, {
+            const calResponse = await fetch(calendarUrl, {
                 headers: { Authorization: `Bearer ${accessToken}` },
             });
 
-            if (response.status === 410) {
-                // Sync token expired, clear and re-sync
+            if (calResponse.status === 410) {
                 await adminClient.from('profiles').update({ google_sync_token: null }).eq('id', agentId);
                 return new Response(JSON.stringify({ retry: true }), {
                     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
                 });
             }
 
-            const data = await response.json();
-            const events = data.items || [];
-            let processed = 0;
-
-            console.log(`Processing ${events.length} events for agent ${agentId} (Action: ${action}, Reset: ${reset})`);
-
-            for (const event of events) {
-                const isDeleted = event.status === 'cancelled';
-
-                if (isDeleted) {
-                    const { error: delErr } = await adminClient.from('crm_tasks').delete().eq('google_event_id', event.id);
-                    if (delErr) console.error(`Delete error for ${event.id}:`, delErr);
-                } else {
-                    const taskData = {
-                        agent_id: agentId,
-                        action: event.summary || '(Sin título)',
-                        description: event.description || '',
-                        description_html: event.description || '', // Google often returns HTML here
-                        execution_date: event.start?.dateTime || event.start?.date,
-                        end_date: event.end?.dateTime || event.end?.date,
-                        location: event.location || '',
-                        hangout_link: event.hangoutLink || '',
-                        attendees: event.attendees || [],
-                        task_type: (event.attendees && event.attendees.length > 0) || event.location ? 'meeting' : 'task',
-                        google_event_id: event.id,
-                        google_etag: event.etag,
-                        last_synced_at: new Date().toISOString(),
-                    };
-
-                    if (!taskData.execution_date) {
-                        console.warn(`Skipping event ${event.id} due to missing date`);
-                        continue;
-                    }
-
-                    const { error: upsertErr } = await adminClient.from('crm_tasks').upsert(taskData, { onConflict: 'google_event_id' });
-                    if (upsertErr) {
-                        console.error(`Upsert error for ${event.id}:`, upsertErr);
+            if (calResponse.ok) {
+                const data = await calResponse.json();
+                const events = data.items || [];
+                for (const event of events) {
+                    if (event.status === 'cancelled') {
+                        await adminClient.from('crm_tasks').delete().eq('google_event_id', event.id);
                     } else {
-                        processed++;
+                        const taskData = {
+                            agent_id: agentId,
+                            action: event.summary || '(Sin título)',
+                            description: event.description || '',
+                            description_html: event.description || '',
+                            execution_date: event.start?.dateTime || event.start?.date,
+                            end_date: event.end?.dateTime || event.end?.date,
+                            location: event.location || '',
+                            hangout_link: event.hangoutLink || '',
+                            attendees: event.attendees || [],
+                            task_type: (event.attendees && event.attendees.length > 0) || event.location ? 'meeting' : 'task',
+                            google_event_id: event.id,
+                            google_etag: event.etag,
+                            last_synced_at: new Date().toISOString(),
+                        };
+                        if (taskData.execution_date) {
+                            await adminClient.from('crm_tasks').upsert(taskData, { onConflict: 'google_event_id' });
+                            results.events++;
+                        }
+                    }
+                }
+                if (data.nextSyncToken) {
+                    await adminClient.from('profiles').update({ google_sync_token: data.nextSyncToken }).eq('id', agentId);
+                }
+            }
+
+            // 2. Fetch Google Tasks
+            const tasksUrl = 'https://www.googleapis.com/tasks/v1/lists/@default/tasks?showCompleted=true&showHidden=true';
+            const tasksResponse = await fetch(tasksUrl, {
+                headers: { Authorization: `Bearer ${accessToken}` },
+            });
+
+            if (tasksResponse.ok) {
+                const data = await tasksResponse.json();
+                const tasks = data.items || [];
+                for (const gTask of tasks) {
+                    const internalGId = `GT_${gTask.id}`;
+                    if (gTask.deleted) {
+                        await adminClient.from('crm_tasks').delete().eq('google_event_id', internalGId);
+                    } else {
+                        const taskData = {
+                            agent_id: agentId,
+                            action: gTask.title || '(Sin título)',
+                            description: gTask.notes || '',
+                            description_html: gTask.notes || '',
+                            execution_date: gTask.due,
+                            completed: gTask.status === 'completed',
+                            task_type: 'task',
+                            google_event_id: internalGId,
+                            google_etag: gTask.etag,
+                            last_synced_at: new Date().toISOString(),
+                        };
+                        if (taskData.execution_date) {
+                            await adminClient.from('crm_tasks').upsert(taskData, { onConflict: 'google_event_id' });
+                            results.tasks++;
+                        }
                     }
                 }
             }
 
-            if (data.nextSyncToken) {
-                await adminClient.from('profiles').update({ google_sync_token: data.nextSyncToken }).eq('id', agentId);
-            }
-
-            console.log(`Sync complete. Processed: ${processed}`);
-            return new Response(JSON.stringify({ success: true, count: processed }), {
+            console.log(`Sync complete. Results:`, results);
+            return new Response(JSON.stringify({ success: true, results }), {
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             });
         }
@@ -171,65 +190,121 @@ serve(async (req) => {
             if (taskErr || !task) throw new Error('Task not found');
             if (task.agent_id !== agentId) throw new Error('Unauthorized');
 
-            const googleEvent: any = {
-                summary: task.action,
-                description: task.description_html || task.description,
-                location: task.location || '',
-                start: { dateTime: new Date(task.execution_date).toISOString() },
-                end: { dateTime: new Date(task.end_date || (new Date(task.execution_date).getTime() + 3600000)).toISOString() },
-                attendees: task.attendees || [],
-            };
+            const isGoogleTask = task.task_type === 'task';
 
-            if (create_meet) {
-                googleEvent.conferenceData = {
-                    createRequest: {
-                        requestId: crypto.randomUUID(),
-                        conferenceSolutionKey: { type: "hangoutsMeet" }
-                    }
+            if (isGoogleTask) {
+                // Handle as Google Task
+                const googleTask: any = {
+                    title: task.action,
+                    notes: task.description_html || task.description,
+                    due: task.execution_date ? new Date(task.execution_date).toISOString() : undefined,
+                    status: task.completed ? 'completed' : 'needsAction'
                 };
-            }
 
-            let method = 'POST';
-            let url = 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
+                let method = 'POST';
+                let url = 'https://www.googleapis.com/tasks/v1/lists/@default/tasks';
 
-            if (create_meet) {
-                url += '?conferenceDataVersion=1';
-            }
+                if (task.google_event_id && task.google_event_id.startsWith('GT_')) {
+                    method = 'PATCH';
+                    const taskIdReal = task.google_event_id.replace('GT_', '');
+                    url += `/${taskIdReal}`;
+                }
 
-            if (task.google_event_id) {
-                method = 'PUT';
-                // If it's a PUT, we need specific ID in URL. If we appended params earlier, we must be careful.
-                const baseIdUrl = `https://www.googleapis.com/calendar/v3/calendars/primary/events/${task.google_event_id}`;
-                url = create_meet ? `${baseIdUrl}?conferenceDataVersion=1` : baseIdUrl;
-            }
-
-            const response = await fetch(url, {
-                method,
-                headers: {
-                    Authorization: `Bearer ${accessToken}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(googleEvent),
-            });
-
-            const result = await response.json();
-
-            if (response.ok) {
-                await adminClient.from('crm_tasks').update({
-                    google_event_id: result.id,
-                    google_etag: result.etag,
-                    hangout_link: result.hangoutLink || (result.conferenceData?.entryPoints?.find((ep: any) => ep.entryPointType === 'video')?.uri) || task.hangout_link,
-                    attendees: result.attendees || task.attendees,
-                    last_synced_at: new Date().toISOString()
-                }).eq('id', taskId);
-                return new Response(JSON.stringify({ success: true, google_id: result.id, hangout_link: result.hangoutLink }), {
-                    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                const response = await fetch(url, {
+                    method,
+                    headers: {
+                        Authorization: `Bearer ${accessToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(googleTask),
                 });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    await adminClient.from('crm_tasks').update({
+                        google_event_id: `GT_${result.id}`,
+                        google_etag: result.etag,
+                        last_synced_at: new Date().toISOString()
+                    }).eq('id', taskId);
+                    return new Response(JSON.stringify({ success: true, google_id: result.id }), {
+                        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                    });
+                } else {
+                    console.error('Google Task Push Error:', result);
+                    return new Response(JSON.stringify({ success: false, error: result }), {
+                        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                    });
+                }
             } else {
-                console.error('Google Push Error:', result);
-                return new Response(JSON.stringify({ success: false, error: result }), {
-                    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                // Handle as Calendar Event
+                const attendees = [...(task.attendees || [])];
+                if (task.contact_id) {
+                    const { data: contact } = await adminClient.from('contacts').select('email').eq('id', task.contact_id).single();
+                    if (contact?.email && !attendees.some((a: any) => a.email === contact.email)) {
+                        attendees.push({ email: contact.email });
+                    }
+                }
+
+                const googleEvent: any = {
+                    summary: task.action,
+                    description: task.description_html || task.description,
+                    location: task.location || '',
+                    start: { dateTime: new Date(task.execution_date).toISOString() },
+                    end: { dateTime: new Date(task.end_date || (new Date(task.execution_date).getTime() + 3600000)).toISOString() },
+                    attendees,
+                };
+
+                if (create_meet) {
+                    googleEvent.conferenceData = {
+                        createRequest: {
+                            requestId: crypto.randomUUID(),
+                            conferenceSolutionKey: { type: "hangoutsMeet" }
+                        }
+                    };
+                }
+
+                let method = 'POST';
+                let url = 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
+
+                if (create_meet) {
+                    url += '?conferenceDataVersion=1';
+                }
+
+                if (task.google_event_id && !task.google_event_id.startsWith('GT_')) {
+                    method = 'PUT';
+                    const baseIdUrl = `https://www.googleapis.com/calendar/v3/calendars/primary/events/${task.google_event_id}`;
+                    url = create_meet ? `${baseIdUrl}?conferenceDataVersion=1` : baseIdUrl;
+                }
+
+                const response = await fetch(url, {
+                    method,
+                    headers: {
+                        Authorization: `Bearer ${accessToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(googleEvent),
                 });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    await adminClient.from('crm_tasks').update({
+                        google_event_id: result.id,
+                        google_etag: result.etag,
+                        hangout_link: result.hangoutLink || (result.conferenceData?.entryPoints?.find((ep: any) => ep.entryPointType === 'video')?.uri) || task.hangout_link,
+                        attendees: result.attendees || task.attendees,
+                        last_synced_at: new Date().toISOString()
+                    }).eq('id', taskId);
+                    return new Response(JSON.stringify({ success: true, google_id: result.id, hangout_link: result.hangoutLink }), {
+                        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                    });
+                } else {
+                    console.error('Google Push Error:', result);
+                    return new Response(JSON.stringify({ success: false, error: result }), {
+                        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                    });
+                }
             }
         }
 
