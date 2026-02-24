@@ -14,7 +14,8 @@ import {
     SelectItem,
     SelectTrigger,
     SelectValue,
-    Textarea
+    Textarea,
+    Checkbox
 } from "@/components/ui";
 import { supabase } from '../../services/supabase';
 import { toast } from 'sonner';
@@ -52,6 +53,24 @@ const ACTION_TYPES = [
     "Otra (I.C)"
 ];
 
+const CALL_RESULTS = [
+    "Ocupado",
+    "Conectado",
+    "Dejó mensaje de voz",
+    "Sin respuesta",
+    "Número Incorrecto",
+    "Otra"
+];
+
+const FOLLOW_UP_DELAYS = [
+    { label: "En 2 días laborables", value: "2_business_days" },
+    { label: "En 3 días laborables", value: "3_business_days" },
+    { label: "En 2 semanas", value: "2_weeks" },
+    { label: "En 1 mes", value: "1_month" },
+    { label: "En 3 meses", value: "3_months" },
+    { label: "Fecha personalizada", value: "custom" }
+];
+
 const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultPropertyId = null, viewOnly = false, actionData = null, onActionSaved = null }) => {
     const { user } = useAuth();
     // Form state
@@ -61,6 +80,15 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
     const [selectedContactIds, setSelectedContactIds] = useState(defaultContactId ? [defaultContactId] : []);
     const [actionDate, setActionDate] = useState(new Date().toISOString().slice(0, 16)); // YYYY-MM-DDTHH:mm
     const [note, setNote] = useState('');
+
+    // New state for call result
+    const [callResult, setCallResult] = useState('');
+    const [otherCallResult, setOtherCallResult] = useState('');
+
+    // New state for follow-up task
+    const [createFollowUp, setCreateFollowUp] = useState(false);
+    const [followUpDelay, setFollowUpDelay] = useState('2_business_days');
+    const [customFollowUpDate, setCustomFollowUpDate] = useState(new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16));
 
     // Data state
     const [properties, setProperties] = useState([]);
@@ -85,13 +113,9 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
                 setActionType(isStandardType ? actionData.action_type : 'Otra (I.C)');
                 setOtherActionType(isStandardType ? '' : actionData.action_type);
                 setSelectedPropertyId(actionData.property_id || 'none');
-
-                // actionData.contacts podria ser array de objetos (id, name) o strings. En el mock es array de objetos.
                 setSelectedContactIds(actionData.contacts?.map(c => c.id || c) || (defaultContactId ? [defaultContactId] : []));
 
-                // Format date to datetime-local format if needed
                 if (actionData.action_date) {
-                    // Try to slice to YYYY-MM-DDTHH:mm format
                     try {
                         let dateStr = actionData.action_date;
                         if (!dateStr.includes('T')) dateStr += 'T00:00';
@@ -102,19 +126,21 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
                 }
                 setNote(actionData.note || '');
             } else {
-                // Reset form when opened with new defaults or just opened
                 setActionType('');
                 setOtherActionType('');
                 setSelectedPropertyId(defaultPropertyId || 'none');
                 setSelectedContactIds(defaultContactId ? [defaultContactId] : []);
                 setActionDate(new Date().toISOString().slice(0, 16));
                 setNote('');
+                setCallResult('');
+                setOtherCallResult('');
+                setCreateFollowUp(false);
+                setFollowUpDelay('2_business_days');
             }
         }
     }, [isOpen, defaultContactId, defaultPropertyId, actionData]);
 
     useEffect(() => {
-        // When selected property changes, fetch roles for the contacts
         if (selectedPropertyId && selectedPropertyId !== 'none' && selectedPropertyId !== 'new') {
             fetchPropertyRoles(selectedPropertyId);
         } else {
@@ -162,8 +188,57 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
         }
     };
 
+    const addBusinessDays = (date, days) => {
+        let added = 0;
+        const result = new Date(date);
+        while (added < days) {
+            result.setDate(result.getDate() + 1);
+            const dayOfWeek = result.getDay();
+            if (dayOfWeek !== 0 && dayOfWeek !== 6) { // 0 = Sunday, 6 = Saturday
+                added++;
+            }
+        }
+        return result;
+    };
+
+    const getFollowUpLabel = (delayValue) => {
+        const delay = FOLLOW_UP_DELAYS.find(d => d.value === delayValue);
+        if (!delay || delayValue === 'custom') return delay?.label || '';
+
+        const baseDate = actionDate ? new Date(actionDate) : new Date();
+        const targetDate = calculateFollowUpDate(delayValue, baseDate);
+
+        const dayName = new Intl.DateTimeFormat('es-ES', { weekday: 'long' }).format(targetDate);
+        const capitalizedDay = dayName.charAt(0).toUpperCase() + dayName.slice(1);
+
+        return `${delay.label} (${capitalizedDay})`;
+    };
+
+    const calculateFollowUpDate = (delay, baseDate = new Date()) => {
+        const date = new Date(baseDate);
+        switch (delay) {
+            case '2_business_days':
+                return addBusinessDays(date, 2);
+            case '3_business_days':
+                return addBusinessDays(date, 3);
+            case '2_weeks':
+                date.setDate(date.getDate() + 14);
+                break;
+            case '1_month':
+                date.setMonth(date.getMonth() + 1);
+                break;
+            case '3_months':
+                date.setMonth(date.getMonth() + 3);
+                break;
+            case 'custom':
+                return new Date(customFollowUpDate);
+            default:
+                break;
+        }
+        return date;
+    };
+
     const handleSave = () => {
-        // Validation
         if (!actionType) {
             toast.error('Debe seleccionar el tipo de acción.');
             return;
@@ -188,6 +263,11 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
             return;
         }
 
+        if (actionType.startsWith('Llamada') && !callResult) {
+            toast.error('Debe seleccionar el resultado de la llamada.');
+            return;
+        }
+
         toast('⚠️ Aviso de Seguridad', {
             description: 'Una vez registrada esta acción NO se podrá editar posteriormente, únicamente eliminar. ¿Está seguro?',
             action: {
@@ -203,12 +283,37 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
                                 action_date: actionDate,
                                 property_id: selectedPropertyId === 'none' ? null : selectedPropertyId,
                                 note: note || null,
-                                is_conversation_starter: actionType.includes('(I.C)')
+                                is_conversation_starter: actionType.includes('(I.C)'),
+                                call_result: actionType.startsWith('Llamada') ? (callResult === 'Otra' ? otherCallResult : callResult) : null
                             })
                             .select()
                             .single();
 
                         if (actionError) throw actionError;
+
+                        // Create follow-up task if requested
+                        let followUpTaskRow = null;
+                        if (createFollowUp && selectedContactIds.length > 0) {
+                            const followUpDate = calculateFollowUpDate(followUpDelay);
+                            const { data: taskRow, error: taskError } = await supabase
+                                .from('crm_tasks')
+                                .insert({
+                                    agent_id: user.id,
+                                    contact_id: selectedContactIds[0],
+                                    property_id: selectedPropertyId === 'none' ? null : selectedPropertyId,
+                                    action: `Seguimiento: ${resolvedType}`,
+                                    execution_date: followUpDate.toISOString(),
+                                    action_id: actionRow.id
+                                })
+                                .select()
+                                .single();
+
+                            if (taskError) {
+                                console.error('Error creating follow-up task:', taskError);
+                            } else {
+                                followUpTaskRow = taskRow;
+                            }
+                        }
 
                         // Insert junction rows for contacts
                         if (selectedContactIds.length > 0) {
@@ -223,6 +328,21 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
                         }
 
                         toast.success('Acción registrada exitosamente');
+
+                        // Trigger Google Sync for the new task if created
+                        if (followUpTaskRow && user.id) {
+                            try {
+                                const { data: profile } = await supabase.from('profiles').select('google_refresh_token').eq('id', user.id).single();
+                                if (profile?.google_refresh_token) {
+                                    supabase.functions.invoke('google-calendar-sync', {
+                                        body: { agentId: user.id, action: 'push_to_google', taskId: followUpTaskRow.id }
+                                    });
+                                }
+                            } catch (error) {
+                                console.error('Error triggering google sync:', error);
+                            }
+                        }
+
                         if (onActionSaved) onActionSaved();
                         onClose();
                     } catch (err) {
@@ -292,6 +412,32 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
                             )}
                         </div>
 
+                        {/* Call Result selector - conditionally visible */}
+                        {actionType.startsWith('Llamada') && (
+                            <div className="space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                                <Label htmlFor="callResult">Resultado de la llamada {viewOnly ? '' : <span className="text-red-500">*</span>}</Label>
+                                <Select value={callResult} onValueChange={setCallResult} disabled={viewOnly}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Seleccione un resultado" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {CALL_RESULTS.map(res => (
+                                            <SelectItem key={res} value={res}>{res}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                {callResult === 'Otra' && (
+                                    <Input
+                                        placeholder="Especifique otro resultado"
+                                        value={otherCallResult}
+                                        onChange={(e) => setOtherCallResult(e.target.value)}
+                                        className="mt-2"
+                                        disabled={viewOnly}
+                                    />
+                                )}
+                            </div>
+                        )}
+
                         {/* Property Selector */}
                         <div className="space-y-2">
                             <Label htmlFor="property">Propiedad Asociada (Opcional)</Label>
@@ -301,7 +447,7 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
                                 onValueChange={(val) => {
                                     if (val === 'new') {
                                         setIsCreatePropertyOpen(true);
-                                        setSelectedPropertyId('none'); // Reset select temporarily
+                                        setSelectedPropertyId('none');
                                     } else {
                                         setSelectedPropertyId(val);
                                     }
@@ -384,7 +530,6 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
                                                         value={`${contact.first_name} ${contact.last_name} ${contact.email}`}
                                                         onSelect={() => {
                                                             toggleContactSelect(contact.id);
-                                                            // Keep popover open for multi-select
                                                         }}
                                                     >
                                                         <Check
@@ -433,6 +578,60 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
                                 disabled={viewOnly}
                             />
                         </div>
+
+                        {/* Follow-up Task Option */}
+                        {!viewOnly && (
+                            <div className="pt-2 pb-4 space-y-3 border-t mt-4">
+                                <div className="flex items-center space-x-2">
+                                    <Checkbox
+                                        id="followup"
+                                        checked={createFollowUp}
+                                        onCheckedChange={setCreateFollowUp}
+                                    />
+                                    <div
+                                        className="text-sm font-medium leading-none flex items-center gap-1"
+                                    >
+                                        <Label htmlFor="followup" className="cursor-pointer">
+                                            Crea una tarea por hacer para hacer seguimiento en
+                                        </Label>{" "}
+                                        <Popover>
+                                            <PopoverTrigger asChild>
+                                                <span
+                                                    className="text-primary hover:underline underline-offset-4 font-bold decoration-primary/30 cursor-pointer"
+                                                    onClick={(e) => e.stopPropagation()}
+                                                >
+                                                    {getFollowUpLabel(followUpDelay).toLowerCase()}
+                                                </span>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-56 p-0" align="start">
+                                                <div className="flex flex-col">
+                                                    {FOLLOW_UP_DELAYS.map((delay) => (
+                                                        <Button
+                                                            key={delay.value}
+                                                            variant="ghost"
+                                                            className="justify-start font-normal h-9 px-4 rounded-none border-b last:border-0"
+                                                            onClick={() => setFollowUpDelay(delay.value)}
+                                                        >
+                                                            {getFollowUpLabel(delay.value)}
+                                                        </Button>
+                                                    ))}
+                                                </div>
+                                            </PopoverContent>
+                                        </Popover>
+                                    </div>
+                                </div>
+
+                                {createFollowUp && followUpDelay === 'custom' && (
+                                    <div className="ml-6 animate-in fade-in slide-in-from-top-1 duration-200">
+                                        <Input
+                                            type="datetime-local"
+                                            value={customFollowUpDate}
+                                            onChange={(e) => setCustomFollowUpDate(e.target.value)}
+                                        />
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
 
                     <DialogFooter>

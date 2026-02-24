@@ -140,7 +140,7 @@ const TaskModal = ({ task, contactId, propertyId, isOpen, onClose }) => {
     if (!isOpen) return null
 
     return createPortal(
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => onClose(false)} />
             <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
@@ -155,53 +155,111 @@ const TaskModal = ({ task, contactId, propertyId, isOpen, onClose }) => {
                     </Button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="p-6 space-y-4">
-                    {!contactId && (
+                <div className="flex-1 overflow-y-auto custom-scrollbar" onWheel={(e) => e.stopPropagation()}>
+                    <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                        {!contactId && (
+                            <div className="space-y-2">
+                                <Label>Contacto <span className="text-red-500">*</span></Label>
+                                <Popover open={openContactSelect} onOpenChange={setOpenContactSelect}>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            role="combobox"
+                                            aria-expanded={openContactSelect}
+                                            className="w-full justify-between font-normal"
+                                        >
+                                            {formData.contact_id
+                                                ? contacts.find((c) => c.id === formData.contact_id)?.first_name + " " + contacts.find((c) => c.id === formData.contact_id)?.last_name
+                                                : "Seleccionar contacto..."}
+                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-[300px] p-0 z-[200]">
+                                        <Command>
+                                            <CommandInput placeholder="Buscar contacto..." />
+                                            <CommandList>
+                                                <CommandEmpty>No encontrado.</CommandEmpty>
+                                                <CommandGroup>
+                                                    <CommandItem
+                                                        onSelect={() => {
+                                                            setOpenContactSelect(false)
+                                                            setIsContactFormOpen(true)
+                                                        }}
+                                                        className="font-medium text-primary cursor-pointer border-b mb-1 pb-1"
+                                                    >
+                                                        <Plus className="mr-2 h-4 w-4" />
+                                                        Crear nuevo contacto
+                                                    </CommandItem>
+                                                    {contacts.map((contact) => (
+                                                        <CommandItem
+                                                            key={contact.id}
+                                                            value={contact.first_name + " " + contact.last_name}
+                                                            onSelect={() => {
+                                                                setFormData(prev => ({ ...prev, contact_id: contact.id }))
+                                                                setOpenContactSelect(false)
+                                                            }}
+                                                        >
+                                                            <Check
+                                                                className={cn("mr-2 h-4 w-4", formData.contact_id === contact.id ? "opacity-100" : "opacity-0")}
+                                                            />
+                                                            {contact.first_name} {contact.last_name}
+                                                        </CommandItem>
+                                                    ))}
+                                                </CommandGroup>
+                                            </CommandList>
+                                        </Command>
+                                    </PopoverContent>
+                                </Popover>
+                            </div>
+                        )}
+
                         <div className="space-y-2">
-                            <Label>Contacto <span className="text-red-500">*</span></Label>
-                            <Popover open={openContactSelect} onOpenChange={setOpenContactSelect}>
+                            <Label>Propiedad (Opcional)</Label>
+                            <Popover open={openPropertySelect} onOpenChange={setOpenPropertySelect}>
                                 <PopoverTrigger asChild>
                                     <Button
                                         variant="outline"
                                         role="combobox"
-                                        aria-expanded={openContactSelect}
+                                        aria-expanded={openPropertySelect}
                                         className="w-full justify-between font-normal"
                                     >
-                                        {formData.contact_id
-                                            ? contacts.find((c) => c.id === formData.contact_id)?.first_name + " " + contacts.find((c) => c.id === formData.contact_id)?.last_name
-                                            : "Seleccionar contacto..."}
+                                        <span className="truncate">
+                                            {formData.property_id
+                                                ? properties.find((p) => p.id === formData.property_id)?.address
+                                                : "Seleccionar propiedad..."}
+                                        </span>
                                         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                     </Button>
                                 </PopoverTrigger>
                                 <PopoverContent className="w-[300px] p-0 z-[200]">
                                     <Command>
-                                        <CommandInput placeholder="Buscar contacto..." />
+                                        <CommandInput placeholder="Buscar propiedad..." />
                                         <CommandList>
-                                            <CommandEmpty>No encontrado.</CommandEmpty>
+                                            <CommandEmpty>No encontrada.</CommandEmpty>
                                             <CommandGroup>
                                                 <CommandItem
                                                     onSelect={() => {
-                                                        setOpenContactSelect(false)
-                                                        setIsContactFormOpen(true)
+                                                        setOpenPropertySelect(false)
+                                                        setIsPropertyFormOpen(true)
                                                     }}
                                                     className="font-medium text-primary cursor-pointer border-b mb-1 pb-1"
                                                 >
                                                     <Plus className="mr-2 h-4 w-4" />
-                                                    Crear nuevo contacto
+                                                    Crear nueva propiedad
                                                 </CommandItem>
-                                                {contacts.map((contact) => (
+                                                {properties.map((prop) => (
                                                     <CommandItem
-                                                        key={contact.id}
-                                                        value={contact.first_name + " " + contact.last_name}
+                                                        key={prop.id}
+                                                        value={prop.address}
                                                         onSelect={() => {
-                                                            setFormData(prev => ({ ...prev, contact_id: contact.id }))
-                                                            setOpenContactSelect(false)
+                                                            setFormData(prev => ({ ...prev, property_id: prop.id }))
+                                                            setOpenPropertySelect(false)
                                                         }}
                                                     >
                                                         <Check
-                                                            className={cn("mr-2 h-4 w-4", formData.contact_id === contact.id ? "opacity-100" : "opacity-0")}
+                                                            className={cn("mr-2 h-4 w-4", formData.property_id === prop.id ? "opacity-100" : "opacity-0")}
                                                         />
-                                                        {contact.first_name} {contact.last_name}
+                                                        {prop.address}
                                                     </CommandItem>
                                                 ))}
                                             </CommandGroup>
@@ -210,131 +268,75 @@ const TaskModal = ({ task, contactId, propertyId, isOpen, onClose }) => {
                                 </PopoverContent>
                             </Popover>
                         </div>
-                    )}
 
-                    <div className="space-y-2">
-                        <Label>Propiedad (Opcional)</Label>
-                        <Popover open={openPropertySelect} onOpenChange={setOpenPropertySelect}>
-                            <PopoverTrigger asChild>
-                                <Button
-                                    variant="outline"
-                                    role="combobox"
-                                    aria-expanded={openPropertySelect}
-                                    className="w-full justify-between font-normal"
-                                >
-                                    <span className="truncate">
-                                        {formData.property_id
-                                            ? properties.find((p) => p.id === formData.property_id)?.address
-                                            : "Seleccionar propiedad..."}
-                                    </span>
-                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-[300px] p-0 z-[200]">
-                                <Command>
-                                    <CommandInput placeholder="Buscar propiedad..." />
-                                    <CommandList>
-                                        <CommandEmpty>No encontrada.</CommandEmpty>
-                                        <CommandGroup>
-                                            <CommandItem
-                                                onSelect={() => {
-                                                    setOpenPropertySelect(false)
-                                                    setIsPropertyFormOpen(true)
-                                                }}
-                                                className="font-medium text-primary cursor-pointer border-b mb-1 pb-1"
-                                            >
-                                                <Plus className="mr-2 h-4 w-4" />
-                                                Crear nueva propiedad
-                                            </CommandItem>
-                                            {properties.map((prop) => (
-                                                <CommandItem
-                                                    key={prop.id}
-                                                    value={prop.address}
-                                                    onSelect={() => {
-                                                        setFormData(prev => ({ ...prev, property_id: prop.id }))
-                                                        setOpenPropertySelect(false)
-                                                    }}
-                                                >
-                                                    <Check
-                                                        className={cn("mr-2 h-4 w-4", formData.property_id === prop.id ? "opacity-100" : "opacity-0")}
-                                                    />
-                                                    {prop.address}
-                                                </CommandItem>
-                                            ))}
-                                        </CommandGroup>
-                                    </CommandList>
-                                </Command>
-                            </PopoverContent>
-                        </Popover>
-                    </div>
-
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium">Título tarea <span className="text-red-500">*</span></label>
-                        <Input
-                            name="action"
-                            value={formData.action}
-                            onChange={handleChange}
-                            placeholder="Ej: Llamar para seguimiento"
-                            required
-                        />
-                    </div>
-
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium">Descripción de tarea <span className="text-gray-500 font-normal">(opcional)</span></label>
-                        <Textarea
-                            name="description"
-                            value={formData.description}
-                            onChange={handleChange}
-                            placeholder="Detalles adicionales..."
-                            className="resize-none h-20"
-                        />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                            <label className="text-sm font-medium">Fecha</label>
-                            <div className="relative">
-                                <Input
-                                    type="date"
-                                    name="execution_date"
-                                    value={formData.execution_date}
-                                    onChange={handleChange}
-                                    required
-                                />
+                            <label className="text-sm font-medium">Título tarea <span className="text-red-500">*</span></label>
+                            <Input
+                                name="action"
+                                value={formData.action}
+                                onChange={handleChange}
+                                placeholder="Ej: Llamar para seguimiento"
+                                required
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">Descripción de tarea <span className="text-gray-500 font-normal">(opcional)</span></label>
+                            <Textarea
+                                name="description"
+                                value={formData.description}
+                                onChange={handleChange}
+                                placeholder="Detalles adicionales..."
+                                className="resize-none h-20"
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Fecha</label>
+                                <div className="relative">
+                                    <Input
+                                        type="date"
+                                        name="execution_date"
+                                        value={formData.execution_date}
+                                        onChange={handleChange}
+                                        required
+                                    />
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Hora</label>
+                                <div className="relative">
+                                    <Input
+                                        type="time"
+                                        name="execution_time"
+                                        value={formData.execution_time}
+                                        onChange={handleChange}
+                                        required
+                                    />
+                                </div>
                             </div>
                         </div>
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium">Hora</label>
-                            <div className="relative">
-                                <Input
-                                    type="time"
-                                    name="execution_time"
-                                    value={formData.execution_time}
-                                    onChange={handleChange}
-                                    required
-                                />
-                            </div>
-                        </div>
-                    </div>
 
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium">Recordatorio</label>
-                        <select
-                            name="reminder_minutes"
-                            value={formData.reminder_minutes}
-                            onChange={handleChange}
-                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                        >
-                            <option value="none">Sin recordatorio</option>
-                            <option value="10">10 min antes</option>
-                            <option value="20">20 min antes</option>
-                            <option value="30">30 min antes</option>
-                            <option value="40">40 min antes</option>
-                            <option value="50">50 min antes</option>
-                            <option value="60">1 hora antes</option>
-                        </select>
-                    </div>
-                </form>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">Recordatorio</label>
+                            <select
+                                name="reminder_minutes"
+                                value={formData.reminder_minutes}
+                                onChange={handleChange}
+                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                            >
+                                <option value="none">Sin recordatorio</option>
+                                <option value="10">10 min antes</option>
+                                <option value="20">20 min antes</option>
+                                <option value="30">30 min antes</option>
+                                <option value="40">40 min antes</option>
+                                <option value="50">50 min antes</option>
+                                <option value="60">1 hora antes</option>
+                            </select>
+                        </div>
+                    </form>
+                </div>
 
                 <div className="p-4 border-t bg-gray-50 dark:bg-gray-800/50 flex justify-end gap-2">
                     <Button variant="outline" onClick={() => onClose(false)}>Cancelar</Button>

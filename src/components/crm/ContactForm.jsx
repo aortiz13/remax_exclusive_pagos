@@ -305,7 +305,10 @@ const ContactForm = ({ contact, isOpen, onClose, isSimplified = false }) => {
                             </Button>
                         </div>
 
-                        <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
+                        <div
+                            className="flex-1 overflow-y-auto p-6 custom-scrollbar"
+                            onWheel={(e) => e.stopPropagation()}
+                        >
                             <form id="contact-form" onSubmit={handleSubmit} className="space-y-6">
 
                                 {/* Section: Información Principal */}

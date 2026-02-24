@@ -173,7 +173,7 @@ const AddParticipantModal = ({ isOpen, onClose, propertyId, contactId, mode = 'f
     if (!isOpen) return null
 
     return createPortal(
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 sm:p-6">
             <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => onClose(false)} />
             <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
@@ -194,153 +194,155 @@ const AddParticipantModal = ({ isOpen, onClose, propertyId, contactId, mode = 'f
                     </Button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="p-6 space-y-4">
-                    {/* Role Selector — always first */}
-                    <div className="space-y-2">
-                        <Label>Rol</Label>
-                        <select
-                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                            value={role}
-                            onChange={(e) => setRole(e.target.value)}
-                        >
-                            {ROLES.map(r => (
-                                <option key={r.value} value={r.value}>{r.label}</option>
-                            ))}
-                        </select>
-                    </div>
-
-                    {/* Entity Selector */}
-                    {mode === 'from-property' ? (
-                        /* Contact combobox (when adding from property) */
+                <div className="flex-1 overflow-y-auto custom-scrollbar" onWheel={(e) => e.stopPropagation()}>
+                    <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                        {/* Role Selector — always first */}
                         <div className="space-y-2">
-                            <Label>Contacto</Label>
-                            <Popover open={openCombobox} onOpenChange={setOpenCombobox}>
-                                <PopoverTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        role="combobox"
-                                        aria-expanded={openCombobox}
-                                        className="w-full justify-between"
-                                    >
-                                        {selectedContactId
-                                            ? (() => {
-                                                const c = contacts.find(c => c.id === selectedContactId)
-                                                return c ? `${c.first_name} ${c.last_name}` : 'Seleccionar...'
-                                            })()
-                                            : "Seleccionar contacto..."}
-                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-[350px] p-0 z-[200]">
-                                    <Command>
-                                        <CommandInput placeholder="Buscar contacto..." />
-                                        <CommandList>
-                                            <CommandEmpty>No encontrado.</CommandEmpty>
-                                            <CommandGroup>
-                                                {contacts.map((contact) => (
-                                                    <CommandItem
-                                                        key={contact.id}
-                                                        value={contact.first_name + " " + contact.last_name}
-                                                        onSelect={() => {
-                                                            setSelectedContactId(contact.id)
-                                                            setOpenCombobox(false)
-                                                        }}
-                                                    >
-                                                        <Check className={`mr-2 h-4 w-4 ${selectedContactId === contact.id ? "opacity-100" : "opacity-0"}`} />
-                                                        {contact.first_name} {contact.last_name}
-                                                        {contact.email && <span className="ml-2 text-xs text-muted-foreground truncate">({contact.email})</span>}
-                                                    </CommandItem>
-                                                ))}
-                                            </CommandGroup>
-                                            <CommandGroup>
-                                                <CommandItem
-                                                    onSelect={() => {
-                                                        setOpenCombobox(false)
-                                                        setIsCreatingContact(true)
-                                                    }}
-                                                    className="text-primary font-medium"
-                                                >
-                                                    <Plus className="mr-2 h-4 w-4" />
-                                                    Crear nuevo contacto
-                                                </CommandItem>
-                                            </CommandGroup>
-                                        </CommandList>
-                                    </Command>
-                                </PopoverContent>
-                            </Popover>
+                            <Label>Rol</Label>
+                            <select
+                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                value={role}
+                                onChange={(e) => setRole(e.target.value)}
+                            >
+                                {ROLES.map(r => (
+                                    <option key={r.value} value={r.value}>{r.label}</option>
+                                ))}
+                            </select>
                         </div>
-                    ) : (
-                        /* Property combobox (when adding from contact) */
-                        <div className="space-y-2">
-                            <Label>Propiedad</Label>
-                            <Popover open={openCombobox} onOpenChange={setOpenCombobox}>
-                                <PopoverTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        role="combobox"
-                                        aria-expanded={openCombobox}
-                                        className="w-full justify-between text-left"
-                                    >
-                                        <span className="truncate">
-                                            {selectedPropertyId
+
+                        {/* Entity Selector */}
+                        {mode === 'from-property' ? (
+                            /* Contact combobox (when adding from property) */
+                            <div className="space-y-2">
+                                <Label>Contacto</Label>
+                                <Popover open={openCombobox} onOpenChange={setOpenCombobox}>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            role="combobox"
+                                            aria-expanded={openCombobox}
+                                            className="w-full justify-between"
+                                        >
+                                            {selectedContactId
                                                 ? (() => {
-                                                    const p = properties.find(p => p.id === selectedPropertyId)
-                                                    return p ? `${p.address}` : 'Seleccionar...'
+                                                    const c = contacts.find(c => c.id === selectedContactId)
+                                                    return c ? `${c.first_name} ${c.last_name}` : 'Seleccionar...'
                                                 })()
-                                                : "Seleccionar propiedad..."}
-                                        </span>
-                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-[350px] p-0 z-[200]">
-                                    <Command>
-                                        <CommandInput placeholder="Buscar propiedad..." />
-                                        <CommandList>
-                                            <CommandEmpty>No encontrada.</CommandEmpty>
-                                            <CommandGroup>
-                                                {properties.map((prop) => (
+                                                : "Seleccionar contacto..."}
+                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-[350px] p-0 z-[200]">
+                                        <Command>
+                                            <CommandInput placeholder="Buscar contacto..." />
+                                            <CommandList>
+                                                <CommandEmpty>No encontrado.</CommandEmpty>
+                                                <CommandGroup>
+                                                    {contacts.map((contact) => (
+                                                        <CommandItem
+                                                            key={contact.id}
+                                                            value={contact.first_name + " " + contact.last_name}
+                                                            onSelect={() => {
+                                                                setSelectedContactId(contact.id)
+                                                                setOpenCombobox(false)
+                                                            }}
+                                                        >
+                                                            <Check className={`mr-2 h-4 w-4 ${selectedContactId === contact.id ? "opacity-100" : "opacity-0"}`} />
+                                                            {contact.first_name} {contact.last_name}
+                                                            {contact.email && <span className="ml-2 text-xs text-muted-foreground truncate">({contact.email})</span>}
+                                                        </CommandItem>
+                                                    ))}
+                                                </CommandGroup>
+                                                <CommandGroup>
                                                     <CommandItem
-                                                        key={prop.id}
-                                                        value={prop.address}
                                                         onSelect={() => {
-                                                            setSelectedPropertyId(prop.id)
                                                             setOpenCombobox(false)
+                                                            setIsCreatingContact(true)
                                                         }}
+                                                        className="text-primary font-medium"
                                                     >
-                                                        <Check className={`mr-2 h-4 w-4 ${selectedPropertyId === prop.id ? "opacity-100" : "opacity-0"}`} />
-                                                        <div className="flex-1 min-w-0">
-                                                            <div className="truncate text-sm">{prop.address}</div>
-                                                            <div className="text-xs text-muted-foreground">{prop.commune} • {prop.property_type}</div>
-                                                        </div>
+                                                        <Plus className="mr-2 h-4 w-4" />
+                                                        Crear nuevo contacto
                                                     </CommandItem>
-                                                ))}
-                                            </CommandGroup>
-                                            <CommandGroup>
-                                                <CommandItem
-                                                    onSelect={() => {
-                                                        setOpenCombobox(false)
-                                                        setIsCreatingProperty(true)
-                                                    }}
-                                                    className="text-primary font-medium"
-                                                >
-                                                    <Plus className="mr-2 h-4 w-4" />
-                                                    Crear nueva propiedad
-                                                </CommandItem>
-                                            </CommandGroup>
-                                        </CommandList>
-                                    </Command>
-                                </PopoverContent>
-                            </Popover>
-                        </div>
-                    )}
+                                                </CommandGroup>
+                                            </CommandList>
+                                        </Command>
+                                    </PopoverContent>
+                                </Popover>
+                            </div>
+                        ) : (
+                            /* Property combobox (when adding from contact) */
+                            <div className="space-y-2">
+                                <Label>Propiedad</Label>
+                                <Popover open={openCombobox} onOpenChange={setOpenCombobox}>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            role="combobox"
+                                            aria-expanded={openCombobox}
+                                            className="w-full justify-between text-left"
+                                        >
+                                            <span className="truncate">
+                                                {selectedPropertyId
+                                                    ? (() => {
+                                                        const p = properties.find(p => p.id === selectedPropertyId)
+                                                        return p ? `${p.address}` : 'Seleccionar...'
+                                                    })()
+                                                    : "Seleccionar propiedad..."}
+                                            </span>
+                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-[350px] p-0 z-[200]">
+                                        <Command>
+                                            <CommandInput placeholder="Buscar propiedad..." />
+                                            <CommandList>
+                                                <CommandEmpty>No encontrada.</CommandEmpty>
+                                                <CommandGroup>
+                                                    {properties.map((prop) => (
+                                                        <CommandItem
+                                                            key={prop.id}
+                                                            value={prop.address}
+                                                            onSelect={() => {
+                                                                setSelectedPropertyId(prop.id)
+                                                                setOpenCombobox(false)
+                                                            }}
+                                                        >
+                                                            <Check className={`mr-2 h-4 w-4 ${selectedPropertyId === prop.id ? "opacity-100" : "opacity-0"}`} />
+                                                            <div className="flex-1 min-w-0">
+                                                                <div className="truncate text-sm">{prop.address}</div>
+                                                                <div className="text-xs text-muted-foreground">{prop.commune} • {prop.property_type}</div>
+                                                            </div>
+                                                        </CommandItem>
+                                                    ))}
+                                                </CommandGroup>
+                                                <CommandGroup>
+                                                    <CommandItem
+                                                        onSelect={() => {
+                                                            setOpenCombobox(false)
+                                                            setIsCreatingProperty(true)
+                                                        }}
+                                                        className="text-primary font-medium"
+                                                    >
+                                                        <Plus className="mr-2 h-4 w-4" />
+                                                        Crear nueva propiedad
+                                                    </CommandItem>
+                                                </CommandGroup>
+                                            </CommandList>
+                                        </Command>
+                                    </PopoverContent>
+                                </Popover>
+                            </div>
+                        )}
 
-                    <div className="pt-4 flex justify-end gap-2">
-                        <Button type="button" variant="ghost" onClick={() => onClose(false)}>Cancelar</Button>
-                        <Button type="submit" disabled={loading}>
-                            {loading ? 'Guardando...' : 'Vincular'}
-                        </Button>
-                    </div>
-                </form>
+                        <div className="pt-4 flex justify-end gap-2">
+                            <Button type="button" variant="ghost" onClick={() => onClose(false)}>Cancelar</Button>
+                            <Button type="submit" disabled={loading}>
+                                {loading ? 'Guardando...' : 'Vincular'}
+                            </Button>
+                        </div>
+                    </form>
+                </div>
             </motion.div>
 
             {/* Inline Contact Creation */}

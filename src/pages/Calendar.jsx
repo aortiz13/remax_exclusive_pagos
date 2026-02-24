@@ -156,11 +156,9 @@ export default function CalendarPage() {
         type: 'task',
         contactId: 'none',
         propertyId: 'none',
-        reminder: 'none',
-        location: '',
-        hangoutLink: '',
         attendees: [],
-        create_meet: false
+        create_meet: false,
+        is_all_day: false
     })
     const [isSaving, setIsSaving] = useState(false)
     const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false)
@@ -368,10 +366,9 @@ export default function CalendarPage() {
             contactId: 'none',
             propertyId: 'none',
             reminder: 'none',
-            location: '',
-            hangoutLink: '',
             attendees: [],
-            create_meet: false
+            create_meet: false,
+            is_all_day: false
         })
         setIsEditing(true)
         setIsModalOpen(true)
@@ -393,7 +390,8 @@ export default function CalendarPage() {
             location: event.location || '',
             hangoutLink: event.hangoutLink || '',
             attendees: event.attendees || [],
-            create_meet: !!event.hangoutLink
+            create_meet: !!event.hangoutLink,
+            is_all_day: !!event.allDay || !!event.resource?.is_all_day
         })
         setIsModalOpen(true)
     }
@@ -425,7 +423,8 @@ export default function CalendarPage() {
                 property_id: formData.propertyId === 'none' ? null : formData.propertyId,
                 reminder_minutes: formData.reminder === 'none' ? null : parseInt(formData.reminder),
                 location: formData.location,
-                attendees: formData.attendees
+                attendees: formData.attendees,
+                is_all_day: formData.is_all_day
             }
 
             if (selectedEvent) {
@@ -790,7 +789,7 @@ export default function CalendarPage() {
                                 }
                             }}
                             min={new Date(0, 0, 0, 8, 0, 0)} // 8:00 AM
-                            max={new Date(0, 0, 0, 23, 0, 0)} // 11:00 PM
+                            max={new Date(0, 0, 0, 23, 59, 59)} // 11:59 PM (Midnight)
                             eventPropGetter={eventStyleGetter}
                             onEventDrop={onEventDrop}
                             onEventResize={onEventResize}
@@ -855,7 +854,7 @@ export default function CalendarPage() {
                                             </button>
                                         </div>
 
-                                        {formData.location && (
+                                        {formData.location && formData.type !== 'task' && (
                                             <div className="flex items-start gap-3 text-sm text-slate-600 group">
                                                 <div className="w-5 h-5 flex items-center justify-center flex-none">
                                                     <MapPin className="w-4 h-4 text-slate-400 group-hover:text-blue-500 transition-colors" />
@@ -916,7 +915,7 @@ export default function CalendarPage() {
                                             </div>
                                         ) : null}
 
-                                        {formData.attendees && formData.attendees.length > 0 && (
+                                        {formData.attendees && formData.attendees.length > 0 && formData.type !== 'task' && (
                                             <div className="space-y-2 pt-2 border-t border-slate-50">
                                                 <div className="flex items-center gap-3 text-sm text-slate-600">
                                                     <div className="w-5 h-5 flex items-center justify-center flex-none">
@@ -1036,6 +1035,38 @@ export default function CalendarPage() {
                                         onChange={e => setFormData({ ...formData, title: e.target.value })}
                                         disabled={selectedEvent?.isGoogleEvent}
                                     />
+                                    <div className="flex items-center gap-2 mt-2">
+                                        <input
+                                            type="checkbox"
+                                            id="isAllDay"
+                                            className="w-4 h-4 rounded border-slate-300 text-indigo-500 focus:ring-indigo-500"
+                                            checked={formData.is_all_day}
+                                            onChange={e => {
+                                                const checked = e.target.checked;
+                                                // Convert start/end to/from datetime-local format
+                                                let newStart = formData.start;
+                                                let newEnd = formData.end;
+
+                                                if (checked) {
+                                                    // From datetime to date
+                                                    if (newStart.includes('T')) newStart = newStart.split('T')[0];
+                                                    if (newEnd.includes('T')) newEnd = newEnd.split('T')[0];
+                                                } else {
+                                                    // From date to datetime
+                                                    if (!newStart.includes('T')) newStart = `${newStart}T09:00`;
+                                                    if (!newEnd.includes('T')) newEnd = `${newEnd}T09:30`;
+                                                }
+
+                                                setFormData({
+                                                    ...formData,
+                                                    is_all_day: checked,
+                                                    start: newStart,
+                                                    end: newEnd
+                                                });
+                                            }}
+                                        />
+                                        <Label htmlFor="isAllDay" className="text-xs text-slate-600 cursor-pointer">Todo el día</Label>
+                                    </div>
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-3">
@@ -1044,31 +1075,34 @@ export default function CalendarPage() {
                                             {formData.type === 'task' ? 'Fecha Límite' : 'Inicio'}
                                         </Label>
                                         <Input
-                                            type="datetime-local"
+                                            type={formData.is_all_day ? "date" : "datetime-local"}
                                             className="h-9 text-sm"
                                             value={formData.start}
                                             onChange={e => {
                                                 const newStart = e.target.value;
                                                 const updates = { start: newStart };
                                                 if (formData.type === 'task') {
-                                                    // For tasks, end_date is start + 15 mins
-                                                    const startDate = new Date(newStart);
-                                                    if (!isNaN(startDate.getTime())) {
-                                                        const endDate = new Date(startDate.getTime() + 15 * 60000);
-                                                        // format to YYYY-MM-DDTHH:mm
-                                                        const year = endDate.getFullYear();
-                                                        const month = String(endDate.getMonth() + 1).padStart(2, '0');
-                                                        const day = String(endDate.getDate()).padStart(2, '0');
-                                                        const hours = String(endDate.getHours()).padStart(2, '0');
-                                                        const minutes = String(endDate.getMinutes()).padStart(2, '0');
-                                                        updates.end = `${year}-${month}-${day}T${hours}:${minutes}`;
+                                                    // For tasks, end_date is start + 15 mins (if not all day)
+                                                    if (formData.is_all_day) {
+                                                        updates.end = newStart;
+                                                    } else {
+                                                        const startDate = new Date(newStart);
+                                                        if (!isNaN(startDate.getTime())) {
+                                                            const endDate = new Date(startDate.getTime() + 15 * 60000);
+                                                            const year = endDate.getFullYear();
+                                                            const month = String(endDate.getMonth() + 1).padStart(2, '0');
+                                                            const day = String(endDate.getDate()).padStart(2, '0');
+                                                            const hours = String(endDate.getHours()).padStart(2, '0');
+                                                            const minutes = String(endDate.getMinutes()).padStart(2, '0');
+                                                            updates.end = `${year}-${month}-${day}T${hours}:${minutes}`;
+                                                        }
                                                     }
                                                 }
                                                 setFormData({ ...formData, ...updates });
                                             }}
                                         />
                                     </div>
-                                    {formData.type !== 'task' && (
+                                    {formData.type !== 'task' && !formData.is_all_day && (
                                         <div className="space-y-1.5">
                                             <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Fin</Label>
                                             <Input

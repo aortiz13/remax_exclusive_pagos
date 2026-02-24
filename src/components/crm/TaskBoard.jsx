@@ -28,6 +28,7 @@ const TaskBoard = () => {
                     *,
                     contacts (first_name, last_name)
                 `)
+                .eq('task_type', 'task')
                 .order('execution_date', { ascending: true })
 
             if (error) throw error
