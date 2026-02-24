@@ -87,7 +87,7 @@ const ContextSidebar = ({ thread }) => {
                 </div>
 
                 <div className="mt-6">
-                    <Button variant="outline" className="w-full bg-white text-sm">
+                    <Button variant="outline" className="w-full bg-white text-sm h-auto whitespace-normal py-2">
                         Ver Perfil Completo
                     </Button>
                 </div>
