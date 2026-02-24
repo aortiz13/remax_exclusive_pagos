@@ -140,6 +140,7 @@ async function processAndSaveMessage(emailAddress: string, messageId: string, ac
     const fromHeader = getHeader('From');
     const toHeader = getHeader('To');
     const subject = getHeader('Subject');
+    const rfcMessageId = getHeader('Message-ID');
 
     // Extract email addresses from "Name <email@domain.com>"
     const fromAddress = extractEmail(fromHeader);
@@ -191,6 +192,7 @@ async function processAndSaveMessage(emailAddress: string, messageId: string, ac
         snippet: messageData.snippet,
         body_html: body.html,
         body_plain: body.plain,
+        rfc_message_id: rfcMessageId,
         received_at: new Date(parseInt(messageData.internalDate)).toISOString(),
     }, { onConflict: 'gmail_message_id' });
 

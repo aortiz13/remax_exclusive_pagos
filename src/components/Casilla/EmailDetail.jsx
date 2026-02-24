@@ -7,7 +7,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui";
 import { toast } from 'sonner';
 
 const fetchThreadDetails = async (threadId) => {
-    // Fetch thread and its messages
     const { data, error } = await supabase
         .from('email_threads')
         .select(`
@@ -25,6 +24,8 @@ const fetchThreadDetails = async (threadId) => {
 
 const EmailDetail = ({ thread, userProfile, onReply, onThreadDeleted }) => {
     const queryClient = useQueryClient();
+    const [isUpdating, setIsUpdating] = useState(false);
+
     const { data: threadDetails, isLoading, refetch } = useQuery({
         queryKey: ['threadDetails', thread.id],
         queryFn: () => fetchThreadDetails(thread.id),
@@ -36,10 +37,7 @@ const EmailDetail = ({ thread, userProfile, onReply, onThreadDeleted }) => {
     }
 
     const messages = threadDetails.email_messages || [];
-    // Sort oldest to newest for reading flow
     messages.sort((a, b) => new Date(a.received_at) - new Date(b.received_at));
-
-    const [isUpdating, setIsUpdating] = useState(false);
 
     const handleUpdateStatus = async (newStatus, successMessage) => {
         setIsUpdating(true);
@@ -52,7 +50,6 @@ const EmailDetail = ({ thread, userProfile, onReply, onThreadDeleted }) => {
             if (error) throw error;
             toast.success(successMessage);
 
-            // Refetch the list immediately
             queryClient.invalidateQueries({ queryKey: ['emailThreads', userProfile?.id] });
 
             if (onThreadDeleted) {
@@ -70,7 +67,6 @@ const EmailDetail = ({ thread, userProfile, onReply, onThreadDeleted }) => {
 
     return (
         <div className="flex flex-col h-full bg-white">
-            {/* Header Actions */}
             <div className="flex items-center justify-between p-4 border-b border-gray-100 bg-white sticky top-0 z-10">
                 <div className="flex gap-2">
                     <Button
@@ -97,7 +93,6 @@ const EmailDetail = ({ thread, userProfile, onReply, onThreadDeleted }) => {
                 </Button>
             </div>
 
-            {/* Subject */}
             <div className="px-6 py-5 bg-white border-b border-gray-50">
                 <h2 className="text-xl font-semibold text-gray-800">{threadDetails.subject || '(Sin Asunto)'}</h2>
                 {threadDetails.contact_id && (
@@ -107,7 +102,6 @@ const EmailDetail = ({ thread, userProfile, onReply, onThreadDeleted }) => {
                 )}
             </div>
 
-            {/* Messages */}
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
                 {messages.map((msg, idx) => {
                     const fromName = msg.from_address?.split('<')[0]?.trim() || 'Desconocido';
@@ -134,13 +128,11 @@ const EmailDetail = ({ thread, userProfile, onReply, onThreadDeleted }) => {
                                     <span className="text-gray-400 mr-2">Para:</span> {msg.to_address}
                                 </div>
 
-                                {/* Message Body */}
                                 <div
                                     className="prose prose-sm max-w-none prose-a:text-blue-600 mt-4"
                                     dangerouslySetInnerHTML={{ __html: msg.body_html || msg.body_plain || msg.snippet }}
                                 />
 
-                                {/* Quick Reply Button usually goes on the last message */}
                                 {isLast && (
                                     <div className="mt-6">
                                         <Button

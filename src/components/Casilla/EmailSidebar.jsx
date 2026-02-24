@@ -16,7 +16,7 @@ const EmailSidebar = ({ onCompose, currentFolder, onFolderChange, onReconnect })
         <div className="flex flex-col h-full bg-gray-50 text-sm font-medium p-4 justify-between">
             <div>
                 <Button
-                    className="w-full justify-start gap-2 mb-6 bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-6"
+                    className="w-full justify-start gap-2 mb-6 bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-6 shadow-md"
                     size="lg"
                     onClick={onCompose}
                 >
@@ -33,8 +33,8 @@ const EmailSidebar = ({ onCompose, currentFolder, onFolderChange, onReconnect })
                                 key={folder.id}
                                 onClick={() => onFolderChange(folder.id)}
                                 variant="ghost"
-                                className={`w-full justify-start gap-3 ${isActive
-                                    ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                                className={`w-full justify-start gap-3 transition-colors ${isActive
+                                    ? 'bg-blue-100 text-blue-700 hover:bg-blue-200 shadow-sm'
                                     : 'text-gray-700 hover:bg-gray-200'
                                     }`}
                             >
@@ -46,11 +46,10 @@ const EmailSidebar = ({ onCompose, currentFolder, onFolderChange, onReconnect })
                 </div>
             </div>
 
-            {/* Config & Relink */}
             <div className="mt-8 border-t border-gray-200 pt-4">
                 <Button
                     variant="outline"
-                    className="w-full justify-start gap-2 text-gray-600 hover:text-blue-600 border-gray-300"
+                    className="w-full justify-start gap-2 text-gray-600 hover:text-blue-600 border-gray-300 hover:border-blue-300 transition-all"
                     onClick={onReconnect}
                 >
                     <RefreshCw className="w-4 h-4" />
