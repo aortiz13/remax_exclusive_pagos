@@ -42,7 +42,9 @@ const EmailList = ({ userProfile, onSelectThread, currentFolder }) => {
 
     // Filter by folder
     const folderFilteredThreads = (threads || []).filter(t => {
-        const status = t.status || 'inbox'; // default is inbox
+        // Map 'active' DB status to 'inbox' frontend folder
+        const status = t.status === 'active' ? 'inbox' : (t.status || 'inbox');
+
         if (currentFolder === 'inbox') return status === 'inbox';
         return status === currentFolder;
     });
