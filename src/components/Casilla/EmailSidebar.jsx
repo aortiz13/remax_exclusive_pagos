@@ -49,11 +49,11 @@ const EmailSidebar = ({ onCompose, currentFolder, onFolderChange, onReconnect })
             <div className="mt-8 border-t border-gray-200 pt-4">
                 <Button
                     variant="outline"
-                    className="w-full justify-start gap-2 text-gray-600 hover:text-blue-600 border-gray-300 hover:border-blue-300 transition-all"
+                    className="w-full justify-start gap-2 text-gray-600 hover:text-blue-600 border-gray-300 hover:border-blue-300 transition-all h-auto whitespace-normal py-2"
                     onClick={onReconnect}
                 >
-                    <RefreshCw className="w-4 h-4" />
-                    Re-vincular Gmail
+                    <RefreshCw className="w-4 h-4 shrink-0" />
+                    <span className="text-left">Re-vincular Gmail</span>
                 </Button>
             </div>
         </div>
