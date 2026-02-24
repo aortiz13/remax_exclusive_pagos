@@ -44,7 +44,7 @@ const ACTION_TYPES = [
 ];
 
 const ActionList = () => {
-    const { user } = useAuth();
+    const { user, profile } = useAuth();
     const [actions, setActions] = useState([]);
     const [loading, setLoading] = useState(true);
     const [isActionModalOpen, setIsActionModalOpen] = useState(false);
@@ -279,6 +279,40 @@ const ActionList = () => {
                                                                     label: 'Eliminar',
                                                                     onClick: async () => {
                                                                         try {
+                                                                            // 1. Find associated tasks that have a Google Event ID
+                                                                            const { data: associatedTasks } = await supabase
+                                                                                .from('crm_tasks')
+                                                                                .select('id, google_event_id')
+                                                                                .eq('action_id', action.id);
+
+                                                                            // 2. Trigger deletion in Google for each task
+                                                                            if (associatedTasks && associatedTasks.length > 0) {
+                                                                                const syncResults = await Promise.all(associatedTasks.map(task => {
+                                                                                    if (task.google_event_id && profile?.google_refresh_token) {
+                                                                                        return supabase.functions.invoke('google-calendar-sync', {
+                                                                                            body: {
+                                                                                                agentId: user.id,
+                                                                                                action: 'delete_from_google',
+                                                                                                googleEventId: task.google_event_id
+                                                                                            }
+                                                                                        });
+                                                                                    }
+                                                                                    return Promise.resolve({ data: { success: true } });
+                                                                                }));
+
+                                                                                const syncError = syncResults.find(r => r.error || (r.data && !r.data.success));
+                                                                                if (syncError) {
+                                                                                    console.error('Action sync error:', syncError.error || syncError.data?.error);
+                                                                                    toast.error('Error al sincronizar con Google. No se eliminó la acción.');
+                                                                                    return;
+                                                                                }
+                                                                            }
+
+                                                                            // 3. Delete the action (cascades to junction tables)
+                                                                            // Note: crm_tasks with action_id will NOT be automatically deleted if FK is SET NULL.
+                                                                            // Let's explicitly delete associated tasks too if they were follow-ups.
+                                                                            await supabase.from('crm_tasks').delete().eq('action_id', action.id);
+
                                                                             const { error } = await supabase
                                                                                 .from('crm_actions')
                                                                                 .delete()

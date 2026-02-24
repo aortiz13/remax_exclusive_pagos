@@ -448,7 +448,16 @@ const PropertyDetail = () => {
                                             {task.description && (
                                                 <div className="text-xs text-muted-foreground truncate">{task.description}</div>
                                             )}
-                                            <div className="text-xs text-muted-foreground mt-0.5">{new Date(task.execution_date).toLocaleString()}</div>
+                                            <div className="text-xs text-muted-foreground mt-0.5">
+                                                {task.is_all_day ? (
+                                                    <span className="flex items-center gap-2">
+                                                        <span className="font-bold uppercase tracking-tighter text-[9px] bg-blue-100 text-blue-700 px-1 rounded">Todo el día</span>
+                                                        <span>{new Date(task.execution_date.split('T')[0] + 'T00:00:00').toLocaleDateString()}</span>
+                                                    </span>
+                                                ) : (
+                                                    new Date(task.execution_date).toLocaleString()
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 ))

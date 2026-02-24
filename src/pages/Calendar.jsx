@@ -12,12 +12,13 @@ import { es } from 'date-fns/locale'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
 import 'react-big-calendar/lib/addons/dragAndDrop/styles.css'
 import { Card, CardContent, Button, Checkbox, Label, Input, Textarea, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription, AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui'
-import { ChevronLeft, ChevronRight, Filter, Plus, Clock, Calendar as CalendarIcon, MapPin, User, Bell, Trash2, RefreshCw, Phone, Mail, Users, CheckCircle, Pencil, Video, Check, X, HelpCircle, ExternalLink } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Filter, Plus, Clock, Calendar as CalendarIcon, MapPin, User, Bell, Trash2, RefreshCw, Phone, Mail, Users, CheckCircle, Pencil, Video, Check, X, HelpCircle, ExternalLink, Activity } from 'lucide-react'
 import { toast } from 'sonner'
 import { DayPicker } from 'react-day-picker'
 import 'react-day-picker/dist/style.css'
 import PropertyPickerInline from '../components/ui/PropertyPickerInline'
 import ContactPickerInline from '../components/ui/ContactPickerInline'
+import { toISOLocal } from '../lib/utils'
 
 // Setup date-fns localizer
 const locales = {
@@ -267,19 +268,32 @@ export default function CalendarPage() {
                     completed,
                     reminder_minutes,
                     google_event_id,
+                    action_id,
+                    is_all_day,
                     contact:contacts(id, first_name, last_name),
-                    property:properties(id, address)
+                    property:properties(id, address),
+                    parent_action:crm_actions(action_type, note)
                 `)
                 .eq('agent_id', user.id)
 
             if (error) throw error
 
             const formattedEvents = data.map(task => {
-                const startDate = new Date(task.execution_date)
-                let endDate = task.end_date ? new Date(task.end_date) : new Date(startDate.getTime() + 60 * 60000)
+                let startDate, endDate;
+
+                if (task.is_all_day) {
+                    // Standard parsing: use the date part and force a safe local time or UTC
+                    // The 12:00:00 ensures we stay on the target date regardless of TZ
+                    const datePart = task.execution_date.split('T')[0];
+                    startDate = new Date(datePart + 'T12:00:00');
+                    endDate = new Date(datePart + 'T13:00:00');
+                } else {
+                    startDate = new Date(task.execution_date)
+                    endDate = task.end_date ? new Date(task.end_date) : new Date(startDate.getTime() + 60 * 60000)
+                }
 
                 // Fix: Ensure at least 30 min duration for visibility if start == end
-                if (endDate.getTime() <= startDate.getTime()) {
+                if (!task.is_all_day && endDate.getTime() <= startDate.getTime()) {
                     endDate = new Date(startDate.getTime() + 30 * 60000)
                 }
 
@@ -302,7 +316,10 @@ export default function CalendarPage() {
                     hangoutLink: task.hangout_link,
                     attendees: task.attendees || [],
                     isGoogleEvent: !!task.google_event_id,
-                    isSyncing: task.google_event_id && !task.last_synced_at
+                    isSyncing: task.google_event_id && !task.last_synced_at,
+                    actionId: task.action_id,
+                    parentAction: task.parent_action,
+                    allDay: !!task.is_all_day
                 }
             })
 
@@ -350,8 +367,10 @@ export default function CalendarPage() {
         }
     }
 
-    const handleSelectSlot = ({ start, end }) => {
+    const handleSelectSlot = ({ start, end, action }) => {
         setSelectedEvent(null)
+        const isAllDay = action === 'select' && start.getHours() === 0 && end.getHours() === 0;
+
         const endWithDuration = start.getTime() === end.getTime()
             ? new Date(start.getTime() + 30 * 60000)
             : end
@@ -360,15 +379,15 @@ export default function CalendarPage() {
             title: '',
             description: '',
             descriptionHtml: '',
-            start: format(start, "yyyy-MM-dd'T'HH:mm"),
-            end: format(endWithDuration, "yyyy-MM-dd'T'HH:mm"),
+            start: isAllDay ? format(start, "yyyy-MM-dd") : toISOLocal(start),
+            end: isAllDay ? format(start, "yyyy-MM-dd") : toISOLocal(endWithDuration),
             type: 'task',
             contactId: 'none',
             propertyId: 'none',
             reminder: 'none',
             attendees: [],
             create_meet: false,
-            is_all_day: false
+            is_all_day: isAllDay
         })
         setIsEditing(true)
         setIsModalOpen(true)
@@ -381,8 +400,8 @@ export default function CalendarPage() {
             title: decodeHtml(event.title),
             description: event.description || '',
             descriptionHtml: event.descriptionHtml || event.description || '',
-            start: format(event.start, "yyyy-MM-dd'T'HH:mm"),
-            end: format(event.end, "yyyy-MM-dd'T'HH:mm"),
+            start: event.allDay ? format(event.start, "yyyy-MM-dd") : toISOLocal(event.start),
+            end: event.allDay ? format(event.end, "yyyy-MM-dd") : toISOLocal(event.end),
             type: event.type || 'task',
             contactId: event.contactId || 'none',
             propertyId: event.propertyId || 'none',
@@ -404,27 +423,31 @@ export default function CalendarPage() {
 
         setIsSaving(true)
         try {
-            // Validate dates
-            const startD = new Date(formData.start)
-            let endD = new Date(formData.end)
-
-            if (endD <= startD) {
-                endD = new Date(startD.getTime() + 30 * 60000)
+            // Handle is_all_day correctly to avoid timezone shifts
+            let executionDate, endDate;
+            if (formData.is_all_day) {
+                // Standardize to 12:00:00 UTC for all-day tasks
+                const datePart = formData.start.split('T')[0];
+                executionDate = new Date(`${datePart}T12:00:00Z`).toISOString();
+                endDate = executionDate;
+            } else {
+                executionDate = new Date(formData.start).toISOString();
+                endDate = new Date(formData.end).toISOString();
             }
 
             const payload = {
                 agent_id: user.id,
                 action: formData.title,
                 description: formData.description,
-                execution_date: startD.toISOString(),
-                end_date: endD.toISOString(),
+                execution_date: executionDate,
+                end_date: endDate,
                 task_type: formData.type,
                 contact_id: formData.contactId === 'none' ? null : formData.contactId,
                 property_id: formData.propertyId === 'none' ? null : formData.propertyId,
                 reminder_minutes: formData.reminder === 'none' ? null : parseInt(formData.reminder),
                 location: formData.location,
                 attendees: formData.attendees,
-                is_all_day: formData.is_all_day
+                is_all_day: !!formData.is_all_day
             }
 
             if (selectedEvent) {
@@ -527,13 +550,19 @@ export default function CalendarPage() {
         try {
             setIsDeleting(true)
             if (profile?.google_refresh_token && selectedEvent.resource?.google_event_id) {
-                supabase.functions.invoke('google-calendar-sync', {
+                const { error: syncError, data: syncData } = await supabase.functions.invoke('google-calendar-sync', {
                     body: {
                         agentId: user.id,
                         action: 'delete_from_google',
                         googleEventId: selectedEvent.resource.google_event_id
                     }
                 })
+
+                if (syncError || (syncData && !syncData.success)) {
+                    console.error('Google sync error:', syncError || syncData?.error)
+                    toast.error('Error al sincronizar con Google. Intente de nuevo.')
+                    return
+                }
             }
 
             const { error } = await supabase
@@ -581,11 +610,22 @@ export default function CalendarPage() {
 
     const onEventDrop = async ({ event, start, end }) => {
         try {
+            // Handle is_all_day correctly on drop
+            let execution_date = start.toISOString();
+            let end_date = end.toISOString();
+
+            if (event.allDay) {
+                // Standardize to 12:00:00 UTC on drop
+                const datePart = start.toISOString().split('T')[0];
+                execution_date = new Date(`${datePart}T12:00:00Z`).toISOString();
+                end_date = execution_date;
+            }
+
             const { error } = await supabase
                 .from('crm_tasks')
                 .update({
-                    execution_date: start.toISOString(),
-                    end_date: end.toISOString()
+                    execution_date,
+                    end_date
                 })
                 .eq('id', event.id)
 
@@ -608,11 +648,22 @@ export default function CalendarPage() {
 
     const onEventResize = async ({ event, start, end }) => {
         try {
+            // Handle is_all_day correctly on resize
+            let execution_date = start.toISOString();
+            let end_date = end.toISOString();
+
+            if (event.allDay) {
+                const datePartStart = start.toISOString().split('T')[0];
+                const datePartEnd = end.toISOString().split('T')[0];
+                execution_date = new Date(`${datePartStart}T12:00:00Z`).toISOString();
+                end_date = new Date(`${datePartEnd}T12:00:00Z`).toISOString();
+            }
+
             const { error } = await supabase
                 .from('crm_tasks')
                 .update({
-                    execution_date: start.toISOString(),
-                    end_date: end.toISOString()
+                    execution_date,
+                    end_date
                 })
                 .eq('id', event.id)
 
@@ -824,8 +875,15 @@ export default function CalendarPage() {
                                                 <Clock className="w-4 h-4 flex-none" />
                                                 <span>
                                                     {format(selectedEvent.start, "EEEE, d 'de' MMMM", { locale: es })}
-                                                    <br />
-                                                    {format(selectedEvent.start, "p")} - {format(selectedEvent.end, "p")}
+                                                    {!selectedEvent.allDay && (
+                                                        <>
+                                                            <br />
+                                                            {format(selectedEvent.start, "p")} - {format(selectedEvent.end, "p")}
+                                                        </>
+                                                    )}
+                                                    {selectedEvent.allDay && (
+                                                        <span className="ml-1 text-[10px] bg-slate-100 px-1.5 py-0.5 rounded-full font-bold text-slate-400 uppercase tracking-tighter">Todo el día</span>
+                                                    )}
                                                 </span>
                                             </div>
                                         </div>
@@ -944,6 +1002,24 @@ export default function CalendarPage() {
                                                         </div>
                                                     ))}
                                                 </div>
+                                            </div>
+                                        )}
+
+                                        {selectedEvent.actionId && selectedEvent.parentAction && (
+                                            <div className="flex flex-col gap-2 pt-3 border-t border-slate-100 mt-1">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-5 h-5 flex items-center justify-center flex-none">
+                                                        <Activity className="w-3.5 h-3.5 text-blue-500" />
+                                                    </div>
+                                                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                                                        Acción Relacionada: {selectedEvent.parentAction.action_type}
+                                                    </span>
+                                                </div>
+                                                {selectedEvent.parentAction.note && (
+                                                    <div className="ml-8 text-sm text-slate-600 italic bg-blue-50/50 p-3 rounded-lg border border-blue-100/50">
+                                                        "{selectedEvent.parentAction.note}"
+                                                    </div>
+                                                )}
                                             </div>
                                         )}
 

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../../services/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { Button } from "@/components/ui"
-import { CheckCircle2, Circle, Calendar, Clock, User, Plus } from 'lucide-react'
+import { CheckCircle2, Circle, Calendar, Clock, User, Plus, Activity } from 'lucide-react'
 import TaskModal from './TaskModal'
 import { toast } from 'sonner'
 import { useNavigate } from 'react-router-dom'
@@ -26,7 +26,8 @@ const TaskBoard = () => {
                 .from('crm_tasks')
                 .select(`
                     *,
-                    contacts (first_name, last_name)
+                    contacts (first_name, last_name),
+                    crm_actions (action_type, note)
                 `)
                 .eq('task_type', 'task')
                 .order('execution_date', { ascending: true })
@@ -54,7 +55,7 @@ const TaskBoard = () => {
 
             const task = tasks.find(t => t.id === taskId)
             if (profile?.google_refresh_token && task?.google_event_id) {
-                supabase.functions.invoke('google-calendar-sync', {
+                await supabase.functions.invoke('google-calendar-sync', {
                     body: { agentId: user.id, action: 'push_to_google', taskId: taskId }
                 })
             }
@@ -148,14 +149,37 @@ const TaskBoard = () => {
                                 </button>
                             </div>
 
+                            {task.crm_actions && (
+                                <div className="mt-2 text-[10px] space-y-1">
+                                    <div className="flex items-center gap-1.5 text-blue-600 font-medium">
+                                        <Activity className="w-3 h-3" />
+                                        <span>Acción: {task.crm_actions.action_type}</span>
+                                    </div>
+                                    {task.crm_actions.note && (
+                                        <p className="text-slate-500 italic line-clamp-2 pl-4 border-l border-blue-100 ml-1.5">
+                                            "{task.crm_actions.note}"
+                                        </p>
+                                    )}
+                                </div>
+                            )}
+
                             <div className="flex items-center gap-3 text-xs text-muted-foreground mt-4 pt-4 border-t border-gray-100 dark:border-gray-800">
                                 <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded-md">
                                     <Calendar className="w-3 h-3" />
-                                    {new Date(task.execution_date).toLocaleDateString()}
+                                    {task.is_all_day ? (
+                                        // Robust parsing to avoid UTC shift
+                                        new Date(task.execution_date.split('T')[0] + 'T00:00:00').toLocaleDateString()
+                                    ) : (
+                                        new Date(task.execution_date).toLocaleDateString()
+                                    )}
                                 </div>
                                 <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded-md">
                                     <Clock className="w-3 h-3" />
-                                    {new Date(task.execution_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    {task.is_all_day ? (
+                                        <span className="font-bold uppercase tracking-tighter text-[9px] bg-blue-100 text-blue-700 px-1 rounded">Todo el día</span>
+                                    ) : (
+                                        new Date(task.execution_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                                    )}
                                 </div>
                             </div>
                         </div>
