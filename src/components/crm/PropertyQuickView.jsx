@@ -56,8 +56,8 @@ const PropertyQuickView = ({ property, isOpen, onClose, onEdit }) => {
     if (!isOpen || !property) return null
 
     return createPortal(
-        <div className="fixed inset-0 z-[100] flex justify-end">
-            <div className="absolute inset-0 bg-black/20 backdrop-blur-[1px]" onClick={() => onClose()} />
+        <div className="fixed inset-0 z-[200] flex justify-end">
+            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => onClose()} />
             <motion.div
                 initial={{ x: '100%' }}
                 animate={{ x: 0 }}
@@ -81,7 +81,10 @@ const PropertyQuickView = ({ property, isOpen, onClose, onEdit }) => {
                 </div>
 
                 {/* Content */}
-                <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                <div
+                    className="flex-1 overflow-y-auto p-6 space-y-6"
+                    onWheel={(e) => e.stopPropagation()}
+                >
 
                     {/* Status */}
                     <div>

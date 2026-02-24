@@ -17,7 +17,8 @@ serve(async (req) => {
     }
 
     const url = new URL(req.url);
-    const path = url.pathname.split('/').pop();
+    const body = await req.json().catch(() => ({}));
+    const action = body.action || url.pathname.split('/').pop();
 
     // Initialize Supabase Client
     const authHeader = req.headers.get('Authorization')!;
@@ -37,7 +38,7 @@ serve(async (req) => {
     }
 
     // --- AUTHORIZE ROUTE ---
-    if (path === 'authorize') {
+    if (action === 'authorize') {
         const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
         authUrl.searchParams.set('client_id', GOOGLE_CLIENT_ID!);
         authUrl.searchParams.set('redirect_uri', GOOGLE_REDIRECT_URI!);
@@ -53,8 +54,8 @@ serve(async (req) => {
     }
 
     // --- CALLBACK ROUTE ---
-    if (path === 'callback') {
-        const code = url.searchParams.get('code');
+    if (action === 'callback') {
+        const code = body.code || url.searchParams.get('code');
         if (!code) {
             return new Response(JSON.stringify({ error: 'Missing code' }), {
                 status: 400,

@@ -112,10 +112,21 @@ serve(async (req) => {
             if (calResponse.ok) {
                 const data = await calResponse.json();
                 const events = data.items || [];
+
+                // Fetch existing task types to avoid overwriting them
+                const googleEventIds = events.filter(e => e.status !== 'cancelled').map(e => e.id);
+                const { data: existingTasks } = await adminClient
+                    .from('crm_tasks')
+                    .select('google_event_id, task_type')
+                    .in('google_event_id', googleEventIds);
+
+                const typeMap = new Map(existingTasks?.map(t => [t.google_event_id, t.task_type]) || []);
+
                 for (const event of events) {
                     if (event.status === 'cancelled') {
                         await adminClient.from('crm_tasks').delete().eq('google_event_id', event.id);
                     } else {
+                        const existingType = typeMap.get(event.id);
                         const taskData = {
                             agent_id: agentId,
                             action: event.summary || '(Sin título)',
@@ -126,7 +137,8 @@ serve(async (req) => {
                             location: event.location || '',
                             hangout_link: event.hangoutLink || '',
                             attendees: event.attendees || [],
-                            task_type: (event.attendees && event.attendees.length > 0) || event.location ? 'meeting' : 'task',
+                            task_type: existingType || ((event.attendees && event.attendees.length > 0) || event.location ? 'meeting' : 'task'),
+                            is_all_day: !!event.start?.date,
                             google_event_id: event.id,
                             google_etag: event.etag,
                             last_synced_at: new Date().toISOString(),
@@ -164,6 +176,7 @@ serve(async (req) => {
                             execution_date: gTask.due,
                             completed: gTask.status === 'completed',
                             task_type: 'task',
+                            is_all_day: true,
                             google_event_id: internalGId,
                             google_etag: gTask.etag,
                             last_synced_at: new Date().toISOString(),
@@ -190,10 +203,31 @@ serve(async (req) => {
             if (taskErr || !task) throw new Error('Task not found');
             if (task.agent_id !== agentId) throw new Error('Unauthorized');
 
-            const isGoogleTask = task.task_type === 'task';
+            const shouldBeGoogleTask = task.task_type === 'task' && task.is_all_day;
+            const currentlyIsGoogleTask = task.google_event_id && task.google_event_id.startsWith('GT_');
+            const currentlyIsCalendarEvent = task.google_event_id && !task.google_event_id.startsWith('GT_');
 
-            if (isGoogleTask) {
-                // Handle as Google Task
+            // --- API HANDOVER ---
+            // If it was a Google Task but now should be a Calendar Event (or vice versa), delete from old API first
+            if (currentlyIsGoogleTask && !shouldBeGoogleTask) {
+                console.log(`Switching from Google Tasks to Calendar Event for task ${taskId}`);
+                const taskIdReal = task.google_event_id.replace('GT_', '');
+                await fetch(`https://www.googleapis.com/tasks/v1/lists/@default/tasks/${taskIdReal}`, {
+                    method: 'DELETE',
+                    headers: { Authorization: `Bearer ${accessToken}` },
+                });
+                task.google_event_id = null;
+            } else if (currentlyIsCalendarEvent && shouldBeGoogleTask) {
+                console.log(`Switching from Calendar Event to Google Tasks for task ${taskId}`);
+                await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${task.google_event_id}`, {
+                    method: 'DELETE',
+                    headers: { Authorization: `Bearer ${accessToken}` },
+                });
+                task.google_event_id = null;
+            }
+
+            if (shouldBeGoogleTask) {
+                // Handle as Google Task (All-day)
                 const googleTask: any = {
                     title: task.action,
                     notes: task.description_html || task.description,
@@ -250,10 +284,19 @@ serve(async (req) => {
                     summary: task.action,
                     description: task.description_html || task.description,
                     location: task.location || '',
-                    start: { dateTime: new Date(task.execution_date).toISOString() },
-                    end: { dateTime: new Date(task.end_date || (new Date(task.execution_date).getTime() + 3600000)).toISOString() },
                     attendees,
                 };
+
+                if (task.is_all_day) {
+                    googleEvent.start = { date: new Date(task.execution_date).toISOString().split('T')[0] };
+                    // For all-day events, the end date must be the next day (exclusive)
+                    const endDate = new Date(task.execution_date);
+                    endDate.setDate(endDate.getDate() + 1);
+                    googleEvent.end = { date: endDate.toISOString().split('T')[0] };
+                } else {
+                    googleEvent.start = { dateTime: new Date(task.execution_date).toISOString() };
+                    googleEvent.end = { dateTime: new Date(task.end_date || (new Date(task.execution_date).getTime() + 3600000)).toISOString() };
+                }
 
                 if (create_meet) {
                     googleEvent.conferenceData = {
