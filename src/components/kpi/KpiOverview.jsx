@@ -303,7 +303,7 @@ export default function KpiOverview() {
                         </div>
                     </div>
                     <div className="h-[350px] w-full">
-                        <ResponsiveContainer width="100%" height="100%">
+                        <ResponsiveContainer width="100%" height="100%" minHeight={1} minWidth={1}>
                             <BarChart data={trendData} barGap={0} barCategoryGap="20%">
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                                 <XAxis

@@ -8,6 +8,7 @@ import format from 'date-fns/format'
 import parse from 'date-fns/parse'
 import startOfWeek from 'date-fns/startOfWeek'
 import getDay from 'date-fns/getDay'
+import isToday from 'date-fns/isToday'
 import { es } from 'date-fns/locale'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
 import 'react-big-calendar/lib/addons/dragAndDrop/styles.css'
@@ -44,16 +45,30 @@ const CustomToolbar = (toolbar) => {
         toolbar.onNavigate('TODAY')
     }
 
+    const getNavLabel = () => {
+        const { date, view } = toolbar;
+        if (isToday(date)) return 'Hoy';
+        if (view === 'day') return format(date, "d 'de' MMM", { locale: es });
+        if (view === 'week') {
+            const start = startOfWeek(date, { weekStartsOn: 1 });
+            return format(start, "d 'de' MMM", { locale: es });
+        }
+        if (view === 'month') return format(date, "MMMM", { locale: es });
+        return 'Hoy';
+    }
+
     return (
         <div className="flex flex-col md:flex-row items-center justify-between mb-6 gap-4">
             <div className="flex items-center gap-2">
-                <div className="flex bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-1 shadow-sm">
+                <div className="flex bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-1 shadow-sm items-center">
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={goToBack}><ChevronLeft className="w-4 h-4" /></Button>
-                    <Button variant="ghost" size="sm" className="h-8 px-3" onClick={goToCurrent}>Hoy</Button>
+                    <Button variant="ghost" size="sm" className="h-8 px-3 font-medium text-xs truncate max-w-[140px] capitalize" onClick={goToCurrent}>
+                        {getNavLabel()}
+                    </Button>
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={goToNext}><ChevronRight className="w-4 h-4" /></Button>
                 </div>
                 <h2 className="text-xl font-bold ml-2 capitalize">
-                    {format(toolbar.date, 'MMMM yyyy', { locale: es })}
+                    {toolbar.label}
                 </h2>
             </div>
             <div className="flex items-center gap-2 bg-white dark:bg-slate-900 p-1 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm">
