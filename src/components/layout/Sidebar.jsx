@@ -41,141 +41,116 @@ export default function Sidebar() {
         navigate('/login')
     }
 
-    const sections = [
-        {
-            title: 'GENERAL',
+    const role = profile?.role
+    const isPostulante = role === 'postulantes'
+
+    // ─── Build sections ───────────────────────────────────────────────────────
+
+    const general = {
+        title: 'GENERAL',
+        items: [
+            { title: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
+            { title: 'Calendario', icon: Calendar, path: '/calendar' },
+            { title: 'Casilla', icon: MessageSquare, path: '/casilla' },
+        ]
+    }
+
+    const indicadores = {
+        title: 'INDICADORES',
+        items: [
+            { title: 'Mis KPIs', icon: BarChart3, path: '/kpis/dashboard' },
+            { title: 'Mi Plan de Negocio', icon: Target, path: '/kpis/business-plan' },
+            ...(['superadministrador', 'legal'].includes(role) ? [{
+                title: 'Dashboard CEO', icon: FileBarChart, path: '/admin/kpis'
+            }] : [])
+        ]
+    }
+
+    const crm = {
+        title: 'CRM',
+        items: [
+            { title: 'Contactos & Tareas', icon: Users, path: '/crm' },
+            ...(!isPostulante ? [{ title: 'Mapa Propiedades', icon: MapPin, path: '/crm/map' }] : []),
+        ]
+    }
+
+    const tools = {
+        title: 'TOOLS',
+        items: [
+            { title: 'Nueva Solicitud', icon: PlusCircle, path: '/new-request' },
+            { title: 'Nueva Captación / Mandato', icon: Zap, path: '/new-mandate' },
+        ]
+    }
+
+    const aulaVirtual = {
+        title: 'AULA VIRTUAL',
+        items: [{ title: 'Aula Virtual', icon: GraduationCap, path: '/aula-virtual' }]
+    }
+
+    const documentos = {
+        title: 'DOCUMENTOS',
+        items: [
+            { title: 'Documentos Remax', icon: FileText, path: '/documents' },
+            { title: 'Mis Documentos', icon: Folder, path: '/my-documents' }
+        ]
+    }
+
+    // Admin section per role
+    const adminSectionByRole = {
+        superadministrador: {
+            title: 'ADMIN',
             items: [
-                {
-                    title: 'Dashboard',
-                    icon: LayoutDashboard,
-                    path: '/dashboard',
-                },
-                {
-                    title: 'Calendario',
-                    icon: Calendar,
-                    path: '/calendar',
-                },
-                {
-                    title: 'Casilla',
-                    icon: MessageSquare,
-                    path: '/casilla',
-                },
+                { title: 'Administración', icon: Users, path: '/admin/invites' },
+                { title: 'Solicitudes', icon: FileText, path: '/admin/requests' },
+                { title: 'Importar Propiedades', icon: Download, path: '/admin/import' },
+                { title: 'Config. Aula Virtual', icon: Settings, path: '/admin/aula-virtual' },
             ]
         },
-        {
-            title: 'INDICADORES',
+        legal: {
+            title: 'ADMIN',
             items: [
-                {
-                    title: 'Mis KPIs',
-                    icon: BarChart3,
-                    path: '/kpis/dashboard',
-                },
-                {
-                    title: 'Mi Plan de Negocio',
-                    icon: Target,
-                    path: '/kpis/business-plan',
-                },
-                ...(['superadministrador', 'legal'].includes(profile?.role) ? [{
-                    title: 'Dashboard CEO',
-                    icon: FileBarChart,
-                    path: '/admin/kpis',
-                }] : [])
+                { title: 'Administración', icon: Users, path: '/admin/invites' },
+                { title: 'Solicitudes', icon: FileText, path: '/admin/requests' },
+                { title: 'Importar Propiedades', icon: Download, path: '/admin/import' },
+                { title: 'Config. Aula Virtual', icon: Settings, path: '/admin/aula-virtual' },
             ]
         },
-        {
-            title: 'CRM',
+        comercial: {
+            title: 'ADMIN',
             items: [
-                {
-                    title: 'Contactos & Tareas',
-                    icon: Users,
-                    path: '/crm',
-                },
-                {
-                    title: 'Mapa Propiedades',
-                    icon: MapPin,
-                    path: '/crm/map',
-                },
+                { title: 'Administración', icon: Users, path: '/admin/invites' },
+                { title: 'Solicitudes', icon: FileText, path: '/admin/requests' },
             ]
         },
-        {
-            title: 'TOOLS',
+        administracion: {
+            title: 'ADMIN',
             items: [
-                {
-                    title: 'Nueva Solicitud',
-                    icon: PlusCircle,
-                    path: '/new-request',
-                },
-                {
-                    title: 'Nueva Captación / Mandato',
-                    icon: Zap,
-                    path: '/new-mandate',
-                },
+                { title: 'Solicitudes', icon: FileText, path: '/admin/requests' },
             ]
         },
-        {
-            title: 'AULA VIRTUAL',
+        postulantes: {
+            title: 'ADMIN',
             items: [
-                {
-                    title: 'Aula Virtual',
-                    icon: GraduationCap,
-                    path: '/aula-virtual',
-                }
-            ]
-        },
-        {
-            title: 'DOCUMENTOS',
-            items: [
-                {
-                    title: 'Documentos Remax',
-                    icon: FileText,
-                    path: '/documents',
-                },
-                {
-                    title: 'Mis Documentos',
-                    icon: Folder,
-                    path: '/my-documents',
-                }
+                { title: 'Administración', icon: Users, path: '/admin/invites' },
             ]
         }
-    ]
-
-    // Admin sections additions based on role
-    if (profile?.role === 'superadministrador') {
-        sections.push({
-            title: 'ADMIN',
-            items: [
-                { title: 'Administración', icon: Users, path: '/admin/invites' },
-                { title: 'Solicitudes', icon: FileText, path: '/admin/requests' },
-                { title: 'Importar Propiedades', icon: Download, path: '/admin/import' },
-                { title: 'Config. Aula Virtual', icon: Settings, path: '/admin/aula-virtual' },
-            ]
-        })
-    } else if (profile?.role === 'legal') {
-        sections.push({
-            title: 'ADMIN',
-            items: [
-                { title: 'Administración', icon: Users, path: '/admin/invites' },
-                { title: 'Solicitudes', icon: FileText, path: '/admin/requests' },
-                { title: 'Importar Propiedades', icon: Download, path: '/admin/import' },
-                { title: 'Config. Aula Virtual', icon: Settings, path: '/admin/aula-virtual' },
-            ]
-        })
-    } else if (profile?.role === 'comercial') {
-        sections.push({
-            title: 'ADMIN',
-            items: [
-                { title: 'Administración', icon: Users, path: '/admin/invites' },
-                { title: 'Solicitudes', icon: FileText, path: '/admin/requests' },
-            ]
-        })
-    } else if (profile?.role === 'administracion') {
-        sections.push({
-            title: 'ADMIN',
-            items: [
-                { title: 'Solicitudes', icon: FileText, path: '/admin/requests' },
-            ]
-        })
     }
+
+    // Assemble sections based on role
+    let sections
+    if (isPostulante) {
+        // Postulantes: no INDICADORES, no TOOLS, no Mapa, solo invite en ADMIN
+        sections = [general, crm, aulaVirtual, documentos]
+    } else {
+        sections = [general, indicadores, crm, tools, aulaVirtual, documentos]
+    }
+
+    const adminSection = adminSectionByRole[role]
+    if (adminSection) {
+        sections.push(adminSection)
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
 
     const MenuItem = ({ item }) => {
         const isActive = location.pathname === item.path

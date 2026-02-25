@@ -42,7 +42,8 @@ export default function AdminInvites() {
     const [processingResults, setProcessingResults] = useState(null)
     const fileInputRef = useRef(null)
 
-    const INVITES_ALLOWED_ROLES = ['superadministrador', 'legal', 'comercial']
+    const INVITES_ALLOWED_ROLES = ['superadministrador', 'legal', 'comercial', 'postulantes']
+    const canManage = ['superadministrador', 'legal', 'comercial'].includes(profile?.role)
 
     useEffect(() => {
         if (INVITES_ALLOWED_ROLES.includes(profile?.role)) {
@@ -70,8 +71,8 @@ export default function AdminInvites() {
     }
 
 
-    // Protect: Only admin, legal, comercial
-    if (!authLoading && !['superadministrador', 'legal', 'comercial'].includes(profile?.role)) {
+    // Protect: Only superadministrador, legal, comercial, postulantes
+    if (!authLoading && !['superadministrador', 'legal', 'comercial', 'postulantes'].includes(profile?.role)) {
         return <Navigate to="/dashboard" />
     }
 
@@ -317,7 +318,8 @@ export default function AdminInvites() {
 
     return (
         <div className="container max-w-4xl mx-auto px-4 py-8 space-y-8">
-            <div className="grid md:grid-cols-2 gap-8">
+            {/* Invite Section — only visible for managers */}
+            {canManage && <div className="grid md:grid-cols-2 gap-8">
                 {/* Invite Section */}
                 <Card>
                     <CardHeader>
@@ -371,6 +373,7 @@ export default function AdminInvites() {
                                         <SelectItem value="legal">Legal</SelectItem>
                                         <SelectItem value="comercial">Comercial</SelectItem>
                                         <SelectItem value="administracion">Administración</SelectItem>
+                                        <SelectItem value="postulantes">Postulantes</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
@@ -509,7 +512,7 @@ export default function AdminInvites() {
                         </Button>
                     </CardFooter>
                 </Card>
-            </div>
+            </div>}
 
 
             {/* Users List Section */}
@@ -599,7 +602,7 @@ export default function AdminInvites() {
                                         </div>
                                     </div>
 
-                                    {u.id !== profile?.id && profile?.role !== 'comercial' && (
+                                    {u.id !== profile?.id && canManage && (
                                         <div className="flex items-center gap-1">
                                             <Button
                                                 variant="ghost"
