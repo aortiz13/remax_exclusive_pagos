@@ -1,6 +1,6 @@
-import React from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { Card, CardContent, Button, Input, Label, Separator } from '@/components/ui'
-import { User, CreditCard, Building, Wallet } from 'lucide-react'
+import { User, CreditCard, Building, Wallet, MapPin, Search } from 'lucide-react'
 import ContactPickerInline from '@/components/ui/ContactPickerInline'
 
 const BANKS = [
@@ -27,9 +27,71 @@ const ACCOUNT_TYPES = [
     'Cuenta RUT'
 ]
 
+// ── OpenStreetMap Autocomplete Hook ──────────────────────────────────
+function useAddressAutocomplete() {
+    const [query, setQuery] = useState('')
+    const [suggestions, setSuggestions] = useState([])
+    const [isLoading, setIsLoading] = useState(false)
+    const [showDropdown, setShowDropdown] = useState(false)
+    const timerRef = useRef(null)
+
+    const search = useCallback((q) => {
+        if (timerRef.current) clearTimeout(timerRef.current)
+        if (!q || q.length < 3) {
+            setSuggestions([])
+            setShowDropdown(false)
+            return
+        }
+        setIsLoading(true)
+        timerRef.current = setTimeout(async () => {
+            try {
+                const res = await fetch(
+                    `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&countrycodes=cl&limit=5&q=${encodeURIComponent(q)}`,
+                    { headers: { 'Accept-Language': 'es' } }
+                )
+                const data = await res.json()
+                setSuggestions(data)
+                setShowDropdown(data.length > 0)
+            } catch (err) {
+                console.error('OSM search error:', err)
+                setSuggestions([])
+            } finally {
+                setIsLoading(false)
+            }
+        }, 400)
+    }, [])
+
+    useEffect(() => {
+        return () => { if (timerRef.current) clearTimeout(timerRef.current) }
+    }, [])
+
+    return { query, setQuery, suggestions, isLoading, showDropdown, setShowDropdown, search }
+}
+
+// Extract comuna from OSM address details
+function extractComuna(address) {
+    // Try multiple fields that could contain the comuna/city
+    return address?.city || address?.town || address?.suburb || address?.municipality || address?.village || address?.county || ''
+}
+
 export default function StepDueñoBanco({ data, onUpdate, onNext, onBack }) {
-    const isOwnerComplete = data.dueñoNombre && data.dueñoRut && data.dueñoEmail && data.dueñoTelefono
+    const isOwnerComplete = data.dueñoNombre && data.dueñoRut && data.dueñoEmail && data.dueñoTelefono && data.dueñoDireccion && data.dueñoComuna
     const isBankComplete = data.bancoNombre && data.bancoTipoCuenta && data.bancoNroCuenta && data.bancoRutTitular
+
+    const autocomplete = useAddressAutocomplete()
+    const dropdownRef = useRef(null)
+    const [filledFromContact, setFilledFromContact] = useState(false)
+
+    // Close dropdown on outside click
+    useEffect(() => {
+        const handler = (e) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+                autocomplete.setShowDropdown(false)
+            }
+        }
+        document.addEventListener('mousedown', handler)
+        return () => document.removeEventListener('mousedown', handler)
+    }, [])
 
     const handleSubmit = (e) => {
         e.preventDefault()
@@ -46,11 +108,30 @@ export default function StepDueñoBanco({ data, onUpdate, onNext, onBack }) {
         // Store the CRM contact ID for auto-linking
         onUpdate('_crmDueñoContactId', contact.id)
 
+        // Mark as filled from contact to skip autocomplete pre-fill
+        if (contact.address) setFilledFromContact(true)
+
         // Also pre-fill bank info if available
         if (contact.bank_name) onUpdate('bancoNombre', contact.bank_name)
         if (contact.bank_account_type) onUpdate('bancoTipoCuenta', contact.bank_account_type)
         if (contact.bank_account_number) onUpdate('bancoNroCuenta', contact.bank_account_number)
         if (contact.rut) onUpdate('bancoRutTitular', contact.rut)
+    }
+
+    const handleAddressInput = (value) => {
+        onUpdate('dueñoDireccion', value)
+        setFilledFromContact(false)
+        autocomplete.setQuery(value)
+        autocomplete.search(value)
+    }
+
+    const handleSelectSuggestion = (item) => {
+        const displayName = item.display_name || ''
+        onUpdate('dueñoDireccion', displayName)
+        const comuna = extractComuna(item.address)
+        if (comuna) onUpdate('dueñoComuna', comuna)
+        autocomplete.setShowDropdown(false)
+        autocomplete.setQuery('')
     }
 
     return (
@@ -109,18 +190,51 @@ export default function StepDueñoBanco({ data, onUpdate, onNext, onBack }) {
                         </div>
                     </div>
 
-                    {/* Address fields */}
+                    {/* Address fields with OSM Autocomplete */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <Label>Dirección</Label>
-                            <Input
-                                value={data.dueñoDireccion || ''}
-                                onChange={e => onUpdate('dueñoDireccion', e.target.value)}
-                                placeholder="Dirección particular"
-                            />
+                        <div className="space-y-2 relative" ref={dropdownRef}>
+                            <Label>Dirección Particular <span className="text-red-500">*</span></Label>
+                            <div className="relative">
+                                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                                <Input
+                                    value={data.dueñoDireccion || ''}
+                                    onChange={e => handleAddressInput(e.target.value)}
+                                    placeholder="Buscar dirección..."
+                                    className="pl-9"
+                                />
+                                {autocomplete.isLoading && (
+                                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                        <div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Autocomplete Dropdown */}
+                            {autocomplete.showDropdown && !filledFromContact && (
+                                <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden max-h-60 overflow-y-auto">
+                                    {autocomplete.suggestions.map((item, idx) => (
+                                        <button
+                                            key={idx}
+                                            type="button"
+                                            onClick={() => handleSelectSuggestion(item)}
+                                            className="w-full text-left px-4 py-3 text-sm hover:bg-primary/5 border-b border-slate-50 last:border-0 flex items-start gap-2 transition-colors"
+                                        >
+                                            <Search className="w-3.5 h-3.5 text-slate-400 mt-0.5 flex-shrink-0" />
+                                            <div>
+                                                <p className="text-slate-800 font-medium leading-tight">{item.display_name}</p>
+                                                {item.address && (
+                                                    <p className="text-xs text-slate-400 mt-0.5">
+                                                        Comuna: {extractComuna(item.address) || 'N/A'}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                         <div className="space-y-2">
-                            <Label>Comuna</Label>
+                            <Label>Comuna <span className="text-red-500">*</span></Label>
                             <Input
                                 value={data.dueñoComuna || ''}
                                 onChange={e => onUpdate('dueñoComuna', e.target.value)}

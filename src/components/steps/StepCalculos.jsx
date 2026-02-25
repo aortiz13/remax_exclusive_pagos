@@ -3,7 +3,7 @@ import { Button } from '@/components/ui'
 import {
     Calculator, DollarSign, TrendingUp, ShieldCheck,
     Briefcase, ChevronRight, ChevronLeft, Calendar, FileCheck,
-    AlertTriangle, CheckCircle, Building, Home
+    AlertTriangle, CheckCircle, Building, Home, Info, Trash2, Plus
 } from 'lucide-react'
 
 // ── Toggle Switch Component ──────────────────────────────────────────────
@@ -95,7 +95,34 @@ export default function StepCalculos({ data, onUpdate, onNext, onBack }) {
         const gastosNotarialesB = data.incluyeGastosNotarialesArrendatario ? (Number(data.montoGastosNotarialesArrendatario) || 0) : 0
         const certDominio = Number(data.costoDominioVigente) || 0
         const ufVal = ufData.valor || 0
-        const seguro = data.chkSeguro ? (Number(data.montoSeguro) || 0) : 0
+
+        // Seguro de Restitución auto-calculation
+        let seguro = 0
+        let seguroDetalle = null
+        if (data.chkSeguro) {
+            if (data.seguroAutoCalc !== false && canon > 0 && ufVal > 0) {
+                const canonAnual = canon * 12
+                const polizaBase = Math.round(canonAnual * 0.02)
+                const minimoUF = Math.round(2.5 * ufVal)
+                const polizaNeta = Math.max(polizaBase, minimoUF)
+                const polizaConIVA = Math.round(polizaNeta * 1.19)
+                const cargoPlataforma = Math.round(polizaConIVA * 0.01785)
+                const cargoConIVA = Math.round(cargoPlataforma * 1.19)
+                seguro = polizaConIVA + cargoConIVA
+                seguroDetalle = {
+                    canonAnual, polizaBase, minimoUF,
+                    minimoAplicado: polizaBase < minimoUF,
+                    polizaNeta, polizaConIVA,
+                    cargoPlataforma, cargoConIVA, total: seguro
+                }
+                // Sync to formData
+                if (Number(data.montoSeguro) !== seguro) {
+                    onUpdate('montoSeguro', seguro)
+                }
+            } else {
+                seguro = Number(data.montoSeguro) || 0
+            }
+        }
 
         const dias = Number(data.diasProporcionales) || 0
         const montoProporcional = data.chkProporcional ? Math.round((canon / 30) * dias) : 0
@@ -172,7 +199,12 @@ export default function StepCalculos({ data, onUpdate, onNext, onBack }) {
         }
 
         const totalCancelar = totalArriendoInicial + garantia + gastosNotarialesB + totalComisionB + seguro
-        const totalEgresosOwner = totalComisionA + gastosNotarialesA + certDominio + totalAdmin
+
+        // Otros gastos (deducted from owner)
+        const otrosGastos = Array.isArray(data.otrosGastos) ? data.otrosGastos : []
+        const totalOtrosGastos = otrosGastos.reduce((sum, g) => sum + (Number(g.monto) || 0), 0)
+
+        const totalEgresosOwner = totalComisionA + gastosNotarialesA + certDominio + totalAdmin + totalOtrosGastos
         const totalRecibir = (totalArriendoInicial + garantia) - totalEgresosOwner
 
         setResults({
@@ -187,7 +219,9 @@ export default function StepCalculos({ data, onUpdate, onNext, onBack }) {
             totalCancelar, totalRecibir,
             montoAdmin, ivaAdmin, totalAdmin,
             ufUsed: ufVal,
-            feeAlert: feeAlertA || feeAlertB
+            feeAlert: feeAlertA || feeAlertB,
+            seguroDetalle,
+            totalOtrosGastos
         })
 
         if (data.feeAlertTriggered !== (feeAlertA || feeAlertB)) {
@@ -226,9 +260,41 @@ export default function StepCalculos({ data, onUpdate, onNext, onBack }) {
         }
     }, [isCommercial])
 
+    const [showSeguroTooltip, setShowSeguroTooltip] = useState(false)
+
+    // Otros gastos helpers
+    const addOtroGasto = () => {
+        const current = Array.isArray(data.otrosGastos) ? data.otrosGastos : []
+        onUpdate('otrosGastos', [...current, { descripcion: '', monto: '' }])
+    }
+    const removeOtroGasto = (idx) => {
+        const current = [...(data.otrosGastos || [])]
+        current.splice(idx, 1)
+        onUpdate('otrosGastos', current)
+    }
+    const updateOtroGasto = (idx, field, value) => {
+        const current = [...(data.otrosGastos || [])]
+        current[idx] = { ...current[idx], [field]: value }
+        onUpdate('otrosGastos', current)
+    }
+
+    // UF conversion helpers for manual honorarios
+    const handleUFInputA = (ufAmount) => {
+        onUpdate('montoManualAUF', ufAmount)
+        if (ufData.valor > 0 && ufAmount) {
+            onUpdate('montoManualA', Math.round(Number(ufAmount) * ufData.valor))
+        }
+    }
+    const handleUFInputB = (ufAmount) => {
+        onUpdate('montoManualBUF', ufAmount)
+        if (ufData.valor > 0 && ufAmount) {
+            onUpdate('montoManualB', Math.round(Number(ufAmount) * ufData.valor))
+        }
+    }
+
 
     return (
-        <div className="max-w-6xl mx-auto">
+        <div className="max-w-7xl mx-auto">
             {/* Page Header */}
             <div className="flex items-center justify-between mb-8">
                 <div className="flex items-center gap-3">
@@ -481,28 +547,60 @@ export default function StepCalculos({ data, onUpdate, onNext, onBack }) {
                         <div className="space-y-3">
 
                             {/* Seguro de Restitución */}
-                            <div className={`flex items-center justify-between p-4 rounded-xl border transition-all ${data.chkSeguro ? 'bg-slate-50 border-slate-200' : 'bg-white border-slate-100'}`}>
-                                <div className="flex items-center gap-3">
-                                    <ShieldCheck className="w-4 h-4 text-slate-400" />
-                                    <div>
+                            <div className={`p-4 rounded-xl border transition-all ${data.chkSeguro ? 'bg-slate-50 border-slate-200' : 'bg-white border-slate-100'}`}>
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <ShieldCheck className="w-4 h-4 text-slate-400" />
                                         <span className="text-sm font-semibold text-slate-800">Seguro de Restitución</span>
                                     </div>
-                                </div>
-                                <ToggleSwitch
-                                    id="chkSeguro"
-                                    checked={data.chkSeguro || false}
-                                    onChange={(e) => onUpdate('chkSeguro', e.target.checked)}
-                                />
-                            </div>
-                            {data.chkSeguro && (
-                                <div className="animate-in slide-in-from-top-2 duration-200 pl-4">
-                                    <CurrencyInput
-                                        value={data.montoSeguro}
-                                        onChange={(e) => onUpdate('montoSeguro', e.target.value)}
-                                        placeholder="$ Monto Seguro"
+                                    <ToggleSwitch
+                                        id="chkSeguro"
+                                        checked={data.chkSeguro || false}
+                                        onChange={(e) => onUpdate('chkSeguro', e.target.checked)}
                                     />
                                 </div>
-                            )}
+                                {data.chkSeguro && (
+                                    <div className="animate-in slide-in-from-top-2 duration-200 mt-3 space-y-2">
+                                        {/* Auto-calculated amount with info tooltip */}
+                                        <div className="flex items-center gap-2">
+                                            <div className="flex-1 px-3 py-2 bg-primary/5 text-primary text-sm rounded-lg border border-primary/10 font-bold font-mono flex items-center justify-between">
+                                                <span>{formatCurrency(data.montoSeguro || 0)}</span>
+                                                <span className="text-[10px] text-primary/60 font-medium">AUTO</span>
+                                            </div>
+                                            {/* Info tooltip trigger */}
+                                            <div className="relative">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowSeguroTooltip(!showSeguroTooltip)}
+                                                    onMouseEnter={() => setShowSeguroTooltip(true)}
+                                                    onMouseLeave={() => setShowSeguroTooltip(false)}
+                                                    className="p-1.5 rounded-full hover:bg-slate-100 transition-colors text-slate-400 hover:text-primary"
+                                                >
+                                                    <Info className="w-4 h-4" />
+                                                </button>
+                                                {showSeguroTooltip && results.seguroDetalle && (
+                                                    <div className="absolute z-50 right-0 top-full mt-1 w-72 bg-white border border-slate-200 rounded-xl shadow-xl p-4 text-xs space-y-1.5">
+                                                        <p className="font-bold text-slate-700 text-sm mb-2">Desglose del Seguro</p>
+                                                        <div className="flex justify-between"><span className="text-slate-500">Canon anual:</span><span className="font-mono">{formatCurrency(results.seguroDetalle.canonAnual)}</span></div>
+                                                        <div className="flex justify-between"><span className="text-slate-500">Póliza (2%):</span><span className="font-mono">{formatCurrency(results.seguroDetalle.polizaBase)}</span></div>
+                                                        {results.seguroDetalle.minimoAplicado && (
+                                                            <div className="flex justify-between text-amber-600"><span>Mínimo 2.5 UF aplicado:</span><span className="font-mono">{formatCurrency(results.seguroDetalle.minimoUF)}</span></div>
+                                                        )}
+                                                        <div className="flex justify-between"><span className="text-slate-500">Póliza neta:</span><span className="font-mono">{formatCurrency(results.seguroDetalle.polizaNeta)}</span></div>
+                                                        <div className="flex justify-between"><span className="text-slate-500">+ IVA (19%):</span><span className="font-mono">{formatCurrency(results.seguroDetalle.polizaConIVA)}</span></div>
+                                                        <div className="h-px bg-slate-100 my-1" />
+                                                        <div className="flex justify-between"><span className="text-slate-500">Cargo plataforma (1.785%):</span><span className="font-mono">{formatCurrency(results.seguroDetalle.cargoPlataforma)}</span></div>
+                                                        <div className="flex justify-between"><span className="text-slate-500">+ IVA cargo:</span><span className="font-mono">{formatCurrency(results.seguroDetalle.cargoConIVA)}</span></div>
+                                                        <div className="h-px bg-slate-100 my-1" />
+                                                        <div className="flex justify-between font-bold text-primary"><span>Total seguro:</span><span className="font-mono">{formatCurrency(results.seguroDetalle.total)}</span></div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <p className="text-[10px] text-slate-400">Calculado automáticamente. Fórmula: 2% arriendo anual + IVA (min. 2.5 UF) + 1.785% plataforma + IVA.</p>
+                                    </div>
+                                )}
+                            </div>
 
                             {/* Certificado de Dominio */}
                             <div className="p-4 rounded-xl border border-slate-100 bg-white">
@@ -557,6 +655,62 @@ export default function StepCalculos({ data, onUpdate, onNext, onBack }) {
                         </div>
                     </div>
 
+                    {/* Row 4.5: Otros Gastos (Dynamic) */}
+                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                        <div className="flex items-center justify-between mb-4">
+                            <SectionLabel icon={DollarSign}>Otros Gastos (Opcionales)</SectionLabel>
+                            <button
+                                type="button"
+                                onClick={addOtroGasto}
+                                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-primary bg-primary/5 hover:bg-primary/10 rounded-lg border border-primary/10 transition-colors"
+                            >
+                                <Plus className="w-3.5 h-3.5" />
+                                Agregar gasto
+                            </button>
+                        </div>
+                        <p className="text-xs text-slate-400 mb-3">Gastos adicionales como pago de maestros, limpieza, etc. Se descuentan del propietario.</p>
+                        {(data.otrosGastos || []).length > 0 ? (
+                            <div className="space-y-3">
+                                {(data.otrosGastos || []).map((gasto, idx) => (
+                                    <div key={idx} className="animate-in slide-in-from-top-2 duration-200 flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                        <input
+                                            type="text"
+                                            value={gasto.descripcion}
+                                            onChange={(e) => updateOtroGasto(idx, 'descripcion', e.target.value)}
+                                            placeholder="Descripción del gasto"
+                                            className="flex-1 px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+                                        />
+                                        <div className="relative w-36">
+                                            <span className="absolute inset-y-0 left-3 flex items-center text-slate-400 text-xs font-bold pointer-events-none">$</span>
+                                            <input
+                                                type="number"
+                                                value={gasto.monto}
+                                                onChange={(e) => updateOtroGasto(idx, 'monto', e.target.value)}
+                                                placeholder="Monto"
+                                                className="w-full pl-6 pr-3 py-2 text-sm border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none font-semibold"
+                                            />
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => removeOtroGasto(idx)}
+                                            className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                ))}
+                                {results.totalOtrosGastos > 0 && (
+                                    <div className="flex justify-between items-center px-3 py-2 bg-red-50 rounded-lg border border-red-100 text-sm">
+                                        <span className="text-red-700 font-medium">Total otros gastos (descuento propietario):</span>
+                                        <span className="font-bold font-mono text-red-700">{formatCurrency(results.totalOtrosGastos)}</span>
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            <p className="text-xs text-slate-300 italic">No se han agregado otros gastos.</p>
+                        )}
+                    </div>
+
                     {/* Row 5: Honorarios Independientes */}
                     <div>
                         <div className="flex items-center justify-between mb-4">
@@ -596,12 +750,26 @@ export default function StepCalculos({ data, onUpdate, onNext, onBack }) {
 
                                 {data.ingresoManualA ? (
                                     <div className="space-y-2 animate-in fade-in duration-200">
-                                        <label className="text-xs text-slate-500 font-medium">Neto sin IVA</label>
-                                        <CurrencyInput
-                                            value={data.montoManualA}
-                                            onChange={(e) => onUpdate('montoManualA', e.target.value)}
-                                            placeholder="$ Neto"
-                                        />
+                                        <div className="flex items-center justify-between">
+                                            <label className="text-xs text-slate-500 font-medium">Monto sin IVA</label>
+                                            <div className="bg-slate-100 p-0.5 rounded-lg inline-flex gap-0.5 text-[10px] font-bold">
+                                                <button type="button" onClick={() => onUpdate('honorariosCurrencyA', 'CLP')} className={`px-2 py-1 rounded-md transition-all ${(data.honorariosCurrencyA || 'CLP') === 'CLP' ? 'bg-white text-primary shadow-sm' : 'text-slate-400'}`}>CLP</button>
+                                                <button type="button" onClick={() => onUpdate('honorariosCurrencyA', 'UF')} className={`px-2 py-1 rounded-md transition-all ${data.honorariosCurrencyA === 'UF' ? 'bg-white text-primary shadow-sm' : 'text-slate-400'}`}>UF</button>
+                                            </div>
+                                        </div>
+                                        {data.honorariosCurrencyA === 'UF' ? (
+                                            <div className="space-y-1.5">
+                                                <div className="relative">
+                                                    <span className="absolute inset-y-0 left-3 flex items-center text-slate-400 text-xs font-bold pointer-events-none">UF</span>
+                                                    <input type="number" step="0.01" value={data.montoManualAUF || ''} onChange={(e) => handleUFInputA(e.target.value)} placeholder="0.00" className="block w-full pl-10 pr-4 py-2 text-base font-semibold border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none" />
+                                                </div>
+                                                {data.montoManualAUF && ufData.valor > 0 && (
+                                                    <p className="text-xs text-slate-400">= {formatCurrency(Math.round(Number(data.montoManualAUF) * ufData.valor))} CLP neto → {formatCurrency(Math.round(Number(data.montoManualAUF) * ufData.valor * 1.19))} c/IVA</p>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <CurrencyInput value={data.montoManualA} onChange={(e) => onUpdate('montoManualA', e.target.value)} placeholder="$ Neto" />
+                                        )}
                                         {results.feeAlertA && (
                                             <div className="flex items-center gap-1.5 text-xs text-red-600 bg-red-50 p-2 rounded-lg border border-red-100">
                                                 <AlertTriangle className="w-3 h-3 flex-shrink-0" />
@@ -656,12 +824,26 @@ export default function StepCalculos({ data, onUpdate, onNext, onBack }) {
 
                                 {data.ingresoManualB ? (
                                     <div className="space-y-2 animate-in fade-in duration-200">
-                                        <label className="text-xs text-slate-500 font-medium">Neto sin IVA</label>
-                                        <CurrencyInput
-                                            value={data.montoManualB}
-                                            onChange={(e) => onUpdate('montoManualB', e.target.value)}
-                                            placeholder="$ Neto"
-                                        />
+                                        <div className="flex items-center justify-between">
+                                            <label className="text-xs text-slate-500 font-medium">Monto sin IVA</label>
+                                            <div className="bg-slate-100 p-0.5 rounded-lg inline-flex gap-0.5 text-[10px] font-bold">
+                                                <button type="button" onClick={() => onUpdate('honorariosCurrencyB', 'CLP')} className={`px-2 py-1 rounded-md transition-all ${(data.honorariosCurrencyB || 'CLP') === 'CLP' ? 'bg-white text-primary shadow-sm' : 'text-slate-400'}`}>CLP</button>
+                                                <button type="button" onClick={() => onUpdate('honorariosCurrencyB', 'UF')} className={`px-2 py-1 rounded-md transition-all ${data.honorariosCurrencyB === 'UF' ? 'bg-white text-primary shadow-sm' : 'text-slate-400'}`}>UF</button>
+                                            </div>
+                                        </div>
+                                        {data.honorariosCurrencyB === 'UF' ? (
+                                            <div className="space-y-1.5">
+                                                <div className="relative">
+                                                    <span className="absolute inset-y-0 left-3 flex items-center text-slate-400 text-xs font-bold pointer-events-none">UF</span>
+                                                    <input type="number" step="0.01" value={data.montoManualBUF || ''} onChange={(e) => handleUFInputB(e.target.value)} placeholder="0.00" className="block w-full pl-10 pr-4 py-2 text-base font-semibold border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none" />
+                                                </div>
+                                                {data.montoManualBUF && ufData.valor > 0 && (
+                                                    <p className="text-xs text-slate-400">= {formatCurrency(Math.round(Number(data.montoManualBUF) * ufData.valor))} CLP neto → {formatCurrency(Math.round(Number(data.montoManualBUF) * ufData.valor * 1.19))} c/IVA</p>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <CurrencyInput value={data.montoManualB} onChange={(e) => onUpdate('montoManualB', e.target.value)} placeholder="$ Neto" />
+                                        )}
                                         {results.feeAlertB && (
                                             <div className="flex items-center gap-1.5 text-xs text-red-600 bg-red-50 p-2 rounded-lg border border-red-100">
                                                 <AlertTriangle className="w-3 h-3 flex-shrink-0" />
@@ -797,6 +979,14 @@ export default function StepCalculos({ data, onUpdate, onNext, onBack }) {
                                             label={`+ Administración (${data.porcentajeAdministracion}% + IVA)`}
                                             value={formatCurrency(results.totalAdmin)}
                                             className="text-indigo-300"
+                                        />
+                                    )}
+
+                                    {results.totalOtrosGastos > 0 && (
+                                        <SummaryRow
+                                            label="– Otros Gastos"
+                                            value={formatCurrency(results.totalOtrosGastos)}
+                                            className="text-red-300"
                                         />
                                     )}
                                 </div>

@@ -95,21 +95,73 @@ export default function StepResumen({ data, onUpdate, onBack, onComplete }) {
             comuna: data.dueñoComuna
           },
           financiero: {
+            canon_arriendo: Number(data.canonArriendo) || 0,
+            garantia: Number(data.garantia) || 0,
             total_cancelar: calculations.totalCancelar,
             total_recibir: calculations.totalRecibir,
+
+            // Tipo de contrato
+            contract_type: data.contractType || '',
+            contract_duration: data.contractDuration || '',
+
+            // Proporcional
+            mes_proporcional: data.chkProporcional ? "SI" : "NO",
+            dias_proporcionales: data.chkProporcional ? (Number(data.diasProporcionales) || 0) : 0,
+            monto_proporcional: calculations.montoProporcional || 0,
+
+            // Mes adelantado
+            mes_adelantado: data.chkMesAdelantado ? "SI" : "NO",
+            monto_mes_adelantado: calculations.montoMesAdelantado || 0,
+
+            // Honorarios Parte A (Propietario)
+            honorarios_neto_a: calculations.honorariosNetoA || 0,
+            honorarios_iva_a: calculations.ivaHonorariosA || 0,
             honorarios_propietario: calculations.totalComisionA || 0,
+            ingreso_manual_a: data.ingresoManualA ? "SI" : "NO",
+            monto_manual_a: data.ingresoManualA ? (Number(data.montoManualA) || 0) : 0,
+            honorarios_currency_a: data.honorariosCurrencyA || 'CLP',
+            honorarios_uf_a: data.montoManualAUF || '',
+
+            // Honorarios Parte B (Arrendatario)
+            honorarios_neto_b: calculations.honorariosNetoB || 0,
+            honorarios_iva_b: calculations.ivaHonorariosB || 0,
             honorarios_arrendatario: calculations.totalComisionB || 0,
-            gastos_notariales_arrendador: data.incluyeGastosNotarialesArrendador ? Number(data.montoGastosNotarialesArrendador) : 0,
-            gastos_notariales_arrendatario: data.incluyeGastosNotarialesArrendatario ? Number(data.montoGastosNotarialesArrendatario) : 0,
-            uf_valor: calculations.ufUsed,
-            // Mapeo de opciones a SI/NO
-            ...(data.chkProporcional && { mes_proporcional: "SI" }),
-            ...(data.chkMesAdelantado && { mes_adelantado: "SI" }),
-            seguro_restitucion: data.chkSeguro ? "SI" : "NO",
-            con_administracion: data.conAdministracion ? "SI" : "NO",
-            condiciones_especiales: data.chkCondicionesEspeciales ? "SI" : "NO",
+            ingreso_manual_b: data.ingresoManualB ? "SI" : "NO",
+            monto_manual_b: data.ingresoManualB ? (Number(data.montoManualB) || 0) : 0,
+            honorarios_currency_b: data.honorariosCurrencyB || 'CLP',
+            honorarios_uf_b: data.montoManualBUF || '',
+
+            // Gastos notariales
             notaria_arrendador: data.incluyeGastosNotarialesArrendador ? "SI" : "NO",
-            notaria_arrendatario: data.incluyeGastosNotarialesArrendatario ? "SI" : "NO"
+            gastos_notariales_arrendador: data.incluyeGastosNotarialesArrendador ? Number(data.montoGastosNotarialesArrendador) : 0,
+            notaria_arrendatario: data.incluyeGastosNotarialesArrendatario ? "SI" : "NO",
+            gastos_notariales_arrendatario: data.incluyeGastosNotarialesArrendatario ? Number(data.montoGastosNotarialesArrendatario) : 0,
+
+            // Seguro de restitución
+            seguro_restitucion: data.chkSeguro ? "SI" : "NO",
+            seguro_monto: data.chkSeguro ? Number(data.montoSeguro) : 0,
+            seguro_calculo_detalle: calculations.seguroDetalle || null,
+
+            // Certificado dominio vigente
+            costo_dominio_vigente: Number(data.costoDominioVigente) || 0,
+
+            // Administración
+            con_administracion: data.conAdministracion ? "SI" : "NO",
+            porcentaje_administracion: data.conAdministracion ? (Number(data.porcentajeAdministracion) || 0) : 0,
+            monto_admin_neto: calculations.montoAdmin || 0,
+            monto_admin_iva: calculations.ivaAdmin || 0,
+            total_admin: calculations.totalAdmin || 0,
+
+            // Otros gastos
+            otros_gastos: data.otrosGastos || [],
+            total_otros_gastos: calculations.totalOtrosGastos || 0,
+
+            // Condiciones especiales
+            condiciones_especiales: data.chkCondicionesEspeciales ? "SI" : "NO",
+            condiciones_especiales_texto: data.chkCondicionesEspeciales ? (data.condicionesEspeciales || '') : '',
+
+            // UF
+            uf_valor: calculations.ufUsed
           }
         }
       } else if (isHonorariosFlow) {
@@ -358,7 +410,7 @@ export default function StepResumen({ data, onUpdate, onBack, onComplete }) {
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="file-arriendo" className="text-sm font-medium">
-                      Contrato de Arriendo <span className="text-red-500">*</span>
+                      Contrato de Arriendo o Promesa <span className="text-red-500">*</span>
                     </Label>
                     <div className="flex items-center gap-3">
                       <Input
@@ -543,6 +595,18 @@ export default function StepResumen({ data, onUpdate, onBack, onComplete }) {
                       <div className="flex justify-between border-t border-slate-100 pt-1 mt-1">
                         <span className="text-muted-foreground">Notaría (Arrendatario)</span>
                         <span>{formatCurrency(data.montoGastosNotarialesArrendatario)}</span>
+                      </div>
+                    )}
+                    {/* Otros Gastos */}
+                    {(data.otrosGastos || []).length > 0 && (
+                      <div className="border-t border-slate-100 pt-2 mt-2 space-y-1">
+                        <span className="text-xs font-semibold text-slate-500 uppercase">Otros Gastos</span>
+                        {data.otrosGastos.map((g, i) => (
+                          <div key={i} className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">{g.descripcion || `Gasto ${i + 1}`}</span>
+                            <span className="text-red-600 font-medium">−{formatCurrency(g.monto)}</span>
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>
