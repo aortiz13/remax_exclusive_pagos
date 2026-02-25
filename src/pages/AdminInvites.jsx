@@ -4,8 +4,16 @@ import { supabase } from '../services/supabase'
 import { Button, Input, Label, Card, CardHeader, CardTitle, CardContent, CardFooter, CardDescription, Alert, AlertDescription, Badge, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui'
 import { useAuth } from '../context/AuthContext'
 import { Navigate } from 'react-router-dom'
-import { Trash2, Shield, User, Loader2, Upload, FileText, CheckCircle2, AlertCircle, X, Edit2 } from 'lucide-react'
+import { Trash2, Shield, User, Loader2, Upload, FileText, CheckCircle2, AlertCircle, X, Edit2, Crown, Award } from 'lucide-react'
 import ExcelJS from 'exceljs'
+
+const ASSOCIATION_PLANS = [
+    { key: 'TRAINEE', label: 'Trainee', pct: 40, color: 'bg-slate-100 text-slate-700 border-slate-300' },
+    { key: 'EJECUTIVO', label: 'Ejecutivo', pct: 50, color: 'bg-blue-100 text-blue-700 border-blue-300' },
+    { key: 'PLATINO', label: 'Platino', pct: 60, color: 'bg-purple-100 text-purple-700 border-purple-300' },
+    { key: 'DIRECTOR', label: 'Director', pct: 70, color: 'bg-amber-100 text-amber-700 border-amber-300' },
+    { key: 'TOP_PRODUCER', label: 'Top Producer', pct: 80, color: 'bg-emerald-100 text-emerald-700 border-emerald-300' },
+]
 
 export default function AdminInvites() {
     const { profile, loading: authLoading } = useAuth()
@@ -27,6 +35,12 @@ export default function AdminInvites() {
     const [userToEdit, setUserToEdit] = useState(null)
     const [remaxId, setRemaxId] = useState('')
     const [editIdLoading, setEditIdLoading] = useState(false)
+
+    // Association Plan Edit State
+    const [isPlanOpen, setIsPlanOpen] = useState(false)
+    const [planUser, setPlanUser] = useState(null)
+    const [selectedPlan, setSelectedPlan] = useState('EJECUTIVO')
+    const [planLoading, setPlanLoading] = useState(false)
 
     // Bulk Invite state
     const [csvFile, setCsvFile] = useState(null)
@@ -316,6 +330,34 @@ export default function AdminInvites() {
         }
     }
 
+    const handlePlanClick = (user) => {
+        setPlanUser(user)
+        setSelectedPlan(user.association_plan || 'EJECUTIVO')
+        setIsPlanOpen(true)
+    }
+
+    const savePlan = async () => {
+        if (!planUser) return
+        setPlanLoading(true)
+        try {
+            const { error } = await supabase
+                .from('profiles')
+                .update({ association_plan: selectedPlan })
+                .eq('id', planUser.id)
+            if (error) throw error
+            setUsers(users.map(u => u.id === planUser.id ? { ...u, association_plan: selectedPlan } : u))
+            const planInfo = ASSOCIATION_PLANS.find(p => p.key === selectedPlan)
+            toast.success(`Plan ${planInfo?.label} (${planInfo?.pct}%) asignado a ${planUser.first_name}`)
+            setIsPlanOpen(false)
+            setPlanUser(null)
+        } catch (error) {
+            console.error('Error updating plan:', error)
+            toast.error('Error al actualizar plan')
+        } finally {
+            setPlanLoading(false)
+        }
+    }
+
     return (
         <div className="container max-w-4xl mx-auto px-4 py-8 space-y-8">
             {/* Invite Section — only visible for managers */}
@@ -550,6 +592,20 @@ export default function AdminInvites() {
                                                         ID: {u.remax_agent_id}
                                                     </Badge>
                                                 )}
+                                                {u.role === 'agent' && (() => {
+                                                    const plan = ASSOCIATION_PLANS.find(p => p.key === (u.association_plan || 'EJECUTIVO'))
+                                                    return plan ? (
+                                                        <Badge
+                                                            variant="outline"
+                                                            className={`text-[10px] h-5 px-1.5 cursor-pointer hover:opacity-80 transition-opacity ${plan.color}`}
+                                                            onClick={(e) => { e.stopPropagation(); canManage && handlePlanClick(u) }}
+                                                            title={canManage ? 'Clic para cambiar plan' : `Plan: ${plan.label} (${plan.pct}%)`}
+                                                        >
+                                                            <Crown className="w-2.5 h-2.5 mr-0.5" />
+                                                            {plan.label} {plan.pct}%
+                                                        </Badge>
+                                                    ) : null
+                                                })()}
                                                 {u.id === profile?.id && <span className="ml-2 text-xs text-muted-foreground">(Tú)</span>}
                                             </p>
                                             <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -604,6 +660,16 @@ export default function AdminInvites() {
 
                                     {u.id !== profile?.id && canManage && (
                                         <div className="flex items-center gap-1">
+                                            {u.role === 'agent' && (
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    title="Asignar Plan de Asociación"
+                                                    onClick={() => handlePlanClick(u)}
+                                                >
+                                                    <Crown className="h-4 w-4 text-amber-500" />
+                                                </Button>
+                                            )}
                                             <Button
                                                 variant="ghost"
                                                 size="icon"
@@ -675,6 +741,47 @@ export default function AdminInvites() {
                         <AlertDialogCancel onClick={() => setIsEditIdOpen(false)}>Cancelar</AlertDialogCancel>
                         <AlertDialogAction onClick={saveRemaxId} disabled={editIdLoading}>
                             {editIdLoading ? 'Guardando...' : 'Guardar ID'}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            {/* Association Plan Dialog */}
+            <AlertDialog open={isPlanOpen} onOpenChange={setIsPlanOpen}>
+                <AlertDialogContent className="max-w-md">
+                    <AlertDialogHeader>
+                        <AlertDialogTitle className="flex items-center gap-2">
+                            <Crown className="h-5 w-5 text-amber-500" />
+                            Plan de Asociación
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Asigna el plan de asociación para <strong>{planUser?.first_name} {planUser?.last_name}</strong>. Este porcentaje se usa en el cálculo del plan de negocio.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <div className="py-3 space-y-2">
+                        {ASSOCIATION_PLANS.map(plan => (
+                            <button
+                                key={plan.key}
+                                onClick={() => setSelectedPlan(plan.key)}
+                                className={`w-full flex items-center justify-between p-3 rounded-lg border-2 transition-all ${selectedPlan === plan.key
+                                        ? `${plan.color} border-current shadow-sm scale-[1.02]`
+                                        : 'border-gray-100 hover:border-gray-200 bg-white'
+                                    }`}
+                            >
+                                <div className="flex items-center gap-3">
+                                    <Award className={`h-5 w-5 ${selectedPlan === plan.key ? '' : 'text-gray-300'}`} />
+                                    <span className="font-semibold text-sm">{plan.label}</span>
+                                </div>
+                                <span className={`text-lg font-bold ${selectedPlan === plan.key ? '' : 'text-gray-400'}`}>
+                                    {plan.pct}%
+                                </span>
+                            </button>
+                        ))}
+                    </div>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel onClick={() => setIsPlanOpen(false)}>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction onClick={savePlan} disabled={planLoading}>
+                            {planLoading ? 'Guardando...' : 'Asignar Plan'}
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
