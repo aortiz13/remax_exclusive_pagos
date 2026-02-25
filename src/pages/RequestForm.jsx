@@ -15,6 +15,7 @@ import StepHonorarios from '../components/steps/StepHonorarios'
 import { Button, Card, CardContent } from '@/components/ui'
 import { Save, Building, Briefcase, DollarSign } from 'lucide-react'
 import { autoLinkContactProperty } from '../services/autoLink'
+import { updateContactFromRequestData, buildDueñoContactFields, buildArrendatarioContactFields, buildParteAContactFields, buildParteBContactFields } from '../services/contactSync'
 
 export default function RequestForm() {
     const { id } = useParams()
@@ -440,11 +441,11 @@ export default function RequestForm() {
                                             if (id) {
                                                 await supabase.from('requests').update({ status: 'submitted' }).eq('id', id)
                                             }
+                                            const isVenta = formData.tipoSolicitud === 'venta'
                                             // Auto-link contacts to property if selected from CRM
                                             const propId = formData._crmPropertyId
                                             const agentId = user?.id
                                             if (propId && agentId) {
-                                                const isVenta = formData.tipoSolicitud === 'venta'
                                                 // Link Parte A (Vendedor/Dueño)
                                                 const contactAId = formData[`_crm${isVenta ? 'Vendedor' : 'Dueño'}ContactId`]
                                                 if (contactAId) {
@@ -455,6 +456,15 @@ export default function RequestForm() {
                                                 if (contactBId) {
                                                     await autoLinkContactProperty(contactBId, propId, isVenta ? 'comprador' : 'arrendatario', agentId)
                                                 }
+                                            }
+                                            // Auto-sync filled-in data back to CRM contacts
+                                            const parteAContactId = formData[`_crm${isVenta ? 'Vendedor' : 'Dueño'}ContactId`]
+                                            if (parteAContactId) {
+                                                await updateContactFromRequestData(parteAContactId, buildParteAContactFields(formData, isVenta))
+                                            }
+                                            const parteBContactId = formData[`_crm${isVenta ? 'Comprador' : 'Arrendatario'}ContactId`]
+                                            if (parteBContactId) {
+                                                await updateContactFromRequestData(parteBContactId, buildParteBContactFields(formData, isVenta))
                                             }
                                         }}
                                     />
@@ -518,6 +528,13 @@ export default function RequestForm() {
                                                 if (formData._crmArrendatarioContactId) {
                                                     await autoLinkContactProperty(formData._crmArrendatarioContactId, propId, 'arrendatario', agentId)
                                                 }
+                                            }
+                                            // Auto-sync filled-in data back to CRM contacts
+                                            if (formData._crmDueñoContactId) {
+                                                await updateContactFromRequestData(formData._crmDueñoContactId, buildDueñoContactFields(formData))
+                                            }
+                                            if (formData._crmArrendatarioContactId) {
+                                                await updateContactFromRequestData(formData._crmArrendatarioContactId, buildArrendatarioContactFields(formData))
                                             }
                                         }}
                                     />
