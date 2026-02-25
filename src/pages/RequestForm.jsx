@@ -95,6 +95,14 @@ export default function RequestForm() {
         chkCondicionesEspeciales: false, // New: Special conditions toggle
         condicionesEspeciales: '', // New: Special conditions text
 
+        // New enhancement fields
+        otrosGastos: [], // Array of { descripcion, monto }
+        honorariosCurrencyA: 'CLP', // 'CLP' | 'UF'
+        honorariosCurrencyB: 'CLP', // 'CLP' | 'UF'
+        montoManualAUF: '', // UF input for part A
+        montoManualBUF: '', // UF input for part B
+        seguroAutoCalc: true, // Use auto-calculated seguro
+
         // Independent Fees Logic (Arriendo)
         honorariosEncargadoA: '', // Result for A (Owner)
         honorariosEncargadoB: '', // Result for B (Tenant) - if needed to persist
