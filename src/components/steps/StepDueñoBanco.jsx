@@ -2,6 +2,24 @@ import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { Card, CardContent, Button, Input, Label, Separator } from '@/components/ui'
 import { User, CreditCard, Building, Wallet, MapPin, Search } from 'lucide-react'
 import ContactPickerInline from '@/components/ui/ContactPickerInline'
+import SyncFieldIndicator from '@/components/ui/SyncFieldIndicator'
+
+// Mapping: form field → contact column (for owner fields)
+const OWNER_FIELD_MAP = {
+    dueñoNombre: 'first_name',
+    dueñoRut: 'rut',
+    dueñoEmail: 'email',
+    dueñoTelefono: 'phone',
+    dueñoDireccion: 'address',
+    dueñoComuna: 'barrio_comuna',
+}
+
+// Mapping: form field → contact column (for bank fields)
+const BANK_FIELD_MAP = {
+    bancoNombre: 'bank_name',
+    bancoTipoCuenta: 'bank_account_type',
+    bancoNroCuenta: 'bank_account_number',
+}
 
 const BANKS = [
     'Banco de Chile',
@@ -116,6 +134,21 @@ export default function StepDueñoBanco({ data, onUpdate, onNext, onBack }) {
         if (contact.bank_account_type) onUpdate('bancoTipoCuenta', contact.bank_account_type)
         if (contact.bank_account_number) onUpdate('bancoNroCuenta', contact.bank_account_number)
         if (contact.rut) onUpdate('bancoRutTitular', contact.rut)
+
+        // Track which fields were empty in the original contact
+        const emptyFields = []
+        if (!contact.first_name && !contact.last_name) emptyFields.push('first_name')
+        if (!contact.rut) emptyFields.push('rut')
+        if (!contact.email) emptyFields.push('email')
+        if (!contact.phone) emptyFields.push('phone')
+        if (!contact.address) emptyFields.push('address')
+        if (!contact.barrio_comuna) emptyFields.push('barrio_comuna')
+        if (!contact.bank_name) emptyFields.push('bank_name')
+        if (!contact.bank_account_type) emptyFields.push('bank_account_type')
+        if (!contact.bank_account_number) emptyFields.push('bank_account_number')
+        onUpdate('_crmDueñoEmptyFields', emptyFields)
+        // Reset exclusions when new contact selected
+        onUpdate('_syncExclude_dueño', [])
     }
 
     const handleAddressInput = (value) => {
@@ -133,6 +166,27 @@ export default function StepDueñoBanco({ data, onUpdate, onNext, onBack }) {
         autocomplete.setShowDropdown(false)
         autocomplete.setQuery('')
     }
+
+    // Sync indicator helpers
+    const contactId = data._crmDueñoContactId
+    const emptyFields = data._crmDueñoEmptyFields || []
+    const excludedFields = data._syncExclude_dueño || []
+    const handleExclude = (field) => {
+        onUpdate('_syncExclude_dueño', [...excludedFields, field])
+    }
+
+    const SyncLabel = ({ formField, contactField, children }) => (
+        <SyncFieldIndicator
+            contactId={contactId}
+            fieldName={contactField || OWNER_FIELD_MAP[formField] || BANK_FIELD_MAP[formField]}
+            emptyFields={emptyFields}
+            currentValue={data[formField]}
+            excludedFields={excludedFields}
+            onExclude={handleExclude}
+        >
+            {children}
+        </SyncFieldIndicator>
+    )
 
     return (
         <Card className="max-w-xl mx-auto border-0 shadow-none sm:border sm:shadow-sm">
@@ -156,7 +210,9 @@ export default function StepDueñoBanco({ data, onUpdate, onNext, onBack }) {
                 <form onSubmit={handleSubmit} className="space-y-5">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
-                            <Label>Nombre Completo <span className="text-red-500">*</span></Label>
+                            <SyncLabel formField="dueñoNombre">
+                                <Label>Nombre Completo <span className="text-red-500">*</span></Label>
+                            </SyncLabel>
                             <Input
                                 value={data.dueñoNombre}
                                 onChange={e => onUpdate('dueñoNombre', e.target.value)}
@@ -164,7 +220,9 @@ export default function StepDueñoBanco({ data, onUpdate, onNext, onBack }) {
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label>RUT <span className="text-red-500">*</span></Label>
+                            <SyncLabel formField="dueñoRut">
+                                <Label>RUT <span className="text-red-500">*</span></Label>
+                            </SyncLabel>
                             <Input
                                 value={data.dueñoRut}
                                 onChange={e => onUpdate('dueñoRut', e.target.value)}
@@ -172,7 +230,9 @@ export default function StepDueñoBanco({ data, onUpdate, onNext, onBack }) {
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label>Email <span className="text-red-500">*</span></Label>
+                            <SyncLabel formField="dueñoEmail">
+                                <Label>Email <span className="text-red-500">*</span></Label>
+                            </SyncLabel>
                             <Input
                                 type="email"
                                 value={data.dueñoEmail}
@@ -181,7 +241,9 @@ export default function StepDueñoBanco({ data, onUpdate, onNext, onBack }) {
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label>Teléfono <span className="text-red-500">*</span></Label>
+                            <SyncLabel formField="dueñoTelefono">
+                                <Label>Teléfono <span className="text-red-500">*</span></Label>
+                            </SyncLabel>
                             <Input
                                 value={data.dueñoTelefono}
                                 onChange={e => onUpdate('dueñoTelefono', e.target.value)}
@@ -193,7 +255,9 @@ export default function StepDueñoBanco({ data, onUpdate, onNext, onBack }) {
                     {/* Address fields with OSM Autocomplete */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2 relative" ref={dropdownRef}>
-                            <Label>Dirección Particular <span className="text-red-500">*</span></Label>
+                            <SyncLabel formField="dueñoDireccion">
+                                <Label>Dirección Particular <span className="text-red-500">*</span></Label>
+                            </SyncLabel>
                             <div className="relative">
                                 <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                                 <Input
@@ -234,7 +298,9 @@ export default function StepDueñoBanco({ data, onUpdate, onNext, onBack }) {
                             )}
                         </div>
                         <div className="space-y-2">
-                            <Label>Comuna <span className="text-red-500">*</span></Label>
+                            <SyncLabel formField="dueñoComuna">
+                                <Label>Comuna <span className="text-red-500">*</span></Label>
+                            </SyncLabel>
                             <Input
                                 value={data.dueñoComuna || ''}
                                 onChange={e => onUpdate('dueñoComuna', e.target.value)}
@@ -258,7 +324,9 @@ export default function StepDueñoBanco({ data, onUpdate, onNext, onBack }) {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
-                            <Label>Banco <span className="text-red-500">*</span></Label>
+                            <SyncLabel formField="bancoNombre">
+                                <Label>Banco <span className="text-red-500">*</span></Label>
+                            </SyncLabel>
                             <select
                                 value={data.bancoNombre}
                                 onChange={e => onUpdate('bancoNombre', e.target.value)}
@@ -269,7 +337,9 @@ export default function StepDueñoBanco({ data, onUpdate, onNext, onBack }) {
                             </select>
                         </div>
                         <div className="space-y-2">
-                            <Label>Tipo de Cuenta <span className="text-red-500">*</span></Label>
+                            <SyncLabel formField="bancoTipoCuenta">
+                                <Label>Tipo de Cuenta <span className="text-red-500">*</span></Label>
+                            </SyncLabel>
                             <select
                                 value={data.bancoTipoCuenta}
                                 onChange={e => onUpdate('bancoTipoCuenta', e.target.value)}
@@ -280,7 +350,9 @@ export default function StepDueñoBanco({ data, onUpdate, onNext, onBack }) {
                             </select>
                         </div>
                         <div className="space-y-2">
-                            <Label>N° Cuenta <span className="text-red-500">*</span></Label>
+                            <SyncLabel formField="bancoNroCuenta">
+                                <Label>N° Cuenta <span className="text-red-500">*</span></Label>
+                            </SyncLabel>
                             <Input
                                 value={data.bancoNroCuenta}
                                 onChange={e => onUpdate('bancoNroCuenta', e.target.value)}

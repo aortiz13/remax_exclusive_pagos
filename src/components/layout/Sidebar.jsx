@@ -1,3 +1,4 @@
+
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { Button } from '@/components/ui'
@@ -24,9 +25,10 @@ import {
     MapPin,
     Download,
     GraduationCap,
-    Folder
+    Folder,
+    Camera
 } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -35,6 +37,11 @@ export default function Sidebar() {
     const navigate = useNavigate()
     const location = useLocation()
     const [isCollapsed, setIsCollapsed] = useState(false)
+
+    // Expose sidebar width as CSS variable for fixed-position modals
+    useEffect(() => {
+        document.documentElement.style.setProperty('--sidebar-width', isCollapsed ? '80px' : '280px')
+    }, [isCollapsed])
 
     const handleSignOut = async () => {
         await signOut()
@@ -104,6 +111,7 @@ export default function Sidebar() {
                 { title: 'Solicitudes', icon: FileText, path: '/admin/requests' },
                 { title: 'Importar Propiedades', icon: Download, path: '/admin/import' },
                 { title: 'Config. Aula Virtual', icon: Settings, path: '/admin/aula-virtual' },
+                { title: 'Agenda Cámara 360°', icon: Camera, path: '/admin/camera-schedule' },
             ]
         },
         legal: {
@@ -120,6 +128,7 @@ export default function Sidebar() {
             items: [
                 { title: 'Administración', icon: Users, path: '/admin/invites' },
                 { title: 'Solicitudes', icon: FileText, path: '/admin/requests' },
+                { title: 'Agenda Cámara 360°', icon: Camera, path: '/admin/camera-schedule' },
             ]
         },
         administracion: {
