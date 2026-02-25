@@ -25,7 +25,7 @@ export function RequestDetailModal({ request, isOpen, onClose }) {
             const { data: { user } } = await supabase.auth.getUser()
             if (user) {
                 const { data } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-                setIsAdmin(data?.role === 'admin')
+                setIsAdmin(['superadministrador', 'legal', 'comercial', 'administracion'].includes(data?.role))
             }
         }
         checkAdmin()

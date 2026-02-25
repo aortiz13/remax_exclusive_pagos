@@ -35,7 +35,7 @@ export default function Header() {
         { title: 'Mi Perfil', icon: User, path: '/profile' },
     ]
 
-    if (profile?.role === 'admin') {
+    if (profile?.role === 'superadministrador') {
         menuItems.push({ title: 'Administración', icon: Settings, path: '/admin/invites' })
     }
 

@@ -75,7 +75,7 @@ export default function Sidebar() {
                     icon: Target,
                     path: '/kpis/business-plan',
                 },
-                ...(profile?.role === 'admin' ? [{
+                ...(['superadministrador', 'legal'].includes(profile?.role) ? [{
                     title: 'Dashboard CEO',
                     icon: FileBarChart,
                     path: '/admin/kpis',
@@ -139,8 +139,8 @@ export default function Sidebar() {
         }
     ]
 
-    // Admin sections additions
-    if (profile?.role === 'admin') {
+    // Admin sections additions based on role
+    if (profile?.role === 'superadministrador') {
         sections.push({
             title: 'ADMIN',
             items: [
@@ -148,6 +148,31 @@ export default function Sidebar() {
                 { title: 'Solicitudes', icon: FileText, path: '/admin/requests' },
                 { title: 'Importar Propiedades', icon: Download, path: '/admin/import' },
                 { title: 'Config. Aula Virtual', icon: Settings, path: '/admin/aula-virtual' },
+            ]
+        })
+    } else if (profile?.role === 'legal') {
+        sections.push({
+            title: 'ADMIN',
+            items: [
+                { title: 'Administración', icon: Users, path: '/admin/invites' },
+                { title: 'Solicitudes', icon: FileText, path: '/admin/requests' },
+                { title: 'Importar Propiedades', icon: Download, path: '/admin/import' },
+                { title: 'Config. Aula Virtual', icon: Settings, path: '/admin/aula-virtual' },
+            ]
+        })
+    } else if (profile?.role === 'comercial') {
+        sections.push({
+            title: 'ADMIN',
+            items: [
+                { title: 'Administración', icon: Users, path: '/admin/invites' },
+                { title: 'Solicitudes', icon: FileText, path: '/admin/requests' },
+            ]
+        })
+    } else if (profile?.role === 'administracion') {
+        sections.push({
+            title: 'ADMIN',
+            items: [
+                { title: 'Solicitudes', icon: FileText, path: '/admin/requests' },
             ]
         })
     }

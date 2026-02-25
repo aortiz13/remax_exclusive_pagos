@@ -262,7 +262,7 @@ export default function DocumentRepository({ category: propCategory }) {
         }
     }
 
-    const isAdmin = profile?.role === 'admin'
+    const isAdmin = profile?.role === 'superadministrador'
 
     const filteredDocs = documents.filter(doc =>
         doc.title.toLowerCase().includes(searchTerm.toLowerCase())

@@ -174,6 +174,29 @@ const TaskModal = ({ task, contactId, propertyId, isOpen, onClose }) => {
         }
     }
 
+    // Helper: render text with clickable links
+    const renderTextWithLinks = (text) => {
+        if (!text) return null;
+        const urlRegex = /(https?:\/\/[^\s]+)/g;
+        const parts = text.split(urlRegex);
+        return parts.map((part, i) =>
+            urlRegex.test(part) ? (
+                <a
+                    key={i}
+                    href={part}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary underline break-all hover:opacity-80"
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    {part}
+                </a>
+            ) : (
+                <span key={i} className="whitespace-pre-wrap">{part}</span>
+            )
+        );
+    };
+
     if (!isOpen) return null
 
     return createPortal(
@@ -202,7 +225,7 @@ const TaskModal = ({ task, contactId, propertyId, isOpen, onClose }) => {
                                 </div>
                                 {task.crm_actions.note && (
                                     <p className="text-sm text-blue-600 dark:text-blue-300 italic">
-                                        "{task.crm_actions.note}"
+                                        "{renderTextWithLinks(task.crm_actions.note)}"
                                     </p>
                                 )}
                             </div>
