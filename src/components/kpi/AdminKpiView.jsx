@@ -194,7 +194,7 @@ export default function AdminKpiView() {
             const { data } = await supabase
                 .from('profiles')
                 .select('id, first_name, last_name, email')
-                .neq('role', 'admin')
+                .neq('role', 'superadministrador')
             setAgents(data || [])
         } catch (error) {
             console.error('Error fetching agents:', error)

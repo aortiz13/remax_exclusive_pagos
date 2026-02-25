@@ -610,6 +610,29 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
         }
     };
 
+    // Helper: render text with clickable links
+    const renderTextWithLinks = (text) => {
+        if (!text) return null;
+        const urlRegex = /(https?:\/\/[^\s]+)/g;
+        const parts = text.split(urlRegex);
+        return parts.map((part, i) =>
+            urlRegex.test(part) ? (
+                <a
+                    key={i}
+                    href={part}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary underline break-all hover:opacity-80"
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    {part}
+                </a>
+            ) : (
+                <span key={i} className="whitespace-pre-wrap">{part}</span>
+            )
+        );
+    };
+
     return (
         <>
             <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()} modal={!isCreateContactOpen && !isCreatePropertyOpen}>
@@ -953,14 +976,19 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
                         {/* Note */}
                         <div className="space-y-2">
                             <Label htmlFor="note">Nota (Opcional)</Label>
-                            <Textarea
-                                id="note"
-                                placeholder="Detalles de la acción..."
-                                value={note}
-                                onChange={(e) => setNote(e.target.value)}
-                                className="min-h-[100px]"
-                                disabled={viewOnly}
-                            />
+                            {viewOnly ? (
+                                <div className="min-h-[60px] rounded-md border border-input bg-muted/40 px-3 py-2 text-sm leading-relaxed">
+                                    {renderTextWithLinks(note) || <span className="text-muted-foreground italic">Sin nota</span>}
+                                </div>
+                            ) : (
+                                <Textarea
+                                    id="note"
+                                    placeholder="Detalles de la acción..."
+                                    value={note}
+                                    onChange={(e) => setNote(e.target.value)}
+                                    className="min-h-[100px]"
+                                />
+                            )}
                         </div>
 
                         {/* Follow-up Task Option */}

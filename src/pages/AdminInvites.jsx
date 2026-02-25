@@ -42,8 +42,10 @@ export default function AdminInvites() {
     const [processingResults, setProcessingResults] = useState(null)
     const fileInputRef = useRef(null)
 
+    const INVITES_ALLOWED_ROLES = ['superadministrador', 'legal', 'comercial']
+
     useEffect(() => {
-        if (profile?.role === 'admin') {
+        if (INVITES_ALLOWED_ROLES.includes(profile?.role)) {
             fetchUsers()
         }
     }, [profile])
@@ -68,8 +70,8 @@ export default function AdminInvites() {
     }
 
 
-    // Protect: Only admin
-    if (!authLoading && profile?.role !== 'admin') {
+    // Protect: Only admin, legal, comercial
+    if (!authLoading && !['superadministrador', 'legal', 'comercial'].includes(profile?.role)) {
         return <Navigate to="/dashboard" />
     }
 
@@ -365,7 +367,10 @@ export default function AdminInvites() {
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="agent">Agente</SelectItem>
-                                        <SelectItem value="admin">Administrador</SelectItem>
+                                        <SelectItem value="superadministrador">Superadministrador</SelectItem>
+                                        <SelectItem value="legal">Legal</SelectItem>
+                                        <SelectItem value="comercial">Comercial</SelectItem>
+                                        <SelectItem value="administracion">Administración</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
@@ -546,9 +551,24 @@ export default function AdminInvites() {
                                             </p>
                                             <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                                 <span>{u.email}</span>
-                                                {u.role === 'admin' && (
+                                                {u.role === 'superadministrador' && (
                                                     <Badge variant="secondary" className="h-5 px-1.5 text-[10px]">
-                                                        Admin
+                                                        Superadmin
+                                                    </Badge>
+                                                )}
+                                                {u.role === 'legal' && (
+                                                    <Badge className="h-5 px-1.5 text-[10px] bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/20 dark:text-purple-300">
+                                                        Legal
+                                                    </Badge>
+                                                )}
+                                                {u.role === 'comercial' && (
+                                                    <Badge className="h-5 px-1.5 text-[10px] bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300">
+                                                        Comercial
+                                                    </Badge>
+                                                )}
+                                                {u.role === 'administracion' && (
+                                                    <Badge className="h-5 px-1.5 text-[10px] bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-300">
+                                                        Administración
                                                     </Badge>
                                                 )}
                                             </div>
@@ -579,7 +599,7 @@ export default function AdminInvites() {
                                         </div>
                                     </div>
 
-                                    {u.id !== profile?.id && (
+                                    {u.id !== profile?.id && profile?.role !== 'comercial' && (
                                         <div className="flex items-center gap-1">
                                             <Button
                                                 variant="ghost"

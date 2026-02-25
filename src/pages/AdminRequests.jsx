@@ -14,23 +14,39 @@ export default function AdminRequests() {
 
     const [selectedRequest, setSelectedRequest] = useState(null)
 
+    const ALLOWED_ROLES = ['superadministrador', 'legal', 'comercial', 'administracion']
+
     useEffect(() => {
-        if (profile?.role === 'admin') {
+        if (ALLOWED_ROLES.includes(profile?.role)) {
             fetchRequests()
         }
     }, [profile])
 
 
+    const getTypeFilterForRole = (role) => {
+        switch (role) {
+            case 'legal': return ['contract', 'annex']
+            case 'comercial': return ['evaluacion_comercial']
+            case 'administracion': return ['annex', 'invoice']
+            default: return null // superadministrador = all
+        }
+    }
+
     const fetchRequests = async () => {
         try {
             setLoading(true)
-            // Fetch all requests that are NOT draft (meaning they are submitted/pending, or already processed)
-            const { data, error } = await supabase
+            let query = supabase
                 .from('requests')
                 .select('*, user:user_id(first_name, last_name, email, phone)')
-                .neq('status', 'draft') // We only want submitted requests
+                .neq('status', 'draft')
                 .order('updated_at', { ascending: false })
 
+            const typeFilter = getTypeFilterForRole(profile?.role)
+            if (typeFilter) {
+                query = query.in('type', typeFilter)
+            }
+
+            const { data, error } = await query
             if (error) throw error
             setRequests(data)
         } catch (error) {
@@ -84,8 +100,9 @@ export default function AdminRequests() {
         }
     }
 
-    // Protect: Only admin
-    if (!authLoading && profile?.role !== 'admin') {
+    // Protect: Only privileged roles
+    const ADMIN_ROLES = ['superadministrador', 'legal', 'comercial', 'administracion']
+    if (!authLoading && !ADMIN_ROLES.includes(profile?.role)) {
         return <Navigate to="/dashboard" />
     }
 

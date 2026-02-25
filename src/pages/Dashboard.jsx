@@ -18,7 +18,7 @@ import { Activity, Plus } from 'lucide-react'
 import ActionModal from '../components/crm/ActionModal'
 
 export default function Dashboard() {
-    const { user } = useAuth()
+    const { user, profile } = useAuth()
     const [requests, setRequests] = useState([])
     const [loading, setLoading] = useState(true)
     const [searchTerm, setSearchTerm] = useState('')
@@ -36,18 +36,31 @@ export default function Dashboard() {
     }, [startTour])
 
     useEffect(() => {
-        if (user) {
+        if (user && profile) {
             fetchRequests()
         }
-    }, [user])
+    }, [user, profile])
 
     const fetchRequests = async () => {
         try {
-            const { data, error } = await supabase
+            let query = supabase
                 .from('requests')
                 .select('*')
                 .order('updated_at', { ascending: false })
 
+            const role = profile?.role
+
+            if (role === 'legal') {
+                // Legal sees ALL requests
+            } else if (role === 'comercial') {
+                // Comercial sees only evaluacion_comercial (owns annex via /admin/requests)
+                query = query.in('type', ['evaluacion_comercial', 'annex'])
+            } else {
+                // agent, superadministrador, administracion: only their own requests
+                query = query.eq('user_id', user.id)
+            }
+
+            const { data, error } = await query
             if (error) throw error
             // Flatten the data structure since details are inside the 'data' column
             const flattenedRequests = data.map(req => ({
@@ -268,7 +281,9 @@ export default function Dashboard() {
                     </div>
 
                     <div className="flex items-center justify-between mt-8">
-                        <h2 className="text-lg font-semibold text-slate-900">Mis Solicitudes</h2>
+                        <h2 className="text-lg font-semibold text-slate-900">
+                            {['legal', 'comercial'].includes(profile?.role) ? 'Solicitudes' : 'Mis Solicitudes'}
+                        </h2>
                         <div className="flex bg-slate-100 p-1 rounded-lg">
                             {['all', 'pending', 'finalized', 'draft'].map(status => (
                                 <button

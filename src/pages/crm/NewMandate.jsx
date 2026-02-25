@@ -2,19 +2,14 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../services/supabase'
-import { Button, Input, Label, Textarea, Card, CardHeader, CardTitle, CardContent, Badge } from '@/components/ui'
+import { Button, Input, Label, Card, CardHeader, CardTitle, CardContent } from '@/components/ui'
 import {
     Zap,
     UploadCloud,
-    X,
     Trash2,
     MapPin,
-    Camera,
     UserPlus,
-    Search,
-    Check,
     ChevronsUpDown,
-    Plus,
     FileText,
     CameraIcon,
     Camera as Camera360Icon
@@ -22,10 +17,9 @@ import {
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 import { cn } from "@/lib/utils"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui"
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import AddressAutocomplete from "@/components/ui/AddressAutocomplete"
-import ContactForm from '../../components/crm/ContactForm'
+import ContactPickerInline from '../../components/ui/ContactPickerInline'
+import PropertyPickerInline from '../../components/ui/PropertyPickerInline'
 import { logActivity } from '../../services/activityService'
 
 const NewMandate = () => {
@@ -36,11 +30,6 @@ const NewMandate = () => {
     const [ufValue, setUfValue] = useState(0)
 
     // Form State
-    const [contacts, setContacts] = useState([])
-    const [properties, setProperties] = useState([])
-    const [openContactSelect, setOpenContactSelect] = useState(false)
-    const [openPropertySelect, setOpenPropertySelect] = useState(false)
-    const [isContactFormOpen, setIsContactFormOpen] = useState(false)
     const [files, setFiles] = useState([])
 
     const [formData, setFormData] = useState({
@@ -52,27 +41,17 @@ const NewMandate = () => {
         price: '',
         currency: 'UF',
         capture_type: 'Exclusiva',
-        operation_type: 'Venta', // New field
+        operation_type: 'Venta',
+        start_date: new Date().toISOString().split('T')[0],
+        capture_duration: '90',
         latitude: null,
         longitude: null,
     })
 
     // Fetch Initial Data
     useEffect(() => {
-        fetchContacts()
-        fetchProperties()
         fetchUF()
     }, [])
-
-    const fetchContacts = async () => {
-        const { data } = await supabase.from('contacts').select('id, first_name, last_name').order('first_name')
-        setContacts(data || [])
-    }
-
-    const fetchProperties = async () => {
-        const { data } = await supabase.from('properties').select('id, address').order('address')
-        setProperties(data || [])
-    }
 
     const fetchUF = async () => {
         setFetchingUF(true)
@@ -126,7 +105,7 @@ const NewMandate = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault()
-        if (!formData.contact_id || !formData.address) {
+        if (!formData.contact_id || !formData.property_id || !formData.address || !formData.start_date || !formData.capture_duration) {
             toast.error('Por favor completa los campos obligatorios')
             return
         }
@@ -179,7 +158,14 @@ const NewMandate = () => {
                 precio: formData.price,
                 moneda: formData.currency,
                 tipo_captacion: formData.capture_type,
-                tipo_operacion: formData.operation_type
+                tipo_operacion: formData.operation_type,
+                fecha_inicio: formData.start_date,
+                fecha_vencimiento: (() => {
+                    if (!formData.start_date || !formData.capture_duration) return null
+                    const d = new Date(formData.start_date)
+                    d.setDate(d.getDate() + parseInt(formData.capture_duration))
+                    return d.toISOString().split('T')[0]
+                })()
             };
 
             const webhookPayload = {
@@ -214,6 +200,13 @@ const NewMandate = () => {
                     currency: formData.currency,
                     capture_type: formData.capture_type,
                     operation_type: formData.operation_type,
+                    start_date: formData.start_date || null,
+                    capture_end_date: (() => {
+                        if (!formData.start_date || !formData.capture_duration) return null
+                        const d = new Date(formData.start_date)
+                        d.setDate(d.getDate() + parseInt(formData.capture_duration))
+                        return d.toISOString().split('T')[0]
+                    })(),
                     file_urls: uploadedUrls,
                     status: 'pendiente'
                 }])
@@ -336,115 +329,37 @@ const NewMandate = () => {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-6">
-                {/* 1. Contact Selection */}
+                {/* 1. Contact & Property Selection */}
                 <Card className="border-slate-200 dark:border-slate-800 shadow-sm overflow-visible">
                     <CardHeader className="bg-slate-50/50 dark:bg-slate-900/50 border-b">
                         <CardTitle className="text-lg flex items-center gap-2">
                             <UserPlus className="w-5 h-5 text-primary" />
-                            Vinculación de Contacto
+                            Vinculación de Contacto y Propiedad
                         </CardTitle>
                     </CardHeader>
-                    <CardContent className="pt-6">
-                        <div className="flex gap-4">
-                            <div className="flex-1">
-                                <Label>Buscar Contacto <span className="text-red-500">*</span></Label>
-                                <Popover open={openContactSelect} onOpenChange={setOpenContactSelect}>
-                                    <PopoverTrigger asChild>
-                                        <Button
-                                            variant="outline"
-                                            role="combobox"
-                                            className="w-full justify-between font-normal mt-1 overflow-hidden"
-                                        >
-                                            <span className="truncate flex-1 text-left">
-                                                {formData.contact_id
-                                                    ? contacts.find((c) => c.id === formData.contact_id)?.first_name + " " + contacts.find((c) => c.id === formData.contact_id)?.last_name
-                                                    : "Seleccionar contacto..."}
-                                            </span>
-                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                        </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-[400px] p-0 z-[100]">
-                                        <Command>
-                                            <CommandInput placeholder="Nombre o apellido..." />
-                                            <CommandList>
-                                                <CommandEmpty>No se encontraron resultados.</CommandEmpty>
-                                                <CommandGroup>
-                                                    <CommandItem
-                                                        onSelect={() => {
-                                                            setOpenContactSelect(false)
-                                                            setIsContactFormOpen(true)
-                                                        }}
-                                                        className="font-medium text-primary cursor-pointer border-b mb-1 pb-1"
-                                                    >
-                                                        <Plus className="mr-2 h-4 w-4" />
-                                                        Crear nuevo contacto
-                                                    </CommandItem>
-                                                    {contacts.map((contact) => (
-                                                        <CommandItem
-                                                            key={contact.id}
-                                                            value={contact.first_name + " " + contact.last_name}
-                                                            onSelect={() => {
-                                                                setFormData(prev => ({ ...prev, contact_id: contact.id }))
-                                                                setOpenContactSelect(false)
-                                                            }}
-                                                        >
-                                                            <Check className={cn("mr-2 h-4 w-4", formData.contact_id === contact.id ? "opacity-100" : "opacity-0")} />
-                                                            {contact.first_name} {contact.last_name}
-                                                        </CommandItem>
-                                                    ))}
-                                                </CommandGroup>
-                                            </CommandList>
-                                        </Command>
-                                    </PopoverContent>
-                                </Popover>
-                            </div>
-                            <div className="w-1/3">
-                                <Label>Asociar Propiedad (Opcional)</Label>
-                                <Popover open={openPropertySelect} onOpenChange={setOpenPropertySelect}>
-                                    <PopoverTrigger asChild>
-                                        <Button
-                                            variant="outline"
-                                            role="combobox"
-                                            className="w-full justify-between font-normal mt-1 overflow-hidden"
-                                        >
-                                            <span className="truncate flex-1 text-left">
-                                                {formData.property_id
-                                                    ? properties.find((p) => p.id === formData.property_id)?.address
-                                                    : "Propiedad existente..."}
-                                            </span>
-                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                        </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-[300px] p-0 z-[100]">
-                                        <Command>
-                                            <CommandInput placeholder="Buscar por dirección..." />
-                                            <CommandList>
-                                                <CommandEmpty>No encontrada.</CommandEmpty>
-                                                <CommandGroup>
-                                                    {properties.map((prop) => (
-                                                        <CommandItem
-                                                            key={prop.id}
-                                                            value={prop.address}
-                                                            onSelect={() => {
-                                                                setFormData(prev => ({
-                                                                    ...prev,
-                                                                    property_id: prop.id,
-                                                                    address: prop.address // Prefill address if linked
-                                                                }))
-                                                                setOpenPropertySelect(false)
-                                                            }}
-                                                        >
-                                                            <Check className={cn("mr-2 h-4 w-4", formData.property_id === prop.id ? "opacity-100" : "opacity-0")} />
-                                                            {prop.address}
-                                                        </CommandItem>
-                                                    ))}
-                                                </CommandGroup>
-                                            </CommandList>
-                                        </Command>
-                                    </PopoverContent>
-                                </Popover>
-                            </div>
-                        </div>
+                    <CardContent className="pt-6 space-y-2">
+                        <ContactPickerInline
+                            label="Contacto *"
+                            value={formData.contact_id}
+                            onSelectContact={(contact) => {
+                                setFormData(prev => ({
+                                    ...prev,
+                                    contact_id: contact?.id || ''
+                                }))
+                            }}
+                        />
+                        <PropertyPickerInline
+                            label="Propiedad *"
+                            value={formData.property_id}
+                            onSelectProperty={(property) => {
+                                setFormData(prev => ({
+                                    ...prev,
+                                    property_id: property?.id || '',
+                                    address: property?.address || prev.address,
+                                    commune: property?.commune || prev.commune,
+                                }))
+                            }}
+                        />
                     </CardContent>
                 </Card>
 
@@ -597,6 +512,31 @@ const NewMandate = () => {
                             </select>
                         </div>
 
+                        <div className="space-y-2">
+                            <Label>Fecha de Inicio <span className="text-red-500">*</span></Label>
+                            <Input
+                                type="date"
+                                value={formData.start_date}
+                                onChange={(e) => setFormData(prev => ({ ...prev, start_date: e.target.value }))}
+                                required
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label>Tiempo de Captación <span className="text-red-500">*</span></Label>
+                            <select
+                                className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                value={formData.capture_duration}
+                                onChange={(e) => setFormData(prev => ({ ...prev, capture_duration: e.target.value }))}
+                            >
+                                <option value="30">30 días</option>
+                                <option value="60">60 días</option>
+                                <option value="90">90 días</option>
+                                <option value="120">120 días</option>
+                                <option value="365">1 año</option>
+                            </select>
+                        </div>
+
                         <div className="space-y-2 md:col-span-2">
                             <Label>Tipo de Operación <span className="text-red-500">*</span></Label>
                             <div className="flex gap-4">
@@ -741,23 +681,7 @@ const NewMandate = () => {
                 </div>
             </form>
 
-            {/* Simplified Contact Form Modal */}
-            <AnimatePresence>
-                {isContactFormOpen && (
-                    <ContactForm
-                        isOpen={isContactFormOpen}
-                        onClose={(newContact) => {
-                            setIsContactFormOpen(false)
-                            if (newContact) {
-                                setContacts(prev => [newContact, ...prev])
-                                setFormData(prev => ({ ...prev, contact_id: newContact.id }))
-                                toast.success('Contacto creado y vinculado')
-                            }
-                        }}
-                        isSimplified={true}
-                    />
-                )}
-            </AnimatePresence>
+
         </div>
     )
 }
