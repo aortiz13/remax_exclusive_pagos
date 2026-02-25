@@ -1,7 +1,7 @@
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { Card, CardContent, CardHeader, Badge, Button } from '@/components/ui'
-import { FileText, Receipt, MapPin, User, Calendar, ExternalLink } from 'lucide-react'
+import { FileText, Receipt, MapPin, User, Calendar, ExternalLink, BarChart3 } from 'lucide-react'
 
 export function KanbanCard({ request, isOverlay, onViewDetail }) {
     const {
@@ -30,14 +30,33 @@ export function KanbanCard({ request, isOverlay, onViewDetail }) {
             color: 'text-indigo-600 bg-indigo-50 border-indigo-100',
             label: 'Contrato'
         },
+        'annex': {
+            icon: FileText,
+            color: 'text-purple-600 bg-purple-50 border-purple-100',
+            label: 'Anexo'
+        },
+        'evaluacion_comercial': {
+            icon: BarChart3,
+            color: 'text-sky-600 bg-sky-50 border-sky-100',
+            label: 'Evaluación Comercial'
+        },
         'invoice': {
             icon: Receipt,
             color: 'text-emerald-600 bg-emerald-50 border-emerald-100',
             label: 'Factura'
+        },
+        'payment': {
+            icon: Receipt,
+            color: 'text-emerald-600 bg-emerald-50 border-emerald-100',
+            label: 'Link de Pago'
         }
     }
 
-    const typeParams = typeConfig[request.type || 'contract'] || typeConfig['contract']
+    // Determinar tipo: si data tiene tipoSolicitud puede ser un link de pago aunque type sea otro
+    const resolvedType = request.type ||
+        (request.data?.contract_type ? 'contract' : null) ||
+        (request.data?.tipoSolicitud ? 'payment' : 'contract')
+    const typeParams = typeConfig[resolvedType] || typeConfig['contract']
     const Icon = typeParams.icon
 
     const formatDate = (dateString) => {
@@ -65,8 +84,13 @@ export function KanbanCard({ request, isOverlay, onViewDetail }) {
                             {formatDate(request.updated_at)}
                         </span>
                     </div>
-                    <h4 className="font-semibold text-sm line-clamp-2 leading-tight text-slate-900 dark:text-slate-100 mb-1" title={request.data?.direccion}>
-                        {request.data?.direccion || 'Propiedad sin dirección'}
+                    <h4 className="font-semibold text-sm line-clamp-2 leading-tight text-slate-900 dark:text-slate-100 mb-1">
+                        {request.data?.propiedadDireccion
+                            || request.data?.direccion_propiedad
+                            || request.data?.direccion
+                            || request.propiedadDireccion
+                            || request.direccion
+                            || 'Propiedad sin dirección'}
                     </h4>
                 </CardHeader>
                 <CardContent className="p-3 pt-0">

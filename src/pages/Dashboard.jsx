@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext'
 import { supabase } from '../services/supabase'
 import { Button, Separator, AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Card, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui'
 import { useNavigate } from 'react-router-dom'
-import { Trash2, Search, MapPin, Receipt, FileText, ArrowUpRight, UserPlus } from 'lucide-react'
+import { Trash2, Search, MapPin, Receipt, FileText, ArrowUpRight, UserPlus, BarChart3 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useDashboardTour } from '../hooks/useDashboardTour'
 import { motion } from 'framer-motion'
@@ -35,29 +35,44 @@ export default function Dashboard() {
         startTour()
     }, [startTour])
 
+    const isPostulante = profile?.role === 'postulantes'
+
     useEffect(() => {
-        if (user && profile) {
+        if (user && profile && !isPostulante) {
             fetchRequests()
         }
     }, [user, profile])
 
     const fetchRequests = async () => {
         try {
+            const role = profile?.role
             let query = supabase
                 .from('requests')
                 .select('*')
                 .order('updated_at', { ascending: false })
 
-            const role = profile?.role
-
             if (role === 'legal') {
-                // Legal sees ALL requests
+                // Legal sees ALL submitted requests (no drafts)
+                query = query.not('status', 'in', '("draft","borrador")')
             } else if (role === 'comercial') {
-                // Comercial sees only evaluacion_comercial (owns annex via /admin/requests)
-                query = query.in('type', ['evaluacion_comercial', 'annex'])
+                // Comercial: only evaluacion_comercial / annex that are submitted
+                query = query
+                    .in('type', ['evaluacion_comercial', 'annex'])
+                    .not('status', 'in', '("draft","borrador")')
+            } else if (role === 'administracion') {
+                // Administración: only submitted requests
+                query = query.not('status', 'in', '("draft","borrador")')
             } else {
-                // agent, superadministrador, administracion: only their own requests
-                query = query.eq('user_id', user.id)
+                // agent / superadministrador: only their own requests (all statuses including drafts)
+                // superadministrador can see everything — but drafts only of owned requests
+                if (role === 'superadministrador') {
+                    // sees all requests; drafts included for their own, excluded for others
+                    // Use a filter: status not in draft/borrador OR user_id = current user
+                    query = query.or(`user_id.eq.${user.id},and(status.neq.draft,status.neq.borrador)`)
+                } else {
+                    // regular agent: only their own
+                    query = query.eq('user_id', user.id)
+                }
             }
 
             const { data, error } = await query
@@ -75,6 +90,7 @@ export default function Dashboard() {
             setLoading(false)
         }
     }
+
 
     const deleteRequest = async () => {
         if (!requestToDelete) return
@@ -97,14 +113,18 @@ export default function Dashboard() {
         }
     }
 
-    const resumeRequest = (id) => {
-        const request = requests.find(r => r.id === id)
-        if (request?.type === 'invoice') {
-            navigate(`/request/invoice/${id}`)
-        } else if (request?.data?.contract_type) {
-            navigate(`/request/contract/${id}`)
+    const resumeRequest = (req) => {
+        // Only the request owner can edit
+        if (req.user_id !== user.id) {
+            toast.error('Solo el agente que creó esta solicitud puede editarla.')
+            return
+        }
+        if (req.type === 'invoice') {
+            navigate(`/request/invoice/${req.id}`)
+        } else if (req.data?.contract_type) {
+            navigate(`/request/contract/${req.id}`)
         } else {
-            navigate(`/request/${id}`)
+            navigate(`/request/${req.id}`)
         }
     }
 
@@ -162,16 +182,32 @@ export default function Dashboard() {
                 color: 'bg-amber-100 text-amber-600'
             }
         }
+        // Annex
+        if (req.type === 'annex') {
+            return {
+                label: 'Anexo',
+                icon: <FileText className="w-4 h-4" />,
+                color: 'bg-purple-100 text-purple-600'
+            }
+        }
+        // Evaluación Comercial
+        if (req.type === 'evaluacion_comercial') {
+            return {
+                label: 'Evaluación Comercial',
+                icon: <BarChart3 className="w-4 h-4" />,
+                color: 'bg-sky-100 text-sky-600'
+            }
+        }
         // Contract
-        if (req.contract_type || req.data?.contract_type) {
+        if (req.type === 'contract' || req.contract_type || req.data?.contract_type) {
             return {
                 label: 'Contrato',
                 icon: <FileText className="w-4 h-4" />,
                 color: 'bg-indigo-100 text-indigo-600'
             }
         }
-        // Payment Link (Default fallback if others don't match or specific check)
-        if (req.tipoSolicitud || req.data?.tipoSolicitud) {
+        // Payment Link
+        if (req.type === 'payment' || req.tipoSolicitud || req.data?.tipoSolicitud) {
             return {
                 label: 'Link de Pago',
                 icon: <Receipt className="w-4 h-4" />,
@@ -179,10 +215,11 @@ export default function Dashboard() {
             }
         }
 
+        // Fallback genérico — nunca debería decir "Solicitud: Solicitud"
         return {
-            label: 'Solicitud',
-            icon: <FileText className="w-4 h-4" />,
-            color: 'bg-blue-100 text-blue-600'
+            label: 'Link de Pago',
+            icon: <Receipt className="w-4 h-4" />,
+            color: 'bg-emerald-100 text-emerald-600'
         }
     }
 
@@ -251,8 +288,8 @@ export default function Dashboard() {
                 {/* Left Column: Quick Actions & Requests Table */}
                 <div className="space-y-6 lg:col-span-2" data-tour="requests-list">
 
-                    {/* Quick Actions Row - Now in Column */}
-                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-wrap items-center gap-3" data-tour="quick-actions">
+                    {/* Quick Actions — hidden for postulantes */}
+                    {!isPostulante && <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-wrap items-center gap-3" data-tour="quick-actions">
                         <div className="mr-2 font-medium text-slate-700 text-sm md:text-base">Accesos Rápidos</div>
                         {quickActions.map((action, index) => (
                             <Button
@@ -278,106 +315,116 @@ export default function Dashboard() {
                             <UserPlus className="w-4 h-4" />
                             Nuevo Contacto
                         </Button>
-                    </div>
+                    </div>}
 
-                    <div className="flex items-center justify-between mt-8">
-                        <h2 className="text-lg font-semibold text-slate-900">
-                            {['legal', 'comercial'].includes(profile?.role) ? 'Solicitudes' : 'Mis Solicitudes'}
-                        </h2>
-                        <div className="flex bg-slate-100 p-1 rounded-lg">
-                            {['all', 'pending', 'finalized', 'draft'].map(status => (
-                                <button
-                                    key={status}
-                                    onClick={() => setFilterStatus(status)}
-                                    className={cn(
-                                        "px-3 py-1.5 text-xs font-medium rounded-md transition-all",
-                                        filterStatus === status
-                                            ? "bg-white text-slate-900 shadow-sm"
-                                            : "text-slate-500 hover:text-slate-700"
-                                    )}
-                                >
-                                    {status === 'all' && 'Todas'}
-                                    {status === 'pending' && 'Pendientes'}
-                                    {status === 'finalized' && 'Finalizadas'}
-                                    {status === 'draft' && 'Borrador'}
-                                </button>
-                            ))}
+                    {/* Solicitudes table — hidden for postulantes */}
+                    {!isPostulante && <div>
+                        <div className="flex items-center justify-between mt-8">
+                            <h2 className="text-lg font-semibold text-slate-900">
+                                {['legal', 'comercial'].includes(profile?.role) ? 'Solicitudes' : 'Mis Solicitudes'}
+                            </h2>
+                            <div className="flex bg-slate-100 p-1 rounded-lg">
+                                {['all', 'pending', 'finalized', 'draft'].map(status => (
+                                    <button
+                                        key={status}
+                                        onClick={() => setFilterStatus(status)}
+                                        className={cn(
+                                            "px-3 py-1.5 text-xs font-medium rounded-md transition-all",
+                                            filterStatus === status
+                                                ? "bg-white text-slate-900 shadow-sm"
+                                                : "text-slate-500 hover:text-slate-700"
+                                        )}
+                                    >
+                                        {status === 'all' && 'Todas'}
+                                        {status === 'pending' && 'Pendientes'}
+                                        {status === 'finalized' && 'Finalizadas'}
+                                        {status === 'draft' && 'Borrador'}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
-                    </div>
 
-                    <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                        <Table>
-                            <TableHeader>
-                                <TableRow className="bg-slate-50 hover:bg-slate-50">
-                                    <TableHead className="w-[50px]"></TableHead>
-                                    <TableHead>Descripción / Cliente</TableHead>
-                                    <TableHead>Estado</TableHead>
-                                    <TableHead className="hidden md:table-cell">Fecha</TableHead>
-                                    <TableHead className="text-right">Acciones</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {filteredRequests.length === 0 ? (
-                                    <TableRow>
-                                        <TableCell colSpan={5} className="h-24 text-center text-slate-500">
-                                            No se encontraron solicitudes
-                                        </TableCell>
+                        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow className="bg-slate-50 hover:bg-slate-50">
+                                        <TableHead className="w-[50px]"></TableHead>
+                                        <TableHead>Descripción / Cliente</TableHead>
+                                        <TableHead>Estado</TableHead>
+                                        <TableHead className="hidden md:table-cell">Fecha</TableHead>
+                                        <TableHead className="text-right">Acciones</TableHead>
                                     </TableRow>
-                                ) : (
-                                    filteredRequests.map((req) => {
-                                        const info = getRequestInfo(req)
-                                        const address = getRequestAddress(req)
+                                </TableHeader>
+                                <TableBody>
+                                    {filteredRequests.length === 0 ? (
+                                        <TableRow>
+                                            <TableCell colSpan={5} className="h-24 text-center text-slate-500">
+                                                No se encontraron solicitudes
+                                            </TableCell>
+                                        </TableRow>
+                                    ) : (
+                                        filteredRequests.map((req) => {
+                                            const info = getRequestInfo(req)
+                                            const address = getRequestAddress(req)
 
-                                        return (
-                                            <TableRow
-                                                key={req.id}
-                                                className="hover:bg-slate-50/50 group cursor-pointer"
-                                                onClick={() => resumeRequest(req.id)}
-                                            >
-                                                <TableCell>
-                                                    <div className={cn("w-8 h-8 rounded-md flex items-center justify-center", info.color)}>
-                                                        {info.icon}
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <div className="flex flex-col">
-                                                        <span className="font-medium text-slate-900">
-                                                            Solicitud: {info.label} {req.comuna && `en ${req.comuna}`}
-                                                        </span>
-                                                        <div className="flex items-center gap-1 text-xs text-slate-500 mt-0.5">
-                                                            <MapPin className="w-3 h-3" />
-                                                            <span className="truncate max-w-[250px]">{address}</span>
+                                            return (
+                                                <TableRow
+                                                    key={req.id}
+                                                    className={cn(
+                                                        "group",
+                                                        req.user_id === user.id
+                                                            ? "hover:bg-slate-50/50 cursor-pointer"
+                                                            : "cursor-default opacity-80"
+                                                    )}
+                                                    onClick={() => resumeRequest(req)}
+                                                >
+                                                    <TableCell>
+                                                        <div className={cn("w-8 h-8 rounded-md flex items-center justify-center", info.color)}>
+                                                            {info.icon}
                                                         </div>
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <span className={cn("px-2.5 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wide", getStatusColor(req.status))}>
-                                                        {getStatusLabel(req.status)}
-                                                    </span>
-                                                </TableCell>
-                                                <TableCell className="hidden md:table-cell text-xs text-slate-500">
-                                                    {new Date(req.created_at).toLocaleDateString()}
-                                                </TableCell>
-                                                <TableCell className="text-right">
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="text-slate-400 hover:text-red-600 hover:bg-red-50"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation()
-                                                            setRequestToDelete(req.id)
-                                                        }}
-                                                    >
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </Button>
-                                                </TableCell>
-                                            </TableRow>
-                                        )
-                                    })
-                                )}
-                            </TableBody>
-                        </Table>
-                    </div>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <div className="flex flex-col">
+                                                            <span className="font-medium text-slate-900">
+                                                                Solicitud: {info.label} {req.comuna && `en ${req.comuna}`}
+                                                            </span>
+                                                            <div className="flex items-center gap-1 text-xs text-slate-500 mt-0.5">
+                                                                <MapPin className="w-3 h-3" />
+                                                                <span className="truncate max-w-[250px]">{address}</span>
+                                                            </div>
+                                                        </div>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <span className={cn("px-2.5 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wide", getStatusColor(req.status))}>
+                                                            {getStatusLabel(req.status)}
+                                                        </span>
+                                                    </TableCell>
+                                                    <TableCell className="hidden md:table-cell text-xs text-slate-500">
+                                                        {new Date(req.created_at).toLocaleDateString()}
+                                                    </TableCell>
+                                                    <TableCell className="text-right">
+                                                        {req.user_id === user.id && (
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="text-slate-400 hover:text-red-600 hover:bg-red-50"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation()
+                                                                    setRequestToDelete(req.id)
+                                                                }}
+                                                            >
+                                                                <Trash2 className="w-4 h-4" />
+                                                            </Button>
+                                                        )}
+                                                    </TableCell>
+                                                </TableRow>
+                                            )
+                                        })
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    </div>}
                 </div>
 
                 {/* Right Column: Widgets (Half Width) */}
