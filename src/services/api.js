@@ -1,4 +1,4 @@
-const N8N_WEBHOOK_URL = 'https://workflow.remax-exclusive.cl/webhook/boleto_de_pago'
+const N8N_WEBHOOK_URL = 'https://workflow.remax-exclusive.cl/webhook/pagos'
 const N8N_LEGAL_WEBHOOK_URL = 'https://workflow.remax-exclusive.cl/webhook/legal'
 const N8N_EVALUACION_COMERCIAL_WEBHOOK_URL = 'https://workflow.remax-exclusive.cl/webhook/evaluacion_comercial'
 

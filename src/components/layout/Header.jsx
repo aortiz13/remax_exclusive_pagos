@@ -35,7 +35,11 @@ export default function Header() {
         { title: 'Mi Perfil', icon: User, path: '/profile' },
     ]
 
-    if (profile?.role === 'superadministrador') {
+    const role = profile?.role
+    if (['superadministrador', 'legal'].includes(role)) {
+        menuItems.push({ title: 'Dashboard CEO', icon: FileText, path: '/admin/kpis' })
+        menuItems.push({ title: 'Administración', icon: Settings, path: '/admin/invites' })
+    } else if (role === 'comercial') {
         menuItems.push({ title: 'Administración', icon: Settings, path: '/admin/invites' })
     }
 
