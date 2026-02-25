@@ -7,9 +7,12 @@ import { Button } from '@/components/ui';
 import {
     Send, X, Paperclip, Trash2,
     Bold, Italic, Underline as UnderlineIcon, Strikethrough,
-    List, ListOrdered, Quote, Undo, Redo, Link as LinkIcon
+    List, ListOrdered, Quote, Undo, Redo, Link as LinkIcon,
+    ListTodo, Activity
 } from 'lucide-react';
 import { supabase } from '../../services/supabase';
+import TaskModal from '../crm/TaskModal';
+import ActionModal from '../crm/ActionModal';
 
 // Helper component for the Link Popover
 const LinkPopover = ({ editor, isOpen, onClose }) => {
@@ -147,7 +150,7 @@ const MenuBar = ({ editor }) => {
     );
 };
 
-const EmailComposer = ({ onClose, onSuccess, replyTo = null, userProfile }) => {
+const EmailComposer = ({ onClose, onSuccess, replyTo = null, userProfile, initialDraft = null, draftId = null }) => {
     const fileInputRef = useRef(null);
 
     // Get the latest message to reply to if available
@@ -158,14 +161,47 @@ const EmailComposer = ({ onClose, onSuccess, replyTo = null, userProfile }) => {
     // Default 'to' is the sender of the last message. If we sent it, reply to the receiver.
     const defaultTo = lastMessage
         ? (lastMessage.from_address?.includes('remax-exclusive.cl') ? lastMessage.to_address : lastMessage.from_address)
-        : '';
+        : (initialDraft?.to || '');
 
-    const initialBody = '<p></p>';
+    const initialBody = initialDraft?.html || '<p></p>';
 
     const [to, setTo] = useState(defaultTo || '');
-    const [subject, setSubject] = useState(replyTo ? (replyTo.subject?.toLowerCase().startsWith('re:') ? replyTo.subject : `Re: ${replyTo.subject}`) : '');
+    const [subject, setSubject] = useState(
+        replyTo
+            ? (replyTo.subject?.toLowerCase().startsWith('re:') ? replyTo.subject : `Re: ${replyTo.subject}`)
+            : (initialDraft?.subject || '')
+    );
     const [isSending, setIsSending] = useState(false);
     const [attachments, setAttachments] = useState([]);
+
+    // Task / Action linking
+    const [linkedTask, setLinkedTask] = useState(null);   // { id, action (title) }
+    const [linkedAction, setLinkedAction] = useState(null); // { id, action_type }
+    const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+    const [isActionModalOpen, setIsActionModalOpen] = useState(false);
+    const [contactIdForLink, setContactIdForLink] = useState(null);
+
+    // Look up contact by 'to' email then open the modal
+    const resolveContactAndOpen = async (openFn) => {
+        let contactId = null;
+        const email = to?.trim();
+        if (email) {
+            const { data } = await supabase
+                .from('contacts')
+                .select('id')
+                .ilike('email', email)
+                .limit(1);
+            if (data && data.length > 0) contactId = data[0].id;
+        }
+        setContactIdForLink(contactId);
+        openFn(true);
+    };
+
+    // When X is clicked, pass current state to parent so it can save as draft
+    const handleClose = () => {
+        const html = editor?.getHTML() || '';
+        onClose({ to, subject, html });
+    };
 
     const editor = useEditor({
         extensions: [
@@ -254,16 +290,18 @@ const EmailComposer = ({ onClose, onSuccess, replyTo = null, userProfile }) => {
                     to,
                     subject,
                     bodyHtml,
-                    replyToMessageId: lastMessage?.gmail_message_id,
+                    replyToMessageId: lastMessage?.rfc_message_id || lastMessage?.gmail_message_id,
                     threadId: replyTo?.gmail_thread_id,
-                    attachments: processedAttachments
+                    attachments: processedAttachments,
+                    linkedTaskId: linkedTask?.id || null,
+                    linkedActionId: linkedAction?.id || null,
                 }
             });
 
             if (error) throw error;
 
             if (onSuccess) onSuccess();
-            if (onClose) onClose();
+            // onClose will be called by onSuccess handler in the parent
 
         } catch (err) {
             console.error("Failed to send email", err);
@@ -274,89 +312,160 @@ const EmailComposer = ({ onClose, onSuccess, replyTo = null, userProfile }) => {
     };
 
     return (
-        <div className="fixed bottom-0 right-24 w-[600px] h-auto max-h-[600px] min-h-[500px] bg-white rounded-t-xl shadow-2xl border border-gray-200 flex flex-col z-50 overflow-hidden">
-            {/* Header */}
-            <div className="bg-gray-800 text-white px-4 py-3 flex justify-between items-center rounded-t-xl">
-                <span className="font-medium text-sm">{replyTo ? 'Responder' : 'Nuevo Mensaje'}</span>
-                <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors">
-                    <X className="w-4 h-4" />
-                </button>
-            </div>
-
-            {/* Inputs */}
-            <div className="px-4 py-2 border-b border-gray-100 flex items-center">
-                <span className="text-gray-500 text-sm w-12">Para:</span>
-                <input
-                    type="email"
-                    value={to}
-                    onChange={(e) => setTo(e.target.value)}
-                    className="flex-1 outline-none text-sm p-1"
-                    placeholder="correo@ejemplo.com"
-                />
-            </div>
-            <div className="px-4 py-2 border-b border-gray-100 flex items-center">
-                <span className="text-gray-500 text-sm w-12">Asunto:</span>
-                <input
-                    type="text"
-                    value={subject}
-                    onChange={(e) => setSubject(e.target.value)}
-                    className="flex-1 outline-none text-sm p-1 font-medium"
-                />
-            </div>
-
-            {/* Editor */}
-            <div className="flex-1 flex flex-col min-h-[200px] bg-white overflow-hidden">
-                <MenuBar editor={editor} />
-                <EditorContent editor={editor} className="flex-1 flex flex-col h-full overflow-hidden [&>div]:h-full [&>div]:outline-none" />
-            </div>
-
-            {/* Attachments List */}
-            {attachments.length > 0 && (
-                <div className="px-4 py-2 border-t border-gray-100 bg-gray-50 flex flex-wrap gap-2 max-h-24 overflow-y-auto">
-                    {attachments.map((file, index) => (
-                        <div key={index} className="flex items-center gap-1 bg-white border border-gray-200 px-2 py-1 rounded-md text-xs text-gray-700 shadow-sm max-w-[200px]">
-                            <Paperclip className="w-3 h-3 text-gray-400 shrink-0" />
-                            <span className="truncate">{file.name}</span>
-                            <button onClick={() => removeAttachment(index)} className="text-gray-400 hover:text-red-500 shrink-0 ml-1">
-                                <X className="w-3 h-3" />
-                            </button>
-                        </div>
-                    ))}
+        <>
+            <div className="fixed bottom-0 right-24 w-[600px] h-auto max-h-[600px] min-h-[500px] bg-white rounded-t-xl shadow-2xl border border-gray-200 flex flex-col z-50 overflow-hidden">
+                {/* Header */}
+                <div className="bg-gray-800 text-white px-4 py-3 flex justify-between items-center rounded-t-xl">
+                    <span className="font-medium text-sm">{replyTo ? 'Responder' : initialDraft ? 'Borrador' : 'Nuevo Mensaje'}</span>
+                    <button onClick={handleClose} className="text-gray-400 hover:text-white transition-colors">
+                        <X className="w-4 h-4" />
+                    </button>
                 </div>
-            )}
 
-            {/* Footer Actions */}
-            <div className="p-3 border-t border-gray-100 flex items-center justify-between bg-white">
-                <div className="flex items-center gap-2">
-                    <Button
-                        onClick={handleSend}
-                        disabled={isSending || !to || !subject}
-                        className="bg-blue-600 hover:bg-blue-700 text-white gap-2 px-6"
-                    >
-                        {isSending ? 'Enviando...' : <>Enviar <Send className="w-4 h-4 ml-1" /></>}
-                    </Button>
-
+                {/* Inputs */}
+                <div className="px-4 py-2 border-b border-gray-100 flex items-center">
+                    <span className="text-gray-500 text-sm w-12">Para:</span>
                     <input
-                        type="file"
-                        ref={fileInputRef}
-                        onChange={handleFileChange}
-                        className="hidden"
-                        multiple
+                        type="email"
+                        value={to}
+                        onChange={(e) => setTo(e.target.value)}
+                        className="flex-1 outline-none text-sm p-1"
+                        placeholder="correo@ejemplo.com"
                     />
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-gray-500 hover:bg-gray-200"
-                        onClick={() => fileInputRef.current?.click()}
-                    >
-                        <Paperclip className="w-5 h-5" />
+                </div>
+                <div className="px-4 py-2 border-b border-gray-100 flex items-center">
+                    <span className="text-gray-500 text-sm w-12">Asunto:</span>
+                    <input
+                        type="text"
+                        value={subject}
+                        onChange={(e) => setSubject(e.target.value)}
+                        className="flex-1 outline-none text-sm p-1 font-medium"
+                    />
+                </div>
+
+                {/* Editor */}
+                <div className="flex-1 flex flex-col min-h-[200px] bg-white overflow-hidden">
+                    <MenuBar editor={editor} />
+                    <EditorContent editor={editor} className="flex-1 flex flex-col h-full overflow-hidden [&>div]:h-full [&>div]:outline-none" />
+                </div>
+
+                {/* Linked Task / Action chips */}
+                {(linkedTask || linkedAction) && (
+                    <div className="px-4 py-2 border-t border-gray-100 bg-blue-50 flex flex-wrap gap-2">
+                        {linkedTask && (
+                            <div className="flex items-center gap-1.5 bg-white border border-blue-200 text-blue-700 px-2 py-1 rounded-md text-xs shadow-sm max-w-[260px]">
+                                <ListTodo className="w-3.5 h-3.5 shrink-0" />
+                                <span className="truncate font-medium">Tarea: {linkedTask.action}</span>
+                                <button onClick={() => setLinkedTask(null)} className="text-blue-400 hover:text-red-500 shrink-0 ml-1">
+                                    <X className="w-3 h-3" />
+                                </button>
+                            </div>
+                        )}
+                        {linkedAction && (
+                            <div className="flex items-center gap-1.5 bg-white border border-purple-200 text-purple-700 px-2 py-1 rounded-md text-xs shadow-sm max-w-[260px]">
+                                <Activity className="w-3.5 h-3.5 shrink-0" />
+                                <span className="truncate font-medium">Acción: {linkedAction.action_type}</span>
+                                <button onClick={() => setLinkedAction(null)} className="text-purple-400 hover:text-red-500 shrink-0 ml-1">
+                                    <X className="w-3 h-3" />
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* Attachments List */}
+                {attachments.length > 0 && (
+                    <div className="px-4 py-2 border-t border-gray-100 bg-gray-50 flex flex-wrap gap-2 max-h-24 overflow-y-auto">
+                        {attachments.map((file, index) => (
+                            <div key={index} className="flex items-center gap-1 bg-white border border-gray-200 px-2 py-1 rounded-md text-xs text-gray-700 shadow-sm max-w-[200px]">
+                                <Paperclip className="w-3 h-3 text-gray-400 shrink-0" />
+                                <span className="truncate">{file.name}</span>
+                                <button onClick={() => removeAttachment(index)} className="text-gray-400 hover:text-red-500 shrink-0 ml-1">
+                                    <X className="w-3 h-3" />
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                {/* Footer Actions */}
+                <div className="p-3 border-t border-gray-100 flex items-center justify-between bg-white">
+                    <div className="flex items-center gap-2">
+                        <Button
+                            onClick={handleSend}
+                            disabled={isSending || !to || !subject}
+                            className="bg-blue-600 hover:bg-blue-700 text-white gap-2 px-6"
+                        >
+                            {isSending ? 'Enviando...' : <>Enviar <Send className="w-4 h-4 ml-1" /></>}
+                        </Button>
+
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-gray-500 hover:bg-blue-50 hover:text-blue-600"
+                            onClick={() => resolveContactAndOpen(setIsTaskModalOpen)}
+                            title="Crear tarea vinculada"
+                        >
+                            <ListTodo className="w-5 h-5" />
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-gray-500 hover:bg-purple-50 hover:text-purple-600"
+                            onClick={() => resolveContactAndOpen(setIsActionModalOpen)}
+                            title="Crear acción vinculada"
+                        >
+                            <Activity className="w-5 h-5" />
+                        </Button>
+
+                        <input
+                            type="file"
+                            ref={fileInputRef}
+                            onChange={handleFileChange}
+                            className="hidden"
+                            multiple
+                        />
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-gray-500 hover:bg-gray-200"
+                            onClick={() => fileInputRef.current?.click()}
+                        >
+                            <Paperclip className="w-5 h-5" />
+                        </Button>
+                    </div>
+                    <Button variant="ghost" size="icon" className="text-gray-400 hover:bg-gray-200" title="Descartar borrador" onClick={() => onClose(null)}>
+                        <Trash2 className="w-5 h-5" />
                     </Button>
                 </div>
-                <Button variant="ghost" size="icon" className="text-gray-400 hover:bg-gray-200" onClick={onClose}>
-                    <Trash2 className="w-5 h-5" />
-                </Button>
             </div>
-        </div>
+
+            {/* Task Modal */}
+            <TaskModal
+                isOpen={isTaskModalOpen}
+                contactId={contactIdForLink}
+                onClose={(saved) => {
+                    setIsTaskModalOpen(false);
+                    if (saved && typeof saved === 'object') {
+                        // TaskModal passes the saved task object on success
+                        setLinkedTask(saved);
+                        setLinkedAction(null);
+                    }
+                }}
+            />
+
+            {/* Action Modal */}
+            <ActionModal
+                isOpen={isActionModalOpen}
+                defaultContactId={contactIdForLink}
+                onClose={() => setIsActionModalOpen(false)}
+                onActionSaved={(action) => {
+                    setIsActionModalOpen(false);
+                    setLinkedAction(action);
+                    setLinkedTask(null);
+                }}
+            />
+        </>
     );
 };
 

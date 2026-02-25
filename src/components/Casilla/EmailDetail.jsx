@@ -1,10 +1,31 @@
 import React, { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../services/supabase';
-import { Loader2, Reply, Trash2, Printer, Archive, ArrowLeft } from 'lucide-react';
+import { Loader2, Reply, Trash2, Printer, Archive, ArrowLeft, Paperclip } from 'lucide-react';
 import { Button } from '@/components/ui';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui";
 import { toast } from 'sonner';
+
+/**
+ * Repairs double-encoded UTF-8 text stored as Latin-1.
+ * e.g. "captaciÃ³n" → "captación"
+ * This handles emails stored before the atob() fix was applied.
+ */
+const fixEncoding = (str) => {
+    if (!str) return str;
+    try {
+        // Re-encode each char as a Latin-1 byte, then decode as UTF-8
+        const bytes = new Uint8Array(str.length);
+        for (let i = 0; i < str.length; i++) {
+            bytes[i] = str.charCodeAt(i) & 0xff;
+        }
+        const decoded = new TextDecoder('utf-8').decode(bytes);
+        // If decoding succeeded and changed something, use it; otherwise keep original
+        return decoded;
+    } catch {
+        return str;
+    }
+};
 
 const fetchThreadDetails = async (threadId) => {
     const { data, error } = await supabase
@@ -12,7 +33,10 @@ const fetchThreadDetails = async (threadId) => {
         .select(`
             *,
             email_messages (
-                *
+                *,
+                email_attachments (
+                    *
+                )
             )
         `)
         .eq('id', threadId)
@@ -134,9 +158,42 @@ const EmailDetail = ({ thread, userProfile, onReply, onThreadDeleted, onBack }) 
                                 </div>
 
                                 <div
-                                    className="prose prose-sm max-w-none prose-a:text-blue-600 mt-4"
-                                    dangerouslySetInnerHTML={{ __html: msg.body_html || msg.body_plain || msg.snippet }}
+                                    className="prose prose-sm max-w-none prose-a:text-blue-600 mt-4 overflow-x-auto"
+                                    dangerouslySetInnerHTML={{
+                                        __html: fixEncoding(msg.body_html || msg.body_plain || msg.snippet)
+                                    }}
                                 />
+
+                                {msg.email_attachments && msg.email_attachments.length > 0 && (
+                                    <div className="mt-4 flex flex-wrap gap-2">
+                                        {msg.email_attachments.map((att) => (
+                                            <button
+                                                key={att.id}
+                                                onClick={async () => {
+                                                    try {
+                                                        const res = await fetch(att.storage_url);
+                                                        const blob = await res.blob();
+                                                        const blobUrl = URL.createObjectURL(blob);
+                                                        const a = document.createElement('a');
+                                                        a.href = blobUrl;
+                                                        a.download = att.filename;
+                                                        document.body.appendChild(a);
+                                                        a.click();
+                                                        document.body.removeChild(a);
+                                                        URL.revokeObjectURL(blobUrl);
+                                                    } catch (e) {
+                                                        console.error('Error downloading attachment:', e);
+                                                    }
+                                                }}
+                                                className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-md text-sm text-gray-700 transition-colors cursor-pointer"
+                                                title={att.filename}
+                                            >
+                                                <Paperclip className="w-4 h-4 text-gray-400 shrink-0" />
+                                                <span className="truncate max-w-[200px]">{att.filename}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
 
                                 {isLast && (
                                     <div className="mt-6">

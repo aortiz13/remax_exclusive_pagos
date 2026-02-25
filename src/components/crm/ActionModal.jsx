@@ -20,8 +20,9 @@ import {
 } from "@/components/ui";
 import { supabase } from '../../services/supabase';
 import { toast } from 'sonner';
-import { Check, ChevronsUpDown, X, Plus, Trash2, Clock } from "lucide-react";
+import { Check, ChevronsUpDown, X, Plus, Trash2, Clock, Mail } from "lucide-react";
 import { cn, toISOLocal } from "@/lib/utils";
+import { useNavigate } from 'react-router-dom';
 import {
     Command,
     CommandEmpty,
@@ -74,6 +75,7 @@ const FOLLOW_UP_DELAYS = [
 
 const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultPropertyId = null, viewOnly = false, actionData = null, onActionSaved = null }) => {
     const { user } = useAuth();
+    const navigate = useNavigate();
     // Form state
     const [actionType, setActionType] = useState('');
     const [otherActionType, setOtherActionType] = useState('');
@@ -87,6 +89,7 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
     const [callResult, setCallResult] = useState('');
     const [otherCallResult, setOtherCallResult] = useState('');
     const [associatedTasks, setAssociatedTasks] = useState([]);
+    const [linkedEmails, setLinkedEmails] = useState([]);
 
     // Data state for follow-up tasks
     const [createFollowUp, setCreateFollowUp] = useState(false);
@@ -148,6 +151,7 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
 
                 if (viewOnly) {
                     fetchAssociatedTasks(actionData.id);
+                    fetchLinkedEmails(actionData.id);
                 }
             } else {
                 setActionType('');
@@ -230,6 +234,18 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
             setAssociatedTasks(data || []);
         } catch (error) {
             console.error('Error fetching associated tasks:', error);
+        }
+    };
+
+    const fetchLinkedEmails = async (actionId) => {
+        try {
+            const { data } = await supabase
+                .from('email_thread_links')
+                .select('id, thread_id, email_threads(id, subject, gmail_thread_id)')
+                .eq('action_id', actionId);
+            setLinkedEmails(data || []);
+        } catch (error) {
+            console.error('Error fetching linked emails:', error);
         }
     };
 
@@ -410,7 +426,7 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
 
                         toast.success('Acción registrada exitosamente');
 
-                        if (onActionSaved) onActionSaved();
+                        if (onActionSaved) onActionSaved(actionRow);
                         onClose();
                     } catch (err) {
                         console.error('Error saving action:', err);
@@ -839,45 +855,72 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
                                 </div>
                             </div>
                         )}
+
+                        {/* Display linked emails in viewOnly mode */}
+                        {viewOnly && linkedEmails.length > 0 && (
+                            <div className="pt-4 border-t mt-4 space-y-3">
+                                <Label className="text-sm font-bold flex items-center gap-2">
+                                    <Mail className="w-4 h-4 text-green-600" />
+                                    Correos Vinculados
+                                </Label>
+                                <div className="space-y-1.5">
+                                    {linkedEmails.map((link) => (
+                                        <button
+                                            key={link.id}
+                                            type="button"
+                                            onClick={() => { onClose(); navigate('/casilla', { state: { openThreadId: link.email_threads?.gmail_thread_id } }); }}
+                                            className="w-full text-left flex items-center gap-2 text-sm text-green-700 hover:text-green-900 hover:bg-green-50 border border-green-100 px-3 py-2 rounded-lg transition-colors"
+                                        >
+                                            <Mail className="w-3.5 h-3.5 shrink-0" />
+                                            <span className="truncate">{link.email_threads?.subject || '(Sin asunto)'}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
 
-                    <DialogFooter>
-                        <Button variant={viewOnly ? "default" : "outline"} onClick={onClose}>
-                            {viewOnly ? 'Cerrar' : 'Cancelar'}
-                        </Button>
-                        {!viewOnly && (
-                            <Button onClick={handleSave}>Guardar Acción</Button>
-                        )}
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+    <DialogFooter>
+        <Button variant={viewOnly ? "default" : "outline"} onClick={onClose}>
+            {viewOnly ? 'Cerrar' : 'Cancelar'}
+        </Button>
+        {!viewOnly && (
+            <Button onClick={handleSave}>Guardar Acción</Button>
+        )}
+    </DialogFooter>
+                </DialogContent >
+            </Dialog >
 
-            {/* Support Creation Modals */}
-            {isCreateContactOpen && (
-                <ContactForm
-                    isOpen={isCreateContactOpen}
-                    onClose={(newContact) => {
-                        setIsCreateContactOpen(false);
-                        if (newContact && newContact.id) {
-                            fetchOptionsData(); // Refresh list to get new contact
-                            setSelectedContactIds(prev => [...prev, newContact.id]);
-                        }
-                    }}
-                />
-            )}
+    {/* Support Creation Modals */ }
+{
+    isCreateContactOpen && (
+        <ContactForm
+            isOpen={isCreateContactOpen}
+            onClose={(newContact) => {
+                setIsCreateContactOpen(false);
+                if (newContact && newContact.id) {
+                    fetchOptionsData(); // Refresh list to get new contact
+                    setSelectedContactIds(prev => [...prev, newContact.id]);
+                }
+            }}
+        />
+    )
+}
 
-            {isCreatePropertyOpen && (
-                <PropertyForm
-                    isOpen={isCreatePropertyOpen}
-                    onClose={(newProperty) => {
-                        setIsCreatePropertyOpen(false);
-                        if (newProperty && newProperty.id) {
-                            fetchOptionsData(); // Refresh list to get new property
-                            setSelectedPropertyId(newProperty.id);
-                        }
-                    }}
-                />
-            )}
+{
+    isCreatePropertyOpen && (
+        <PropertyForm
+            isOpen={isCreatePropertyOpen}
+            onClose={(newProperty) => {
+                setIsCreatePropertyOpen(false);
+                if (newProperty && newProperty.id) {
+                    fetchOptionsData(); // Refresh list to get new property
+                    setSelectedPropertyId(newProperty.id);
+                }
+            }}
+        />
+    )
+}
         </>
     );
 };

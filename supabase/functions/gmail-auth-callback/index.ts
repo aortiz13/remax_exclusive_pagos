@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { decode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.1';
 
 const corsHeaders = {
@@ -178,7 +179,7 @@ async function processAndSaveMessage(emailAddress: string, messageId: string, ac
         const { data: contacts } = await supabase
             .from('contacts')
             .select('id')
-            .eq('email', targetEmailToMatch)
+            .ilike('email', targetEmailToMatch)
             .limit(1);
 
         if (contacts && contacts.length > 0) {
@@ -186,15 +187,24 @@ async function processAndSaveMessage(emailAddress: string, messageId: string, ac
         }
     }
 
-    const { data: threadRecord } = await supabase.from('email_threads').upsert({
+    const threadUpsertData: any = {
         gmail_thread_id: messageData.threadId,
         agent_id: account.agent_id,
         subject: subject || '(Sin Asunto)',
-        contact_id: contactId
-    }, { onConflict: 'gmail_thread_id' }).select('id').single();
+        labels: messageData.labelIds || []
+    };
+    if (contactId) {
+        threadUpsertData.contact_id = contactId;
+    }
+
+    const { data: threadRecord } = await supabase.from('email_threads').upsert(
+        threadUpsertData,
+        { onConflict: 'gmail_thread_id' }
+    ).select('id').single();
 
     if (!threadRecord) return;
 
+    // Insert Message
     const body = await extractBody(messageData.payload);
 
     await supabase.from('email_messages').upsert({
@@ -211,21 +221,125 @@ async function processAndSaveMessage(emailAddress: string, messageId: string, ac
         rfc_message_id: rfcMessageId,
         received_at: new Date(parseInt(messageData.internalDate)).toISOString(),
     }, { onConflict: 'gmail_message_id' });
+
+    // Extract & Save Attachments
+    const { data: messageRecord } = await supabase.from('email_messages')
+        .select('id')
+        .eq('gmail_message_id', messageData.id)
+        .single();
+
+    if (messageRecord) {
+        const attachments = extractAttachmentIds(messageData.payload);
+        console.log(`Extracted ${attachments.length} attachments for message ${messageData.id}`);
+        for (const attachment of attachments) {
+            // Check if attachment already exists in DB
+            const { data: existingAtt } = await supabase.from('email_attachments')
+                .select('id')
+                .eq('message_id', messageRecord.id)
+                .eq('filename', attachment.filename)
+                .single();
+
+            if (existingAtt) {
+                console.log(`Attachment ${attachment.filename} already exists`);
+                continue;
+            }
+
+            let base64Data = '';
+
+            // If Gmail gave us the data inline (small files), use it directly
+            if (attachment.dataPayload) {
+                base64Data = attachment.dataPayload.replace(/-/g, '+').replace(/_/g, '/');
+            } else if (attachment.attachmentId) {
+                // Otherwise fetch it using the attachmentId
+                const attachmentUrl = `https://gmail.googleapis.com/gmail/v1/users/${emailAddress}/messages/${messageId}/attachments/${attachment.attachmentId}`;
+                const attResponse = await fetch(attachmentUrl, { headers: { Authorization: `Bearer ${account.access_token}` } });
+
+                if (attResponse.ok) {
+                    const attData = await attResponse.json();
+                    if (attData.data) {
+                        base64Data = attData.data.replace(/-/g, '+').replace(/_/g, '/');
+                    }
+                } else {
+                    console.error(`Failed to fetch attachment ${attachment.attachmentId} from Google: ${attResponse.statusText}`);
+                }
+            }
+
+            if (base64Data) {
+                try {
+                    const buffer = decode(base64Data);
+
+                    // upload to supabase storage
+                    const filePath = `${threadRecord.id}/${messageRecord.id}/${attachment.filename}`;
+                    const { data: uploadData, error: uploadError } = await supabase.storage.from('email_attachments').upload(filePath, buffer, {
+                        contentType: attachment.mimeType,
+                        upsert: true
+                    });
+
+                    if (!uploadError) {
+                        const { data: publicUrlData } = supabase.storage.from('email_attachments').getPublicUrl(filePath);
+
+                        await supabase.from('email_attachments').insert({
+                            message_id: messageRecord.id,
+                            filename: attachment.filename,
+                            file_size: attachment.size || buffer.length,
+                            mime_type: attachment.mimeType,
+                            storage_url: publicUrlData.publicUrl
+                        });
+                        console.log(`Successfully stored ${attachment.filename}`);
+                    } else {
+                        console.error('Failed to upload attachment:', uploadError);
+                    }
+                } catch (e) {
+                    console.error('Error processing base64 for attachment:', e);
+                }
+            } else {
+                console.error(`No data extracted for attachment ${attachment.filename}`);
+            }
+        }
+    }
+}
+
+function extractAttachmentIds(payload: any): any[] {
+    let attachments: any[] = [];
+    if (payload.parts) {
+        for (const part of payload.parts) {
+            if (part.filename && part.filename.length > 0) {
+                if (part.body && part.body.attachmentId) {
+                    attachments.push({
+                        filename: part.filename,
+                        mimeType: part.mimeType,
+                        attachmentId: part.body.attachmentId,
+                        size: part.body.size
+                    });
+                } else if (part.body && part.body.data) {
+                    attachments.push({
+                        filename: part.filename,
+                        mimeType: part.mimeType,
+                        dataPayload: part.body.data,
+                        size: part.body.size
+                    });
+                }
+            } else if (part.parts) {
+                attachments = attachments.concat(extractAttachmentIds(part));
+            }
+        }
+    }
+    return attachments;
 }
 
 function extractEmail(headerValue: string): string | null {
     if (!headerValue) return null;
     const match = headerValue.match(/([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)/);
-    return match ? match[1] : headerValue;
+    return match ? match[1].toLowerCase().trim() : headerValue.toLowerCase().trim();
 }
 
 async function extractBody(payload: any): Promise<{ html: string | null, plain: string | null }> {
     let html = null;
     let plain = null;
 
-    if (payload.mimeType === 'text/html') {
+    if (payload.mimeType === 'text/html' && payload.body?.data) {
         html = atob(payload.body.data.replace(/-/g, '+').replace(/_/g, '/'));
-    } else if (payload.mimeType === 'text/plain') {
+    } else if (payload.mimeType === 'text/plain' && payload.body?.data) {
         plain = atob(payload.body.data.replace(/-/g, '+').replace(/_/g, '/'));
     } else if (payload.parts) {
         for (const part of payload.parts) {
