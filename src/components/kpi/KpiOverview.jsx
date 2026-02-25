@@ -38,9 +38,11 @@ export default function KpiOverview() {
             prebuying: 0,
             captures: 0,
             closings: 0,
-            billing: 0
+            billing: 0,
+            honorarios_brutos: 0,
+            cierre_operacion: 0,
         },
-        annual: { billing: 0, listings: 0 }
+        annual: { billing: 0, listings: 0, honorarios: 0, cierres_valor: 0 }
     })
     const [dateRange, setDateRange] = useState({
         from: startOfWeek(new Date(), { weekStartsOn: 1 }),
@@ -112,15 +114,19 @@ export default function KpiOverview() {
             setStats({
                 summary: {
                     conversations: summaryData.conversations || 0,
-                    prelisting: summaryData.sales_interviews || 0, // Mapping names
+                    prelisting: summaryData.sales_interviews || 0,
                     prebuying: summaryData.buying_interviews || 0,
                     captures: summaryData.new_listings || 0,
                     closings: summaryData.signed_promises || 0,
-                    billing: summaryData.billing || 0
+                    billing: summaryData.billing || 0,
+                    honorarios_brutos: summaryData.billing_primary || 0,
+                    cierre_operacion: summaryData.billing_secondary || 0,
                 },
                 annual: {
                     billing: annualData?.billing || 0,
-                    listings: annualData?.new_listings || 0
+                    listings: annualData?.new_listings || 0,
+                    honorarios: annualData?.billing_primary || 0,
+                    cierres_valor: annualData?.billing_secondary || 0,
                 }
             })
 
@@ -290,7 +296,6 @@ export default function KpiOverview() {
 
             </div>
 
-
             {/* Charts Section */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
@@ -328,21 +333,39 @@ export default function KpiOverview() {
                     </div>
                 </div>
 
-                {/* Stats Summary */}
-                <div className="bg-white p-6 rounded-3xl shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-100 flex flex-col gap-6">
-                    <h3 className="text-lg font-bold text-slate-900">Total Anual</h3>
+                {/* Right: Billing Cards stacked vertically */}
+                <div className="flex flex-col gap-6">
 
-                    <div className="p-4 bg-slate-50 rounded-2xl">
-                        <p className="text-sm text-slate-500 mb-1">Facturación Total</p>
+                    {/* Honorarios Brutos */}
+                    <div className="bg-white p-6 rounded-3xl shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-100 flex flex-col gap-3 relative overflow-hidden">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2.5 rounded-xl text-primary bg-blue-50">
+                                <DollarSign className="w-5 h-5" />
+                            </div>
+                            <h3 className="text-slate-500 text-sm font-medium">Honorarios Brutos</h3>
+                        </div>
                         <p className="text-2xl font-bold text-slate-900">
-                            {new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(stats.annual.billing)}
+                            {new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(stats.summary.honorarios_brutos)}
                         </p>
+                        <p className="text-xs text-muted-foreground">Acumulado en el período seleccionado</p>
+                        <div className="absolute bottom-0 right-0 w-20 h-20 rounded-full bg-blue-50/40 blur-2xl -mr-4 -mb-4 pointer-events-none" />
                     </div>
 
-                    <div className="p-4 bg-slate-50 rounded-2xl">
-                        <p className="text-sm text-slate-500 mb-1">Total Captaciones</p>
-                        <p className="text-2xl font-bold text-slate-900">{stats.annual.listings}</p>
+                    {/* Cierre de Operación */}
+                    <div className="bg-white p-6 rounded-3xl shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-100 flex flex-col gap-3 relative overflow-hidden">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2.5 rounded-xl text-emerald-600 bg-emerald-50">
+                                <TrendingUp className="w-5 h-5" />
+                            </div>
+                            <h3 className="text-slate-500 text-sm font-medium">Cierre de Operación</h3>
+                        </div>
+                        <p className="text-2xl font-bold text-slate-900">
+                            {new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(stats.summary.cierre_operacion)}
+                        </p>
+                        <p className="text-xs text-muted-foreground">Valor total de operaciones cerradas</p>
+                        <div className="absolute bottom-0 right-0 w-20 h-20 rounded-full bg-emerald-50/40 blur-2xl -mr-4 -mb-4 pointer-events-none" />
                     </div>
+
                 </div>
             </div>
 

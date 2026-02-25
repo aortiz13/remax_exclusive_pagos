@@ -222,6 +222,80 @@ const NewMandate = () => {
 
             if (error) throw error
 
+            // 4. Auto-create CRM Action "Captación Nueva"
+            const today = new Date()
+            const noteText = [
+                `Captación registrada: ${formData.address}`,
+                formData.commune ? `Comuna: ${formData.commune}` : null,
+                formData.region ? `Región: ${formData.region}` : null,
+                `Tipo: ${formData.capture_type} — ${formData.operation_type}`,
+                formData.price ? `Precio: ${parseFloat(formData.price).toLocaleString('es-CL')} ${formData.currency}` : null,
+            ].filter(Boolean).join('\n')
+
+            const { data: actionRow, error: actionError } = await supabase
+                .from('crm_actions')
+                .insert({
+                    agent_id: user.id,
+                    action_type: 'Captación Nueva',
+                    action_date: today.toISOString(),
+                    property_id: formData.property_id || null,
+                    note: noteText,
+                    mandate_id: mandate.id,
+                    is_conversation_starter: false,
+                })
+                .select()
+                .single()
+
+            if (actionError) {
+                console.error('Error creating crm_action:', actionError)
+            } else if (formData.contact_id) {
+                // Link contact to action
+                await supabase.from('crm_action_contacts').insert({
+                    action_id: actionRow.id,
+                    contact_id: formData.contact_id,
+                })
+            }
+
+            // 5. Upsert kpi_records — increment new_listings for today (daily)
+            const todayStr = today.toISOString().split('T')[0]
+            const { data: existingKpi } = await supabase
+                .from('kpi_records')
+                .select('id, new_listings')
+                .eq('agent_id', user.id)
+                .eq('period_type', 'daily')
+                .eq('date', todayStr)
+                .single()
+
+            if (existingKpi) {
+                await supabase
+                    .from('kpi_records')
+                    .update({ new_listings: (existingKpi.new_listings || 0) + 1 })
+                    .eq('id', existingKpi.id)
+            } else {
+                await supabase
+                    .from('kpi_records')
+                    .insert({
+                        agent_id: user.id,
+                        period_type: 'daily',
+                        date: todayStr,
+                        new_listings: 1,
+                        conversations_started: 0,
+                        relational_coffees: 0,
+                        sales_interviews: 0,
+                        buying_interviews: 0,
+                        commercial_evaluations: 0,
+                        active_portfolio: 0,
+                        price_reductions: 0,
+                        portfolio_visits: 0,
+                        buyer_visits: 0,
+                        offers_in_negotiation: 0,
+                        signed_promises: 0,
+                        billing_primary: 0,
+                        referrals_count: 0,
+                        billing_secondary: 0,
+                    })
+            }
+
             // 3. Log Activity
             await logActivity({
                 action: 'Captación',

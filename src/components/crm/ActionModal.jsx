@@ -20,7 +20,7 @@ import {
 } from "@/components/ui";
 import { supabase } from '../../services/supabase';
 import { toast } from 'sonner';
-import { Check, ChevronsUpDown, X, Plus, Trash2, Clock, Mail } from "lucide-react";
+import { Check, ChevronsUpDown, X, Plus, Trash2, Clock, Mail, MapPin } from "lucide-react";
 import { cn, toISOLocal } from "@/lib/utils";
 import { useNavigate } from 'react-router-dom';
 import {
@@ -46,6 +46,9 @@ const ACTION_TYPES = [
     "Evaluación Comercial",
     "Visita Propiedad",
     "Visita Comprador",
+    "Carta Oferta",
+    "Baja de Precio",
+    "Cierre de negocio",
     "Promesa Firmada",
     "Llamada en frío (I.C)",
     "Llamada de vendedor activo (I.C)",
@@ -54,6 +57,13 @@ const ACTION_TYPES = [
     "Vista a conserjes (I.C)",
     "Otra (I.C)"
 ];
+
+// Maps action_type → kpi_records field to auto-increment on save / decrement on delete
+const ACTION_KPI_MAP = {
+    'Carta Oferta': 'offers_in_negotiation',
+    'Baja de Precio': 'price_reductions',
+    // Note: Cierre de negocio uses gross_fees value stored in billing_primary (handled separately)
+};
 
 const CALL_RESULTS = [
     "Ocupado",
@@ -88,6 +98,39 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
     // New state for call result
     const [callResult, setCallResult] = useState('');
     const [otherCallResult, setOtherCallResult] = useState('');
+    // Cierre de negocio specific fields
+    const [dealType, setDealType] = useState('');
+    const [closingValue, setClosingValue] = useState('');
+    const [grossFees, setGrossFees] = useState('');
+    const [closingCurrency, setClosingCurrency] = useState('CLP');
+    const [feesCurrency, setFeesCurrency] = useState('CLP');
+    // UF value for conversion
+    const [ufValue, setUfValue] = useState(0);
+    const [fetchingUF, setFetchingUF] = useState(false);
+
+    useEffect(() => {
+        const fetchUF = async () => {
+            setFetchingUF(true);
+            try {
+                const res = await fetch('https://mindicador.cl/api/uf');
+                const data = await res.json();
+                if (data?.serie?.[0]?.valor) setUfValue(data.serie[0].valor);
+            } catch (e) {
+                console.error('Error fetching UF:', e);
+            } finally {
+                setFetchingUF(false);
+            }
+        };
+        fetchUF();
+    }, []);
+
+    // Helper: convert input amount to CLP for storage
+    const toCLP = (amount, currency) => {
+        const n = parseFloat(amount);
+        if (!amount || isNaN(n)) return null;
+        if (currency === 'CLP') return n;
+        return ufValue > 0 ? Math.round(n * ufValue) : n;
+    };
     const [associatedTasks, setAssociatedTasks] = useState([]);
     const [linkedEmails, setLinkedEmails] = useState([]);
 
@@ -108,6 +151,7 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
     const [contacts, setContacts] = useState([]);
     const [propertyContactsRoles, setPropertyContactsRoles] = useState({}); // { contactId: role }
     const [loadingData, setLoadingData] = useState(false);
+    const [mandateDetails, setMandateDetails] = useState(null);
 
     // UI state for creation modals
     const [isCreateContactOpen, setIsCreateContactOpen] = useState(false);
@@ -152,6 +196,7 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
                 if (viewOnly) {
                     fetchAssociatedTasks(actionData.id);
                     fetchLinkedEmails(actionData.id);
+                    if (actionData.mandate_id) fetchMandateDetails(actionData.mandate_id);
                 }
             } else {
                 setActionType('');
@@ -162,7 +207,13 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
                 setNote('');
                 setCallResult('');
                 setOtherCallResult('');
+                setDealType('');
+                setClosingValue('');
+                setGrossFees('');
+                setClosingCurrency('CLP');
+                setFeesCurrency('CLP');
                 setCreateFollowUp(false);
+                setMandateDetails(null);
                 setFollowUpTasks([{
                     id: Date.now(),
                     delay: '2_business_days',
@@ -249,6 +300,19 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
         }
     };
 
+    const fetchMandateDetails = async (mandateId) => {
+        try {
+            const { data, error } = await supabase
+                .from('mandates')
+                .select('address, commune, region, price, currency, capture_type, operation_type')
+                .eq('id', mandateId)
+                .single();
+            if (!error && data) setMandateDetails(data);
+        } catch (error) {
+            console.error('Error fetching mandate details:', error);
+        }
+    };
+
     const addBusinessDays = (date, days) => {
         let added = 0;
         const result = new Date(date);
@@ -322,10 +386,22 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
         //     return;
         // }
 
-        const requiresProperty = ['Visita Propiedad', 'Visita Comprador', 'Evaluación Comercial'].includes(actionType);
+        const requiresProperty = ['Visita Propiedad', 'Visita Comprador', 'Evaluación Comercial', 'Baja de Precio', 'Cierre de negocio'].includes(actionType);
         if (requiresProperty && (!selectedPropertyId || selectedPropertyId === 'none')) {
             toast.error(`Para la acción "${actionType}", seleccionar una propiedad es obligatorio.`);
             return;
+        }
+
+        const requiresContact = ['Baja de Precio', 'Cierre de negocio'].includes(actionType);
+        if (requiresContact && selectedContactIds.length === 0 && !hasSelectedNone) {
+            toast.error(`Para la acción "${actionType}", asociar al menos un contacto es obligatorio.`);
+            return;
+        }
+
+        if (actionType === 'Cierre de negocio') {
+            if (!dealType) { toast.error('Debe seleccionar el tipo de operación (Venta o Arriendo).'); return; }
+            if (!closingValue || isNaN(parseFloat(closingValue))) { toast.error('Debe ingresar el valor de cierre de operación.'); return; }
+            if (!grossFees || isNaN(parseFloat(grossFees))) { toast.error('Debe ingresar el valor de honorarios brutos.'); return; }
         }
 
         if (!actionDate) {
@@ -354,7 +430,11 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
                                 property_id: selectedPropertyId === 'none' ? null : selectedPropertyId,
                                 note: note || null,
                                 is_conversation_starter: actionType.includes('(I.C)'),
-                                call_result: actionType.startsWith('Llamada') ? (callResult === 'Otra' ? otherCallResult : callResult) : null
+                                call_result: actionType.startsWith('Llamada') ? (callResult === 'Otra' ? otherCallResult : callResult) : null,
+                                // Cierre de negocio fields
+                                deal_type: resolvedType === 'Cierre de negocio' ? dealType : null,
+                                closing_value: resolvedType === 'Cierre de negocio' ? toCLP(closingValue, closingCurrency) : null,
+                                gross_fees: resolvedType === 'Cierre de negocio' ? toCLP(grossFees, feesCurrency) : null,
                             })
                             .select()
                             .single();
@@ -422,7 +502,77 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
                             if (contactsError) throw contactsError;
                         }
 
-                        toast.success('Acción registrada exitosamente');
+                        // Auto-increment KPI if this action type maps to a KPI field
+                        const kpiField = ACTION_KPI_MAP[resolvedType];
+                        if (kpiField) {
+                            const actionDateStr = (actionDate || '').split('T')[0];
+                            const { data: existingKpi } = await supabase
+                                .from('kpi_records')
+                                .select(`id, ${kpiField}`)
+                                .eq('agent_id', user.id)
+                                .eq('period_type', 'daily')
+                                .eq('date', actionDateStr)
+                                .single();
+                            if (existingKpi) {
+                                await supabase
+                                    .from('kpi_records')
+                                    .update({ [kpiField]: (existingKpi[kpiField] || 0) + 1 })
+                                    .eq('id', existingKpi.id);
+                            } else {
+                                await supabase
+                                    .from('kpi_records')
+                                    .insert({
+                                        agent_id: user.id,
+                                        period_type: 'daily',
+                                        date: actionDateStr,
+                                        [kpiField]: 1,
+                                        new_listings: 0, conversations_started: 0, relational_coffees: 0,
+                                        sales_interviews: 0, buying_interviews: 0, commercial_evaluations: 0,
+                                        active_portfolio: 0, price_reductions: 0, portfolio_visits: 0,
+                                        buyer_visits: 0, offers_in_negotiation: 0, signed_promises: 0,
+                                        billing_primary: 0, referrals_count: 0, billing_secondary: 0,
+                                    });
+                            }
+                        }
+
+                        // Special case: Cierre de negocio → billing_primary += gross_fees, billing_secondary += closing_value
+                        if (resolvedType === 'Cierre de negocio') {
+                            // Use the local calendar date to avoid UTC-offset issues (Chile is UTC-3)
+                            const todayLocal = toISOLocal(new Date()).split('T')[0];
+                            const feesInCLP = toCLP(grossFees, feesCurrency) || 0;
+                            const closingInCLP = toCLP(closingValue, closingCurrency) || 0;
+                            const { data: existingKpi } = await supabase
+                                .from('kpi_records')
+                                .select('id, billing_primary, billing_secondary')
+                                .eq('agent_id', user.id)
+                                .eq('period_type', 'daily')
+                                .eq('date', todayLocal)
+                                .single();
+                            if (existingKpi) {
+                                await supabase
+                                    .from('kpi_records')
+                                    .update({
+                                        billing_primary: (parseFloat(existingKpi.billing_primary) || 0) + feesInCLP,
+                                        billing_secondary: (parseFloat(existingKpi.billing_secondary) || 0) + closingInCLP,
+                                    })
+                                    .eq('id', existingKpi.id);
+                            } else {
+                                await supabase
+                                    .from('kpi_records')
+                                    .insert({
+                                        agent_id: user.id,
+                                        period_type: 'daily',
+                                        date: todayLocal,
+                                        billing_primary: feesInCLP,
+                                        billing_secondary: closingInCLP,
+                                        new_listings: 0, conversations_started: 0, relational_coffees: 0,
+                                        sales_interviews: 0, buying_interviews: 0, commercial_evaluations: 0,
+                                        active_portfolio: 0, price_reductions: 0, portfolio_visits: 0,
+                                        buyer_visits: 0, offers_in_negotiation: 0, signed_promises: 0,
+                                        referrals_count: 0,
+                                    });
+                            }
+                        }
 
                         toast.success('Acción registrada exitosamente');
 
@@ -482,23 +632,31 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
                         {/* Action Type */}
                         <div className="space-y-2">
                             <Label htmlFor="actionType">Tipo de Acción {viewOnly ? '' : <span className="text-red-500">*</span>}</Label>
-                            <Select value={actionType} onValueChange={setActionType} disabled={viewOnly}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Seleccione una acción" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {ACTION_TYPES.map(type => (
-                                        <SelectItem key={type} value={type}>{type}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            {actionType === 'Otra (I.C)' && (
+                            {viewOnly ? (
+                                /* In viewOnly, always show the real stored value as plain text */
+                                <Input
+                                    value={actionData?.action_type || ''}
+                                    disabled
+                                    className="bg-muted/40"
+                                />
+                            ) : (
+                                <Select value={actionType} onValueChange={setActionType}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Seleccione una acción" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {ACTION_TYPES.map(type => (
+                                            <SelectItem key={type} value={type}>{type}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            )}
+                            {!viewOnly && actionType === 'Otra (I.C)' && (
                                 <Input
                                     placeholder="Especifique qué otra acción"
                                     value={otherActionType}
                                     onChange={(e) => setOtherActionType(e.target.value)}
                                     className="mt-2"
-                                    disabled={viewOnly}
                                 />
                             )}
                         </div>
@@ -529,9 +687,131 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
                             </div>
                         )}
 
+                        {/* Cierre de negocio fields - conditionally visible */}
+                        {(actionType === 'Cierre de negocio' || (viewOnly && actionData?.action_type === 'Cierre de negocio')) && (
+                            <div className="space-y-3 animate-in fade-in slide-in-from-top-1 duration-200 p-4 rounded-xl border border-blue-200 dark:border-blue-900 bg-blue-50/60 dark:bg-blue-950/30 shadow-sm">
+                                <div className="flex items-center gap-2 mb-1">
+                                    <div className="h-5 w-1 rounded-full bg-primary" />
+                                    <p className="text-sm font-semibold text-primary dark:text-blue-300 tracking-wide">Datos del Cierre</p>
+                                </div>
+
+                                {/* Tipo de operación */}
+                                <div className="space-y-2">
+                                    <Label>Tipo de operación <span className="text-red-500">*</span></Label>
+                                    <div className="flex gap-3">
+                                        {['Venta', 'Arriendo'].map(type => (
+                                            <button
+                                                key={type}
+                                                type="button"
+                                                disabled={viewOnly}
+                                                onClick={() => !viewOnly && setDealType(type)}
+                                                className={`flex-1 py-2 px-4 rounded-lg border-2 text-sm font-medium transition-all
+                                                    ${(viewOnly ? actionData?.deal_type : dealType) === type
+                                                        ? 'border-primary bg-primary/10 dark:bg-blue-900/40 text-primary dark:text-blue-300'
+                                                        : 'border-gray-200 dark:border-gray-700 hover:border-primary/40 text-muted-foreground'
+                                                    } ${viewOnly ? 'cursor-default' : 'cursor-pointer'}`}
+                                            >
+                                                {type}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Valor de cierre */}
+                                <div className="space-y-1">
+                                    <Label>Valor de cierre de operación <span className="text-red-500">*</span></Label>
+                                    <div className="flex gap-2 items-center">
+                                        {/* Currency toggle */}
+                                        {!viewOnly && (
+                                            <div className="flex rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden shrink-0">
+                                                {['CLP', 'UF'].map(c => (
+                                                    <button
+                                                        key={c}
+                                                        type="button"
+                                                        onClick={() => setClosingCurrency(c)}
+                                                        className={`px-3 py-1.5 text-xs font-semibold transition-colors ${closingCurrency === c
+                                                            ? 'bg-primary text-white'
+                                                            : 'bg-white dark:bg-slate-900 text-muted-foreground hover:bg-blue-50 dark:hover:bg-blue-950'
+                                                            }`}
+                                                    >{c}</button>
+                                                ))}
+                                            </div>
+                                        )}
+                                        <Input
+                                            type="number"
+                                            placeholder={closingCurrency === 'UF' ? 'Ej: 4500' : 'Ej: 95000000'}
+                                            value={viewOnly ? (actionData?.closing_value ?? '') : closingValue}
+                                            onChange={(e) => setClosingValue(e.target.value)}
+                                            disabled={viewOnly}
+                                            className="bg-white dark:bg-slate-900"
+                                        />
+                                    </div>
+                                    {/* CLP preview when UF entered */}
+                                    {!viewOnly && closingCurrency === 'UF' && closingValue && ufValue > 0 && (
+                                        <p className="text-xs text-blue-600 dark:text-blue-400">
+                                            ≈ ${Math.round(parseFloat(closingValue) * ufValue).toLocaleString('es-CL')} CLP
+                                            <span className="text-muted-foreground ml-1">(1 UF = ${ufValue.toLocaleString('es-CL')})</span>
+                                        </p>
+                                    )}
+                                    {viewOnly && actionData?.closing_value && (
+                                        <p className="text-xs text-muted-foreground">
+                                            ${Number(actionData.closing_value).toLocaleString('es-CL')} CLP
+                                        </p>
+                                    )}
+                                </div>
+
+                                {/* Honorarios brutos */}
+                                <div className="space-y-1">
+                                    <Label>Valor de honorarios brutos <span className="text-red-500">*</span></Label>
+                                    <div className="flex gap-2 items-center">
+                                        {!viewOnly && (
+                                            <div className="flex rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden shrink-0">
+                                                {['CLP', 'UF'].map(c => (
+                                                    <button
+                                                        key={c}
+                                                        type="button"
+                                                        onClick={() => setFeesCurrency(c)}
+                                                        className={`px-3 py-1.5 text-xs font-semibold transition-colors ${feesCurrency === c
+                                                            ? 'bg-primary text-white'
+                                                            : 'bg-white dark:bg-slate-900 text-muted-foreground hover:bg-blue-50 dark:hover:bg-blue-950'
+                                                            }`}
+                                                    >{c}</button>
+                                                ))}
+                                            </div>
+                                        )}
+                                        <Input
+                                            type="number"
+                                            placeholder={feesCurrency === 'UF' ? 'Ej: 90' : 'Ej: 2850000'}
+                                            value={viewOnly ? (actionData?.gross_fees ?? '') : grossFees}
+                                            onChange={(e) => setGrossFees(e.target.value)}
+                                            disabled={viewOnly}
+                                            className="bg-white dark:bg-slate-900"
+                                        />
+                                    </div>
+                                    {!viewOnly && feesCurrency === 'UF' && grossFees && ufValue > 0 && (
+                                        <p className="text-xs text-blue-600 dark:text-blue-400">
+                                            ≈ ${Math.round(parseFloat(grossFees) * ufValue).toLocaleString('es-CL')} CLP
+                                            <span className="text-muted-foreground ml-1">(1 UF = ${ufValue.toLocaleString('es-CL')})</span>
+                                        </p>
+                                    )}
+                                    {viewOnly && actionData?.gross_fees && (
+                                        <p className="text-xs text-muted-foreground">
+                                            ${Number(actionData.gross_fees).toLocaleString('es-CL')} CLP
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
                         {/* Property Selector */}
                         <div className="space-y-2">
-                            <Label htmlFor="property">Propiedad Asociada (Opcional)</Label>
+                            <Label htmlFor="property">
+                                Propiedad Asociada
+                                {actionType === 'Cierre de negocio'
+                                    ? <span className="text-red-500 ml-1">*</span>
+                                    : <span className="text-muted-foreground text-xs ml-1">(Opcional)</span>
+                                }
+                            </Label>
                             <Select
                                 disabled={viewOnly}
                                 value={selectedPropertyId}
@@ -878,49 +1158,79 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
                                 </div>
                             </div>
                         )}
+
+                        {/* Display mandate details in viewOnly mode */}
+                        {viewOnly && mandateDetails && (
+                            <div className="pt-4 border-t mt-4 space-y-3">
+                                <Label className="text-sm font-bold flex items-center gap-2">
+                                    <MapPin className="w-4 h-4 text-green-600" />
+                                    Datos del Mandato
+                                </Label>
+                                <div className="grid grid-cols-2 gap-2 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-100 dark:border-green-800 text-sm">
+                                    <div className="col-span-2">
+                                        <span className="text-xs text-muted-foreground uppercase font-medium">Dirección</span>
+                                        <p className="font-medium">{mandateDetails.address}{mandateDetails.commune ? `, ${mandateDetails.commune}` : ''}</p>
+                                    </div>
+                                    <div>
+                                        <span className="text-xs text-muted-foreground uppercase font-medium">Tipo Captación</span>
+                                        <p className="font-medium">{mandateDetails.capture_type || '-'}</p>
+                                    </div>
+                                    <div>
+                                        <span className="text-xs text-muted-foreground uppercase font-medium">Operación</span>
+                                        <p className="font-medium">{mandateDetails.operation_type || '-'}</p>
+                                    </div>
+                                    {mandateDetails.price && (
+                                        <div className="col-span-2">
+                                            <span className="text-xs text-muted-foreground uppercase font-medium">Precio</span>
+                                            <p className="font-medium">{Number(mandateDetails.price).toLocaleString('es-CL')} {mandateDetails.currency}</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
                     </div>
 
-    <DialogFooter>
-        <Button variant={viewOnly ? "default" : "outline"} onClick={onClose}>
-            {viewOnly ? 'Cerrar' : 'Cancelar'}
-        </Button>
-        {!viewOnly && (
-            <Button onClick={handleSave}>Guardar Acción</Button>
-        )}
-    </DialogFooter>
+                    <DialogFooter>
+                        <Button variant={viewOnly ? "default" : "outline"} onClick={onClose}>
+                            {viewOnly ? 'Cerrar' : 'Cancelar'}
+                        </Button>
+                        {!viewOnly && (
+                            <Button onClick={handleSave}>Guardar Acción</Button>
+                        )}
+                    </DialogFooter>
                 </DialogContent >
             </Dialog >
 
-    {/* Support Creation Modals */ }
-{
-    isCreateContactOpen && (
-        <ContactForm
-            isOpen={isCreateContactOpen}
-            onClose={(newContact) => {
-                setIsCreateContactOpen(false);
-                if (newContact && newContact.id) {
-                    fetchOptionsData(); // Refresh list to get new contact
-                    setSelectedContactIds(prev => [...prev, newContact.id]);
-                }
-            }}
-        />
-    )
-}
+            {/* Support Creation Modals */}
+            {
+                isCreateContactOpen && (
+                    <ContactForm
+                        isOpen={isCreateContactOpen}
+                        onClose={(newContact) => {
+                            setIsCreateContactOpen(false);
+                            if (newContact && newContact.id) {
+                                fetchOptionsData(); // Refresh list to get new contact
+                                setSelectedContactIds(prev => [...prev, newContact.id]);
+                            }
+                        }}
+                    />
+                )
+            }
 
-{
-    isCreatePropertyOpen && (
-        <PropertyForm
-            isOpen={isCreatePropertyOpen}
-            onClose={(newProperty) => {
-                setIsCreatePropertyOpen(false);
-                if (newProperty && newProperty.id) {
-                    fetchOptionsData(); // Refresh list to get new property
-                    setSelectedPropertyId(newProperty.id);
-                }
-            }}
-        />
-    )
-}
+            {
+                isCreatePropertyOpen && (
+                    <PropertyForm
+                        isOpen={isCreatePropertyOpen}
+                        onClose={(newProperty) => {
+                            setIsCreatePropertyOpen(false);
+                            if (newProperty && newProperty.id) {
+                                fetchOptionsData(); // Refresh list to get new property
+                                setSelectedPropertyId(newProperty.id);
+                            }
+                        }}
+                    />
+                )
+            }
         </>
     );
 };
