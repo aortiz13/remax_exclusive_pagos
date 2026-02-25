@@ -22,7 +22,7 @@ const Section = ({ title, children }) => (
     </div>
 )
 
-const ContactForm = ({ contact, isOpen, onClose, isSimplified = false }) => {
+const ContactForm = ({ contact, isOpen, onClose, isSimplified = false, initialEmail = '' }) => {
     const { profile, user } = useAuth()
     const [loading, setLoading] = useState(false)
     const [properties, setProperties] = useState([])
@@ -53,7 +53,7 @@ const ContactForm = ({ contact, isOpen, onClose, isSimplified = false }) => {
         address: '',
         barrio_comuna: '',
         phone: '',
-        email: '',
+        email: initialEmail || '',
         rating: '',
         rating_80_20: '',
         status: 'Activo',

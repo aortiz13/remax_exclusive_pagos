@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { Button, Input, Label, Textarea } from '@/components/ui'
-import { X, Save, Calendar, Clock, Check, ChevronsUpDown, Plus, Activity } from 'lucide-react'
+import { X, Save, Calendar, Clock, Check, ChevronsUpDown, Plus, Activity, Mail } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { supabase } from '../../services/supabase'
 import { useAuth } from '../../context/AuthContext'
@@ -12,10 +12,13 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { cn, toISOLocal } from "../../lib/utils"
 import ContactForm from './ContactForm'
 import PropertyForm from './PropertyForm'
+import { useNavigate } from 'react-router-dom'
 
 const TaskModal = ({ task, contactId, propertyId, isOpen, onClose }) => {
     const { profile, user } = useAuth()
+    const navigate = useNavigate()
     const [loading, setLoading] = useState(false)
+    const [linkedEmails, setLinkedEmails] = useState([])
     const [contacts, setContacts] = useState([])
     const [properties, setProperties] = useState([])
     const [openContactSelect, setOpenContactSelect] = useState(false)
@@ -62,8 +65,20 @@ const TaskModal = ({ task, contactId, propertyId, isOpen, onClose }) => {
                 reminder_minutes: task.reminder_minutes ? task.reminder_minutes.toString() : 'none',
                 is_all_day: !!task.is_all_day
             })
+
+            // Fetch linked emails for existing tasks
+            fetchLinkedEmails(task.id);
         }
     }, [isOpen, contactId, propertyId, task])
+
+    const fetchLinkedEmails = async (taskId) => {
+        if (!taskId) return;
+        const { data } = await supabase
+            .from('email_thread_links')
+            .select('id, thread_id, email_threads(id, subject, gmail_thread_id)')
+            .eq('task_id', taskId);
+        setLinkedEmails(data || []);
+    };
 
     const fetchContacts = async () => {
         const { data } = await supabase.from('contacts').select('id, first_name, last_name').order('first_name')
@@ -150,7 +165,7 @@ const TaskModal = ({ task, contactId, propertyId, isOpen, onClose }) => {
             }
 
             toast.success(task ? 'Tarea actualizada' : 'Tarea creada')
-            onClose(true)
+            onClose(savedTask)
         } catch (error) {
             console.error('Error saving task:', error)
             toast.error('Error al guardar tarea')
@@ -190,6 +205,27 @@ const TaskModal = ({ task, contactId, propertyId, isOpen, onClose }) => {
                                         "{task.crm_actions.note}"
                                     </p>
                                 )}
+                            </div>
+                        )}
+
+                        {/* Linked Emails */}
+                        {linkedEmails.length > 0 && (
+                            <div className="bg-green-50 dark:bg-green-900/10 p-3 rounded-xl border border-green-100 dark:border-green-900/50 space-y-1.5">
+                                <div className="flex items-center gap-2 text-green-700 dark:text-green-400 font-bold text-xs uppercase tracking-wider">
+                                    <Mail className="w-4 h-4" />
+                                    Correos vinculados
+                                </div>
+                                {linkedEmails.map(link => (
+                                    <button
+                                        key={link.id}
+                                        type="button"
+                                        onClick={() => { onClose(false); navigate('/casilla', { state: { openThreadId: link.email_threads?.gmail_thread_id } }); }}
+                                        className="w-full text-left flex items-center gap-2 text-sm text-green-700 hover:text-green-900 hover:bg-green-100 px-2 py-1 rounded transition-colors"
+                                    >
+                                        <Mail className="w-3.5 h-3.5 shrink-0" />
+                                        <span className="truncate">{link.email_threads?.subject || '(Sin asunto)'}</span>
+                                    </button>
+                                ))}
                             </div>
                         )}
 
