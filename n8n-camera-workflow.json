@@ -1,0 +1,224 @@
+{
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "camera-360-notifications",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 2.1,
+            "position": [
+                0,
+                0
+            ],
+            "id": "cam-webhook-001",
+            "name": "Webhook Camera",
+            "webhookId": "cam-360-notif-001"
+        },
+        {
+            "parameters": {
+                "jsCode": "const event = $input.first().json.body.event;\nconst booking = $input.first().json.body.booking || {};\nconst agent = $input.first().json.body.agent || {};\nconst adminNotes = $input.first().json.body.admin_notes || '';\n\nconst EMOJI_MAP = {\n  booking_requested: '📋',\n  booking_approved: '✅',\n  booking_rejected: '❌',\n  booking_rescheduled: '🔄',\n  booking_cancelled: '🚫',\n  urgent_request: '🚨',\n  pickup_confirmed: '🔑',\n  return_confirmed: '📦',\n  early_return: '⚡',\n  return_reminder: '⏰',\n  late_return_alert: '⚠️',\n  pickup_reminder: '🔔',\n  no_show: '👻',\n  waitlist_available: '📢'\n};\n\nconst TITLE_MAP = {\n  booking_requested: 'SOLICITUD DE CÁMARA',\n  booking_approved: 'RESERVA APROBADA',\n  booking_rejected: 'RESERVA RECHAZADA',\n  booking_rescheduled: 'RESERVA REPROGRAMADA',\n  booking_cancelled: 'RESERVA CANCELADA',\n  urgent_request: 'SOLICITUD URGENTE',\n  pickup_confirmed: 'RETIRO CONFIRMADO',\n  return_confirmed: 'DEVOLUCIÓN CONFIRMADA',\n  early_return: 'DEVOLUCIÓN ANTICIPADA',\n  return_reminder: 'RECORDATORIO DE DEVOLUCIÓN',\n  late_return_alert: 'ALERTA: DEVOLUCIÓN VENCIDA',\n  pickup_reminder: 'RECORDATORIO DE RETIRO',\n  no_show: 'NO RETIRADA - AUTO-CANCELADA',\n  waitlist_available: 'HORARIO DISPONIBLE'\n};\n\nconst emoji = EMOJI_MAP[event] || '📷';\nconst title = TITLE_MAP[event] || event;\n\nconst whatsappGroup = `${emoji} *${title}*\\n` +\n  `👤 Agente: ${agent.name || 'N/A'}\\n` +\n  `📷 Cámara: ${booking.camera_unit || 'N/A'}\\n` +\n  `📅 Fecha: ${booking.booking_date || 'N/A'}\\n` +\n  `🕐 Horario: ${booking.start_time || ''} — ${booking.end_time || ''}\\n` +\n  `📍 Propiedad: ${booking.property_address || 'N/A'}\\n` +\n  (adminNotes ? `📝 Nota: ${adminNotes}\\n` : '');\n\nconst whatsappAgent = `${emoji} *${title}*\\n\\n` +\n  `Hola ${agent.name || ''},\\n` +\n  `Tu reserva de Cámara ${booking.camera_unit || ''} para el ${booking.booking_date || ''} de ${booking.start_time || ''} a ${booking.end_time || ''} ha sido actualizada.\\n\\n` +\n  `📍 ${booking.property_address || ''}\\n` +\n  (adminNotes ? `📝 ${adminNotes}\\n` : '') +\n  `Estado: *${booking.status || event}*`;\n\nconst emailSubject = `${emoji} Cámara 360° — ${title}`;\n\nconst emailBody = `<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><style>body{font-family:'Open Sans',sans-serif;margin:0;padding:0;background:#f5f5f5}.container{max-width:600px;margin:20px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.08)}.header{background:linear-gradient(135deg,#003DA5,#0052d4);padding:25px 30px;color:#fff}.header h1{margin:0;font-size:20px}.content{padding:30px}.info-box{background:#f8f9fa;border-left:3px solid #003DA5;padding:15px;border-radius:4px;margin:15px 0}.info-box p{margin:5px 0;font-size:14px;color:#333}.footer{background:#fafafa;padding:15px;text-align:center;border-top:1px solid #e8e8e8;font-size:12px;color:#999}</style></head><body><div class=\"container\"><div class=\"header\"><h1>${emoji} ${title}</h1></div><div class=\"content\"><p>Hola <strong>${agent.name || ''}</strong>,</p><div class=\"info-box\"><p><strong>Cámara:</strong> ${booking.camera_unit || 'N/A'}</p><p><strong>Fecha:</strong> ${booking.booking_date || 'N/A'}</p><p><strong>Horario:</strong> ${booking.start_time || ''} — ${booking.end_time || ''}</p><p><strong>Propiedad:</strong> ${booking.property_address || 'N/A'}</p>${adminNotes ? '<p><strong>Nota:</strong> ' + adminNotes + '</p>' : ''}<p><strong>Estado:</strong> ${booking.status || event}</p></div></div><div class=\"footer\"><strong>RE/MAX Exclusive Chile</strong><br>Sistema de Cámara 360°</div></div></body></html>`;\n\nconst isAgentNotification = ['booking_approved','booking_rejected','booking_rescheduled','return_reminder','pickup_reminder','late_return_alert','no_show','waitlist_available'].includes(event);\n\nreturn {\n  json: {\n    event, booking, agent, adminNotes,\n    whatsappGroup, whatsappAgent,\n    emailSubject, emailBody,\n    isAgentNotification,\n    agentPhone: agent.phone ? agent.phone.replace(/[^0-9]/g, '') : ''\n  }\n};"
+            },
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                320,
+                0
+            ],
+            "id": "cam-code-001",
+            "name": "Formatear Mensajes"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.remax-exclusive.cl/message/sendText/Remax%20Exclusive",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "A47DF197AC02-4F21-BEB4-9F3485E5E4EB"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "number",
+                            "value": "120363425201828395@g.us"
+                        },
+                        {
+                            "name": "text",
+                            "value": "={{ $json.whatsappGroup }}"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                640,
+                0
+            ],
+            "id": "cam-wssp-group",
+            "name": "WhatsApp Grupo",
+            "onError": "continueRegularOutput"
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "options": {
+                        "caseSensitive": true,
+                        "leftValue": "",
+                        "typeValidation": "strict",
+                        "version": 3
+                    },
+                    "conditions": [
+                        {
+                            "leftValue": "={{ $json.isAgentNotification }}",
+                            "rightValue": true,
+                            "operator": {
+                                "type": "boolean",
+                                "operation": "true"
+                            },
+                            "id": "cam-if-001"
+                        }
+                    ],
+                    "combinator": "and"
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 2.3,
+            "position": [
+                880,
+                0
+            ],
+            "id": "cam-if-agent",
+            "name": "Es notif agente?"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.remax-exclusive.cl/message/sendText/Remax%20Exclusive",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "A47DF197AC02-4F21-BEB4-9F3485E5E4EB"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "number",
+                            "value": "={{ $json.agentPhone }}@s.whatsapp.net"
+                        },
+                        {
+                            "name": "text",
+                            "value": "={{ $json.whatsappAgent }}"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1120,
+                -80
+            ],
+            "id": "cam-wssp-agent",
+            "name": "WhatsApp Agente",
+            "onError": "continueRegularOutput"
+        },
+        {
+            "parameters": {
+                "sendTo": "={{ $json.agent.email }}",
+                "subject": "={{ $json.emailSubject }}",
+                "message": "={{ $json.emailBody }}",
+                "options": {
+                    "appendAttribution": false,
+                    "senderName": "Remax Exclusive - Cámara 360°"
+                }
+            },
+            "type": "n8n-nodes-base.gmail",
+            "typeVersion": 2.2,
+            "position": [
+                1120,
+                80
+            ],
+            "id": "cam-gmail-agent",
+            "name": "Gmail Agente"
+        }
+    ],
+    "connections": {
+        "Webhook Camera": {
+            "main": [
+                [
+                    {
+                        "node": "Formatear Mensajes",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Formatear Mensajes": {
+            "main": [
+                [
+                    {
+                        "node": "WhatsApp Grupo",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "WhatsApp Grupo": {
+            "main": [
+                [
+                    {
+                        "node": "Es notif agente?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Es notif agente?": {
+            "main": [
+                [
+                    {
+                        "node": "WhatsApp Agente",
+                        "type": "main",
+                        "index": 0
+                    },
+                    {
+                        "node": "Gmail Agente",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                []
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1"
+    }
+}

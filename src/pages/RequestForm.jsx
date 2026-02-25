@@ -460,11 +460,13 @@ export default function RequestForm() {
                                             // Auto-sync filled-in data back to CRM contacts
                                             const parteAContactId = formData[`_crm${isVenta ? 'Vendedor' : 'Dueño'}ContactId`]
                                             if (parteAContactId) {
-                                                await updateContactFromRequestData(parteAContactId, buildParteAContactFields(formData, isVenta))
+                                                const prefixA = isVenta ? 'vendedor' : 'dueño'
+                                                await updateContactFromRequestData(parteAContactId, buildParteAContactFields(formData, isVenta), formData[`_syncExclude_${prefixA}`] || [])
                                             }
                                             const parteBContactId = formData[`_crm${isVenta ? 'Comprador' : 'Arrendatario'}ContactId`]
                                             if (parteBContactId) {
-                                                await updateContactFromRequestData(parteBContactId, buildParteBContactFields(formData, isVenta))
+                                                const prefixB = isVenta ? 'comprador' : 'arrendatario'
+                                                await updateContactFromRequestData(parteBContactId, buildParteBContactFields(formData, isVenta), formData[`_syncExclude_${prefixB}`] || [])
                                             }
                                         }}
                                     />
@@ -531,10 +533,10 @@ export default function RequestForm() {
                                             }
                                             // Auto-sync filled-in data back to CRM contacts
                                             if (formData._crmDueñoContactId) {
-                                                await updateContactFromRequestData(formData._crmDueñoContactId, buildDueñoContactFields(formData))
+                                                await updateContactFromRequestData(formData._crmDueñoContactId, buildDueñoContactFields(formData), formData._syncExclude_dueño || [])
                                             }
                                             if (formData._crmArrendatarioContactId) {
-                                                await updateContactFromRequestData(formData._crmArrendatarioContactId, buildArrendatarioContactFields(formData))
+                                                await updateContactFromRequestData(formData._crmArrendatarioContactId, buildArrendatarioContactFields(formData), formData._syncExclude_arrendatario || [])
                                             }
                                         }}
                                     />

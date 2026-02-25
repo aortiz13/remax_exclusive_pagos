@@ -2,6 +2,18 @@ import React from 'react'
 import { Card, CardContent, Button, Input, Label } from '@/components/ui'
 import { UserPlus } from 'lucide-react'
 import ContactPickerInline from '@/components/ui/ContactPickerInline'
+import SyncFieldIndicator from '@/components/ui/SyncFieldIndicator'
+
+// Mapping: formField → contact column name
+const FIELD_MAP = {
+    arrendatarioNombre: 'first_name',
+    arrendatarioApellido: 'last_name',
+    arrendatarioRut: 'rut',
+    arrendatarioEmail: 'email',
+    arrendatarioTelefono: 'phone',
+    arrendatarioDireccion: 'address',
+    arrendatarioComuna: 'barrio_comuna',
+}
 
 export default function StepArrendatario({ data, onUpdate, onNext, onBack }) {
     // Conditional Logic for "Puntas"
@@ -31,7 +43,41 @@ export default function StepArrendatario({ data, onUpdate, onNext, onBack }) {
         onUpdate('arrendatarioComuna', contact.barrio_comuna || '')
         // Store the CRM contact ID for auto-linking
         onUpdate('_crmArrendatarioContactId', contact.id)
+
+        // Track which fields were empty in the original contact
+        const emptyFields = []
+        if (!contact.first_name) emptyFields.push('first_name')
+        if (!contact.last_name) emptyFields.push('last_name')
+        if (!contact.rut) emptyFields.push('rut')
+        if (!contact.email) emptyFields.push('email')
+        if (!contact.phone) emptyFields.push('phone')
+        if (!contact.address) emptyFields.push('address')
+        if (!contact.barrio_comuna) emptyFields.push('barrio_comuna')
+        onUpdate('_crmArrendatarioEmptyFields', emptyFields)
+        // Reset exclusions when new contact selected
+        onUpdate('_syncExclude_arrendatario', [])
     }
+
+    const contactId = data._crmArrendatarioContactId
+    const emptyFields = data._crmArrendatarioEmptyFields || []
+    const excludedFields = data._syncExclude_arrendatario || []
+    const handleExclude = (field) => {
+        onUpdate('_syncExclude_arrendatario', [...excludedFields, field])
+    }
+
+    // Helper to render a label with sync indicator
+    const SyncLabel = ({ formField, children }) => (
+        <SyncFieldIndicator
+            contactId={contactId}
+            fieldName={FIELD_MAP[formField]}
+            emptyFields={emptyFields}
+            currentValue={data[formField]}
+            excludedFields={excludedFields}
+            onExclude={handleExclude}
+        >
+            {children}
+        </SyncFieldIndicator>
+    )
 
     return (
         <Card className="max-w-xl mx-auto border-0 shadow-none sm:border sm:shadow-sm">
@@ -61,7 +107,9 @@ export default function StepArrendatario({ data, onUpdate, onNext, onBack }) {
                     {isTenantRequired && (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                <Label>Nombre <span className="text-red-500">*</span></Label>
+                                <SyncLabel formField="arrendatarioNombre">
+                                    <Label>Nombre <span className="text-red-500">*</span></Label>
+                                </SyncLabel>
                                 <Input
                                     value={data.arrendatarioNombre}
                                     onChange={e => onUpdate('arrendatarioNombre', e.target.value)}
@@ -69,7 +117,9 @@ export default function StepArrendatario({ data, onUpdate, onNext, onBack }) {
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label>Apellido <span className="text-red-500">*</span></Label>
+                                <SyncLabel formField="arrendatarioApellido">
+                                    <Label>Apellido <span className="text-red-500">*</span></Label>
+                                </SyncLabel>
                                 <Input
                                     value={data.arrendatarioApellido}
                                     onChange={e => onUpdate('arrendatarioApellido', e.target.value)}
@@ -77,7 +127,9 @@ export default function StepArrendatario({ data, onUpdate, onNext, onBack }) {
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label>RUT <span className="text-red-500">*</span></Label>
+                                <SyncLabel formField="arrendatarioRut">
+                                    <Label>RUT <span className="text-red-500">*</span></Label>
+                                </SyncLabel>
                                 <Input
                                     value={data.arrendatarioRut}
                                     onChange={e => onUpdate('arrendatarioRut', e.target.value)}
@@ -85,7 +137,9 @@ export default function StepArrendatario({ data, onUpdate, onNext, onBack }) {
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label>Email <span className="text-red-500">*</span></Label>
+                                <SyncLabel formField="arrendatarioEmail">
+                                    <Label>Email <span className="text-red-500">*</span></Label>
+                                </SyncLabel>
                                 <Input
                                     type="email"
                                     value={data.arrendatarioEmail}
@@ -94,7 +148,9 @@ export default function StepArrendatario({ data, onUpdate, onNext, onBack }) {
                                 />
                             </div>
                             <div className="space-y-2 md:col-span-2">
-                                <Label>Teléfono <span className="text-red-500">*</span></Label>
+                                <SyncLabel formField="arrendatarioTelefono">
+                                    <Label>Teléfono <span className="text-red-500">*</span></Label>
+                                </SyncLabel>
                                 <Input
                                     value={data.arrendatarioTelefono}
                                     onChange={e => onUpdate('arrendatarioTelefono', e.target.value)}

@@ -2,6 +2,7 @@ import React from 'react'
 import { Card, CardContent, Button, Input, Label } from '@/components/ui'
 import { User } from 'lucide-react'
 import ContactPickerInline from '@/components/ui/ContactPickerInline'
+import SyncFieldIndicator from '@/components/ui/SyncFieldIndicator'
 
 export default function StepParte({ type, data, onUpdate, onNext, onBack }) {
     // Determine the prefix based on type (Vendedor or Comprador)
@@ -17,6 +18,16 @@ export default function StepParte({ type, data, onUpdate, onNext, onBack }) {
         data[`${prefix}Email`]
     )
 
+    // Mapping: formField suffix → contact column name
+    const FIELD_MAP = {
+        Nombre: 'first_name',
+        Rut: 'rut',
+        Email: 'email',
+        Telefono: 'phone',
+        Direccion: 'address',
+        Comuna: 'barrio_comuna',
+    }
+
     const handleSubmit = (e) => {
         e.preventDefault()
         if (isComplete) onNext()
@@ -31,7 +42,40 @@ export default function StepParte({ type, data, onUpdate, onNext, onBack }) {
         onUpdate(`${prefix}Comuna`, contact.barrio_comuna || '')
         // Store the CRM contact ID for auto-linking
         onUpdate(`_crm${type}ContactId`, contact.id)
+
+        // Track which fields were empty in the original contact
+        const emptyFields = []
+        if (!contact.first_name && !contact.last_name) emptyFields.push('first_name')
+        if (!contact.rut) emptyFields.push('rut')
+        if (!contact.email) emptyFields.push('email')
+        if (!contact.phone) emptyFields.push('phone')
+        if (!contact.address) emptyFields.push('address')
+        if (!contact.barrio_comuna) emptyFields.push('barrio_comuna')
+        onUpdate(`_crm${type}EmptyFields`, emptyFields)
+        // Reset exclusions when new contact selected
+        onUpdate(`_syncExclude_${prefix}`, [])
     }
+
+    const contactId = data[`_crm${type}ContactId`]
+    const emptyFields = data[`_crm${type}EmptyFields`] || []
+    const excludedFields = data[`_syncExclude_${prefix}`] || []
+    const handleExclude = (field) => {
+        onUpdate(`_syncExclude_${prefix}`, [...excludedFields, field])
+    }
+
+    // Helper to render a label with sync indicator
+    const SyncLabel = ({ fieldSuffix, children }) => (
+        <SyncFieldIndicator
+            contactId={contactId}
+            fieldName={FIELD_MAP[fieldSuffix]}
+            emptyFields={emptyFields}
+            currentValue={data[`${prefix}${fieldSuffix}`]}
+            excludedFields={excludedFields}
+            onExclude={handleExclude}
+        >
+            {children}
+        </SyncFieldIndicator>
+    )
 
     // Map form type to property_contacts role
     const getRoleLabel = () => {
@@ -72,7 +116,9 @@ export default function StepParte({ type, data, onUpdate, onNext, onBack }) {
                     {isParteRequired && (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                <Label>Nombre Completo <span className="text-red-500">*</span></Label>
+                                <SyncLabel fieldSuffix="Nombre">
+                                    <Label>Nombre Completo <span className="text-red-500">*</span></Label>
+                                </SyncLabel>
                                 <Input
                                     value={data[`${prefix}Nombre`] || ''}
                                     onChange={e => onUpdate(`${prefix}Nombre`, e.target.value)}
@@ -80,7 +126,9 @@ export default function StepParte({ type, data, onUpdate, onNext, onBack }) {
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label>RUT <span className="text-red-500">*</span></Label>
+                                <SyncLabel fieldSuffix="Rut">
+                                    <Label>RUT <span className="text-red-500">*</span></Label>
+                                </SyncLabel>
                                 <Input
                                     value={data[`${prefix}Rut`] || ''}
                                     onChange={e => onUpdate(`${prefix}Rut`, e.target.value)}
@@ -88,7 +136,9 @@ export default function StepParte({ type, data, onUpdate, onNext, onBack }) {
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label>Email <span className="text-red-500">*</span></Label>
+                                <SyncLabel fieldSuffix="Email">
+                                    <Label>Email <span className="text-red-500">*</span></Label>
+                                </SyncLabel>
                                 <Input
                                     type="email"
                                     value={data[`${prefix}Email`] || ''}
@@ -97,7 +147,9 @@ export default function StepParte({ type, data, onUpdate, onNext, onBack }) {
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label>Teléfono</Label>
+                                <SyncLabel fieldSuffix="Telefono">
+                                    <Label>Teléfono</Label>
+                                </SyncLabel>
                                 <Input
                                     value={data[`${prefix}Telefono`] || ''}
                                     onChange={e => onUpdate(`${prefix}Telefono`, e.target.value)}
@@ -105,7 +157,9 @@ export default function StepParte({ type, data, onUpdate, onNext, onBack }) {
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label>Dirección</Label>
+                                <SyncLabel fieldSuffix="Direccion">
+                                    <Label>Dirección</Label>
+                                </SyncLabel>
                                 <Input
                                     value={data[`${prefix}Direccion`] || ''}
                                     onChange={e => onUpdate(`${prefix}Direccion`, e.target.value)}
@@ -113,7 +167,9 @@ export default function StepParte({ type, data, onUpdate, onNext, onBack }) {
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label>Comuna</Label>
+                                <SyncLabel fieldSuffix="Comuna">
+                                    <Label>Comuna</Label>
+                                </SyncLabel>
                                 <Input
                                     value={data[`${prefix}Comuna`] || ''}
                                     onChange={e => onUpdate(`${prefix}Comuna`, e.target.value)}

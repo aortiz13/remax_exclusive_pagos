@@ -35,7 +35,9 @@ import VirtualClassroom from './pages/VirtualClassroom'
 import AdminVirtualClassroom from './pages/AdminVirtualClassroom'
 import Casilla from './pages/Casilla'
 import NewMandate from './pages/crm/NewMandate'
+import AdminCameraSchedule from './pages/AdminCameraSchedule'
 import ChatwootWidget from './components/chatwoot/ChatwootWidget'
+import CameraAgentActions from './components/crm/CameraAgentActions'
 import { Toaster } from 'sonner'
 
 // Protected Route Component
@@ -75,6 +77,7 @@ const Layout = ({ children }) => {
           {children}
         </main>
       </div>
+      {user && <CameraAgentActions />}
     </div>
   )
 }
@@ -186,6 +189,11 @@ function App() {
               <Route path="/admin/import" element={
                 <ProtectedRoute>
                   <AdminPropertyImport />
+                </ProtectedRoute>
+              } />
+              <Route path="/admin/camera-schedule" element={
+                <ProtectedRoute>
+                  <AdminCameraSchedule />
                 </ProtectedRoute>
               } />
 

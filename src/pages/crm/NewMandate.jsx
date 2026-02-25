@@ -21,11 +21,13 @@ import AddressAutocomplete from "@/components/ui/AddressAutocomplete"
 import ContactPickerInline from '../../components/ui/ContactPickerInline'
 import PropertyPickerInline from '../../components/ui/PropertyPickerInline'
 import { logActivity } from '../../services/activityService'
+import Camera360BookingModal from '../../components/crm/Camera360BookingModal'
 
 const NewMandate = () => {
     const { profile, user } = useAuth()
     const navigate = useNavigate()
     const [loading, setLoading] = useState(false)
+    const [showCameraModal, setShowCameraModal] = useState(false)
     const [fetchingUF, setFetchingUF] = useState(false)
     const [ufValue, setUfValue] = useState(0)
 
@@ -601,7 +603,7 @@ const NewMandate = () => {
                                             type="button"
                                             variant="outline"
                                             className="mt-auto border-blue-200 text-blue-600 hover:bg-blue-50"
-                                            onClick={() => toast.info('Reservar cámara - En desarrollo')}
+                                            onClick={() => setShowCameraModal(true)}
                                         >
                                             Reservar cámara
                                         </Button>
@@ -680,6 +682,12 @@ const NewMandate = () => {
                     </Button>
                 </div>
             </form>
+
+            <Camera360BookingModal
+                open={showCameraModal}
+                onClose={() => setShowCameraModal(false)}
+                propertyAddress={formData.address}
+            />
 
 
         </div>

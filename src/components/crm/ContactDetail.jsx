@@ -240,6 +240,8 @@ const ContactDetail = () => {
     if (loading) return <div className="p-8 text-center">Cargando detalles...</div>
     if (!contact) return <div className="p-8 text-center">Contacto no encontrado</div>
 
+    const isOwner = user?.id === contact?.agent_id
+
     return (
         <div className="max-w-7xl mx-auto space-y-6 pb-20">
             {/* Header */}
@@ -248,15 +250,21 @@ const ContactDetail = () => {
                     <ArrowLeft className="w-4 h-4" /> Volver
                 </Button>
                 <div className="flex items-center gap-2">
-                    <Button onClick={() => setIsActionModalOpen(true)} className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white">
-                        <Plus className="w-4 h-4" /> Agregar Acción
-                    </Button>
-                    <Button variant="destructive" size="sm" onClick={() => setIsDeleteOpen(true)} className="gap-2">
-                        <Trash2 className="w-4 h-4" /> Eliminar
-                    </Button>
-                    <Button onClick={() => setIsEditOpen(true)} className="gap-2">
-                        <Edit className="w-4 h-4" /> Editar Contacto
-                    </Button>
+                    {isOwner && (
+                        <Button onClick={() => setIsActionModalOpen(true)} className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white">
+                            <Plus className="w-4 h-4" /> Agregar Acción
+                        </Button>
+                    )}
+                    {isOwner && (
+                        <Button variant="destructive" size="sm" onClick={() => setIsDeleteOpen(true)} className="gap-2">
+                            <Trash2 className="w-4 h-4" /> Eliminar
+                        </Button>
+                    )}
+                    {isOwner && (
+                        <Button onClick={() => setIsEditOpen(true)} className="gap-2">
+                            <Edit className="w-4 h-4" /> Editar Contacto
+                        </Button>
+                    )}
                 </div>
             </div>
 
@@ -436,14 +444,16 @@ const ContactDetail = () => {
                         <h2 className="text-xl font-semibold flex items-center gap-2">
                             <Home className="w-5 h-5" /> Propiedades ({relatedProperties.length})
                         </h2>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setIsAddPropertyOpen(true)}
-                            className="gap-1"
-                        >
-                            <Plus className="w-4 h-4" /> Agregar Propiedad
-                        </Button>
+                        {isOwner && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setIsAddPropertyOpen(true)}
+                                className="gap-1"
+                            >
+                                <Plus className="w-4 h-4" /> Agregar Propiedad
+                            </Button>
+                        )}
                     </div>
                     {relatedProperties.length === 0 ? (
                         <p className="text-sm text-muted-foreground text-center py-4">No hay propiedades vinculadas a este contacto.</p>
@@ -467,18 +477,20 @@ const ContactDetail = () => {
                                                 <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium capitalize ${ROLE_COLORS[prop.role] || 'bg-gray-100 text-gray-800'}`}>
                                                     {prop.role}
                                                 </span>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-6 w-6 opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation()
-                                                        setLinkToDelete(prop)
-                                                        setIsDeleteLinkOpen(true)
-                                                    }}
-                                                >
-                                                    <Trash2 className="w-3 h-3" />
-                                                </Button>
+                                                {isOwner && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-6 w-6 opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation()
+                                                            setLinkToDelete(prop)
+                                                            setIsDeleteLinkOpen(true)
+                                                        }}
+                                                    >
+                                                        <Trash2 className="w-3 h-3" />
+                                                    </Button>
+                                                )}
                                             </div>
                                             <span className="text-[10px] text-gray-500">
                                                 {prop.property_type}

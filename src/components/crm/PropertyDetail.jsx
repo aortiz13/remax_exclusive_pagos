@@ -219,6 +219,8 @@ const PropertyDetail = () => {
     if (loading) return <div className="p-8 text-center">Cargando propiedad...</div>
     if (!property) return <div className="p-8 text-center">Propiedad no encontrada.</div>
 
+    const isOwner = user?.id === property?.agent_id
+
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
             {/* Header */}
@@ -251,26 +253,34 @@ const PropertyDetail = () => {
                     </div>
                 </div>
                 <div className="ml-auto flex gap-2">
-                    <Button className="bg-indigo-600 hover:bg-indigo-700 text-white" onClick={() => setIsActionModalOpen(true)}>
-                        <Plus className="w-4 h-4 mr-2" />
-                        Agregar Acción
-                    </Button>
-                    <Button variant="outline" onClick={() => setIsEditOpen(true)}>Editar</Button>
-                    <Button className="bg-green-600 hover:bg-green-700 text-white" onClick={() => {
-                        setSelectedTask({ property_id: property.id, contact_id: property.owner_id }) // Pre-fill
-                        setIsTaskModalOpen(true)
-                    }}>
-                        <Plus className="w-4 h-4 mr-2" />
-                        Nueva Tarea
-                    </Button>
-                    <Button
-                        variant="destructive"
-                        size="icon"
-                        className="bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/40 border-0"
-                        onClick={() => setIsDeleteDialogOpen(true)}
-                    >
-                        <Trash2 className="w-4 h-4" />
-                    </Button>
+                    {isOwner && (
+                        <Button className="bg-indigo-600 hover:bg-indigo-700 text-white" onClick={() => setIsActionModalOpen(true)}>
+                            <Plus className="w-4 h-4 mr-2" />
+                            Agregar Acción
+                        </Button>
+                    )}
+                    {isOwner && (
+                        <Button variant="outline" onClick={() => setIsEditOpen(true)}>Editar</Button>
+                    )}
+                    {isOwner && (
+                        <Button className="bg-green-600 hover:bg-green-700 text-white" onClick={() => {
+                            setSelectedTask({ property_id: property.id, contact_id: property.owner_id }) // Pre-fill
+                            setIsTaskModalOpen(true)
+                        }}>
+                            <Plus className="w-4 h-4 mr-2" />
+                            Nueva Tarea
+                        </Button>
+                    )}
+                    {isOwner && (
+                        <Button
+                            variant="destructive"
+                            size="icon"
+                            className="bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/40 border-0"
+                            onClick={() => setIsDeleteDialogOpen(true)}
+                        >
+                            <Trash2 className="w-4 h-4" />
+                        </Button>
+                    )}
                 </div>
             </div>
 
@@ -493,15 +503,17 @@ const PropertyDetail = () => {
                             <h3 className="font-medium flex items-center gap-2">
                                 <User className="w-4 h-4" /> Relacionados
                             </h3>
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 w-6 p-0"
-                                title="Agregar Participante"
-                                onClick={() => setIsAddParticipantOpen(true)}
-                            >
-                                <Plus className="w-3 h-3" />
-                            </Button>
+                            {isOwner && (
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 w-6 p-0"
+                                    title="Agregar Participante"
+                                    onClick={() => setIsAddParticipantOpen(true)}
+                                >
+                                    <Plus className="w-3 h-3" />
+                                </Button>
+                            )}
                         </div>
                         <div className="max-h-[300px] overflow-y-auto p-2 space-y-1">
                             {participants.length === 0 ? (
@@ -523,17 +535,19 @@ const PropertyDetail = () => {
                                                 <div className="text-xs"><span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium capitalize ${ROLE_COLORS[part.role] || 'bg-gray-100 text-gray-800'}`}>{part.role}</span></div>
                                             </div>
                                         </div>
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-6 w-6 opacity-0 group-hover:opacity-100"
-                                            onClick={() => {
-                                                setParticipantToDelete(part)
-                                                setIsDeleteParticipantOpen(true)
-                                            }}
-                                        >
-                                            <Trash2 className="w-3 h-3 text-red-500" />
-                                        </Button>
+                                        {isOwner && (
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-6 w-6 opacity-0 group-hover:opacity-100"
+                                                onClick={() => {
+                                                    setParticipantToDelete(part)
+                                                    setIsDeleteParticipantOpen(true)
+                                                }}
+                                            >
+                                                <Trash2 className="w-3 h-3 text-red-500" />
+                                            </Button>
+                                        )}
                                     </div>
                                 ))
                             )}

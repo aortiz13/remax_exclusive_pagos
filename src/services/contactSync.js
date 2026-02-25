@@ -7,13 +7,16 @@ import { supabase } from './supabase'
  *
  * @param {string} contactId - The CRM contact UUID
  * @param {Object} fieldsMap - Map of { contactColumn: requestValue }
+ * @param {string[]} [excludeFields] - Column names the agent opted out of syncing
  */
-export async function updateContactFromRequestData(contactId, fieldsMap) {
+export async function updateContactFromRequestData(contactId, fieldsMap, excludeFields = []) {
     if (!contactId) return
 
     // Filter out empty/null/undefined values — only sync non-empty data
+    // Also skip any fields the agent explicitly excluded
     const updates = {}
     for (const [column, value] of Object.entries(fieldsMap)) {
+        if (excludeFields.includes(column)) continue
         if (value && String(value).trim()) {
             updates[column] = String(value).trim()
         }
