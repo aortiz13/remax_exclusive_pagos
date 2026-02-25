@@ -28,12 +28,16 @@ import ActionModal from './ActionModal';
 
 
 const ACTION_TYPES = [
+    "Captación Nueva",
     "Café relacional",
     "Entrevista Venta (Pre-listing)",
     "Entrevista Compra (Pre-Buying)",
     "Evaluación Comercial",
     "Visita Propiedad",
     "Visita Comprador",
+    "Carta Oferta",
+    "Baja de Precio",
+    "Cierre de negocio",
     "Promesa Firmada",
     "Llamada en frío (I.C)",
     "Llamada de vendedor activo (I.C)",
@@ -42,6 +46,13 @@ const ACTION_TYPES = [
     "Vista a conserjes (I.C)",
     "Otra (I.C)"
 ];
+
+// Maps action_type → kpi_records field to decrement by 1 when deleted
+const ACTION_KPI_MAP = {
+    'Carta Oferta': 'offers_in_negotiation',
+    'Baja de Precio': 'price_reductions',
+    // NOTE: 'Cierre de negocio' is handled separately with money amounts, not a -1 counter
+};
 
 const ActionList = () => {
     const { user, profile } = useAuth();
@@ -226,6 +237,11 @@ const ActionList = () => {
                                             <TableCell className="font-medium px-6 py-4">
                                                 <div className="flex items-center gap-2">
                                                     {action.action_type}
+                                                    {action.mandate_id && (
+                                                        <span className="text-[10px] bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 px-1.5 py-0.5 rounded-full font-semibold border border-green-200 dark:border-green-800">
+                                                            🏠 Captación
+                                                        </span>
+                                                    )}
                                                     {action.is_conversation_starter && (
                                                         <span className="text-[10px] bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200 px-1.5 py-0.5 rounded-full font-semibold border border-amber-200 dark:border-amber-800">
                                                             I.C.
@@ -318,8 +334,57 @@ const ActionList = () => {
                                                                                 .delete()
                                                                                 .eq('id', action.id);
                                                                             if (error) throw error;
-                                                                            setActions(prev => prev.filter(a => a.id !== action.id));
-                                                                            toast.success('Acción eliminada exitosamente');
+
+                                                                            // Decrement KPI for Captación Nueva (mandate_id) or other mapped types
+                                                                            const actionDateStr = (action.action_date || '').split('T')[0];
+                                                                            const kpiField = action.mandate_id
+                                                                                ? 'new_listings'
+                                                                                : ACTION_KPI_MAP[action.action_type];
+                                                                            if (kpiField && actionDateStr) {
+                                                                                const { data: kpiRow } = await supabase
+                                                                                    .from('kpi_records')
+                                                                                    .select(`id, ${kpiField}`)
+                                                                                    .eq('agent_id', user.id)
+                                                                                    .eq('period_type', 'daily')
+                                                                                    .eq('date', actionDateStr)
+                                                                                    .single();
+                                                                                if (kpiRow && kpiRow[kpiField] > 0) {
+                                                                                    await supabase
+                                                                                        .from('kpi_records')
+                                                                                        .update({ [kpiField]: kpiRow[kpiField] - 1 })
+                                                                                        .eq('id', kpiRow.id);
+                                                                                }
+                                                                            }
+
+                                                                             // Special: Cierre de negocio - subtract actual billing amounts from kpi_records
+                                                                             if (action.action_type === 'Cierre de negocio') {
+                                                                                 const feesToRemove = parseFloat(action.gross_fees) || 0;
+                                                                                 const closingToRemove = parseFloat(action.closing_value) || 0;
+                                                                                 const todayLocal = new Date().toLocaleDateString('sv-SE');
+                                                                                 const datesToSearch = [...new Set([actionDateStr, todayLocal])].filter(Boolean);
+                                                                                 const { data: kpiRowsB } = await supabase
+                                                                                     .from('kpi_records')
+                                                                                     .select('id, billing_primary, billing_secondary')
+                                                                                     .eq('agent_id', user.id)
+                                                                                     .eq('period_type', 'daily')
+                                                                                     .in('date', datesToSearch);
+                                                                                 if (kpiRowsB && kpiRowsB.length > 0) {
+                                                                                     const billingRow = kpiRowsB.find(r =>
+                                                                                         parseFloat(r.billing_primary) >= feesToRemove ||
+                                                                                         parseFloat(r.billing_secondary) >= closingToRemove
+                                                                                     ) || kpiRowsB[0];
+                                                                                     await supabase
+                                                                                         .from('kpi_records')
+                                                                                         .update({
+                                                                                             billing_primary: Math.max(0, (parseFloat(billingRow.billing_primary) || 0) - feesToRemove),
+                                                                                             billing_secondary: Math.max(0, (parseFloat(billingRow.billing_secondary) || 0) - closingToRemove),
+                                                                                         })
+                                                                                         .eq('id', billingRow.id);
+                                                                                 }
+                                                                             }
+
+                                                                             setActions(prev => prev.filter(a => a.id !== action.id));
+                                                                             toast.success('Acción eliminada exitosamente');
                                                                         } catch (err) {
                                                                             console.error('Error deleting action:', err);
                                                                             toast.error('Error al eliminar la acción');

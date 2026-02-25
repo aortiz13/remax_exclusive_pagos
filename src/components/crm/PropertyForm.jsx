@@ -198,6 +198,42 @@ const PropertyForm = ({ property, isOpen, onClose, isSimplified = false }) => {
 
             if (queryError) throw queryError
 
+            // Auto-increment active_portfolio KPI when a NEW property is saved with an active status
+            const INACTIVE_STATUSES = ['Vendida', 'Por Captar']
+            const isNewProperty = !property?.id
+            const hasActiveStatus = (savedProperty?.status || []).some(s => !INACTIVE_STATUSES.includes(s))
+
+            if (isNewProperty && hasActiveStatus && user?.id) {
+                const todayStr = new Date().toISOString().split('T')[0]
+                const { data: existingKpi } = await supabase
+                    .from('kpi_records')
+                    .select('id, active_portfolio')
+                    .eq('agent_id', user.id)
+                    .eq('period_type', 'daily')
+                    .eq('date', todayStr)
+                    .single()
+                if (existingKpi) {
+                    await supabase
+                        .from('kpi_records')
+                        .update({ active_portfolio: (existingKpi.active_portfolio || 0) + 1 })
+                        .eq('id', existingKpi.id)
+                } else {
+                    await supabase
+                        .from('kpi_records')
+                        .insert({
+                            agent_id: user.id,
+                            period_type: 'daily',
+                            date: todayStr,
+                            active_portfolio: 1,
+                            new_listings: 0, conversations_started: 0, relational_coffees: 0,
+                            sales_interviews: 0, buying_interviews: 0, commercial_evaluations: 0,
+                            price_reductions: 0, portfolio_visits: 0, buyer_visits: 0,
+                            offers_in_negotiation: 0, signed_promises: 0,
+                            billing_primary: 0, referrals_count: 0, billing_secondary: 0,
+                        })
+                }
+            }
+
             // Log activity and save contact links
             if (savedProperty) {
                 await logActivity({

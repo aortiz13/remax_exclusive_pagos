@@ -9,7 +9,26 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle, Button, Input } from '@/components/ui'
 import { cn } from '@/lib/utils'
 
-export default function KpiDataEntry({ defaultTab = 'weekly', onClose }) {
+// Fields that can ONLY be loaded via the ActionModal / New Mandates / Property form (not from the dashboard)
+const ACTION_MODAL_ONLY_FIELDS = new Set([
+    'conversations_started',
+    'relational_coffees',
+    'sales_interviews',
+    'buying_interviews',
+    'commercial_evaluations',
+    'new_listings',          // Auto-contabilizado desde Nueva Captación
+    'active_portfolio',      // Auto-contabilizado desde nueva propiedad activa en CRM
+    'price_reductions',      // Auto-contabilizado desde Baja de Precio
+    'portfolio_visits',
+    'buyer_visits',
+    'offers_in_negotiation', // Auto-contabilizado desde Carta Oferta
+    'signed_promises',
+    'billing_primary',       // Auto-contabilizado desde Cierre de Negocio
+    'billing_secondary',     // Auto-contabilizado desde Cierre de Negocio
+    'referrals_count',       // Auto-contabilizado desde Cierre de Negocio
+])
+
+export default function KpiDataEntry({ defaultTab = 'weekly', onClose, dashboardMode = false }) {
     const { user } = useAuth()
     const [periodType, setPeriodType] = useState(defaultTab) // 'daily', 'weekly', 'monthly'
     const [selectedDate, setSelectedDate] = useState(new Date())
@@ -241,17 +260,24 @@ export default function KpiDataEntry({ defaultTab = 'weekly', onClose }) {
             </div>
 
             <form onSubmit={handleSave} className="space-y-6">
+                {dashboardMode && (
+                    <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                        <span className="mt-0.5">⚠️</span>
+                        <span>Los KPIs de <strong>Gestión</strong>, <strong>Captaciones Nuevas</strong>, <strong>Cartera Activa</strong>, <strong>Bajas de Precio</strong>, <strong>Visitas</strong>, <strong>Carta Oferta</strong> y <strong>Promesa Firmada</strong> se contabilizan automáticamente desde el <strong>modal de acciones</strong>, el formulario de <strong>Propiedad</strong> y el flujo de <strong>Nueva Captación</strong>.</span>
+                    </div>
+                )}
+
                 {/* Form Sections (Reuse same structure as WeeklyKpiForm but generic) */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {/* Activity */}
                     <Card>
                         <CardHeader><CardTitle className="text-base text-blue-600">Gestión</CardTitle></CardHeader>
                         <CardContent className="space-y-4">
-                            <InputKpi label="Inicios de Conversación" name="conversations_started" state={formData} setState={setFormData} />
-                            <InputKpi label="Cafés Relacionales" name="relational_coffees" state={formData} setState={setFormData} />
-                            <InputKpi label="Entrevistas Venta (Prelisting)" name="sales_interviews" state={formData} setState={setFormData} />
-                            <InputKpi label="Entrevistas Compra (Prebuying)" name="buying_interviews" state={formData} setState={setFormData} />
-                            <InputKpi label="Evaluaciones Comerciales" name="commercial_evaluations" state={formData} setState={setFormData} />
+                            <InputKpi label="Inicios de Conversación" name="conversations_started" state={formData} setState={setFormData} readOnly={dashboardMode && ACTION_MODAL_ONLY_FIELDS.has('conversations_started')} />
+                            <InputKpi label="Cafés Relacionales" name="relational_coffees" state={formData} setState={setFormData} readOnly={dashboardMode && ACTION_MODAL_ONLY_FIELDS.has('relational_coffees')} />
+                            <InputKpi label="Entrevistas Venta (Prelisting)" name="sales_interviews" state={formData} setState={setFormData} readOnly={dashboardMode && ACTION_MODAL_ONLY_FIELDS.has('sales_interviews')} />
+                            <InputKpi label="Entrevistas Compra (Prebuying)" name="buying_interviews" state={formData} setState={setFormData} readOnly={dashboardMode && ACTION_MODAL_ONLY_FIELDS.has('buying_interviews')} />
+                            <InputKpi label="Evaluaciones Comerciales" name="commercial_evaluations" state={formData} setState={setFormData} readOnly={dashboardMode && ACTION_MODAL_ONLY_FIELDS.has('commercial_evaluations')} />
                         </CardContent>
                     </Card>
 
@@ -259,13 +285,13 @@ export default function KpiDataEntry({ defaultTab = 'weekly', onClose }) {
                     <Card>
                         <CardHeader><CardTitle className="text-base text-green-600">Resultados</CardTitle></CardHeader>
                         <CardContent className="space-y-4">
-                            <InputKpi label="Captaciones Nuevas" name="new_listings" state={formData} setState={setFormData} />
-                            <InputKpi label="Cartera Activa" name="active_portfolio" state={formData} setState={setFormData} />
-                            <InputKpi label="Bajas de Precio" name="price_reductions" state={formData} setState={setFormData} />
-                            <InputKpi label="Visitas Propiedades" name="portfolio_visits" state={formData} setState={setFormData} />
-                            <InputKpi label="Visitas Compradores" name="buyer_visits" state={formData} setState={setFormData} />
-                            <InputKpi label="Ofertas Negociación" name="offers_in_negotiation" state={formData} setState={setFormData} />
-                            <InputKpi label="Promesas Firmadas" name="signed_promises" state={formData} setState={setFormData} />
+                            <InputKpi label="Captaciones Nuevas" name="new_listings" state={formData} setState={setFormData} readOnly={dashboardMode && ACTION_MODAL_ONLY_FIELDS.has('new_listings')} />
+                            <InputKpi label="Cartera Activa" name="active_portfolio" state={formData} setState={setFormData} readOnly={dashboardMode && ACTION_MODAL_ONLY_FIELDS.has('active_portfolio')} />
+                            <InputKpi label="Bajas de Precio" name="price_reductions" state={formData} setState={setFormData} readOnly={dashboardMode && ACTION_MODAL_ONLY_FIELDS.has('price_reductions')} />
+                            <InputKpi label="Visitas Propiedades" name="portfolio_visits" state={formData} setState={setFormData} readOnly={dashboardMode && ACTION_MODAL_ONLY_FIELDS.has('portfolio_visits')} />
+                            <InputKpi label="Visitas Compradores" name="buyer_visits" state={formData} setState={setFormData} readOnly={dashboardMode && ACTION_MODAL_ONLY_FIELDS.has('buyer_visits')} />
+                            <InputKpi label="Ofertas Negociación" name="offers_in_negotiation" state={formData} setState={setFormData} readOnly={dashboardMode && ACTION_MODAL_ONLY_FIELDS.has('offers_in_negotiation')} />
+                            <InputKpi label="Promesas Firmadas" name="signed_promises" state={formData} setState={setFormData} readOnly={dashboardMode && ACTION_MODAL_ONLY_FIELDS.has('signed_promises')} />
                         </CardContent>
                     </Card>
 
@@ -273,9 +299,9 @@ export default function KpiDataEntry({ defaultTab = 'weekly', onClose }) {
                     <Card>
                         <CardHeader><CardTitle className="text-base text-purple-600">Facturación & Referidos</CardTitle></CardHeader>
                         <CardContent className="space-y-4">
-                            <InputKpi label="Facturación Principal ($)" name="billing_primary" state={formData} setState={setFormData} type="number" step="0.01" />
-                            <InputKpi label="Referidos" name="referrals_count" state={formData} setState={setFormData} />
-                            <InputKpi label="Facturación Secundaria ($)" name="billing_secondary" state={formData} setState={setFormData} type="number" step="0.01" />
+                            <InputKpi label="Facturación Principal ($)" name="billing_primary" state={formData} setState={setFormData} type="number" step="0.01" readOnly={dashboardMode && ACTION_MODAL_ONLY_FIELDS.has('billing_primary')} />
+                            <InputKpi label="Referidos" name="referrals_count" state={formData} setState={setFormData} readOnly={dashboardMode && ACTION_MODAL_ONLY_FIELDS.has('referrals_count')} />
+                            <InputKpi label="Facturación Secundaria ($)" name="billing_secondary" state={formData} setState={setFormData} type="number" step="0.01" readOnly={dashboardMode && ACTION_MODAL_ONLY_FIELDS.has('billing_secondary')} />
                         </CardContent>
                     </Card>
                 </div>
@@ -291,16 +317,22 @@ export default function KpiDataEntry({ defaultTab = 'weekly', onClose }) {
     )
 }
 
-const InputKpi = ({ label, name, state, setState, type = "number", step = "1" }) => (
+const InputKpi = ({ label, name, state, setState, type = "number", step = "1", readOnly = false }) => (
     <div className="space-y-1">
-        <label className="text-xs font-medium text-slate-500 uppercase">{label}</label>
+        <div className="flex items-center justify-between gap-2">
+            <label className={cn("text-xs font-medium uppercase", readOnly ? "text-slate-300" : "text-slate-500")}>{label}</label>
+            {readOnly && (
+                <span className="text-[10px] text-slate-400 italic">Solo vía modal de acciones</span>
+            )}
+        </div>
         <Input
             type={type}
             step={step}
             min="0"
             value={state[name]}
-            onChange={(e) => setState(prev => ({ ...prev, [name]: e.target.value === '' ? 0 : Number(e.target.value) }))}
-            className="font-mono text-right"
+            onChange={(e) => !readOnly && setState(prev => ({ ...prev, [name]: e.target.value === '' ? 0 : Number(e.target.value) }))}
+            className={cn("font-mono text-right", readOnly && "bg-slate-50 text-slate-400 cursor-not-allowed")}
+            disabled={readOnly}
         />
     </div>
 )
