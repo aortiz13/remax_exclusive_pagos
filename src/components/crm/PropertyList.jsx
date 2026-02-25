@@ -99,6 +99,8 @@ const PropertyList = () => {
         { id: 'commune', label: 'Comuna', visible: true },
         { id: 'price', label: 'Precio', visible: true },
         { id: 'status', label: 'Estado', visible: true },
+        { id: 'operation', label: 'Operación', visible: false },
+        { id: 'published', label: 'Publicada', visible: false },
         { id: 'owner', label: 'Dueño', visible: true },
         { id: 'metrics', label: 'Metrajes', visible: false },
         { id: 'actions', label: 'Acciones', visible: true, locked: true },
@@ -299,6 +301,16 @@ const PropertyList = () => {
                         {property.m2_total ? ` / ${property.m2_total}m² tot.` : ''}
                     </div>
                 )
+            case 'operation':
+                return property.operation_type ? (
+                    <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full capitalize ${property.operation_type === 'arriendo' ? 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300' : 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300'}`}>
+                        {property.operation_type}
+                    </span>
+                ) : '-'
+            case 'published':
+                return property.published_at
+                    ? new Date(property.published_at).toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' })
+                    : '-'
             case 'actions':
                 return (
                     <div className="text-center">

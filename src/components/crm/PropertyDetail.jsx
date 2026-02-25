@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Button, Badge, Separator, AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui'
-import { ArrowLeft, User, MapPin, Building, Ruler, BedDouble, Bath, Link as LinkIcon, FileText, Briefcase, Plus, Filter, Trash2 } from 'lucide-react'
+import { ArrowLeft, User, MapPin, Building, Ruler, BedDouble, Bath, Link as LinkIcon, FileText, Briefcase, Plus, Filter, Trash2, History, Star } from 'lucide-react'
 import { supabase } from '../../services/supabase'
 import { useAuth } from '../../context/AuthContext'
 import PropertyForm from './PropertyForm'
@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import TaskModal from './TaskModal'
 import AddParticipantModal, { ROLE_COLORS } from './AddParticipantModal'
 import Storyline from './Storyline'
+import PropertyTimeline from './PropertyTimeline'
 import { logActivity } from '../../services/activityService'
 import { toast } from 'sonner'
 import ActionModal from './ActionModal'
@@ -235,6 +236,16 @@ const PropertyDetail = () => {
                                 {property.currency === 'CLP' ? '$' : property.currency} {new Intl.NumberFormat('es-CL').format(property.price)}
                             </span>
                         )}
+                        {property.is_exclusive && (
+                            <span className="inline-flex items-center gap-0.5 px-2 py-0.5 text-xs font-semibold rounded-full bg-gradient-to-r from-amber-400 to-yellow-400 text-amber-900">
+                                <Star className="w-2.5 h-2.5" /> Exclusiva
+                            </span>
+                        )}
+                        {property.operation_type && (
+                            <span className={`px-2 py-0.5 text-xs font-medium rounded-full capitalize ${property.operation_type === 'arriendo' ? 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300' : 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300'}`}>
+                                {property.operation_type}
+                            </span>
+                        )}
                         {property.unit_number && <span>• Depto {property.unit_number}</span>}
                         {property.commune && <span>• {property.commune}</span>}
                     </div>
@@ -326,6 +337,11 @@ const PropertyDetail = () => {
                     <Tabs defaultValue="activity" className="w-full">
                         <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent">
                             <TabsTrigger value="activity" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2">Actividad</TabsTrigger>
+                            {property.source === 'remax' && (
+                                <TabsTrigger value="timeline" className="rounded-none border-b-2 border-transparent data-[state=active]:border-indigo-500 data-[state=active]:bg-transparent px-4 py-2">
+                                    <History className="w-3.5 h-3.5 mr-1.5" /> RE/MAX Timeline
+                                </TabsTrigger>
+                            )}
                             <TabsTrigger value="details" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2">Detalles</TabsTrigger>
                             <TabsTrigger value="notes" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2">Notas</TabsTrigger>
                             <TabsTrigger value="links" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2">Enlaces</TabsTrigger>
@@ -350,6 +366,12 @@ const PropertyDetail = () => {
 
                             <Storyline propertyId={id} />
                         </TabsContent>
+
+                        {property.source === 'remax' && (
+                            <TabsContent value="timeline" className="py-4">
+                                <PropertyTimeline propertyId={id} property={property} />
+                            </TabsContent>
+                        )}
 
                         <TabsContent value="details" className="py-4 space-y-4">
                             <div className="bg-white dark:bg-gray-900 rounded-xl border p-4">
