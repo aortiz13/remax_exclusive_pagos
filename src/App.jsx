@@ -37,6 +37,8 @@ import Casilla from './pages/Casilla'
 import NewMandate from './pages/crm/NewMandate'
 import AdminCameraSchedule from './pages/AdminCameraSchedule'
 import AdminCaptaciones from './pages/AdminCaptaciones'
+import SalesPipeline from './pages/SalesPipeline'
+import CRMActions from './pages/CRMActions'
 import ChatwootWidget from './components/chatwoot/ChatwootWidget'
 import CameraAgentActions from './components/crm/CameraAgentActions'
 import { Toaster } from 'sonner'
@@ -206,6 +208,18 @@ function App() {
               <Route path="/crm" element={
                 <ProtectedRoute>
                   <CRM />
+                </ProtectedRoute>
+              } />
+
+              <Route path="/crm/actions" element={
+                <ProtectedRoute>
+                  <CRMActions />
+                </ProtectedRoute>
+              } />
+
+              <Route path="/crm/pipeline" element={
+                <ProtectedRoute>
+                  <SalesPipeline />
                 </ProtectedRoute>
               } />
 
