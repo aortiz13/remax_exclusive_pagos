@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext'
 import { supabase } from '../services/supabase'
 import { Button, Separator, AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Card, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui'
 import { useNavigate } from 'react-router-dom'
-import { Trash2, Search, MapPin, Receipt, FileText, ArrowUpRight, UserPlus, BarChart3 } from 'lucide-react'
+import { Trash2, Search, MapPin, Receipt, FileText, ArrowUpRight, UserPlus, BarChart3, ClipboardCheck, AlertTriangle } from 'lucide-react'
 import { toast } from 'sonner'
 import { useDashboardTour } from '../hooks/useDashboardTour'
 import { motion } from 'framer-motion'
@@ -30,6 +30,8 @@ export default function Dashboard() {
     const [isContactModalOpen, setIsContactModalOpen] = useState(false)
     const [isKpiModalOpen, setIsKpiModalOpen] = useState(false)
     const [isActionModalOpen, setIsActionModalOpen] = useState(false)
+    const [pendingReports, setPendingReports] = useState(0)
+    const [overdueReports, setOverdueReports] = useState(0)
 
     useEffect(() => {
         startTour()
@@ -41,6 +43,36 @@ export default function Dashboard() {
         if (user && profile && !isPostulante) {
             fetchRequests()
         }
+    }, [user, profile])
+
+    // Fetch pending management reports count
+    useEffect(() => {
+        if (!user) return
+        const fetchReportCounts = async () => {
+            try {
+                const isAdminRole = ['superadministrador', 'comercial', 'legal'].includes(profile?.role)
+                let query = supabase
+                    .from('management_reports')
+                    .select('id, due_date, status', { count: 'exact' })
+                    .in('status', ['pending', 'overdue'])
+
+                if (!isAdminRole) {
+                    query = query.eq('agent_id', user.id)
+                }
+
+                const { data, count } = await query
+                if (data) {
+                    const today = new Date()
+                    today.setHours(0, 0, 0, 0)
+                    const overdue = data.filter(r => new Date(r.due_date + 'T12:00:00') < today).length
+                    setPendingReports(count || 0)
+                    setOverdueReports(overdue)
+                }
+            } catch (err) {
+                console.error('Error fetching report counts:', err)
+            }
+        }
+        fetchReportCounts()
     }, [user, profile])
 
     const fetchRequests = async () => {
@@ -270,6 +302,37 @@ export default function Dashboard() {
 
     return (
         <div className="p-4 md:p-8 max-w-[1600px] mx-auto space-y-8 bg-slate-50/50 min-h-screen">
+
+            {/* Pending Reports Banner */}
+            {pendingReports > 0 && (
+                <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    onClick={() => navigate('/informes-gestion')}
+                    className={cn(
+                        "rounded-xl p-4 flex items-center justify-between cursor-pointer transition-all hover:shadow-md border",
+                        overdueReports > 0
+                            ? "bg-gradient-to-r from-red-50 to-amber-50 border-red-200 hover:border-red-300"
+                            : "bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200 hover:border-blue-300"
+                    )}
+                >
+                    <div className="flex items-center gap-3">
+                        <div className={cn("p-2 rounded-lg", overdueReports > 0 ? "bg-red-100" : "bg-blue-100")}>
+                            {overdueReports > 0 ? <AlertTriangle className="w-5 h-5 text-red-600" /> : <ClipboardCheck className="w-5 h-5 text-blue-600" />}
+                        </div>
+                        <div>
+                            <p className="font-semibold text-sm text-slate-900">
+                                {overdueReports > 0
+                                    ? `⚠️ ${overdueReports} informe(s) de gestión atrasado(s)`
+                                    : `📋 ${pendingReports} informe(s) de gestión pendiente(s)`
+                                }
+                            </p>
+                            <p className="text-xs text-slate-500">Haz clic para ver y completar tus informes periódicos</p>
+                        </div>
+                    </div>
+                    <ArrowUpRight className="w-5 h-5 text-slate-400" />
+                </motion.div>
+            )}
 
             {/* Header & Search */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">

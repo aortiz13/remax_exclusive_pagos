@@ -534,7 +534,7 @@ export default function BusinessPlan() {
                         <Target className="w-5 h-5 text-white" />
                     </div>
                     <div>
-                        <h1 className="text-xl font-bold text-gray-900 tracking-tight">Plan de Negocio</h1>
+                        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Plan de Negocio</h1>
                         <div className="flex items-center gap-2 mt-0.5">
                             <select value={year} onChange={e => setYear(Number(e.target.value))} className="text-xs font-bold text-blue-600 bg-transparent border-none p-0 focus:ring-0 cursor-pointer">
                                 {[2024, 2025, 2026, 2027].map(y => <option key={y} value={y}>{y}</option>)}
@@ -553,37 +553,37 @@ export default function BusinessPlan() {
 
 
             {/* PERSISTENT RESULTS STRIP — always visible */}
-            <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 rounded-xl px-4 py-3 text-white shrink-0">
-                <div className="flex items-center gap-4">
+            <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 rounded-xl px-6 py-5 text-white shrink-0">
+                <div className="flex items-center gap-6">
                     {/* Billing targets */}
-                    <div className="flex items-center gap-3 flex-1">
-                        <div className="pr-3 border-r border-white/10">
-                            <p className="text-[0.5rem] text-blue-300 font-bold uppercase">Fact. Bruta Mín.</p>
-                            <p className="text-base font-bold">{fmtCLP(minBilling)}</p>
+                    <div className="flex items-center gap-5 flex-1">
+                        <div className="pr-5 border-r border-white/10">
+                            <p className="text-xs text-blue-300 font-bold uppercase">Fact. Bruta Mín.</p>
+                            <p className="text-xl font-bold">{fmtCLP(minBilling)}</p>
                         </div>
-                        <div className="pr-3 border-r border-white/10">
-                            <p className="text-[0.5rem] text-emerald-300 font-bold uppercase">Vendedores ({(sellerPct * 100).toFixed(0)}%)</p>
-                            <p className="text-sm font-bold">{fmtCLP(billingVend)} <span className="text-[0.5rem] text-slate-400">· {minTransSale} trans.</span></p>
+                        <div className="pr-5 border-r border-white/10">
+                            <p className="text-xs text-emerald-300 font-bold uppercase">Vendedores ({(sellerPct * 100).toFixed(0)}%)</p>
+                            <p className="text-base font-bold">{fmtCLP(billingVend)} <span className="text-xs text-slate-400">· {minTransSale} trans.</span></p>
                         </div>
-                        <div className="pr-3 border-r border-white/10">
-                            <p className="text-[0.5rem] text-amber-300 font-bold uppercase">Arrendadores ({(landlordPct * 100).toFixed(0)}%)</p>
-                            <p className="text-sm font-bold">{fmtCLP(billingArr)} <span className="text-[0.5rem] text-slate-400">· {minTransRental} trans.</span></p>
+                        <div className="pr-5 border-r border-white/10">
+                            <p className="text-xs text-amber-300 font-bold uppercase">Arrendadores ({(landlordPct * 100).toFixed(0)}%)</p>
+                            <p className="text-base font-bold">{fmtCLP(billingArr)} <span className="text-xs text-slate-400">· {minTransRental} trans.</span></p>
                         </div>
-                        <div className="pr-3 border-r border-white/10">
-                            <p className="text-[0.5rem] text-purple-300 font-bold uppercase">Horas/Día</p>
-                            <p className="text-sm font-bold">{minDailyH}h <span className="text-[0.5rem] text-slate-400">· {totalWeekH}h/sem</span></p>
+                        <div className="pr-5 border-r border-white/10">
+                            <p className="text-xs text-purple-300 font-bold uppercase">Horas/Día</p>
+                            <p className="text-base font-bold">{minDailyH}h <span className="text-xs text-slate-400">· {totalWeekH}h/sem</span></p>
                         </div>
                     </div>
                     {/* Progress bar */}
-                    <div className="w-52 shrink-0">
-                        <div className="flex justify-between items-center mb-1">
-                            <span className="text-[0.55rem] text-slate-300">Progreso</span>
-                            <span className="text-[0.55rem] font-bold text-blue-300">{billingProg.toFixed(1)}%</span>
+                    <div className="w-64 shrink-0">
+                        <div className="flex justify-between items-center mb-1.5">
+                            <span className="text-xs text-slate-300">Progreso</span>
+                            <span className="text-xs font-bold text-blue-300">{billingProg.toFixed(1)}%</span>
                         </div>
-                        <div className="w-full bg-white/10 h-2 rounded-full overflow-hidden">
+                        <div className="w-full bg-white/10 h-3 rounded-full overflow-hidden">
                             <div className={`h-full rounded-full transition-all duration-1000 ${billingProg >= 80 ? 'bg-emerald-400' : billingProg >= 40 ? 'bg-amber-400' : 'bg-red-400'}`} style={{ width: `${billingProg}%` }} />
                         </div>
-                        <div className="flex justify-between mt-0.5"><span className="text-[0.5rem] text-slate-500">Actual: {fmtCLP(kpiData.billing)}</span><span className="text-[0.5rem] text-slate-500">Meta: {fmtCLP(minBilling)}</span></div>
+                        <div className="flex justify-between mt-1"><span className="text-xs text-slate-500">Actual: {fmtCLP(kpiData.billing)}</span><span className="text-xs text-slate-500">Meta: {fmtCLP(minBilling)}</span></div>
                     </div>
                 </div>
             </div>

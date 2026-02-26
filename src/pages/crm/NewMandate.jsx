@@ -196,6 +196,31 @@ const NewMandate = () => {
                 body: JSON.stringify(webhookPayload)
             }).catch(err => console.error('Webhook error:', err));
 
+            // 1.7 Fire thank-you email to property owner (fire-and-forget)
+            if (formData.contact_id) {
+                const { data: ownerContact } = await supabase
+                    .from('contacts')
+                    .select('first_name, last_name, email')
+                    .eq('id', formData.contact_id)
+                    .single()
+
+                if (ownerContact?.email) {
+                    const thankyouPayload = {
+                        owner_email: ownerContact.email,
+                        owner_name: `${ownerContact.first_name || ''} ${ownerContact.last_name || ''}`.trim(),
+                        agent_name: `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim(),
+                        agent_email: profile?.email,
+                        property_address: formData.address,
+                        operation_type: formData.operation_type
+                    }
+                    fetch('https://workflow.remax-exclusive.cl/webhook/mandate-thankyou', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(thankyouPayload)
+                    }).catch(err => console.error('Thank-you webhook error:', err))
+                }
+            }
+
             // 2. Save Mandate
             const { data: mandate, error } = await supabase
                 .from('mandates')
@@ -308,6 +333,21 @@ const NewMandate = () => {
                 contact_id: formData.contact_id,
                 property_id: formData.property_id || null
             })
+
+            // 6. Create first management report (due in 15 days)
+            if (mandate?.id && formData.contact_id) {
+                const dueDate = new Date()
+                dueDate.setDate(dueDate.getDate() + 15)
+                await supabase.from('management_reports').insert({
+                    property_id: formData.property_id || null,
+                    mandate_id: mandate.id,
+                    agent_id: user.id,
+                    owner_contact_id: formData.contact_id,
+                    report_number: 1,
+                    due_date: dueDate.toISOString().split('T')[0],
+                    status: 'pending'
+                }).catch(err => console.error('Management report creation error:', err))
+            }
 
             toast.success('Captación registrada con éxito')
             navigate('/crm')

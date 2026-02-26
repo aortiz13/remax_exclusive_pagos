@@ -1,0 +1,109 @@
+{
+    "name": "Informe Gestión - Envío a Propietario",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "management-report-send",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 2.1,
+            "position": [
+                200,
+                300
+            ],
+            "id": "wh-mgmt-report-001",
+            "name": "Webhook",
+            "webhookId": "mgmt-report-send-wh"
+        },
+        {
+            "parameters": {
+                "jsCode": "const body = $('Webhook').first().json.body;\nconst logoUrl = \"https://res.cloudinary.com/dhzmkxbek/image/upload/v1765974550/ChatGPT_Image_11_dic_2025_03_45_43_p.m._oajwry.png\";\n\nconst portales = body.report_data?.portales || {};\nconst actividades = body.report_data?.actividades || 'Sin actividades registradas';\nconst analisis = body.report_data?.analisis_mercado || '';\nconst conclusiones = body.report_data?.conclusiones || '';\nconst reportNumber = body.report_number || 1;\nconst date = new Date().toLocaleDateString('es-CL', { year: 'numeric', month: 'long', day: 'numeric' });\n\nfunction portalRow(name, data) {\n    if (!data || (!data.visitas && !data.impresiones && !data.contactos)) return '';\n    const col1 = data.impresiones ? `${data.impresiones} Impresiones / ${data.visitas || 0} Visitas` : `${data.visitas || 0} Visitas`;\n    const col2 = `${data.contactos || 0} Contacto(s)${data.visitas_realizadas ? ` / ${data.visitas_realizadas} Visita(s) realizadas` : ''}${data.visitas_coordinadas ? ` / ${data.visitas_coordinadas} Visita(s) coordinadas` : ''}`;\n    return `\n        <tr>\n            <td style=\"padding: 12px 15px; border-bottom: 1px solid #eee; font-weight: 600; color: #003DA5; width: 30%;\">${name}</td>\n            <td style=\"padding: 12px 15px; border-bottom: 1px solid #eee; width: 35%;\">${col1}</td>\n            <td style=\"padding: 12px 15px; border-bottom: 1px solid #eee; width: 35%;\">${col2}</td>\n        </tr>`;\n}\n\nconst finalHtml = `\n<!DOCTYPE html>\n<html lang=\"es\">\n<head>\n    <meta charset=\"UTF-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <link href=\"https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap\" rel=\"stylesheet\">\n    <style>\n        * { margin: 0; padding: 0; box-sizing: border-box; }\n        body { font-family: 'Open Sans', sans-serif; background-color: #f5f5f5; }\n        .email-wrapper { background-color: #f5f5f5; padding: 30px 20px; }\n        .container { max-width: 700px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }\n        .header { background: linear-gradient(135deg, #003DA5 0%, #0056D6 100%); padding: 30px; display: flex; align-items: center; gap: 20px; }\n        .header img { max-height: 55px; }\n        .header-text h1 { color: #fff; font-size: 20px; font-weight: 700; }\n        .header-text p { color: rgba(255,255,255,0.8); font-size: 13px; margin-top: 4px; }\n        .content { padding: 30px; }\n        .content p { color: #333; font-size: 14px; line-height: 1.7; margin-bottom: 16px; }\n        .section-title { color: #003DA5; font-size: 16px; font-weight: 700; margin: 25px 0 12px; padding-bottom: 8px; border-bottom: 2px solid #003DA5; }\n        .portal-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 13px; }\n        .portal-table th { background-color: #f0f4ff; color: #003DA5; padding: 10px 15px; text-align: left; font-weight: 600; font-size: 12px; text-transform: uppercase; }\n        .text-section { background-color: #f8f9fa; border-radius: 8px; padding: 20px; margin: 15px 0; font-size: 14px; line-height: 1.7; color: #333; white-space: pre-wrap; }\n        .property-badge { display: inline-block; background: linear-gradient(135deg, #e8f0fe, #f0f4ff); border: 1px solid #003DA5; border-radius: 8px; padding: 8px 16px; font-weight: 600; color: #003DA5; margin: 10px 0; }\n        .footer { background-color: #fafafa; padding: 20px 30px; text-align: center; border-top: 1px solid #e8e8e8; }\n        .footer p { font-size: 12px; color: #999; margin: 3px 0; }\n    </style>\n</head>\n<body>\n    <div class=\"email-wrapper\">\n        <div class=\"container\">\n            <div class=\"header\">\n                <img src=\"${logoUrl}\" alt=\"RE/MAX\">\n                <div class=\"header-text\">\n                    <h1>Informe de Gestión #${reportNumber}</h1>\n                    <p>${date}</p>\n                </div>\n            </div>\n            <div class=\"content\">\n                <p>Estimado/a <strong>${body.owner_name || 'Propietario'}</strong>,</p>\n                <p>Le compartimos el informe periódico de gestión de su propiedad:</p>\n                <div class=\"property-badge\">📍 ${body.property_address}</div>\n\n                <h3 class=\"section-title\">📊 Visitas y Contactos en Portales</h3>\n                <table class=\"portal-table\">\n                    <thead>\n                        <tr>\n                            <th>Portal</th>\n                            <th>Visitas / Impresiones</th>\n                            <th>Contactos / Visitas Realizadas</th>\n                        </tr>\n                    </thead>\n                    <tbody>\n                        ${portalRow('Portal RE/MAX', portales.remax)}\n                        ${portalRow('Portal Inmobiliario', portales.portal_inmobiliario)}\n                        ${portalRow('Grupo Proppit', portales.proppit)}\n                        ${portalRow('Yapo', portales.yapo)}\n                    </tbody>\n                </table>\n\n                <h3 class=\"section-title\">📋 Actividades Realizadas</h3>\n                <div class=\"text-section\">${actividades}</div>\n\n                ${analisis ? `<h3 class=\"section-title\">📈 Análisis de Mercado</h3><div class=\"text-section\">${analisis}</div>` : ''}\n\n                <h3 class=\"section-title\">✅ Conclusiones y Próximos Pasos</h3>\n                <div class=\"text-section\">${conclusiones || 'Continuaremos trabajando en la gestión de su propiedad.'}</div>\n\n                <p style=\"margin-top: 25px; font-size: 13px; color: #666;\">Su próximo informe será enviado en aproximadamente 15 días.</p>\n                <p style=\"margin-top: 20px;\">Cordialmente,<br><strong>${body.agent_name}</strong><br><em>Agente Inmobiliario RE/MAX Exclusive</em></p>\n            </div>\n            <div class=\"footer\">\n                <p><strong>RE/MAX Exclusive Chile</strong></p>\n                <p>Informe generado automáticamente</p>\n            </div>\n        </div>\n    </div>\n</body>\n</html>\n`;\n\nreturn {\n  json: { finalHtml, ownerEmail: body.owner_email, agentEmail: body.agent_email, subject: `Informe de Gestión #${reportNumber} — ${body.property_address}` }\n};"
+            },
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                450,
+                300
+            ],
+            "id": "code-mgmt-report-001",
+            "name": "Generar HTML Informe"
+        },
+        {
+            "parameters": {
+                "sendTo": "={{ $json.ownerEmail }}",
+                "subject": "={{ $json.subject }}",
+                "message": "={{ $json.finalHtml }}",
+                "options": {
+                    "appendAttribution": false,
+                    "senderName": "RE/MAX Exclusive Chile",
+                    "ccList": "={{ $json.agentEmail }}, operaciones@remax-exclusive.cl"
+                }
+            },
+            "type": "n8n-nodes-base.gmail",
+            "typeVersion": 2.2,
+            "position": [
+                700,
+                300
+            ],
+            "id": "gmail-mgmt-report-001",
+            "name": "Enviar Informe Email",
+            "credentials": {
+                "gmailOAuth2": {
+                    "id": "lxbAOjqaxS3bEojd",
+                    "name": "correo info@"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "respondWith": "text",
+                "responseBody": "ok"
+            },
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1.1,
+            "position": [
+                450,
+                500
+            ],
+            "id": "respond-mgmt-001",
+            "name": "Respond to Webhook"
+        }
+    ],
+    "connections": {
+        "Webhook": {
+            "main": [
+                [
+                    {
+                        "node": "Generar HTML Informe",
+                        "type": "main",
+                        "index": 0
+                    },
+                    {
+                        "node": "Respond to Webhook",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Generar HTML Informe": {
+            "main": [
+                [
+                    {
+                        "node": "Enviar Informe Email",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1"
+    },
+    "meta": {
+        "instanceId": "remax-exclusive"
+    }
+}

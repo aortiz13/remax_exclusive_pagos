@@ -10,6 +10,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui"
 import AddressAutocomplete from "@/components/ui/AddressAutocomplete"
 import ContactForm from './ContactForm'
+import TransactionCompletionModal from './TransactionCompletionModal'
 import { cn } from "@/lib/utils"
 import { logActivity } from '../../services/activityService'
 import { ROLES, ROLE_COLORS } from './AddParticipantModal'
@@ -26,10 +27,12 @@ const Section = ({ title, children }) => (
 )
 
 const PropertyForm = ({ property, isOpen, onClose, isSimplified = false }) => {
-    const { user } = useAuth()
+    const { user, profile } = useAuth()
     const [loading, setLoading] = useState(false)
     const [contacts, setContacts] = useState([])
     const [isContactFormOpen, setIsContactFormOpen] = useState(false)
+    const [showTransactionModal, setShowTransactionModal] = useState(false)
+    const [savedPropertyForTxn, setSavedPropertyForTxn] = useState(null)
 
     // Contact links management
     const [existingLinks, setExistingLinks] = useState([])
@@ -59,7 +62,7 @@ const PropertyForm = ({ property, isOpen, onClose, isSimplified = false }) => {
     })
 
     const PROPERTY_TYPES = ['Departamento', 'Casa', 'Oficina', 'Terreno', 'Bodega', 'Estacionamiento', 'Comercial', 'Otro']
-    const STATUS_OPTIONS = ['Administrada', 'Vendida', 'En Negociación', 'Visitas', 'Publicada', 'Por Captar', 'En Venta']
+    const STATUS_OPTIONS = ['Administrada', 'Vendida', 'Arrendada', 'En Negociación', 'Visitas', 'Publicada', 'Por Captar', 'En Venta', 'En Arriendo']
 
     useEffect(() => {
         if (isOpen) {
@@ -198,8 +201,14 @@ const PropertyForm = ({ property, isOpen, onClose, isSimplified = false }) => {
 
             if (queryError) throw queryError
 
+            // Detect if status changed to Vendida or Arrendada (completion)
+            const COMPLETION_STATUSES = ['Vendida', 'Arrendada']
+            const oldStatuses = property?.status || []
+            const newStatuses = savedProperty?.status || []
+            const isNewCompletion = newStatuses.some(s => COMPLETION_STATUSES.includes(s)) && !oldStatuses.some(s => COMPLETION_STATUSES.includes(s))
+
             // Auto-increment active_portfolio KPI when a NEW property is saved with an active status
-            const INACTIVE_STATUSES = ['Vendida', 'Por Captar']
+            const INACTIVE_STATUSES = ['Vendida', 'Arrendada', 'Por Captar']
             const isNewProperty = !property?.id
             const hasActiveStatus = (savedProperty?.status || []).some(s => !INACTIVE_STATUSES.includes(s))
 
@@ -250,6 +259,14 @@ const PropertyForm = ({ property, isOpen, onClose, isSimplified = false }) => {
             }
 
             toast.success(property ? 'Propiedad actualizada' : 'Propiedad creada')
+
+            // If property was just marked as sold/rented, show transaction completion modal
+            if (isNewCompletion && savedProperty) {
+                setSavedPropertyForTxn(savedProperty)
+                setShowTransactionModal(true)
+                return // Don't close form yet, wait for modal
+            }
+
             onClose(savedProperty)
         } catch (error) {
             console.error('Error saving property:', error)
@@ -630,6 +647,20 @@ const PropertyForm = ({ property, isOpen, onClose, isSimplified = false }) => {
                             </Button>
                         </div>
                     </motion.div>
+                    {showTransactionModal && savedPropertyForTxn && (
+                        <TransactionCompletionModal
+                            isOpen={showTransactionModal}
+                            property={savedPropertyForTxn}
+                            agentProfile={profile}
+                            existingLinks={existingLinks.filter(l => !removedLinkIds.includes(l.id))}
+                            pendingLinks={pendingLinks}
+                            onClose={() => {
+                                setShowTransactionModal(false)
+                                setSavedPropertyForTxn(null)
+                                onClose(savedPropertyForTxn)
+                            }}
+                        />
+                    )}
                     {isContactFormOpen && (
                         <ContactForm
                             isOpen={isContactFormOpen}

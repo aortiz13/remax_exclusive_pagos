@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { Card, CardContent } from "@/components/ui"
-import { Building2, FileText, ArrowLeft, Receipt } from "lucide-react"
+import { Building2, FileText, ArrowLeft, Receipt, Shield } from "lucide-react"
 import { Button } from "@/components/ui"
 
 export default function NewRequestSelection() {
@@ -78,6 +78,23 @@ export default function NewRequestSelection() {
                                 <h3 className="text-xl font-bold text-slate-900 group-hover:text-amber-700 transition-colors">Evaluación Comercial</h3>
                                 <p className="text-sm text-slate-500 max-w-[200px] mx-auto">
                                     Generar solicitud de evaluación comercial de propiedad.
+                                </p>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card
+                        className="cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:shadow-xl border-2 hover:border-orange-500 group"
+                        onClick={() => navigate('/shifts')}
+                    >
+                        <CardContent className="flex flex-col items-center justify-center p-12 text-center space-y-6">
+                            <div className="p-6 rounded-full bg-orange-50 group-hover:bg-orange-100 transition-colors">
+                                <Shield className="h-12 w-12 text-orange-600" />
+                            </div>
+                            <div className="space-y-2">
+                                <h3 className="text-xl font-bold text-slate-900 group-hover:text-orange-700 transition-colors">Agendar Turno / Guardia</h3>
+                                <p className="text-sm text-slate-500 max-w-[200px] mx-auto">
+                                    Reservar turno en oficina para recibir leads.
                                 </p>
                             </div>
                         </CardContent>

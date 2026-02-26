@@ -36,9 +36,14 @@ import AdminVirtualClassroom from './pages/AdminVirtualClassroom'
 import Casilla from './pages/Casilla'
 import NewMandate from './pages/crm/NewMandate'
 import AdminCameraSchedule from './pages/AdminCameraSchedule'
+import AdminShiftSchedule from './pages/AdminShiftSchedule'
+import ShiftBookingPage from './pages/ShiftBookingPage'
+import GuardLeadReportPage from './pages/GuardLeadReportPage'
 import AdminCaptaciones from './pages/AdminCaptaciones'
 import SalesPipeline from './pages/SalesPipeline'
 import CRMActions from './pages/CRMActions'
+import ManagementReportList from './pages/ManagementReportList'
+import ManagementReportPage from './pages/ManagementReportPage'
 import AdminVideoGenerator from './pages/AdminVideoGenerator'
 import ChatwootWidget from './components/chatwoot/ChatwootWidget'
 import CameraAgentActions from './components/crm/CameraAgentActions'
@@ -205,6 +210,23 @@ function App() {
                   <AdminCaptaciones />
                 </ProtectedRoute>
               } />
+              <Route path="/admin/shift-schedule" element={
+                <ProtectedRoute>
+                  <AdminShiftSchedule />
+                </ProtectedRoute>
+              } />
+
+              <Route path="/shifts" element={
+                <ProtectedRoute>
+                  <ShiftBookingPage />
+                </ProtectedRoute>
+              } />
+
+              <Route path="/guard-leads" element={
+                <ProtectedRoute>
+                  <GuardLeadReportPage />
+                </ProtectedRoute>
+              } />
 
               <Route path="/crm" element={
                 <ProtectedRoute>
@@ -245,6 +267,17 @@ function App() {
               <Route path="/new-mandate" element={
                 <ProtectedRoute>
                   <NewMandate />
+                </ProtectedRoute>
+              } />
+
+              <Route path="/informes-gestion" element={
+                <ProtectedRoute>
+                  <ManagementReportList />
+                </ProtectedRoute>
+              } />
+              <Route path="/informes-gestion/:reportId" element={
+                <ProtectedRoute>
+                  <ManagementReportPage />
                 </ProtectedRoute>
               } />
 
