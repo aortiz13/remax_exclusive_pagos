@@ -10,17 +10,29 @@ import { toast } from 'sonner';
  * Repairs double-encoded UTF-8 text stored as Latin-1.
  * e.g. "captaciÃ³n" → "captación"
  * This handles emails stored before the atob() fix was applied.
+ * It also works for text where multi-byte chars were truncated to single bytes.
  */
 const fixEncoding = (str) => {
     if (!str) return str;
     try {
+        // Only attempt repair if we see signs of double-encoding:
+        // - Ã followed by a character (classic Latin-1 → UTF-8 double-encode)
+        // - Â followed by specific chars (BOM / non-breaking space double-encode)
+        const hasDoubleEncoding = /[\xC0-\xFF][\x80-\xBF]/.test(str) || /Ã[±³¡©®]/.test(str);
+        if (!hasDoubleEncoding) return str;
+
         // Re-encode each char as a Latin-1 byte, then decode as UTF-8
         const bytes = new Uint8Array(str.length);
         for (let i = 0; i < str.length; i++) {
             bytes[i] = str.charCodeAt(i) & 0xff;
         }
         const decoded = new TextDecoder('utf-8').decode(bytes);
-        // If decoding succeeded and changed something, use it; otherwise keep original
+
+        // Sanity: if decoding introduced replacement chars (U+FFFD), the original was likely fine
+        if (decoded.includes('\ufffd') && !str.includes('\ufffd')) {
+            return str;
+        }
+
         return decoded;
     } catch {
         return str;
