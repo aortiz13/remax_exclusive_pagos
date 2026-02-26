@@ -35,6 +35,7 @@ import { supabase } from '../../services/supabase'
 import PropertyQuickView from './PropertyQuickView'
 import PropertyForm from './PropertyForm'
 import { toast } from 'sonner'
+import { logActivity } from '../../services/activityService'
 import {
     DndContext,
     closestCenter,
@@ -201,6 +202,15 @@ const PropertyList = () => {
                 .eq('id', propertyToDelete.id)
 
             if (propertyError) throw propertyError
+
+            // Log property deletion to timeline
+            logActivity({
+                action: 'Eliminó',
+                entity_type: 'Propiedad',
+                entity_id: propertyToDelete.id,
+                description: `Propiedad eliminada: ${propertyToDelete.address || 'Sin dirección'}`,
+                property_id: propertyToDelete.id
+            }).catch(() => { })
 
             toast.success('Propiedad eliminada correctamente')
 

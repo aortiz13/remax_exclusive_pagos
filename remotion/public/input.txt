@@ -1,0 +1,13 @@
+file 'step1_contact.png'
+duration 5.5
+file 'step2_add_action.png'
+duration 4.5
+file 'step3_dropdown.png'
+duration 4.0
+file 'step4_selected.png'
+duration 4.0
+file 'step5_notes.png'
+duration 5.0
+file 'step6_close.png'
+duration 6.0
+file 'step6_close.png'

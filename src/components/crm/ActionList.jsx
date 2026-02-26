@@ -23,6 +23,7 @@ import { supabase } from '../../services/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'sonner';
 import ActionModal from './ActionModal';
+import { logActivity } from '../../services/activityService';
 
 
 
@@ -356,35 +357,47 @@ const ActionList = () => {
                                                                                 }
                                                                             }
 
-                                                                             // Special: Cierre de negocio - subtract actual billing amounts from kpi_records
-                                                                             if (action.action_type === 'Cierre de negocio') {
-                                                                                 const feesToRemove = parseFloat(action.gross_fees) || 0;
-                                                                                 const closingToRemove = parseFloat(action.closing_value) || 0;
-                                                                                 const todayLocal = new Date().toLocaleDateString('sv-SE');
-                                                                                 const datesToSearch = [...new Set([actionDateStr, todayLocal])].filter(Boolean);
-                                                                                 const { data: kpiRowsB } = await supabase
-                                                                                     .from('kpi_records')
-                                                                                     .select('id, billing_primary, billing_secondary')
-                                                                                     .eq('agent_id', user.id)
-                                                                                     .eq('period_type', 'daily')
-                                                                                     .in('date', datesToSearch);
-                                                                                 if (kpiRowsB && kpiRowsB.length > 0) {
-                                                                                     const billingRow = kpiRowsB.find(r =>
-                                                                                         parseFloat(r.billing_primary) >= feesToRemove ||
-                                                                                         parseFloat(r.billing_secondary) >= closingToRemove
-                                                                                     ) || kpiRowsB[0];
-                                                                                     await supabase
-                                                                                         .from('kpi_records')
-                                                                                         .update({
-                                                                                             billing_primary: Math.max(0, (parseFloat(billingRow.billing_primary) || 0) - feesToRemove),
-                                                                                             billing_secondary: Math.max(0, (parseFloat(billingRow.billing_secondary) || 0) - closingToRemove),
-                                                                                         })
-                                                                                         .eq('id', billingRow.id);
-                                                                                 }
-                                                                             }
+                                                                            // Special: Cierre de negocio - subtract actual billing amounts from kpi_records
+                                                                            if (action.action_type === 'Cierre de negocio') {
+                                                                                const feesToRemove = parseFloat(action.gross_fees) || 0;
+                                                                                const closingToRemove = parseFloat(action.closing_value) || 0;
+                                                                                const todayLocal = new Date().toLocaleDateString('sv-SE');
+                                                                                const datesToSearch = [...new Set([actionDateStr, todayLocal])].filter(Boolean);
+                                                                                const { data: kpiRowsB } = await supabase
+                                                                                    .from('kpi_records')
+                                                                                    .select('id, billing_primary, billing_secondary')
+                                                                                    .eq('agent_id', user.id)
+                                                                                    .eq('period_type', 'daily')
+                                                                                    .in('date', datesToSearch);
+                                                                                if (kpiRowsB && kpiRowsB.length > 0) {
+                                                                                    const billingRow = kpiRowsB.find(r =>
+                                                                                        parseFloat(r.billing_primary) >= feesToRemove ||
+                                                                                        parseFloat(r.billing_secondary) >= closingToRemove
+                                                                                    ) || kpiRowsB[0];
+                                                                                    await supabase
+                                                                                        .from('kpi_records')
+                                                                                        .update({
+                                                                                            billing_primary: Math.max(0, (parseFloat(billingRow.billing_primary) || 0) - feesToRemove),
+                                                                                            billing_secondary: Math.max(0, (parseFloat(billingRow.billing_secondary) || 0) - closingToRemove),
+                                                                                        })
+                                                                                        .eq('id', billingRow.id);
+                                                                                }
+                                                                            }
 
-                                                                             setActions(prev => prev.filter(a => a.id !== action.id));
-                                                                             toast.success('Acción eliminada exitosamente');
+                                                                            // Log deletion to timeline
+                                                                            const firstContact = action.contacts?.[0];
+                                                                            logActivity({
+                                                                                action: 'Eliminó',
+                                                                                entity_type: action.property_id ? 'Propiedad' : 'Contacto',
+                                                                                entity_id: action.property_id || firstContact?.id,
+                                                                                description: `Acción eliminada: ${action.action_type}`,
+                                                                                contact_id: firstContact?.id || null,
+                                                                                property_id: action.property_id || null,
+                                                                                details: { action_type: action.action_type }
+                                                                            }).catch(() => { });
+
+                                                                            setActions(prev => prev.filter(a => a.id !== action.id));
+                                                                            toast.success('Acción eliminada exitosamente');
                                                                         } catch (err) {
                                                                             console.error('Error deleting action:', err);
                                                                             toast.error('Error al eliminar la acción');

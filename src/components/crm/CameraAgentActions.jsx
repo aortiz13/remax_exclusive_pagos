@@ -12,6 +12,7 @@ import {
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { sendCameraNotification, CAMERA_EVENTS } from '../../services/cameraNotifications'
+import { logActivity } from '../../services/activityService'
 
 const CONDITION_ITEMS = [
     { key: 'battery', label: 'Batería cargada (>50%)', icon: Battery },
@@ -86,6 +87,16 @@ export default function CameraAgentActions() {
                 .eq('id', actionModal.booking.camera_unit)
 
             sendCameraNotification(CAMERA_EVENTS.PICKUP_CONFIRMED, actionModal.booking, profile)
+
+            // Log pickup to timeline
+            logActivity({
+                action: 'Cámara 360°',
+                entity_type: 'Propiedad',
+                entity_id: null,
+                description: `Retiro de cámara ${actionModal.booking.camera_unit} confirmado`,
+                details: { camera_unit: actionModal.booking.camera_unit, address: actionModal.booking.property_address }
+            }).catch(() => { })
+
             toast.success('✅ Retiro confirmado. Recuerda devolver la cámara a tiempo.')
             setActionModal(null)
             setCondition({})
@@ -132,6 +143,16 @@ export default function CameraAgentActions() {
                 actionModal.booking,
                 profile
             )
+
+            // Log return to timeline
+            logActivity({
+                action: 'Cámara 360°',
+                entity_type: 'Propiedad',
+                entity_id: null,
+                description: `Devolución de cámara ${actionModal.booking.camera_unit} confirmada${isEarly ? ' (anticipada)' : ''}`,
+                details: { camera_unit: actionModal.booking.camera_unit, address: actionModal.booking.property_address, early: isEarly }
+            }).catch(() => { })
+
             toast.success(isEarly
                 ? '✅ Devolución anticipada registrada. El horario ha sido liberado.'
                 : '✅ Devolución confirmada. ¡Gracias!'

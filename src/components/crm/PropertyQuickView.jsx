@@ -42,7 +42,7 @@ const PropertyQuickView = ({ property, isOpen, onClose, onEdit }) => {
 
             const { error } = await supabase
                 .from('crm_tasks')
-                .update({ completed: !currentStatus })
+                .update({ completed: !currentStatus, completed_at: !currentStatus ? new Date().toISOString() : null })
                 .eq('id', taskId)
 
             if (error) throw error

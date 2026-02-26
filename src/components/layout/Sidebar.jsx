@@ -28,7 +28,8 @@ import {
     Folder,
     Camera,
     Kanban,
-    Activity
+    Activity,
+    Video
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
@@ -116,6 +117,7 @@ export default function Sidebar() {
                 { title: 'Captaciones', icon: ClipboardList, path: '/admin/captaciones' },
                 { title: 'Importar Propiedades', icon: Download, path: '/admin/import' },
                 { title: 'Config. Aula Virtual', icon: Settings, path: '/admin/aula-virtual' },
+                { title: 'Video Tutoriales', icon: Video, path: '/admin/video-generator' },
                 { title: 'Agenda Cámara 360°', icon: Camera, path: '/admin/camera-schedule' },
             ]
         },

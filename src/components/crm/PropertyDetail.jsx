@@ -8,7 +8,7 @@ import PropertyForm from './PropertyForm'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import TaskModal from './TaskModal'
 import AddParticipantModal, { ROLE_COLORS } from './AddParticipantModal'
-import Storyline from './Storyline'
+import UnifiedTimeline from './UnifiedTimeline'
 import PropertyTimeline from './PropertyTimeline'
 import { logActivity } from '../../services/activityService'
 import { toast } from 'sonner'
@@ -66,6 +66,15 @@ const PropertyDetail = () => {
                 .eq('id', id)
 
             if (propertyError) throw propertyError
+
+            // Log deletion to timeline
+            logActivity({
+                action: 'Eliminó',
+                entity_type: 'Propiedad',
+                entity_id: id,
+                description: `Propiedad eliminada: ${property?.address || 'Sin dirección'}`,
+                property_id: id
+            }).catch(() => { })
 
             toast.success('Propiedad eliminada correctamente')
             navigate('/properties')
@@ -125,7 +134,7 @@ const PropertyDetail = () => {
     const handleTaskToggle = async (taskId, currentStatus) => {
         // Optimistic
         setTasks(prev => prev.map(t => t.id === taskId ? { ...t, completed: !currentStatus } : t))
-        await supabase.from('crm_tasks').update({ completed: !currentStatus }).eq('id', taskId)
+        await supabase.from('crm_tasks').update({ completed: !currentStatus, completed_at: !currentStatus ? new Date().toISOString() : null }).eq('id', taskId)
 
         const task = tasks.find(t => t.id === taskId)
 
@@ -374,7 +383,7 @@ const PropertyDetail = () => {
                                 </div>
                             </div>
 
-                            <Storyline propertyId={id} />
+                            <UnifiedTimeline propertyId={id} />
                         </TabsContent>
 
                         {property.source === 'remax' && (

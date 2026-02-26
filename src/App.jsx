@@ -39,6 +39,7 @@ import AdminCameraSchedule from './pages/AdminCameraSchedule'
 import AdminCaptaciones from './pages/AdminCaptaciones'
 import SalesPipeline from './pages/SalesPipeline'
 import CRMActions from './pages/CRMActions'
+import AdminVideoGenerator from './pages/AdminVideoGenerator'
 import ChatwootWidget from './components/chatwoot/ChatwootWidget'
 import CameraAgentActions from './components/crm/CameraAgentActions'
 import { Toaster } from 'sonner'
@@ -295,6 +296,11 @@ function App() {
               <Route path="/admin/aula-virtual" element={
                 <ProtectedRoute>
                   <AdminVirtualClassroom />
+                </ProtectedRoute>
+              } />
+              <Route path="/admin/video-generator" element={
+                <ProtectedRoute>
+                  <AdminVideoGenerator />
                 </ProtectedRoute>
               } />
 

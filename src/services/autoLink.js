@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { logActivity } from './activityService'
 
 /**
  * Auto-links a contact to a property in the property_contacts table
@@ -37,6 +38,17 @@ export async function autoLinkContactProperty(contactId, propertyId, role, agent
                     .update({ owner_id: contactId })
                     .eq('id', propertyId)
             }
+
+            // Log the association in the timeline
+            logActivity({
+                action: 'Vinculó',
+                entity_type: 'Propiedad',
+                entity_id: propertyId,
+                description: `Vinculación automática: contacto asociado como ${role}`,
+                contact_id: contactId,
+                property_id: propertyId,
+                details: { role, auto: true }
+            }).catch(() => { }) // fire-and-forget
         }
     } catch (error) {
         // Silently fail - don't block form submission for auto-link

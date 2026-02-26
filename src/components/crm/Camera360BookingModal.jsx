@@ -13,6 +13,7 @@ import { format, addDays, startOfWeek, isToday, isBefore, parseISO } from 'date-
 import { es } from 'date-fns/locale'
 import { sendCameraNotification, CAMERA_EVENTS } from '../../services/cameraNotifications'
 import { deleteCameraCalendarEvents } from '../../services/cameraCalendarSync'
+import { logActivity } from '../../services/activityService'
 
 const TIME_SLOTS = []
 for (let h = 8; h <= 20; h++) {
@@ -245,6 +246,16 @@ export default function Camera360BookingModal({ open, onClose, propertyAddress, 
                 ? '🚨 Solicitud URGENTE enviada. Se notificará inmediatamente al comercial.'
                 : 'Solicitud de cámara enviada. Recibirás confirmación pronto.'
             )
+
+            // Log camera booking to timeline
+            logActivity({
+                action: 'Cámara 360°',
+                entity_type: 'Propiedad',
+                entity_id: null,
+                description: `Reserva de cámara ${selectedCamera} solicitada: ${form.booking_date} ${form.start_time}–${form.end_time}`,
+                details: { camera_unit: selectedCamera, address: propertyAddress, urgent: form.is_urgent }
+            }).catch(() => { })
+
             setForm({ booking_date: '', return_date: '', start_time: '09:00', end_time: '11:00', notes: '', is_urgent: false })
             fetchBookings()
             fetchMyBookings()

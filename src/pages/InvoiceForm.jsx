@@ -10,6 +10,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import ContactPickerInline from '../components/ui/ContactPickerInline'
 import PropertyPickerInline from '../components/ui/PropertyPickerInline'
 import { autoLinkContactProperty } from '../services/autoLink'
+import { logActivity } from '../services/activityService'
 
 export default function InvoiceForm() {
     const { id } = useParams()
@@ -170,6 +171,17 @@ export default function InvoiceForm() {
             if (status === 'submitted') {
                 await sendWebhook(requestData)
                 toast.success('Solicitud enviada exitosamente')
+
+                // Log invoice submission to timeline
+                logActivity({
+                    action: 'Solicitud',
+                    entity_type: formData._crmPropertyId ? 'Propiedad' : 'Contacto',
+                    entity_id: formData._crmPropertyId || null,
+                    description: `Factura enviada: ${formData.tipoOperacion || 'Operación'}`,
+                    property_id: formData._crmPropertyId || null,
+                    details: { request_type: 'invoice' }
+                }).catch(() => { })
+
                 navigate('/dashboard')
             } else {
                 if (!id && requestData) {

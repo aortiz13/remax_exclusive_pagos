@@ -38,6 +38,7 @@ import {
 } from "@/components/ui/popover";
 import ContactForm from './ContactForm'; // To create a new contact
 import PropertyForm from './PropertyForm'; // To create a new property
+import { logActivity } from '../../services/activityService'
 
 const ACTION_TYPES = [
     "Café relacional",
@@ -575,6 +576,19 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
                         }
 
                         toast.success('Acción registrada exitosamente');
+
+                        // Log to timeline
+                        const firstContactId = selectedContactIds[0] || null;
+                        const finalPropId = selectedPropertyId === 'none' ? null : selectedPropertyId;
+                        await logActivity({
+                            action: 'Acción',
+                            entity_type: finalPropId ? 'Propiedad' : 'Contacto',
+                            entity_id: finalPropId || firstContactId,
+                            description: `Acción registrada: ${resolvedType}${note ? ` — ${note.substring(0, 100)}` : ''}`,
+                            contact_id: firstContactId,
+                            property_id: finalPropId,
+                            details: { action_type: resolvedType, action_id: actionRow.id }
+                        }).catch(() => { });
 
                         if (onActionSaved) onActionSaved(actionRow);
                         onClose();

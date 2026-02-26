@@ -1,0 +1,39 @@
+{
+    "title": "Cómo usar: Modal de Acciones CRM",
+    "description": "Crear o editar una acción comercial (llamada, visita, cierre, etc.)",
+    "recordingUrl": null,
+    "segments": [
+        {
+            "label": "Abrir modal",
+            "narrationText": "Para registrar una nueva acción comercial, ve a la ficha de un contacto y haz clic en el botón Agregar Acción.",
+            "audioUrl": "https://wdyfeolbuogoyngrvxkc.supabase.co/storage/v1/object/public/tutorial-assets/tutorials/d98c8a20-01e3-4cb9-b5f1-6f801377af95/segment_1.mp3",
+            "startTime": 0,
+            "endTime": 7,
+            "wordMap": []
+        },
+        {
+            "label": "Tipo de acción",
+            "narrationText": "Primero selecciona el tipo de acción: puede ser una llamada, visita, tasación, cierre de negocio, entre otros. Cada tipo tiene campos específicos.",
+            "audioUrl": "https://wdyfeolbuogoyngrvxkc.supabase.co/storage/v1/object/public/tutorial-assets/tutorials/d98c8a20-01e3-4cb9-b5f1-6f801377af95/segment_2.mp3",
+            "startTime": 7,
+            "endTime": 16,
+            "wordMap": []
+        },
+        {
+            "label": "Detalles",
+            "narrationText": "Completa los detalles de la acción: fecha, hora, notas y cualquier dato relevante. Para cierres de negocio, también debes indicar los honorarios brutos.",
+            "audioUrl": "https://wdyfeolbuogoyngrvxkc.supabase.co/storage/v1/object/public/tutorial-assets/tutorials/d98c8a20-01e3-4cb9-b5f1-6f801377af95/segment_3.mp3",
+            "startTime": 16,
+            "endTime": 25,
+            "wordMap": []
+        },
+        {
+            "label": "Guardar",
+            "narrationText": "Al hacer clic en Guardar, la acción queda registrada en el historial del contacto y se actualiza automáticamente en tus indicadores KPI.",
+            "audioUrl": "https://wdyfeolbuogoyngrvxkc.supabase.co/storage/v1/object/public/tutorial-assets/tutorials/d98c8a20-01e3-4cb9-b5f1-6f801377af95/segment_4.mp3",
+            "startTime": 25,
+            "endTime": 33,
+            "wordMap": []
+        }
+    ]
+}
