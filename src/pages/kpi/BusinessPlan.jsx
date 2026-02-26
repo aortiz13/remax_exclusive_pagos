@@ -550,11 +550,7 @@ export default function BusinessPlan() {
                 </button>
             </div>
 
-            {/* Development banner */}
-            <div className="bg-amber-50 border border-amber-300 rounded-xl px-4 py-2.5 flex items-center gap-3 shrink-0">
-                <span className="text-xl">🚧</span>
-                <p className="text-sm font-semibold text-amber-800">Sección en desarrollo, por favor no rellenar</p>
-            </div>
+
 
             {/* PERSISTENT RESULTS STRIP — always visible */}
             <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 rounded-xl px-4 py-3 text-white shrink-0">
