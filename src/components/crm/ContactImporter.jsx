@@ -11,6 +11,7 @@ import { supabase } from '../../services/supabase'
 import { useAuth } from '../../context/AuthContext'
 import ExcelJS from 'exceljs'
 import { toast } from 'sonner'
+import { logActivity } from '../../services/activityService'
 
 // ─── CRM Field Definitions ────────────────────────────────────────────────────
 const CRM_FIELDS = [
@@ -238,6 +239,16 @@ const ContactImporter = ({ isOpen, onClose, onSuccess }) => {
 
             setImportResult({ total: contactsToInsert.length, success: inserted })
             toast.success(`¡${inserted} contactos importados exitosamente!`)
+
+            // Log bulk import to timeline
+            logActivity({
+                action: 'Importación',
+                entity_type: 'Contacto',
+                entity_id: null,
+                description: `Importación masiva: ${inserted} contactos importados desde Excel`,
+                details: { count: inserted, filename: file?.name }
+            }).catch(() => { })
+
             onSuccess()
         } catch (err) {
             console.error('Import error:', err)

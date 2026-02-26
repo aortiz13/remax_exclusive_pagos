@@ -252,6 +252,18 @@ const ContactForm = ({ contact, isOpen, onClose, isSimplified = false, initialEm
             if (removedLink?.role === 'propietario') {
                 await supabase.from('properties').update({ owner_id: null }).eq('id', removedLink.property_id)
             }
+            // Log the removal
+            if (removedLink) {
+                await logActivity({
+                    action: 'Desvinculó',
+                    entity_type: 'Propiedad',
+                    entity_id: removedLink.property_id,
+                    description: `Se desvinculó propiedad ${removedLink.property?.address || ''} (${removedLink.role}) del contacto`,
+                    contact_id: contactId,
+                    property_id: removedLink.property_id,
+                    details: { role: removedLink.role }
+                })
+            }
         }
 
         // 2. Insert pending links

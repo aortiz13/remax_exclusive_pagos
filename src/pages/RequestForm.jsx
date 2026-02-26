@@ -16,6 +16,7 @@ import { Button, Card, CardContent } from '@/components/ui'
 import { Save, Building, Briefcase, DollarSign } from 'lucide-react'
 import { autoLinkContactProperty } from '../services/autoLink'
 import { updateContactFromRequestData, buildDueñoContactFields, buildArrendatarioContactFields, buildParteAContactFields, buildParteBContactFields } from '../services/contactSync'
+import { logActivity } from '../services/activityService'
 
 export default function RequestForm() {
     const { id } = useParams()
@@ -441,7 +442,18 @@ export default function RequestForm() {
                                             if (id) {
                                                 await supabase.from('requests').update({ status: 'submitted' }).eq('id', id)
                                             }
+
+                                            // Log request submission to timeline
                                             const isVenta = formData.tipoSolicitud === 'venta'
+                                            logActivity({
+                                                action: 'Solicitud',
+                                                entity_type: formData._crmPropertyId ? 'Propiedad' : 'Contacto',
+                                                entity_id: formData._crmPropertyId || null,
+                                                description: `Link de pago enviado: ${isVenta ? 'Venta' : 'Arriendo'}`,
+                                                property_id: formData._crmPropertyId || null,
+                                                details: { request_type: 'payment_link', sub_type: formData.tipoSolicitud }
+                                            }).catch(() => { })
+
                                             // Auto-link contacts to property if selected from CRM
                                             const propId = formData._crmPropertyId
                                             const agentId = user?.id

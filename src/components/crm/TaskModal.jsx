@@ -132,6 +132,18 @@ const TaskModal = ({ task, contactId, propertyId, isOpen, onClose }) => {
                     .single()
                 error = updateError
                 savedTask = data
+
+                // Log task edit
+                if (!updateError) {
+                    logActivity({
+                        action: 'Tarea',
+                        entity_type: dataToSave.property_id ? 'Propiedad' : 'Contacto',
+                        entity_id: dataToSave.property_id || dataToSave.contact_id,
+                        description: `Tarea editada: ${dataToSave.action}`,
+                        contact_id: dataToSave.contact_id,
+                        property_id: dataToSave.property_id || null
+                    }).catch(() => { })
+                }
             } else {
                 const { data, error: insertError } = await supabase
                     .from('crm_tasks')

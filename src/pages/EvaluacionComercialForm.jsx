@@ -4,6 +4,7 @@ import { supabase } from '../services/supabase';
 import { triggerEvaluacionComercialWebhook } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
+import { logActivity } from '../services/activityService';
 import {
     Card, CardContent, Button, Input, Label,
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -242,6 +243,17 @@ export default function EvaluacionComercialForm() {
             await triggerEvaluacionComercialWebhook(webhookPayload);
 
             toast.success('Solicitud enviada exitosamente');
+
+            // Log to timeline
+            logActivity({
+                action: 'Solicitud',
+                entity_type: selectedPropertyId !== 'none' ? 'Propiedad' : 'Contacto',
+                entity_id: selectedPropertyId !== 'none' ? selectedPropertyId : null,
+                description: `Evaluación Comercial enviada: ${propDireccion}`,
+                property_id: selectedPropertyId !== 'none' ? selectedPropertyId : null,
+                details: { request_type: 'evaluacion_comercial', address: propDireccion }
+            }).catch(() => { });
+
             navigate('/dashboard');
         } catch (error) {
             console.error('Error submitting evaluacion comercial:', error);

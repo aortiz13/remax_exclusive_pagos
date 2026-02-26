@@ -9,6 +9,7 @@ import "react-datepicker/dist/react-datepicker.css"
 import ContactPickerInline from '../components/ui/ContactPickerInline'
 import PropertyPickerInline from '../components/ui/PropertyPickerInline'
 import { autoLinkContactProperty } from '../services/autoLink'
+import { logActivity } from '../services/activityService'
 import { generateExcel } from '../lib/generateExcel'
 import { generatePDF } from '../lib/generatePDF'
 import { triggerLegalWebhook } from '../services/api'
@@ -696,6 +697,17 @@ function BuySellFormLogic({ user, profile, navigate, initialData = {}, requestId
             }
 
             toast.success(requestId ? 'Solicitud actualizada exitosamente.' : 'Solicitud de contrato enviada exitosamente.')
+
+            // Log contract submission to timeline
+            logActivity({
+                action: 'Solicitud',
+                entity_type: 'Propiedad',
+                entity_id: formData.get('crm_property_id') || null,
+                description: `Contrato de compraventa ${requestId ? 'actualizado' : 'enviado'}`,
+                property_id: formData.get('crm_property_id') || null,
+                details: { request_type: 'contract', contract_type: 'buy-sell' }
+            }).catch(() => { })
+
             navigate('/dashboard')
 
         } catch (error) {
@@ -1211,6 +1223,16 @@ function LeaseFormLogic({ user, profile, navigate, initialData = {}, requestId =
             // --- AUTO-DRAFT CREATION END ---
 
             toast.success(requestId ? 'Solicitud actualizada exitosamente.' : 'Solicitud de arriendo enviada exitosamente.')
+
+            // Log lease contract submission to timeline
+            logActivity({
+                action: 'Solicitud',
+                entity_type: 'Propiedad',
+                entity_id: null,
+                description: `Contrato de arriendo ${requestId ? 'actualizado' : 'enviado'}`,
+                details: { request_type: 'contract', contract_type: 'lease' }
+            }).catch(() => { })
+
             navigate('/dashboard')
 
         } catch (error) {
@@ -1593,6 +1615,16 @@ function AnnexFormLogic({ user, profile, navigate, initialData = {}, requestId =
             if (error) throw error
 
             toast.success('Solicitud de Anexo enviada exitosamente.')
+
+            // Log annex submission to timeline  
+            logActivity({
+                action: 'Solicitud',
+                entity_type: 'Propiedad',
+                entity_id: null,
+                description: 'Anexo de contrato enviado',
+                details: { request_type: 'contract', contract_type: 'annex' }
+            }).catch(() => { })
+
             navigate('/dashboard')
 
         } catch (error) {

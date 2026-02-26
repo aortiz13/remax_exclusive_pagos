@@ -4,6 +4,8 @@ import { useAuth } from '../../context/AuthContext'
 import { Button } from "@/components/ui"
 import { CheckCircle2, Circle, Calendar, Clock, User, Plus, Activity } from 'lucide-react'
 import TaskModal from './TaskModal'
+
+
 import { toast } from 'sonner'
 import { useNavigate } from 'react-router-dom'
 
@@ -45,7 +47,7 @@ const TaskBoard = () => {
         try {
             const { error } = await supabase
                 .from('crm_tasks')
-                .update({ completed: !currentStatus })
+                .update({ completed: !currentStatus, completed_at: !currentStatus ? new Date().toISOString() : null })
                 .eq('id', taskId)
 
             if (error) throw error
@@ -60,19 +62,8 @@ const TaskBoard = () => {
                 })
             }
 
-            // Log completion
-            if (!currentStatus) {
-                // Fetch task to get details for log
-                const task = tasks.find(t => t.id === taskId)
-                if (task) {
-                    await supabase.from('contact_activities').insert([{
-                        contact_id: task.contact_id,
-                        agent_id: task.agent_id,
-                        type: 'task_completed',
-                        description: `Tarea completada: ${task.action}`
-                    }])
-                }
-            }
+
+
 
         } catch (error) {
             console.error('Error updating task:', error)
