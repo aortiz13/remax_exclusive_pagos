@@ -34,6 +34,7 @@ export default function BusinessPlan() {
     const [plan, setPlan] = useState({
         mission: '', vision: '', mantra_text: '', monthly_goal: 0,
         remax_percentage: 9.5, seller_percentage: 95,
+        office_participation: 60,
         avg_sale_value: 300000000, sale_commission: 2,
         avg_rental_value: 1200000, rental_commission: 50,
         work_days_per_week: 6, previous_year_billing: 0,
@@ -55,6 +56,7 @@ export default function BusinessPlan() {
     }, 0), [investments])
     const planPct = useMemo(() => getPlanPercentage(agentPlan), [agentPlan])
     const remaxPct = useMemo(() => (Number(plan.remax_percentage) || 9.5) / 100, [plan.remax_percentage])
+    const officePct = useMemo(() => (Number(plan.office_participation) || 60) / 100, [plan.office_participation])
     const sellerPct = useMemo(() => (Number(plan.seller_percentage) || 95) / 100, [plan.seller_percentage])
     const landlordPct = useMemo(() => 1 - sellerPct, [sellerPct])
     const minBilling = useMemo(() => {
@@ -124,6 +126,7 @@ export default function BusinessPlan() {
                 mission: plan.mission, vision: plan.vision, mantra_text: plan.mantra_text,
                 monthly_goal: Number(plan.monthly_goal) || 0, annual_goal: annualGoal,
                 remax_percentage: Number(plan.remax_percentage), seller_percentage: Number(plan.seller_percentage),
+                office_participation: Number(plan.office_participation) || 60,
                 avg_sale_value: Number(plan.avg_sale_value), sale_commission: Number(plan.sale_commission),
                 avg_rental_value: Number(plan.avg_rental_value), rental_commission: Number(plan.rental_commission),
                 work_days_per_week: Number(plan.work_days_per_week), previous_year_billing: Number(plan.previous_year_billing),
@@ -161,6 +164,8 @@ export default function BusinessPlan() {
     const addInv = (cat) => setInvestments(p => [...p, { id: crypto.randomUUID(), category: cat, subcategory: '', amount: 0, is_custom: true, entry_type: 'annual', isNew: true }])
     const rmInv = (id) => setInvestments(p => p.filter(i => i.id !== id))
     const hCh = (id, f, v) => setChannels(p => p.map(c => c.id === id ? { ...c, [f]: v } : c))
+    const addCh = (channel) => setChannels(p => [...p, { id: crypto.randomUUID(), channel, action_name: '', hours_per_week: 0, position: p.filter(c => c.channel === channel).length, isNew: true }])
+    const rmCh = (id) => setChannels(p => p.filter(c => c.id !== id))
     const hAct = (id, f, v) => setActivities(p => p.map(a => a.id === id ? { ...a, [f]: v } : a))
     const addAct = () => setActivities(p => [...p, { id: crypto.randomUUID(), activity_name: '', hours_per_week: 0, position: p.length, isNew: true }])
     const rmAct = (id) => setActivities(p => p.filter(a => a.id !== id))
@@ -267,17 +272,31 @@ export default function BusinessPlan() {
 
     const renderOperative = () => (
         <div className="p-4 space-y-4 overflow-y-auto h-full">
-            {/* Parameters grid */}
+            {/* 1. Resumen Estructura Financiera */}
+            <div>
+                <h4 className="text-[0.6rem] font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <Briefcase className="w-3 h-3" /> Resumen de la Estructura Financiera
+                </h4>
+                <div className="grid grid-cols-2 gap-2.5">
+                    <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200">
+                        <label className="text-[0.5rem] font-bold text-emerald-500 uppercase block mb-1">1. Meta de Utilidades Anuales</label>
+                        <p className="text-sm font-bold text-emerald-700 font-mono">{fmtCLP(annualGoal)}</p>
+                        <p className="text-[0.5rem] text-emerald-400 mt-0.5">Meta mensual × 12</p>
+                    </div>
+                    <div className="p-3 rounded-xl bg-amber-50 border border-amber-200">
+                        <label className="text-[0.5rem] font-bold text-amber-500 uppercase block mb-1">2. Inversión Anual del Negocio</label>
+                        <p className="text-sm font-bold text-amber-700 font-mono">{fmtCLP(totalInvestment)}</p>
+                        <p className="text-[0.5rem] text-amber-400 mt-0.5">Desde pestaña Inversión</p>
+                    </div>
+                </div>
+            </div>
+
+            {/* 2. Parámetros del negocio */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
                 {[
-                    { label: '% RE/MAX Chile', name: 'remax_percentage', suffix: '%', val: plan.remax_percentage },
-                    { label: 'Plan Asociación', val: `${planInfo.label} (${planInfo.pct}%)`, ro: true, note: 'Admin' },
-                    { label: '% Vendedores', name: 'seller_percentage', suffix: '%', val: plan.seller_percentage },
-                    { label: '% Arrendadores', val: `${(100 - Number(plan.seller_percentage || 95)).toFixed(1)}%`, ro: true },
-                    { label: 'Valor prom. venta', name: 'avg_sale_value', prefix: '$', val: plan.avg_sale_value },
-                    { label: 'Comisión venta', name: 'sale_commission', suffix: '%', val: plan.sale_commission },
-                    { label: 'Valor prom. arriendo', name: 'avg_rental_value', prefix: '$', val: plan.avg_rental_value },
-                    { label: 'Comisión arriendo', name: 'rental_commission', suffix: '%', val: plan.rental_commission },
+                    { label: '% de RE/MAX Chile', name: 'remax_percentage', suffix: '%', val: plan.remax_percentage },
+                    { label: 'Plan de Asociación', val: `${planInfo.label} (${planInfo.pct}%)`, ro: true, note: 'Admin' },
+                    { label: 'Participación oficina en el negocio', name: 'office_participation', suffix: '%', val: plan.office_participation },
                 ].map((p, i) => (
                     <div key={i} className={`p-2.5 rounded-lg border ${p.ro ? 'bg-gray-50 border-gray-100' : 'border-gray-200 hover:border-blue-200'} transition-colors`}>
                         <label className="text-[0.55rem] font-bold text-gray-400 uppercase tracking-wider block mb-0.5">{p.label}</label>
@@ -295,18 +314,116 @@ export default function BusinessPlan() {
                     </div>
                 ))}
             </div>
-            {/* Work days + prev billing */}
+
+            {/* 3. Facturación Bruta - Prominent */}
+            <div className="p-4 rounded-xl bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white">
+                <div className="flex items-center gap-2 mb-2">
+                    <div className="p-1.5 rounded-lg bg-blue-500/20"><DollarSign className="w-4 h-4 text-blue-300" /></div>
+                    <h4 className="text-xs font-bold text-white uppercase tracking-wider">3. La Facturación Bruta de mi negocio debe ser como mínimo:</h4>
+                </div>
+                <p className="text-2xl font-bold text-white font-mono mb-1">{fmtCLP(minBilling)}</p>
+                <p className="text-[0.55rem] text-slate-400">
+                    Fórmula: (Meta Utilidad Anual + Inversión Anual) / % Plan Asociación / (1 − % RE/MAX Chile)
+                </p>
+                <div className="mt-2 pt-2 border-t border-white/10 flex items-center gap-2">
+                    <span className="text-[0.55rem] text-slate-400 italic">Referencia: La facturación de mi negocio el {year - 1} fue</span>
+                    <div className="flex items-center gap-0.5 bg-white/10 rounded px-2 py-1">
+                        <span className="text-slate-400 text-[0.6rem]">$</span>
+                        <input type="number" name="previous_year_billing" value={plan.previous_year_billing || ''} onChange={hp}
+                            className="text-xs font-bold text-white border-none p-0 focus:ring-0 bg-transparent w-24" placeholder="0" />
+                    </div>
+                </div>
+            </div>
+
+            {/* 4. Distribución tipos de cliente */}
+            <div>
+                <h4 className="text-[0.6rem] font-bold text-gray-500 uppercase tracking-wider mb-2 text-center">Distribución Tipos de Cliente</h4>
+                <div className="grid grid-cols-2 gap-2.5 mb-2">
+                    <div className="p-2.5 rounded-lg border border-gray-200 hover:border-blue-200 transition-colors">
+                        <label className="text-[0.55rem] font-bold text-gray-400 uppercase block mb-0.5">% Vendedores</label>
+                        <div className="flex items-center gap-0.5">
+                            <input type="number" name="seller_percentage" value={plan.seller_percentage || ''} onChange={hp}
+                                className="flex-1 text-xs font-bold text-gray-900 border-none p-0 focus:ring-0 bg-transparent w-full" />
+                            <span className="text-gray-400 text-[0.6rem]">%</span>
+                        </div>
+                    </div>
+                    <div className="p-2.5 rounded-lg bg-gray-50 border border-gray-100">
+                        <label className="text-[0.55rem] font-bold text-gray-400 uppercase block mb-0.5">% Arrendadores</label>
+                        <p className="text-xs font-bold text-gray-700">{(100 - Number(plan.seller_percentage || 95)).toFixed(1)}%</p>
+                    </div>
+                </div>
+
+                {/* Side-by-side Vendedores / Arrendadores */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {/* Vendedores */}
+                    <div className="rounded-xl border border-emerald-200 bg-emerald-50/30 p-3 space-y-2">
+                        <h5 className="text-xs font-bold text-emerald-700 uppercase flex items-center gap-1.5">
+                            <TrendingUp className="w-3.5 h-3.5" /> Vendedores ({(sellerPct * 100).toFixed(0)}%)
+                        </h5>
+                        <div className="p-2 rounded-lg bg-white border border-emerald-100">
+                            <label className="text-[0.5rem] font-bold text-emerald-500 uppercase block">Facturación neta requerida</label>
+                            <p className="text-sm font-bold text-emerald-700 font-mono">{fmtCLP(billingVend)}</p>
+                        </div>
+                        <div className="p-2 rounded-lg border border-gray-200 bg-white">
+                            <label className="text-[0.5rem] font-bold text-gray-400 uppercase block mb-0.5">Valor prom. propiedades en zona</label>
+                            <div className="flex items-center gap-0.5">
+                                <span className="text-gray-300 text-[0.6rem]">$</span>
+                                <input type="number" name="avg_sale_value" value={plan.avg_sale_value || ''} onChange={hp}
+                                    className="flex-1 text-xs font-bold text-gray-900 border-none p-0 focus:ring-0 bg-transparent w-full" />
+                            </div>
+                        </div>
+                        <div className="p-2 rounded-lg border border-gray-200 bg-white">
+                            <label className="text-[0.5rem] font-bold text-gray-400 uppercase block mb-0.5">% Comisión promedio</label>
+                            <div className="flex items-center gap-0.5">
+                                <input type="number" name="sale_commission" value={plan.sale_commission || ''} onChange={hp}
+                                    className="flex-1 text-xs font-bold text-gray-900 border-none p-0 focus:ring-0 bg-transparent w-full" />
+                                <span className="text-gray-400 text-[0.6rem]">%</span>
+                            </div>
+                        </div>
+                        <div className="p-2 rounded-lg bg-emerald-100 border border-emerald-200">
+                            <label className="text-[0.5rem] font-bold text-emerald-600 uppercase block">Nº transacciones (puntas) mínimas al año</label>
+                            <p className="text-lg font-bold text-emerald-800 font-mono">{fmtNum(minTransSale)}</p>
+                        </div>
+                    </div>
+
+                    {/* Arrendadores */}
+                    <div className="rounded-xl border border-amber-200 bg-amber-50/30 p-3 space-y-2">
+                        <h5 className="text-xs font-bold text-amber-700 uppercase flex items-center gap-1.5">
+                            <Building2 className="w-3.5 h-3.5" /> Arrendadores ({(landlordPct * 100).toFixed(0)}%)
+                        </h5>
+                        <div className="p-2 rounded-lg bg-white border border-amber-100">
+                            <label className="text-[0.5rem] font-bold text-amber-500 uppercase block">Facturación neta requerida</label>
+                            <p className="text-sm font-bold text-amber-700 font-mono">{fmtCLP(billingArr)}</p>
+                        </div>
+                        <div className="p-2 rounded-lg border border-gray-200 bg-white">
+                            <label className="text-[0.5rem] font-bold text-gray-400 uppercase block mb-0.5">Valor prom. propiedades en zona</label>
+                            <div className="flex items-center gap-0.5">
+                                <span className="text-gray-300 text-[0.6rem]">$</span>
+                                <input type="number" name="avg_rental_value" value={plan.avg_rental_value || ''} onChange={hp}
+                                    className="flex-1 text-xs font-bold text-gray-900 border-none p-0 focus:ring-0 bg-transparent w-full" />
+                            </div>
+                        </div>
+                        <div className="p-2 rounded-lg border border-gray-200 bg-white">
+                            <label className="text-[0.5rem] font-bold text-gray-400 uppercase block mb-0.5">% Comisión promedio</label>
+                            <div className="flex items-center gap-0.5">
+                                <input type="number" name="rental_commission" value={plan.rental_commission || ''} onChange={hp}
+                                    className="flex-1 text-xs font-bold text-gray-900 border-none p-0 focus:ring-0 bg-transparent w-full" />
+                                <span className="text-gray-400 text-[0.6rem]">%</span>
+                            </div>
+                        </div>
+                        <div className="p-2 rounded-lg bg-amber-100 border border-amber-200">
+                            <label className="text-[0.5rem] font-bold text-amber-600 uppercase block">Nº transacciones (puntas) mínimas al año</label>
+                            <p className="text-lg font-bold text-amber-800 font-mono">{fmtNum(minTransRental)}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* 5. Parámetros operativos adicionales */}
             <div className="grid grid-cols-2 gap-2.5">
                 <div className="p-2.5 rounded-lg border border-gray-200">
                     <label className="text-[0.55rem] font-bold text-gray-400 uppercase block mb-0.5">Días trabajo/semana</label>
                     <input type="number" name="work_days_per_week" value={plan.work_days_per_week || ''} onChange={hp} className="text-xs font-bold text-gray-900 border-none p-0 focus:ring-0 bg-transparent w-full" />
-                </div>
-                <div className="p-2.5 rounded-lg border border-gray-200">
-                    <label className="text-[0.55rem] font-bold text-gray-400 uppercase block mb-0.5">Fact. año anterior (ref.)</label>
-                    <div className="flex items-center gap-0.5">
-                        <span className="text-gray-300 text-[0.6rem]">$</span>
-                        <input type="number" name="previous_year_billing" value={plan.previous_year_billing || ''} onChange={hp} className="text-xs font-bold text-gray-900 border-none p-0 focus:ring-0 bg-transparent flex-1" />
-                    </div>
                 </div>
             </div>
 
@@ -345,7 +462,7 @@ export default function BusinessPlan() {
                         </div>
                         <div className="space-y-1.5">
                             {items.map(item => (
-                                <div key={item.id} className="flex items-center gap-1.5">
+                                <div key={item.id} className="flex items-center gap-1.5 group">
                                     <input value={item.action_name} onChange={e => hCh(item.id, 'action_name', e.target.value)}
                                         className="flex-1 text-[0.7rem] py-1 px-2 rounded border border-gray-200 focus:border-blue-400 bg-white focus:ring-0" placeholder="Acción..." />
                                     <div className="flex items-center gap-0.5 shrink-0">
@@ -353,8 +470,12 @@ export default function BusinessPlan() {
                                             className="w-9 text-[0.7rem] py-1 px-0.5 rounded border border-gray-200 text-center font-bold focus:ring-0" />
                                         <span className="text-[0.55rem] text-gray-400">h</span>
                                     </div>
+                                    <button onClick={() => rmCh(item.id)} className="p-0.5 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="w-3 h-3" /></button>
                                 </div>
                             ))}
+                            <button onClick={() => addCh(ch.key)} className="text-[0.6rem] text-gray-500 font-medium px-2 py-1 rounded flex items-center gap-1 w-full justify-center border border-dashed border-gray-200 hover:bg-gray-50 mt-1">
+                                <Plus className="w-3 h-3" /> Agregar
+                            </button>
                         </div>
                     </div>
                 )

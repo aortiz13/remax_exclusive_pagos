@@ -114,34 +114,46 @@ const NewMandate = () => {
 
         setLoading(true)
         try {
-            // 1. Upload Files
-            const uploadedUrls = []
-            for (const file of files) {
+            // 1. Upload Files in PARALLEL
+            const filePaths = files.map((file) => {
                 const fileExt = file.name.split('.').pop()
                 const fileName = `${Math.random()}.${fileExt}`
-                const filePath = `${user.id}/${formData.contact_id}/${Date.now()}_${fileName}`
+                return `${user.id}/${formData.contact_id}/${Date.now()}_${fileName}`
+            })
 
-                const { error: uploadError } = await supabase.storage
+            const uploadResults = await Promise.all(
+                files.map((file, i) =>
+                    supabase.storage.from('mandates').upload(filePaths[i], file)
+                )
+            )
+
+            const uploadedUrls = []
+            uploadResults.forEach((result, i) => {
+                if (result.error) {
+                    console.error(`Error uploading ${files[i].name}:`, result.error)
+                } else {
+                    uploadedUrls.push({ path: filePaths[i], index: i })
+                }
+            })
+
+            // 1.5 Generate signed URLs in BATCH (single API call)
+            let archivosConUrl = [];
+            if (uploadedUrls.length > 0) {
+                const { data: signedData, error: signError } = await supabase.storage
                     .from('mandates')
-                    .upload(filePath, file)
+                    .createSignedUrls(
+                        uploadedUrls.map(u => u.path),
+                        60 * 60 * 24 * 7 // 7 days
+                    );
 
-                if (uploadError) throw uploadError
-                uploadedUrls.push(filePath)
+                if (!signError && signedData) {
+                    archivosConUrl = signedData.map((item, idx) => ({
+                        nombre: files[uploadedUrls[idx].index]?.name || `archivo_${idx + 1}`,
+                        tipo: files[uploadedUrls[idx].index]?.type || 'application/octet-stream',
+                        url: item.signedUrl
+                    }));
+                }
             }
-
-            // 1.5 Prepare data for Webhook
-            const fileToBase64 = (file) => new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.readAsDataURL(file);
-                reader.onload = () => resolve(reader.result);
-                reader.onerror = error => reject(error);
-            });
-
-            const base64Files = await Promise.all(files.map(async (file) => ({
-                nombre: file.name,
-                tipo: file.type,
-                contenido: await fileToBase64(file)
-            })));
 
             // Clean Agent Profile data
             const agentLimpio = {
@@ -173,20 +185,16 @@ const NewMandate = () => {
             const webhookPayload = {
                 agente: agentLimpio,
                 datos_mandato: datosMandato,
-                archivos: base64Files,
+                archivos: archivosConUrl,
                 fecha_registro: new Date().toISOString()
             };
 
-            // 1.6 Send to Webhook
-            try {
-                await fetch('https://workflow.remax-exclusive.cl/webhook/mandatos', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(webhookPayload)
-                });
-            } catch (webhookErr) {
-                console.error('Webhook error:', webhookErr);
-            }
+            // 1.6 Send to Webhook (fire-and-forget, don't block submit)
+            fetch('https://workflow.remax-exclusive.cl/webhook/mandatos', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(webhookPayload)
+            }).catch(err => console.error('Webhook error:', err));
 
             // 2. Save Mandate
             const { data: mandate, error } = await supabase
