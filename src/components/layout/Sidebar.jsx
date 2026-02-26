@@ -109,6 +109,7 @@ export default function Sidebar() {
             items: [
                 { title: 'Administración', icon: Users, path: '/admin/invites' },
                 { title: 'Solicitudes', icon: FileText, path: '/admin/requests' },
+                { title: 'Captaciones', icon: ClipboardList, path: '/admin/captaciones' },
                 { title: 'Importar Propiedades', icon: Download, path: '/admin/import' },
                 { title: 'Config. Aula Virtual', icon: Settings, path: '/admin/aula-virtual' },
                 { title: 'Agenda Cámara 360°', icon: Camera, path: '/admin/camera-schedule' },
@@ -119,6 +120,7 @@ export default function Sidebar() {
             items: [
                 { title: 'Administración', icon: Users, path: '/admin/invites' },
                 { title: 'Solicitudes', icon: FileText, path: '/admin/requests' },
+                { title: 'Captaciones', icon: ClipboardList, path: '/admin/captaciones' },
                 { title: 'Importar Propiedades', icon: Download, path: '/admin/import' },
                 { title: 'Config. Aula Virtual', icon: Settings, path: '/admin/aula-virtual' },
             ]
@@ -128,6 +130,7 @@ export default function Sidebar() {
             items: [
                 { title: 'Administración', icon: Users, path: '/admin/invites' },
                 { title: 'Solicitudes', icon: FileText, path: '/admin/requests' },
+                { title: 'Captaciones', icon: ClipboardList, path: '/admin/captaciones' },
                 { title: 'Agenda Cámara 360°', icon: Camera, path: '/admin/camera-schedule' },
             ]
         },

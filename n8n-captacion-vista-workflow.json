@@ -1,0 +1,190 @@
+{
+    "name": "Captación Vista - Notificaciones",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "captacion-vista",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 2.1,
+            "position": [
+                0,
+                0
+            ],
+            "id": "webhook-node",
+            "name": "Webhook",
+            "webhookId": "captacion-vista-wh"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.remax-exclusive.cl/chat/sendPresence/Remax%20Exclusive",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "{\n  \"number\": \"={{ $('Webhook').item.json.body.agent.phone.replace(/[^0-9]/g, '') }}@s.whatsapp.net\",\n  \"presence\": \"composing\",\n  \"delay\": 2000\n}",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                224,
+                0
+            ],
+            "id": "typing-node",
+            "name": "typing",
+            "onError": "continueRegularOutput"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.remax-exclusive.cl/message/sendText/Remax%20Exclusive",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "number",
+                            "value": "={{ $('Webhook').item.json.body.agent.phone.replace(/[^0-9]/g, '') }}@s.whatsapp.net"
+                        },
+                        {
+                            "name": "text",
+                            "value": "=✅ *CAPTACIÓN REVISADA*\n\nHola {{ $('Webhook').item.json.body.agent.name }}, te informamos que tu captación ha sido revisada por el equipo.\n\n🏠 *Dirección:* {{ $('Webhook').item.json.body.mandate.address }}\n📍 *Comuna:* {{ $('Webhook').item.json.body.mandate.commune || 'N/A' }}\n💰 *Precio:* {{ $('Webhook').item.json.body.mandate.price }} {{ $('Webhook').item.json.body.mandate.currency }}\n📋 *Tipo:* {{ $('Webhook').item.json.body.mandate.capture_type }} — {{ $('Webhook').item.json.body.mandate.operation_type }}\n\n📅 *Fecha de revisión:* {{ $now.format('DD/MM/yyyy HH:mm') }} hrs\n\nGracias por tu gestión. 💪"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                448,
+                0
+            ],
+            "id": "whatsapp-node",
+            "name": "Mensaje WhatsApp",
+            "onError": "continueRegularOutput"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.remax-exclusive.cl/chat/sendPresence/Remax%20Exclusive",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"number\": \"{{ $('Webhook').item.json.body.agent.phone.replace(/[^0-9]/g, '') }}@s.whatsapp.net\",\n  \"presence\": \"paused\",\n  \"delay\": 1000\n}",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                672,
+                0
+            ],
+            "id": "paused-node",
+            "name": "paused",
+            "onError": "continueRegularOutput"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.remax-exclusive.cl/chat/markMessageAsRead/Remax%20Exclusive",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"readMessages\": [\n    {\n      \"remoteJid\": \"{{ $('Webhook').item.json.body.agent.phone.replace(/[^0-9]/g, '') }}@s.whatsapp.net\",\n      \"fromMe\": true,\n      \"id\": \"{{ $('Mensaje WhatsApp').item.json.key.id }}\"\n    }\n  ]\n}",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                896,
+                0
+            ],
+            "id": "read-node",
+            "name": "marcar como leído",
+            "onError": "continueRegularOutput"
+        },
+        {
+            "parameters": {
+                "sendTo": "={{ $('Webhook').item.json.body.agent.email }}",
+                "subject": "=✅ Tu captación en {{ $('Webhook').item.json.body.mandate.address }} ha sido revisada",
+                "message": "=<div style=\"font-family:'Open Sans',sans-serif;background:#f5f5f5;padding:30px 20px\"><div style=\"max-width:600px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.08)\"><div style=\"background:#003DA5;padding:25px 30px\"><h1 style=\"color:#fff;font-size:20px;font-weight:600;margin:0\">✅ Captación Revisada</h1></div><div style=\"padding:35px 30px\"><span style=\"display:inline-block;background:#10b981;color:#fff;padding:8px 16px;border-radius:20px;font-size:14px;font-weight:600;margin-bottom:20px\">Estado: VISTO</span><p style=\"color:#333;font-size:15px;line-height:1.6;margin-bottom:25px\">Hola {{ $('Webhook').item.json.body.agent.name }}, te informamos que tu captación ha sido revisada por el equipo de RE/MAX Exclusive.</p><div style=\"background:#f8f9fa;border-left:3px solid #003DA5;padding:20px;margin:25px 0;border-radius:4px\"><div style=\"margin-bottom:12px\"><span style=\"color:#666;font-size:13px;font-weight:600;display:block;margin-bottom:4px\">Dirección</span><span style=\"color:#333;font-size:15px\">{{ $('Webhook').item.json.body.mandate.address }}</span></div><div style=\"margin-bottom:12px\"><span style=\"color:#666;font-size:13px;font-weight:600;display:block;margin-bottom:4px\">Comuna</span><span style=\"color:#333;font-size:15px\">{{ $('Webhook').item.json.body.mandate.commune || 'N/A' }}</span></div><div style=\"margin-bottom:12px\"><span style=\"color:#666;font-size:13px;font-weight:600;display:block;margin-bottom:4px\">Precio</span><span style=\"color:#333;font-size:15px\">{{ $('Webhook').item.json.body.mandate.price }} {{ $('Webhook').item.json.body.mandate.currency }}</span></div><div style=\"margin-bottom:12px\"><span style=\"color:#666;font-size:13px;font-weight:600;display:block;margin-bottom:4px\">Tipo de Captación</span><span style=\"color:#333;font-size:15px\">{{ $('Webhook').item.json.body.mandate.capture_type }} — {{ $('Webhook').item.json.body.mandate.operation_type }}</span></div><div><span style=\"color:#666;font-size:13px;font-weight:600;display:block;margin-bottom:4px\">Fecha de Revisión</span><span style=\"color:#333;font-size:15px\">{{ $now.format('DD/MM/yyyy HH:mm') }} hrs</span></div></div><p style=\"color:#333;font-size:15px;line-height:1.6\">Gracias por tu gestión. 💪</p></div><div style=\"background:#fafafa;padding:20px 30px;text-align:center;border-top:1px solid #e8e8e8\"><p style=\"margin:3px 0;font-size:12px;color:#999\"><strong>RE/MAX Exclusive Chile</strong></p><p style=\"margin:3px 0;font-size:12px;color:#999\">Sistema automático de notificaciones</p></div></div></div>",
+                "options": {
+                    "appendAttribution": false,
+                    "senderName": "RE/MAX Exclusive"
+                }
+            },
+            "type": "n8n-nodes-base.gmail",
+            "typeVersion": 2.2,
+            "position": [
+                448,
+                300
+            ],
+            "id": "gmail-node",
+            "name": "Enviar Email",
+            "webhookId": "gmail-captacion-vista"
+        }
+    ],
+    "connections": {
+        "Webhook": {
+            "main": [
+                [
+                    {
+                        "node": "typing",
+                        "type": "main",
+                        "index": 0
+                    },
+                    {
+                        "node": "Enviar Email",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "typing": {
+            "main": [
+                [
+                    {
+                        "node": "Mensaje WhatsApp",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Mensaje WhatsApp": {
+            "main": [
+                [
+                    {
+                        "node": "paused",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "paused": {
+            "main": [
+                [
+                    {
+                        "node": "marcar como leído",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1",
+        "availableInMCP": true
+    }
+}
