@@ -1,0 +1,1261 @@
+{
+    "name": "Notificaciones Turnos/Guardias",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "shift-notifications",
+                "responseMode": "responseNode",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 2.1,
+            "position": [
+                0,
+                300
+            ],
+            "id": "wh-shift-001",
+            "name": "Webhook",
+            "webhookId": "shift-notifications-001"
+        },
+        {
+            "parameters": {
+                "options": {}
+            },
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1.5,
+            "position": [
+                220,
+                300
+            ],
+            "id": "rw-shift-001",
+            "name": "Respond to Webhook"
+        },
+        {
+            "parameters": {
+                "rules": {
+                    "values": [
+                        {
+                            "conditions": {
+                                "options": {
+                                    "caseSensitive": true,
+                                    "leftValue": "",
+                                    "typeValidation": "strict",
+                                    "version": 3
+                                },
+                                "conditions": [
+                                    {
+                                        "leftValue": "={{ $json.body.event }}",
+                                        "rightValue": "shift_requested",
+                                        "operator": {
+                                            "type": "string",
+                                            "operation": "equals"
+                                        }
+                                    }
+                                ],
+                                "combinator": "and"
+                            },
+                            "renameOutput": true,
+                            "outputKey": "Solicitado"
+                        },
+                        {
+                            "conditions": {
+                                "options": {
+                                    "caseSensitive": true,
+                                    "leftValue": "",
+                                    "typeValidation": "strict",
+                                    "version": 3
+                                },
+                                "conditions": [
+                                    {
+                                        "leftValue": "={{ $json.body.event }}",
+                                        "rightValue": "shift_approved",
+                                        "operator": {
+                                            "type": "string",
+                                            "operation": "equals"
+                                        }
+                                    }
+                                ],
+                                "combinator": "and"
+                            },
+                            "renameOutput": true,
+                            "outputKey": "Aprobado"
+                        },
+                        {
+                            "conditions": {
+                                "options": {
+                                    "caseSensitive": true,
+                                    "leftValue": "",
+                                    "typeValidation": "strict",
+                                    "version": 3
+                                },
+                                "conditions": [
+                                    {
+                                        "leftValue": "={{ $json.body.event }}",
+                                        "rightValue": "shift_rejected",
+                                        "operator": {
+                                            "type": "string",
+                                            "operation": "equals"
+                                        }
+                                    }
+                                ],
+                                "combinator": "and"
+                            },
+                            "renameOutput": true,
+                            "outputKey": "Rechazado"
+                        },
+                        {
+                            "conditions": {
+                                "options": {
+                                    "caseSensitive": true,
+                                    "leftValue": "",
+                                    "typeValidation": "strict",
+                                    "version": 3
+                                },
+                                "conditions": [
+                                    {
+                                        "leftValue": "={{ $json.body.event }}",
+                                        "rightValue": "shift_cancelled",
+                                        "operator": {
+                                            "type": "string",
+                                            "operation": "equals"
+                                        }
+                                    }
+                                ],
+                                "combinator": "and"
+                            },
+                            "renameOutput": true,
+                            "outputKey": "Cancelado"
+                        },
+                        {
+                            "conditions": {
+                                "options": {
+                                    "caseSensitive": true,
+                                    "leftValue": "",
+                                    "typeValidation": "strict",
+                                    "version": 3
+                                },
+                                "conditions": [
+                                    {
+                                        "leftValue": "={{ $json.body.event }}",
+                                        "rightValue": "shifts_published",
+                                        "operator": {
+                                            "type": "string",
+                                            "operation": "equals"
+                                        }
+                                    }
+                                ],
+                                "combinator": "and"
+                            },
+                            "renameOutput": true,
+                            "outputKey": "Publicado"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.switch",
+            "typeVersion": 3.4,
+            "position": [
+                460,
+                300
+            ],
+            "id": "sw-shift-001",
+            "name": "Switch Evento"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.remax-exclusive.cl/message/sendText/Remax%20Exclusive",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "A47DF197AC02-4F21-BEB4-9F3485E5E4EB"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "number",
+                            "value": "120363408247795331@g.us"
+                        },
+                        {
+                            "name": "text",
+                            "value": "=🛡️ *NUEVA SOLICITUD DE TURNO/GUARDIA*\n\n👤 *Agente:* {{ $json.body.agent.name }}\n📧 *Email:* {{ $json.body.agent.email }}\n📱 *Teléfono:* {{ $json.body.agent.phone }}\n\n📅 *Fecha:* {{ $json.body.shift.booking_date }}\n⏰ *Turno:* {{ $json.body.shift.shift_label }}\n\n📌 *Estado:* Pendiente de aprobación\n\n_Revisa la plataforma para aprobar o rechazar._\nhttps://solicitudes.remax-exclusive.cl/admin/shift-schedule"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                740,
+                -40
+            ],
+            "id": "ws-req-group",
+            "name": "WA Grupo Solicitado",
+            "onError": "continueRegularOutput"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.remax-exclusive.cl/message/sendText/Remax%20Exclusive",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "A47DF197AC02-4F21-BEB4-9F3485E5E4EB"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "number",
+                            "value": "={{ $('Webhook').first().json.body.agent.phone }}"
+                        },
+                        {
+                            "name": "text",
+                            "value": "=🛡️ *Solicitud de Turno Recibida*\n\nHola {{ $('Webhook').first().json.body.agent.name }}, tu solicitud de turno ha sido registrada.\n\n📅 *Fecha:* {{ $('Webhook').first().json.body.shift.booking_date }}\n⏰ *Turno:* {{ $('Webhook').first().json.body.shift.shift_label }}\n\n📌 *Estado:* Pendiente de aprobación\n\nTe notificaremos cuando sea aprobado o rechazado."
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1120,
+                -40
+            ],
+            "id": "ws-req-agent",
+            "name": "WA Agente Solicitado",
+            "onError": "continueRegularOutput"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.remax-exclusive.cl/message/sendText/Remax%20Exclusive",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "A47DF197AC02-4F21-BEB4-9F3485E5E4EB"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "number",
+                            "value": "120363408247795331@g.us"
+                        },
+                        {
+                            "name": "text",
+                            "value": "=✅ *TURNO APROBADO*\n\n👤 *Agente:* {{ $json.body.agent.name }}\n📅 *Fecha:* {{ $json.body.shift.booking_date }}\n⏰ *Turno:* {{ $json.body.shift.shift_label }}\n\n¡El turno ha sido aprobado exitosamente!"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                740,
+                200
+            ],
+            "id": "ws-app-group",
+            "name": "WA Grupo Aprobado",
+            "onError": "continueRegularOutput"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.remax-exclusive.cl/message/sendText/Remax%20Exclusive",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "A47DF197AC02-4F21-BEB4-9F3485E5E4EB"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "number",
+                            "value": "={{ $('Webhook').first().json.body.agent.phone }}"
+                        },
+                        {
+                            "name": "text",
+                            "value": "=✅ *¡Tu Turno ha sido Aprobado!*\n\nHola {{ $('Webhook').first().json.body.agent.name }}, ¡buenas noticias! Tu turno ha sido aprobado.\n\n📅 *Fecha:* {{ $('Webhook').first().json.body.shift.booking_date }}\n⏰ *Turno:* {{ $('Webhook').first().json.body.shift.shift_label }}\n\n*Recuerda:*\n• Mantener informado al staff comercial del estatus de cada lead asignado\n• Registrar captaciones nuevas como producto de tu gestión\n\n¡Mucho éxito! 🏠"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1120,
+                200
+            ],
+            "id": "ws-app-agent",
+            "name": "WA Agente Aprobado",
+            "onError": "continueRegularOutput"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.remax-exclusive.cl/message/sendText/Remax%20Exclusive",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "A47DF197AC02-4F21-BEB4-9F3485E5E4EB"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "number",
+                            "value": "120363408247795331@g.us"
+                        },
+                        {
+                            "name": "text",
+                            "value": "=❌ *TURNO RECHAZADO*\n\n👤 *Agente:* {{ $json.body.agent.name }}\n📅 *Fecha:* {{ $json.body.shift.booking_date }}\n⏰ *Turno:* {{ $json.body.shift.shift_label }}\n{{ $json.body.admin_notes ? '\\n📝 *Motivo:* ' + $json.body.admin_notes : '' }}"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                740,
+                440
+            ],
+            "id": "ws-rej-group",
+            "name": "WA Grupo Rechazado",
+            "onError": "continueRegularOutput"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.remax-exclusive.cl/message/sendText/Remax%20Exclusive",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "A47DF197AC02-4F21-BEB4-9F3485E5E4EB"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "number",
+                            "value": "={{ $('Webhook').first().json.body.agent.phone }}"
+                        },
+                        {
+                            "name": "text",
+                            "value": "=❌ *Solicitud de Turno Rechazada*\n\nHola {{ $('Webhook').first().json.body.agent.name }}, lamentamos informarte que tu solicitud de turno no fue aprobada.\n\n📅 *Fecha:* {{ $('Webhook').first().json.body.shift.booking_date }}\n⏰ *Turno:* {{ $('Webhook').first().json.body.shift.shift_label }}\n{{ $('Webhook').first().json.body.admin_notes ? '\\n📝 *Motivo:* ' + $('Webhook').first().json.body.admin_notes : '' }}\n\nSi tienes alguna duda, comunícate con el equipo comercial."
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1120,
+                440
+            ],
+            "id": "ws-rej-agent",
+            "name": "WA Agente Rechazado",
+            "onError": "continueRegularOutput"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.remax-exclusive.cl/message/sendText/Remax%20Exclusive",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "A47DF197AC02-4F21-BEB4-9F3485E5E4EB"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "number",
+                            "value": "120363408247795331@g.us"
+                        },
+                        {
+                            "name": "text",
+                            "value": "=⚠️ *TURNO CANCELADO*\n\n👤 *Agente:* {{ $json.body.agent.name }}\n📅 *Fecha:* {{ $json.body.shift.booking_date }}\n⏰ *Turno:* {{ $json.body.shift.shift_label }}\n\nEl agente ha cancelado su turno. El horario queda disponible."
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                740,
+                680
+            ],
+            "id": "ws-can-group",
+            "name": "WA Grupo Cancelado",
+            "onError": "continueRegularOutput"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.remax-exclusive.cl/message/sendText/Remax%20Exclusive",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "A47DF197AC02-4F21-BEB4-9F3485E5E4EB"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "number",
+                            "value": "={{ $('Webhook').first().json.body.agent.phone }}"
+                        },
+                        {
+                            "name": "text",
+                            "value": "=⚠️ *Turno Cancelado*\n\nHola {{ $('Webhook').first().json.body.agent.name }}, tu turno ha sido cancelado exitosamente.\n\n📅 *Fecha:* {{ $('Webhook').first().json.body.shift.booking_date }}\n⏰ *Turno:* {{ $('Webhook').first().json.body.shift.shift_label }}\n\nSi deseas agendar un nuevo turno, ingresa a la plataforma:\nhttps://solicitudes.remax-exclusive.cl/shifts"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1120,
+                680
+            ],
+            "id": "ws-can-agent",
+            "name": "WA Agente Cancelado",
+            "onError": "continueRegularOutput"
+        },
+        {
+            "parameters": {
+                "sendTo": "administracion@remax-exclusive.cl, coordinadora@remax-exclusive.cl, josemiguel.raidi@remax-exclusive.cl",
+                "subject": "=🛡️ Nueva Solicitud de Turno - {{ $('Webhook').first().json.body.agent.name }}",
+                "message": "=<!DOCTYPE html>\n<html lang=\"es\">\n<head>\n    <meta charset=\"UTF-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <link href=\"https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&display=swap\" rel=\"stylesheet\">\n    <style>\n        * { margin: 0; padding: 0; box-sizing: border-box; }\n        body { margin: 0; padding: 0; font-family: 'Open Sans', sans-serif; background-color: #f5f5f5; }\n        .email-wrapper { background-color: #f5f5f5; padding: 30px 20px; }\n        .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08); }\n        .header { background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); padding: 25px 30px; }\n        .header h1 { color: #ffffff; font-size: 20px; font-weight: 600; margin: 0; }\n        .header p { color: rgba(255,255,255,0.9); font-size: 14px; margin-top: 5px; }\n        .content { padding: 35px 30px; }\n        .content p { color: #333333; font-size: 15px; line-height: 1.6; margin-bottom: 25px; }\n        .data-box { background-color: #f8f9fa; border-left: 3px solid #f97316; padding: 20px; margin: 25px 0; border-radius: 4px; }\n        .data-row { margin-bottom: 12px; }\n        .data-row:last-child { margin-bottom: 0; }\n        .data-label { color: #666666; font-size: 13px; font-weight: 600; display: block; margin-bottom: 4px; }\n        .data-value { color: #333333; font-size: 15px; }\n        .status-badge { display: inline-block; background-color: #fef3c7; color: #b45309; padding: 6px 16px; border-radius: 20px; font-weight: 600; font-size: 14px; }\n        .cta-button { display: inline-block; background-color: #f97316; color: #ffffff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 15px; margin-top: 20px; }\n        .footer { background-color: #fafafa; padding: 20px 30px; text-align: center; border-top: 1px solid #e8e8e8; }\n        .footer p { margin: 3px 0; font-size: 12px; color: #999999; }\n    </style>\n</head>\n<body>\n    <div class=\"email-wrapper\">\n        <div class=\"container\">\n            <div class=\"header\">\n                <h1>🛡️ Nueva Solicitud de Turno/Guardia</h1>\n                <p>Un agente ha solicitado un turno en la oficina</p>\n            </div>\n            <div class=\"content\">\n                <div class=\"data-box\">\n                    <div class=\"data-row\"><span class=\"data-label\">Agente</span><span class=\"data-value\">{{ $('Webhook').first().json.body.agent.name }}</span></div>\n                    <div class=\"data-row\"><span class=\"data-label\">Correo Electrónico</span><span class=\"data-value\">{{ $('Webhook').first().json.body.agent.email }}</span></div>\n                    <div class=\"data-row\"><span class=\"data-label\">Teléfono</span><span class=\"data-value\">{{ $('Webhook').first().json.body.agent.phone || 'No registrado' }}</span></div>\n                </div>\n                <div class=\"data-box\">\n                    <div class=\"data-row\"><span class=\"data-label\">Fecha del Turno</span><span class=\"data-value\">{{ $('Webhook').first().json.body.shift.booking_date }}</span></div>\n                    <div class=\"data-row\"><span class=\"data-label\">Turno</span><span class=\"data-value\">{{ $('Webhook').first().json.body.shift.shift_label }}</span></div>\n                    <div class=\"data-row\"><span class=\"data-label\">Estado</span><span class=\"status-badge\">Pendiente de Aprobación</span></div>\n                </div>\n                <div style=\"text-align: center;\"><a href=\"https://solicitudes.remax-exclusive.cl/admin/shift-schedule\" class=\"cta-button\">Ver en Plataforma →</a></div>\n            </div>\n            <div class=\"footer\"><p><strong>RE/MAX Exclusive Chile</strong></p><p>Sistema automático de notificaciones</p></div>\n        </div>\n    </div>\n</body>\n</html>",
+                "options": {
+                    "appendAttribution": false,
+                    "ccList": "={{ $('Webhook').first().json.body.agent.email }}"
+                }
+            },
+            "type": "n8n-nodes-base.gmail",
+            "typeVersion": 2.2,
+            "position": [
+                1740,
+                -40
+            ],
+            "id": "gm-requested",
+            "name": "Email Solicitado"
+        },
+        {
+            "parameters": {
+                "sendTo": "={{ $('Webhook').first().json.body.agent.email }}",
+                "subject": "=✅ Tu turno ha sido aprobado - {{ $('Webhook').first().json.body.shift.booking_date }}",
+                "message": "=<!DOCTYPE html>\n<html lang=\"es\">\n<head>\n    <meta charset=\"UTF-8\">\n    <link href=\"https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&display=swap\" rel=\"stylesheet\">\n    <style>\n        * { margin: 0; padding: 0; box-sizing: border-box; }\n        body { font-family: 'Open Sans', sans-serif; background-color: #f5f5f5; }\n        .email-wrapper { background-color: #f5f5f5; padding: 30px 20px; }\n        .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08); }\n        .header { background: linear-gradient(135deg, #059669 0%, #047857 100%); padding: 25px 30px; }\n        .header h1 { color: #ffffff; font-size: 20px; font-weight: 600; }\n        .content { padding: 35px 30px; }\n        .content p { color: #333; font-size: 15px; line-height: 1.6; margin-bottom: 20px; }\n        .data-box { background-color: #f0fdf4; border-left: 3px solid #059669; padding: 20px; margin: 20px 0; border-radius: 4px; }\n        .data-row { margin-bottom: 12px; }\n        .data-row:last-child { margin-bottom: 0; }\n        .data-label { color: #666; font-size: 13px; font-weight: 600; display: block; margin-bottom: 4px; }\n        .data-value { color: #333; font-size: 15px; }\n        .status-badge { display: inline-block; background-color: #d1fae5; color: #065f46; padding: 6px 16px; border-radius: 20px; font-weight: 600; font-size: 14px; }\n        .footer { background-color: #fafafa; padding: 20px 30px; text-align: center; border-top: 1px solid #e8e8e8; }\n        .footer p { margin: 3px 0; font-size: 12px; color: #999; }\n    </style>\n</head>\n<body>\n    <div class=\"email-wrapper\">\n        <div class=\"container\">\n            <div class=\"header\"><h1>✅ ¡Tu Turno ha sido Aprobado!</h1></div>\n            <div class=\"content\">\n                <p>Hola {{ $('Webhook').first().json.body.agent.name }},</p>\n                <p>Tu solicitud de turno ha sido aprobada. A continuación los detalles:</p>\n                <div class=\"data-box\">\n                    <div class=\"data-row\"><span class=\"data-label\">Fecha</span><span class=\"data-value\">{{ $('Webhook').first().json.body.shift.booking_date }}</span></div>\n                    <div class=\"data-row\"><span class=\"data-label\">Turno</span><span class=\"data-value\">{{ $('Webhook').first().json.body.shift.shift_label }}</span></div>\n                    <div class=\"data-row\"><span class=\"data-label\">Estado</span><span class=\"status-badge\">Aprobado ✓</span></div>\n                </div>\n                <p><strong>Recuerda:</strong> Por cada propiedad asignada durante tu turno, debes mantener informado al staff comercial del estatus y registrar las captaciones nuevas como producto de tu gestión.</p>\n            </div>\n            <div class=\"footer\"><p><strong>RE/MAX Exclusive Chile</strong></p><p>Dr. Carlos Charlin 1539, Providencia, Santiago</p></div>\n        </div>\n    </div>\n</body>\n</html>",
+                "options": {
+                    "appendAttribution": false,
+                    "ccList": "administracion@remax-exclusive.cl, coordinadora@remax-exclusive.cl"
+                }
+            },
+            "type": "n8n-nodes-base.gmail",
+            "typeVersion": 2.2,
+            "position": [
+                1740,
+                200
+            ],
+            "id": "gm-approved",
+            "name": "Email Aprobado"
+        },
+        {
+            "parameters": {
+                "sendTo": "={{ $('Webhook').first().json.body.agent.email }}",
+                "subject": "=❌ Tu solicitud de turno ha sido rechazada - {{ $('Webhook').first().json.body.shift.booking_date }}",
+                "message": "=<!DOCTYPE html>\n<html lang=\"es\">\n<head>\n    <meta charset=\"UTF-8\">\n    <link href=\"https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&display=swap\" rel=\"stylesheet\">\n    <style>\n        * { margin: 0; padding: 0; box-sizing: border-box; }\n        body { font-family: 'Open Sans', sans-serif; background-color: #f5f5f5; }\n        .email-wrapper { background-color: #f5f5f5; padding: 30px 20px; }\n        .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08); }\n        .header { background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); padding: 25px 30px; }\n        .header h1 { color: #ffffff; font-size: 20px; font-weight: 600; }\n        .content { padding: 35px 30px; }\n        .content p { color: #333; font-size: 15px; line-height: 1.6; margin-bottom: 20px; }\n        .data-box { background-color: #fef2f2; border-left: 3px solid #dc2626; padding: 20px; margin: 20px 0; border-radius: 4px; }\n        .data-row { margin-bottom: 12px; }\n        .data-row:last-child { margin-bottom: 0; }\n        .data-label { color: #666; font-size: 13px; font-weight: 600; display: block; margin-bottom: 4px; }\n        .data-value { color: #333; font-size: 15px; }\n        .reason-box { background-color: #fff7ed; border-left: 3px solid #f97316; padding: 15px; margin: 20px 0; border-radius: 4px; }\n        .footer { background-color: #fafafa; padding: 20px 30px; text-align: center; border-top: 1px solid #e8e8e8; }\n        .footer p { margin: 3px 0; font-size: 12px; color: #999; }\n    </style>\n</head>\n<body>\n    <div class=\"email-wrapper\">\n        <div class=\"container\">\n            <div class=\"header\"><h1>❌ Solicitud de Turno Rechazada</h1></div>\n            <div class=\"content\">\n                <p>Hola {{ $('Webhook').first().json.body.agent.name }},</p>\n                <p>Lamentamos informarte que tu solicitud de turno no ha sido aprobada.</p>\n                <div class=\"data-box\">\n                    <div class=\"data-row\"><span class=\"data-label\">Fecha</span><span class=\"data-value\">{{ $('Webhook').first().json.body.shift.booking_date }}</span></div>\n                    <div class=\"data-row\"><span class=\"data-label\">Turno</span><span class=\"data-value\">{{ $('Webhook').first().json.body.shift.shift_label }}</span></div>\n                </div>\n                {{ $('Webhook').first().json.body.admin_notes ? '<div class=\"reason-box\"><strong>Motivo:</strong> ' + $('Webhook').first().json.body.admin_notes + '</div>' : '' }}\n                <p>Si tienes alguna duda, comunícate con el equipo comercial.</p>\n            </div>\n            <div class=\"footer\"><p><strong>RE/MAX Exclusive Chile</strong></p><p>Dr. Carlos Charlin 1539, Providencia, Santiago</p></div>\n        </div>\n    </div>\n</body>\n</html>",
+                "options": {
+                    "appendAttribution": false,
+                    "ccList": "administracion@remax-exclusive.cl, coordinadora@remax-exclusive.cl"
+                }
+            },
+            "type": "n8n-nodes-base.gmail",
+            "typeVersion": 2.2,
+            "position": [
+                1740,
+                440
+            ],
+            "id": "gm-rejected",
+            "name": "Email Rechazado"
+        },
+        {
+            "parameters": {
+                "sendTo": "administracion@remax-exclusive.cl, coordinadora@remax-exclusive.cl",
+                "subject": "=⚠️ Turno Cancelado - {{ $('Webhook').first().json.body.agent.name }} - {{ $('Webhook').first().json.body.shift.booking_date }}",
+                "message": "=<!DOCTYPE html>\n<html lang=\"es\">\n<head>\n    <meta charset=\"UTF-8\">\n    <link href=\"https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&display=swap\" rel=\"stylesheet\">\n    <style>\n        * { margin: 0; padding: 0; box-sizing: border-box; }\n        body { font-family: 'Open Sans', sans-serif; background-color: #f5f5f5; }\n        .email-wrapper { background-color: #f5f5f5; padding: 30px 20px; }\n        .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08); }\n        .header { background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%); padding: 25px 30px; }\n        .header h1 { color: #ffffff; font-size: 20px; font-weight: 600; }\n        .content { padding: 35px 30px; }\n        .content p { color: #333; font-size: 15px; line-height: 1.6; margin-bottom: 20px; }\n        .data-box { background-color: #f9fafb; border-left: 3px solid #6b7280; padding: 20px; margin: 20px 0; border-radius: 4px; }\n        .data-row { margin-bottom: 12px; }\n        .data-row:last-child { margin-bottom: 0; }\n        .data-label { color: #666; font-size: 13px; font-weight: 600; display: block; margin-bottom: 4px; }\n        .data-value { color: #333; font-size: 15px; }\n        .footer { background-color: #fafafa; padding: 20px 30px; text-align: center; border-top: 1px solid #e8e8e8; }\n        .footer p { margin: 3px 0; font-size: 12px; color: #999; }\n    </style>\n</head>\n<body>\n    <div class=\"email-wrapper\">\n        <div class=\"container\">\n            <div class=\"header\"><h1>⚠️ Turno Cancelado</h1></div>\n            <div class=\"content\">\n                <p>El agente {{ $('Webhook').first().json.body.agent.name }} ha cancelado su turno. El horario queda disponible nuevamente.</p>\n                <div class=\"data-box\">\n                    <div class=\"data-row\"><span class=\"data-label\">Agente</span><span class=\"data-value\">{{ $('Webhook').first().json.body.agent.name }}</span></div>\n                    <div class=\"data-row\"><span class=\"data-label\">Fecha</span><span class=\"data-value\">{{ $('Webhook').first().json.body.shift.booking_date }}</span></div>\n                    <div class=\"data-row\"><span class=\"data-label\">Turno</span><span class=\"data-value\">{{ $('Webhook').first().json.body.shift.shift_label }}</span></div>\n                </div>\n            </div>\n            <div class=\"footer\"><p><strong>RE/MAX Exclusive Chile</strong></p><p>Sistema automático de notificaciones</p></div>\n        </div>\n    </div>\n</body>\n</html>",
+                "options": {
+                    "appendAttribution": false,
+                    "ccList": "={{ $('Webhook').first().json.body.agent.email }}"
+                }
+            },
+            "type": "n8n-nodes-base.gmail",
+            "typeVersion": 2.2,
+            "position": [
+                1740,
+                680
+            ],
+            "id": "gm-cancelled",
+            "name": "Email Cancelado"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.remax-exclusive.cl/message/sendText/Remax%20Exclusive",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "A47DF197AC02-4F21-BEB4-9F3485E5E4EB"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "number",
+                            "value": "120363408247795331@g.us"
+                        },
+                        {
+                            "name": "text",
+                            "value": "=📋 *TURNOS PUBLICADOS - AUDITORÍA*\n\n👤 *Publicado por:* {{ $json.body.agent.name }}\n📧 {{ $json.body.agent.email }}\n🕐 *Fecha publicación:* {{ $now.format('DD/MM/YYYY HH:mm') }}\n\n📅 *Semana:* {{ $json.body.week_range }}\n\n*Turnos disponibles:*\n{{ $json.body.slots_summary.join('\\n') }}\n\n_Total: {{ $json.body.slots_summary.length }} turno(s) publicados._"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                740,
+                920
+            ],
+            "id": "ws-pub-group",
+            "name": "WA Grupo Publicados",
+            "onError": "continueRegularOutput"
+        },
+        {
+            "parameters": {
+                "jsCode": "const body = $('Webhook').first().json.body;\nconst agents = body.eligible_agents || [];\nconst emails = agents.map(a => a.email).filter(Boolean);\nreturn [{ json: { emails: emails.join(', '), agentCount: agents.length, slots: body.slots_summary || [], weekRange: body.week_range || '' } }];"
+            },
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1020,
+                920
+            ],
+            "id": "code-build-emails",
+            "name": "Build Email List"
+        },
+        {
+            "parameters": {
+                "sendTo": "={{ $json.emails }}",
+                "subject": "=🛡️ ¡Turnos de Guardia Disponibles! - Semana {{ $json.weekRange }}",
+                "message": "=<!DOCTYPE html>\n<html lang=\"es\">\n<head>\n    <meta charset=\"UTF-8\">\n    <link href=\"https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&display=swap\" rel=\"stylesheet\">\n    <style>\n        * { margin: 0; padding: 0; box-sizing: border-box; }\n        body { font-family: 'Open Sans', sans-serif; background-color: #f5f5f5; }\n        .email-wrapper { background-color: #f5f5f5; padding: 30px 20px; }\n        .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08); }\n        .header { background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%); padding: 25px 30px; }\n        .header h1 { color: #ffffff; font-size: 20px; font-weight: 600; }\n        .header p { color: rgba(255,255,255,0.9); font-size: 14px; margin-top: 5px; }\n        .content { padding: 35px 30px; }\n        .content p { color: #333; font-size: 15px; line-height: 1.6; margin-bottom: 20px; }\n        .slot-list { background-color: #f5f3ff; border-left: 3px solid #7c3aed; padding: 20px; margin: 20px 0; border-radius: 4px; }\n        .slot-item { padding: 8px 0; border-bottom: 1px solid #e5e7eb; font-size: 14px; color: #333; }\n        .slot-item:last-child { border-bottom: none; }\n        .cta-button { display: inline-block; background-color: #7c3aed; color: #ffffff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 15px; margin-top: 20px; }\n        .footer { background-color: #fafafa; padding: 20px 30px; text-align: center; border-top: 1px solid #e8e8e8; }\n        .footer p { margin: 3px 0; font-size: 12px; color: #999; }\n    </style>\n</head>\n<body>\n    <div class=\"email-wrapper\">\n        <div class=\"container\">\n            <div class=\"header\">\n                <h1>🛡️ ¡Turnos de Guardia Disponibles!</h1>\n                <p>Se han publicado turnos para la semana {{ $json.weekRange }}</p>\n            </div>\n            <div class=\"content\">\n                <p>Hola, se han publicado nuevos turnos de guardia en la oficina. Si cumples con los requisitos, puedes solicitar uno de los siguientes turnos:</p>\n                <div class=\"slot-list\">\n                    {{ $json.slots.map(s => '<div class=\"slot-item\">📅 ' + s + '</div>').join('') }}\n                </div>\n                <p><strong>Requisitos:</strong></p>\n                <ul style=\"margin: 0 0 20px 20px; color: #555; font-size: 14px;\">\n                    <li>Al menos 2 captaciones en exclusiva</li>\n                    <li>Al menos 1 cierre de negocio</li>\n                    <li>Participación activa en actividades presenciales</li>\n                </ul>\n                <div style=\"text-align: center;\">\n                    <a href=\"https://solicitudes.remax-exclusive.cl/shifts\" class=\"cta-button\">Solicitar Turno →</a>\n                </div>\n            </div>\n            <div class=\"footer\"><p><strong>RE/MAX Exclusive Chile</strong></p><p>Dr. Carlos Charlin 1539, Providencia, Santiago</p></div>\n        </div>\n    </div>\n</body>\n</html>",
+                "options": {
+                    "appendAttribution": false
+                }
+            },
+            "type": "n8n-nodes-base.gmail",
+            "typeVersion": 2.2,
+            "position": [
+                1300,
+                920
+            ],
+            "id": "gm-published",
+            "name": "Email Agentes Disponible"
+        },
+        {
+            "parameters": {
+                "content": "## Notificaciones Turnos/Guardias\n\n**Webhook:** POST /webhook/shift-notifications\n\n**Flujo por evento:**\nSwitch → WA Grupo → Typing → WA Agente → Paused → Leído → Email\n\n**Eventos:**\n- shift_requested\n- shift_approved\n- shift_rejected\n- shift_cancelled\n- shifts_published → WA Grupo (auditoría) + Email agentes",
+                "height": 360,
+                "width": 440,
+                "color": 4
+            },
+            "type": "n8n-nodes-base.stickyNote",
+            "position": [
+                -280,
+                100
+            ],
+            "typeVersion": 1,
+            "id": "sn-info",
+            "name": "Sticky Note"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.remax-exclusive.cl/chat/sendPresence/Remax%20Exclusive",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"number\": \"{{ $(\"Webhook\").item.json.body.agent.phone.replace(/[^0-9]/g, '') }}@s.whatsapp.net\",\n  \"presence\": \"composing\",\n  \"delay\": 2000\n}",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                920,
+                -40
+            ],
+            "id": "typing-req",
+            "name": "Typing Req",
+            "credentials": {
+                "httpHeaderAuth": {
+                    "id": "L0bt00uZyaRQNmdF",
+                    "name": "evolution_api"
+                }
+            },
+            "onError": "continueRegularOutput"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.remax-exclusive.cl/chat/sendPresence/Remax%20Exclusive",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"number\": \"{{ $(\"Webhook\").item.json.body.agent.phone.replace(/[^0-9]/g, '') }}@s.whatsapp.net\",\n  \"presence\": \"paused\",\n  \"delay\": 1000\n}",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1300,
+                -40
+            ],
+            "id": "paused-req",
+            "name": "Paused Req",
+            "credentials": {
+                "httpHeaderAuth": {
+                    "id": "L0bt00uZyaRQNmdF",
+                    "name": "evolution_api"
+                }
+            },
+            "onError": "continueRegularOutput"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.remax-exclusive.cl/chat/markMessageAsRead/Remax%20Exclusive",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"readMessages\": [\n    {\n      \"remoteJid\": \"{{ $(\"Webhook\").item.json.body.agent.phone.replace(/[^0-9]/g, '') }}@s.whatsapp.net\",\n      \"fromMe\": true,\n      \"id\": \"{{ $(\"WA Agente Solicitado\").item.json.key.id }}\"\n    }\n  ]\n}",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1520,
+                -40
+            ],
+            "id": "leido-req",
+            "name": "Leído Req",
+            "credentials": {
+                "httpHeaderAuth": {
+                    "id": "L0bt00uZyaRQNmdF",
+                    "name": "evolution_api"
+                }
+            },
+            "onError": "continueRegularOutput"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.remax-exclusive.cl/chat/sendPresence/Remax%20Exclusive",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"number\": \"{{ $(\"Webhook\").item.json.body.agent.phone.replace(/[^0-9]/g, '') }}@s.whatsapp.net\",\n  \"presence\": \"composing\",\n  \"delay\": 2000\n}",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                920,
+                200
+            ],
+            "id": "typing-app",
+            "name": "Typing App",
+            "credentials": {
+                "httpHeaderAuth": {
+                    "id": "L0bt00uZyaRQNmdF",
+                    "name": "evolution_api"
+                }
+            },
+            "onError": "continueRegularOutput"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.remax-exclusive.cl/chat/sendPresence/Remax%20Exclusive",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"number\": \"{{ $(\"Webhook\").item.json.body.agent.phone.replace(/[^0-9]/g, '') }}@s.whatsapp.net\",\n  \"presence\": \"paused\",\n  \"delay\": 1000\n}",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1300,
+                200
+            ],
+            "id": "paused-app",
+            "name": "Paused App",
+            "credentials": {
+                "httpHeaderAuth": {
+                    "id": "L0bt00uZyaRQNmdF",
+                    "name": "evolution_api"
+                }
+            },
+            "onError": "continueRegularOutput"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.remax-exclusive.cl/chat/markMessageAsRead/Remax%20Exclusive",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"readMessages\": [\n    {\n      \"remoteJid\": \"{{ $(\"Webhook\").item.json.body.agent.phone.replace(/[^0-9]/g, '') }}@s.whatsapp.net\",\n      \"fromMe\": true,\n      \"id\": \"{{ $(\"WA Agente Aprobado\").item.json.key.id }}\"\n    }\n  ]\n}",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1520,
+                200
+            ],
+            "id": "leido-app",
+            "name": "Leído App",
+            "credentials": {
+                "httpHeaderAuth": {
+                    "id": "L0bt00uZyaRQNmdF",
+                    "name": "evolution_api"
+                }
+            },
+            "onError": "continueRegularOutput"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.remax-exclusive.cl/chat/sendPresence/Remax%20Exclusive",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"number\": \"{{ $(\"Webhook\").item.json.body.agent.phone.replace(/[^0-9]/g, '') }}@s.whatsapp.net\",\n  \"presence\": \"composing\",\n  \"delay\": 2000\n}",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                920,
+                440
+            ],
+            "id": "typing-rej",
+            "name": "Typing Rej",
+            "credentials": {
+                "httpHeaderAuth": {
+                    "id": "L0bt00uZyaRQNmdF",
+                    "name": "evolution_api"
+                }
+            },
+            "onError": "continueRegularOutput"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.remax-exclusive.cl/chat/sendPresence/Remax%20Exclusive",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"number\": \"{{ $(\"Webhook\").item.json.body.agent.phone.replace(/[^0-9]/g, '') }}@s.whatsapp.net\",\n  \"presence\": \"paused\",\n  \"delay\": 1000\n}",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1300,
+                440
+            ],
+            "id": "paused-rej",
+            "name": "Paused Rej",
+            "credentials": {
+                "httpHeaderAuth": {
+                    "id": "L0bt00uZyaRQNmdF",
+                    "name": "evolution_api"
+                }
+            },
+            "onError": "continueRegularOutput"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.remax-exclusive.cl/chat/markMessageAsRead/Remax%20Exclusive",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"readMessages\": [\n    {\n      \"remoteJid\": \"{{ $(\"Webhook\").item.json.body.agent.phone.replace(/[^0-9]/g, '') }}@s.whatsapp.net\",\n      \"fromMe\": true,\n      \"id\": \"{{ $(\"WA Agente Rechazado\").item.json.key.id }}\"\n    }\n  ]\n}",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1520,
+                440
+            ],
+            "id": "leido-rej",
+            "name": "Leído Rej",
+            "credentials": {
+                "httpHeaderAuth": {
+                    "id": "L0bt00uZyaRQNmdF",
+                    "name": "evolution_api"
+                }
+            },
+            "onError": "continueRegularOutput"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.remax-exclusive.cl/chat/sendPresence/Remax%20Exclusive",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"number\": \"{{ $(\"Webhook\").item.json.body.agent.phone.replace(/[^0-9]/g, '') }}@s.whatsapp.net\",\n  \"presence\": \"composing\",\n  \"delay\": 2000\n}",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                920,
+                680
+            ],
+            "id": "typing-can",
+            "name": "Typing Can",
+            "credentials": {
+                "httpHeaderAuth": {
+                    "id": "L0bt00uZyaRQNmdF",
+                    "name": "evolution_api"
+                }
+            },
+            "onError": "continueRegularOutput"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.remax-exclusive.cl/chat/sendPresence/Remax%20Exclusive",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"number\": \"{{ $(\"Webhook\").item.json.body.agent.phone.replace(/[^0-9]/g, '') }}@s.whatsapp.net\",\n  \"presence\": \"paused\",\n  \"delay\": 1000\n}",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1300,
+                680
+            ],
+            "id": "paused-can",
+            "name": "Paused Can",
+            "credentials": {
+                "httpHeaderAuth": {
+                    "id": "L0bt00uZyaRQNmdF",
+                    "name": "evolution_api"
+                }
+            },
+            "onError": "continueRegularOutput"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.remax-exclusive.cl/chat/markMessageAsRead/Remax%20Exclusive",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"readMessages\": [\n    {\n      \"remoteJid\": \"{{ $(\"Webhook\").item.json.body.agent.phone.replace(/[^0-9]/g, '') }}@s.whatsapp.net\",\n      \"fromMe\": true,\n      \"id\": \"{{ $(\"WA Agente Cancelado\").item.json.key.id }}\"\n    }\n  ]\n}",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1520,
+                680
+            ],
+            "id": "leido-can",
+            "name": "Leído Can",
+            "credentials": {
+                "httpHeaderAuth": {
+                    "id": "L0bt00uZyaRQNmdF",
+                    "name": "evolution_api"
+                }
+            },
+            "onError": "continueRegularOutput"
+        }
+    ],
+    "connections": {
+        "Webhook": {
+            "main": [
+                [
+                    {
+                        "node": "Respond to Webhook",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Respond to Webhook": {
+            "main": [
+                [
+                    {
+                        "node": "Switch Evento",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Switch Evento": {
+            "main": [
+                [
+                    {
+                        "node": "WA Grupo Solicitado",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "WA Grupo Aprobado",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "WA Grupo Rechazado",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "WA Grupo Cancelado",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "WA Grupo Publicados",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "WA Grupo Solicitado": {
+            "main": [
+                [
+                    {
+                        "node": "Typing Req",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "WA Grupo Aprobado": {
+            "main": [
+                [
+                    {
+                        "node": "Typing App",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "WA Grupo Rechazado": {
+            "main": [
+                [
+                    {
+                        "node": "Typing Rej",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "WA Grupo Cancelado": {
+            "main": [
+                [
+                    {
+                        "node": "Typing Can",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "WA Grupo Publicados": {
+            "main": [
+                [
+                    {
+                        "node": "Build Email List",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Build Email List": {
+            "main": [
+                [
+                    {
+                        "node": "Email Agentes Disponible",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Typing Req": {
+            "main": [
+                [
+                    {
+                        "node": "WA Agente Solicitado",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Paused Req": {
+            "main": [
+                [
+                    {
+                        "node": "Leído Req",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Leído Req": {
+            "main": [
+                [
+                    {
+                        "node": "Email Solicitado",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Typing App": {
+            "main": [
+                [
+                    {
+                        "node": "WA Agente Aprobado",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Paused App": {
+            "main": [
+                [
+                    {
+                        "node": "Leído App",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Leído App": {
+            "main": [
+                [
+                    {
+                        "node": "Email Aprobado",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Typing Rej": {
+            "main": [
+                [
+                    {
+                        "node": "WA Agente Rechazado",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Paused Rej": {
+            "main": [
+                [
+                    {
+                        "node": "Leído Rej",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Leído Rej": {
+            "main": [
+                [
+                    {
+                        "node": "Email Rechazado",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Typing Can": {
+            "main": [
+                [
+                    {
+                        "node": "WA Agente Cancelado",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Paused Can": {
+            "main": [
+                [
+                    {
+                        "node": "Leído Can",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Leído Can": {
+            "main": [
+                [
+                    {
+                        "node": "Email Cancelado",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1",
+        "availableInMCP": true,
+        "timezone": "America/Santiago"
+    },
+    "meta": {
+        "templateCredsSetupCompleted": true
+    }
+}

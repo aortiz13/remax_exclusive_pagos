@@ -354,22 +354,31 @@ const ContactForm = ({ contact, isOpen, onClose, isSimplified = false, initialEm
                                         <Section title="Información Detallada">
                                             <div className="space-y-2">
                                                 <Label>Fuente (Origen)</Label>
-                                                <select
-                                                    name="source"
-                                                    value={formData.source}
-                                                    onChange={handleChange}
-                                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                                >
-                                                    <option value="">Seleccionar...</option>
-                                                    <option value="Referido">Referido</option>
-                                                    <option value="Portal">Portal Inmobiliario</option>
-                                                    <option value="Redes Sociales">Redes Sociales</option>
-                                                    <option value="Web">Web</option>
-                                                    <option value="Llamado">Llamado Directo</option>
-                                                    <option value="Guardia">Guardia</option>
-                                                    <option value="Turno">Turno</option>
-                                                    <option value="Otro">Otro</option>
-                                                </select>
+                                                {formData.source === 'Guardia' ? (
+                                                    <div>
+                                                        <div className="flex h-10 w-full items-center rounded-md border border-orange-300 bg-orange-50 dark:bg-orange-950/20 dark:border-orange-800 px-3 py-2 text-sm font-medium text-orange-700 dark:text-orange-400 cursor-not-allowed">
+                                                            🛡️ Guardia (asignación automática)
+                                                        </div>
+                                                        <p className="text-[10px] text-orange-500 mt-1">La fuente no se puede modificar para leads de guardia.</p>
+                                                    </div>
+                                                ) : (
+                                                    <select
+                                                        name="source"
+                                                        value={formData.source}
+                                                        onChange={handleChange}
+                                                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                                    >
+                                                        <option value="">Seleccionar...</option>
+                                                        <option value="Referido">Referido</option>
+                                                        <option value="Portal">Portal Inmobiliario</option>
+                                                        <option value="Redes Sociales">Redes Sociales</option>
+                                                        <option value="Web">Web</option>
+                                                        <option value="Llamado">Llamado Directo</option>
+                                                        <option value="Guardia">Guardia</option>
+                                                        <option value="Turno">Turno</option>
+                                                        <option value="Otro">Otro</option>
+                                                    </select>
+                                                )}
                                             </div>
                                             <div className="space-y-2">
                                                 <Label>Estado</Label>

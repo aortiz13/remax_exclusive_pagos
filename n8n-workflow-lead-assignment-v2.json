@@ -1,0 +1,502 @@
+{
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "recibir_datos",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 2.1,
+            "position": [
+                -624,
+                592
+            ],
+            "id": "4fede98c-882a-45b1-9109-32cd7798cdf2",
+            "name": "Webhook1",
+            "webhookId": "23f4320e-53c2-4197-aa5b-12f953d7b3ca"
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "options": {
+                        "caseSensitive": true,
+                        "leftValue": "",
+                        "typeValidation": "strict",
+                        "version": 3
+                    },
+                    "conditions": [
+                        {
+                            "id": "07e49eb7-1fe5-4feb-9c99-f43b95d81598",
+                            "leftValue": "={{ $json.body.agent.email }}",
+                            "rightValue": "regional@remax.cl",
+                            "operator": {
+                                "type": "string",
+                                "operation": "equals"
+                            }
+                        }
+                    ],
+                    "combinator": "and"
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 2.3,
+            "position": [
+                -448,
+                592
+            ],
+            "id": "f6209ec5-373a-409f-a668-7ac2faec3bf7",
+            "name": "If1"
+        },
+        {
+            "parameters": {
+                "sendTo": "admin@remax.cl",
+                "subject": "=Redireccionamiento lead",
+                "message": "=<!DOCTYPE html>\n<html lang=\"es\">\n<head>\n    <meta charset=\"UTF-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <link href=\"https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;600;700&display=swap\" rel=\"stylesheet\">\n    <title>RE/MAX Exclusive Chile - Nuevo Lead</title>\n    <style>\n        * { margin: 0; padding: 0; box-sizing: border-box; }\n        body { margin: 0; padding: 0; font-family: 'Open Sans', sans-serif; background-color: #f5f5f5; }\n        .email-wrapper { background-color: #f5f5f5; padding: 20px 0; }\n        .container { max-width: 700px; margin: 0 auto; background-color: #ffffff; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1); border-radius: 15px; overflow: hidden; }\n        .header { background: linear-gradient(135deg, #003DA5 0%, #0052d4 100%); padding: 30px; text-align: center; }\n        .header h1 { color: #ffffff; font-size: 28px; font-weight: 700; margin-bottom: 10px; }\n        .header p { color: #ffffff; font-size: 16px; opacity: 0.9; }\n        .content { padding: 35px 30px; }\n        .section { margin-bottom: 30px; }\n        .section-title { background-color: #E11B22; color: #ffffff; padding: 12px 20px; border-radius: 8px; font-size: 18px; font-weight: 700; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }\n        .data-table { width: 100%; border-collapse: collapse; background-color: #f8f9fa; border-radius: 8px; overflow: hidden; }\n        .data-table tr { border-bottom: 1px solid #e0e0e0; }\n        .data-table tr:last-child { border-bottom: none; }\n        .data-table td { padding: 15px 20px; font-size: 15px; }\n        .data-table td:first-child { font-weight: 600; color: #003DA5; width: 40%; }\n        .data-table td:last-child { color: #333333; }\n        .highlight-box { background: linear-gradient(to right, #fff3cd, #ffffff); border-left: 5px solid #E11B22; padding: 20px; border-radius: 8px; margin: 25px 0; }\n        .highlight-box p { margin: 0; font-size: 16px; color: #333333; }\n        .highlight-value { color: #E11B22; font-size: 18px; font-weight: 700; }\n        .resumen-box { background-color: #f8f9fa; padding: 20px; border-radius: 8px; line-height: 1.8; color: #333333; }\n        .footer { background-color: #f8f9fa; padding: 20px; text-align: center; border-top: 3px solid #003DA5; }\n        .footer p { margin: 5px 0; font-size: 13px; color: #666666; }\n        .footer strong { color: #E11B22; }\n    </style>\n</head>\n<body>\n    <div class=\"email-wrapper\">\n        <div class=\"container\">\n            <div class=\"header\">\n                <h1>\uD83C\uDFE0 Nuevo Lead Comercial</h1>\n                <p>Buenos d\u00edas, a continuaci\u00f3n anexamos los datos de un lead {{ $json.body.lead_data[0]['Tipo de transacci\u00f3n'] }} interesado. </p>\n            </div>\n            <div class=\"content\">\n                <div class=\"highlight-box\">\n                    <p><strong>Tipo de Transacci\u00f3n:</strong> <span class=\"highlight-value\">{{ $json.body.lead_data[0]['Tipo de transacci\u00f3n'] }}</span></p>\n                </div>\n                <div class=\"section\">\n                    <div class=\"section-title\">\uD83D\uDCCB Resumen</div>\n                    <div class=\"resumen-box\">{{ $json.body.lead_data[0].resumen }}</div>\n                </div>\n                <div class=\"section\">\n                    <div class=\"section-title\">\uD83D\uDC64 Datos de Contacto</div>\n                    <table class=\"data-table\">\n                        <tr><td>Nombre y Apellido</td><td>{{ $json.body.lead_data[0]['Datos Contacto'].nombre_apellido }}</td></tr>\n                        <tr><td>Tel\u00e9fono</td><td><a href=\"tel:{{ $json.body.lead_data[0]['Datos Contacto'].telefono }}\" style=\"color: #003DA5; text-decoration: none;\">{{ $json.body.lead_data[0]['Datos Contacto'].telefono }}</a></td></tr>\n                        <tr><td>Correo Electr\u00f3nico</td><td><a href=\"mailto:{{ $json.body.lead_data[0]['Datos Contacto'].correo }}\" style=\"color: #003DA5; text-decoration: none;\">{{ $json.body.lead_data[0]['Datos Contacto'].correo }}</a></td></tr>\n                        <tr><td>Informaci\u00f3n Adicional</td><td>{{ $json.body.lead_data[0]['Datos Contacto'].info_adicional }}</td></tr>\n                    </table>\n                </div>\n                <div class=\"section\">\n                    <div class=\"section-title\">\uD83D\uDCF1 Fuente del Lead</div>\n                    <table class=\"data-table\"><tr><td>Canal</td><td><strong>{{ $json.body.lead_data[0]['Fuente'] }}</strong></td></tr></table>\n                </div>\n                <div class=\"section\">\n                    <div class=\"section-title\">\uD83C\uDFE1 Datos de la Propiedad</div>\n                    <table class=\"data-table\">\n                        <tr><td>Tipo de Inmueble</td><td><strong>{{ $json.body.lead_data[0]['Datos Propiedad'].tipo_inmueble }}</strong></td></tr>\n                        <tr><td>Ubicaci\u00f3n</td><td>{{ $json.body.lead_data[0]['Datos Propiedad'].direccion_propiedad }}</td></tr>\n                        <tr><td>Habitaciones</td><td>{{ $json.body.lead_data[0]['Datos Propiedad'].habitaciones }}</td></tr>\n                        <tr><td>Ba\u00f1os</td><td>{{ $json.body.lead_data[0]['Datos Propiedad'].banos }}</td></tr>\n                        <tr><td>Presupuesto M\u00e1ximo</td><td style=\"color: #E11B22; font-weight: 700; font-size: 16px;\">{{ $json.body?.lead_data[0]['Datos Propiedad'].valor_maximo }}</td></tr>\n                    </table>\n                </div>\n                <div style=\"text-align: center; margin-top: 30px;\">\n                    <a href=\"{{ $json.body.lead_link }}\" style=\"display: inline-block; background-color: #003DA5; color: #ffffff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 15px;\">Ver Detalle Completo del Lead \u2192</a>\n                </div>\n            </div>\n            <div class=\"footer\">\n                <p><strong>RE<span style=\"color: #003DA5;\">/</span>MAX <span style=\"color: #003DA5;\">Exclusive</span> Chile</strong></p>\n                <p>Dr. Carlos Charlin 1539, Providencia, Santiago</p>\n                <p><a href=\"https://www.remax-exclusive.cl\" style=\"color: #003DA5; text-decoration: none;\">www.remax-exclusive.cl</a></p>\n            </div>\n        </div>\n    </div>\n</body>\n</html>",
+                "options": {
+                    "appendAttribution": false,
+                    "ccList": "marinela.echenagucia@remax-exclusive.cl, josemiguel.raidi@remax-exclusive.cl",
+                    "senderName": "Remax Exclusive Chile"
+                }
+            },
+            "type": "n8n-nodes-base.gmail",
+            "typeVersion": 2.2,
+            "position": [
+                -176,
+                224
+            ],
+            "id": "b4959ca9-3a2a-43c3-b759-c48a07d6925e",
+            "name": "enviar correo1",
+            "webhookId": "f58fecc1-5064-48da-9d74-5d731d8e47ff",
+            "credentials": {
+                "gmailOAuth2": {
+                    "id": "lxbAOjqaxS3bEojd",
+                    "name": "correo info@"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "resource": "chat-api",
+                "operation": "send-presence",
+                "instanceName": "Remax%20Exclusive",
+                "remoteJid": "120363425201828395@g.us",
+                "delay": 3000
+            },
+            "type": "n8n-nodes-evolution-api.evolutionApi",
+            "typeVersion": 1,
+            "position": [
+                48,
+                224
+            ],
+            "id": "2b98ba33-c35a-4024-93d1-f19ccca0ee97",
+            "name": "enviar delay3",
+            "credentials": {
+                "evolutionApi": {
+                    "id": "8JJBbVReKMAi7X9f",
+                    "name": "Evolution account 2"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "=https://api.remax-exclusive.cl/message/sendText/Remax%20Exclusive",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "A47DF197AC02-4F21-BEB4-9F3485E5E4EB"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "text",
+                            "value": "=Lead enviado a Remax Chile con \u00e9xito"
+                        },
+                        {
+                            "name": "number",
+                            "value": "120363425201828395@g.us"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                208,
+                224
+            ],
+            "id": "d2194e7a-6dcc-4642-96e8-0762cb050fc9",
+            "name": "enviar mensaje3",
+            "retryOnFail": true
+        },
+        {
+            "parameters": {
+                "resource": "chat-api",
+                "operation": "read-messages",
+                "instanceName": "Remax%20Exclusive",
+                "remoteJid": "={{ $json.key.remoteJid }}",
+                "messageId": "={{ $json.key.id }}"
+            },
+            "type": "n8n-nodes-evolution-api.evolutionApi",
+            "typeVersion": 1,
+            "position": [
+                352,
+                224
+            ],
+            "id": "91c6344f-b20f-4ef1-a4be-4d094ffa0069",
+            "name": "marcar como le\u00eddo3",
+            "credentials": {
+                "evolutionApi": {
+                    "id": "8JJBbVReKMAi7X9f",
+                    "name": "Evolution account 2"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "url": "=https://wdyfeolbuogoyngrvxkc.supabase.co/rest/v1/profiles?email=eq.{{ $('Webhook1').item.json.body.agent.email }}&select=id,first_name,last_name,phone,email",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndkeWZlb2xidW9nb3luZ3J2eGtjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2ODQ4MjIxNSwiZXhwIjoyMDg0MDU4MjE1fQ.zcJ1Sg-u-32xFQmiXzyDxJ9b40rGQpURP5flQVLIDCg"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndkeWZlb2xidW9nb3luZ3J2eGtjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2ODQ4MjIxNSwiZXhwIjoyMDg0MDU4MjE1fQ.zcJ1Sg-u-32xFQmiXzyDxJ9b40rGQpURP5flQVLIDCg"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.4,
+            "position": [
+                -176,
+                592
+            ],
+            "id": "f94d0018-0500-4dbe-b268-753a39adac17",
+            "name": "Buscar agente en Supabase"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.remax-exclusive.cl/message/sendText/Remax%20Exclusive",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "A47DF197AC02-4F21-BEB4-9F3485E5E4EB"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "number",
+                            "value": "={{ $json.phone.replace(/[^0-9]/g, '') }}@s.whatsapp.net"
+                        },
+                        {
+                            "name": "text",
+                            "value": "=\uD83D\uDD14 *NUEVO LEAD DERIVADO*\n\nEl equipo te ha derivado un lead:\n\n\uD83D\uDC64 *{{ $('Webhook1').item.json.body.lead_data[0]['Datos Contacto'].nombre_apellido }}*\n\uD83D\uDCDE {{ $('Webhook1').item.json.body.lead_data[0]['Datos Contacto'].telefono || 'Sin tel\u00e9fono' }}\n\uD83D\uDCE7 {{ $('Webhook1').item.json.body.lead_data[0]['Datos Contacto'].correo || 'Sin correo' }}\n\n\uD83C\uDFE0 *{{ $('Webhook1').item.json.body.lead_data[0]['Datos Propiedad'].tipo_inmueble }}* - {{ $('Webhook1').item.json.body.lead_data[0]['Tipo de transacci\u00f3n'] }}\n\uD83D\uDCCD {{ $('Webhook1').item.json.body.lead_data[0]['Datos Propiedad'].direccion_propiedad }}\n\n\uD83D\uDD17 Detalles: {{ $('Webhook1').item.json.body.lead_link }}\n\n_Cont\u00e1ctalo ahora._"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                80,
+                592
+            ],
+            "id": "wa-mensaje-agente-001",
+            "name": "WA mensaje a agente",
+            "retryOnFail": true
+        },
+        {
+            "parameters": {
+                "url": "=https://wdyfeolbuogoyngrvxkc.supabase.co/rest/v1/shift_bookings?agent_id=eq.{{ $('Buscar agente en Supabase').item.json.id }}&booking_date=eq.{{ $now.format('yyyy-MM-dd') }}&status=eq.aprobado&select=id,shift,booking_date",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndkeWZlb2xidW9nb3luZ3J2eGtjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2ODQ4MjIxNSwiZXhwIjoyMDg0MDU4MjE1fQ.zcJ1Sg-u-32xFQmiXzyDxJ9b40rGQpURP5flQVLIDCg"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndkeWZlb2xidW9nb3luZ3J2eGtjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2ODQ4MjIxNSwiZXhwIjoyMDg0MDU4MjE1fQ.zcJ1Sg-u-32xFQmiXzyDxJ9b40rGQpURP5flQVLIDCg"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.4,
+            "position": [
+                336,
+                592
+            ],
+            "id": "72ebf3f7-df64-42e0-967a-94992e18b852",
+            "name": "Buscar turno hoy"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://wdyfeolbuogoyngrvxkc.supabase.co/rest/v1/contacts",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndkeWZlb2xidW9nb3luZ3J2eGtjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2ODQ4MjIxNSwiZXhwIjoyMDg0MDU4MjE1fQ.zcJ1Sg-u-32xFQmiXzyDxJ9b40rGQpURP5flQVLIDCg"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndkeWZlb2xidW9nb3luZ3J2eGtjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2ODQ4MjIxNSwiZXhwIjoyMDg0MDU4MjE1fQ.zcJ1Sg-u-32xFQmiXzyDxJ9b40rGQpURP5flQVLIDCg"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        },
+                        {
+                            "name": "Prefer",
+                            "value": "return=representation"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"first_name\": \"{{ $('Webhook1').item.json.body.lead_data[0]['Datos Contacto'].nombre_apellido.split(' ')[0] }}\",\n  \"last_name\": \"{{ $('Webhook1').item.json.body.lead_data[0]['Datos Contacto'].nombre_apellido.split(' ').slice(1).join(' ') }}\",\n  \"phone\": \"{{ $('Webhook1').item.json.body.lead_data[0]['Datos Contacto'].telefono }}\",\n  \"email\": \"{{ $('Webhook1').item.json.body.lead_data[0]['Datos Contacto'].correo }}\",\n  \"source\": \"Guardia\",\n  \"status\": \"Activo\",\n  \"need\": \"{{ $('Webhook1').item.json.body.lead_data[0]['Tipo de transacci\u00f3n'] }}\",\n  \"agent_id\": \"{{ $('Buscar agente en Supabase').item.json.id }}\"\n}",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.4,
+            "position": [
+                592,
+                592
+            ],
+            "id": "e558de7e-513d-4432-8e42-42a13d2b1c79",
+            "name": "Crear contacto Guardia"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://wdyfeolbuogoyngrvxkc.supabase.co/rest/v1/shift_guard_leads",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndkeWZlb2xidW9nb3luZ3J2eGtjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2ODQ4MjIxNSwiZXhwIjoyMDg0MDU4MjE1fQ.zcJ1Sg-u-32xFQmiXzyDxJ9b40rGQpURP5flQVLIDCg"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndkeWZlb2xidW9nb3luZ3J2eGtjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2ODQ4MjIxNSwiZXhwIjoyMDg0MDU4MjE1fQ.zcJ1Sg-u-32xFQmiXzyDxJ9b40rGQpURP5flQVLIDCg"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        },
+                        {
+                            "name": "Prefer",
+                            "value": "return=representation"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"agent_id\": \"{{ $('Buscar agente en Supabase').item.json.id }}\",\n  \"contact_id\": \"{{ $json[0].id }}\",\n  \"shift_booking_id\": \"{{ $('Buscar turno hoy').item.json.id }}\"\n}",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.4,
+            "position": [
+                848,
+                592
+            ],
+            "id": "7771bf22-a6a0-457e-adab-eb9acab90d45",
+            "name": "Crear Guard Lead"
+        },
+        {
+            "parameters": {
+                "content": "## ENVIAR DETALLLE A REMAX CHILE\n",
+                "height": 304,
+                "width": 800,
+                "color": 6
+            },
+            "type": "n8n-nodes-base.stickyNote",
+            "position": [
+                -640,
+                144
+            ],
+            "typeVersion": 1,
+            "id": "9a055cdc-8ae1-4a59-b5ab-f8293e34c7f9",
+            "name": "Sticky Note4"
+        },
+        {
+            "parameters": {
+                "content": "## DERIVAR LEAD A AGENTE (WhatsApp)\n\nWebhook \u2192 If1 (\u00bfregional?) \u2192 Buscar agente \u2192 WA al agente \u2192 Auto-detect guardia",
+                "height": 350,
+                "width": 1600
+            },
+            "type": "n8n-nodes-base.stickyNote",
+            "position": [
+                -656,
+                480
+            ],
+            "typeVersion": 1,
+            "id": "e6b25cb6-ec29-4e5c-a949-c5346c6beeb1",
+            "name": "Sticky Note3"
+        },
+        {
+            "parameters": {
+                "content": "## AUTO-DETECCI\u00d3N GUARDIA\n\nSi el agente tiene turno aprobado hoy:\n1. Crea contacto CRM con source=Guardia\n2. Crea registro en shift_guard_leads\n\nSi NO tiene turno \u2192 el flujo se detiene (0 items).",
+                "height": 280,
+                "width": 600,
+                "color": 4
+            },
+            "type": "n8n-nodes-base.stickyNote",
+            "position": [
+                300,
+                400
+            ],
+            "typeVersion": 1,
+            "id": "7918abcf-6308-49a9-8d03-ac92d0c8d198",
+            "name": "Sticky Note Guard"
+        }
+    ],
+    "connections": {
+        "Webhook1": {
+            "main": [
+                [
+                    {
+                        "node": "If1",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "If1": {
+            "main": [
+                [
+                    {
+                        "node": "enviar correo1",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Buscar agente en Supabase",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "enviar correo1": {
+            "main": [
+                [
+                    {
+                        "node": "enviar delay3",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "enviar delay3": {
+            "main": [
+                [
+                    {
+                        "node": "enviar mensaje3",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "enviar mensaje3": {
+            "main": [
+                [
+                    {
+                        "node": "marcar como le\u00eddo3",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Buscar agente en Supabase": {
+            "main": [
+                [
+                    {
+                        "node": "WA mensaje a agente",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "WA mensaje a agente": {
+            "main": [
+                [
+                    {
+                        "node": "Buscar turno hoy",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Buscar turno hoy": {
+            "main": [
+                [
+                    {
+                        "node": "Crear contacto Guardia",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Crear contacto Guardia": {
+            "main": [
+                [
+                    {
+                        "node": "Crear Guard Lead",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "pinData": {},
+    "meta": {
+        "templateCredsSetupCompleted": true,
+        "instanceId": "0002a29856458184b5061966e81801f3a5513533ef7b5639c4c272473a2edfe2"
+    }
+}

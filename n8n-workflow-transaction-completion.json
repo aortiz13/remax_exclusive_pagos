@@ -1,0 +1,276 @@
+{
+    "name": "Transacción Completada - Email y WhatsApp Agradecimiento",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "transaction-completion",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 2.1,
+            "position": [
+                200,
+                400
+            ],
+            "id": "wh-txn-complete-001",
+            "name": "Webhook",
+            "webhookId": "txn-completion-wh"
+        },
+        {
+            "parameters": {
+                "sendTo": "={{ $('Webhook').item.json.body.seller_email }}",
+                "subject": "=¡Felicitaciones! Su propiedad ha sido {{ $('Webhook').item.json.body.transaction_type === 'arriendo' ? 'arrendada' : 'vendida' }} — RE/MAX Exclusive",
+                "message": "=<!DOCTYPE html>\n<html lang=\"es\">\n<head>\n    <meta charset=\"UTF-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <link href=\"https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap\" rel=\"stylesheet\">\n    <style>\n        * { margin: 0; padding: 0; box-sizing: border-box; }\n        body { font-family: 'Open Sans', sans-serif; background-color: #f5f5f5; }\n        .email-wrapper { background-color: #f5f5f5; padding: 30px 20px; }\n        .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }\n        .header { background: linear-gradient(135deg, #003DA5 0%, #0056D6 100%); padding: 35px 30px; text-align: center; }\n        .header img { max-height: 60px; margin-bottom: 15px; }\n        .header h1 { color: #ffffff; font-size: 22px; font-weight: 700; }\n        .content { padding: 35px 30px; }\n        .content p { color: #333; font-size: 15px; line-height: 1.7; margin-bottom: 18px; }\n        .success-badge { background: linear-gradient(135deg, #d4edda, #c3e6cb); border: 1px solid #28a745; border-radius: 8px; padding: 15px 20px; text-align: center; margin: 20px 0; }\n        .success-badge span { color: #155724; font-size: 16px; font-weight: 700; }\n        .review-box { background: linear-gradient(135deg, #fff3cd, #ffeaa7); border: 1px solid #ffc107; border-radius: 10px; padding: 25px; margin: 25px 0; text-align: center; }\n        .review-box h3 { color: #856404; font-size: 16px; margin-bottom: 10px; }\n        .review-box p { color: #856404; font-size: 14px; margin-bottom: 15px; }\n        .review-btn { display: inline-block; background: #003DA5; color: #ffffff; padding: 12px 30px; border-radius: 6px; text-decoration: none; font-weight: 700; font-size: 14px; }\n        .footer { background-color: #fafafa; padding: 20px 30px; text-align: center; border-top: 1px solid #e8e8e8; }\n        .footer p { font-size: 12px; color: #999; margin: 3px 0; }\n    </style>\n</head>\n<body>\n    <div class=\"email-wrapper\">\n        <div class=\"container\">\n            <div class=\"header\">\n                <img src=\"https://res.cloudinary.com/dhzmkxbek/image/upload/v1765974550/ChatGPT_Image_11_dic_2025_03_45_43_p.m._oajwry.png\" alt=\"RE/MAX\">\n                <h1>🎉 ¡Felicitaciones!</h1>\n            </div>\n            <div class=\"content\">\n                <p>Estimado/a <strong>{{ $('Webhook').item.json.body.seller_name }}</strong>,</p>\n                <div class=\"success-badge\">\n                    <span>✅ Su propiedad ha sido {{ $('Webhook').item.json.body.transaction_type === 'arriendo' ? 'arrendada' : 'vendida' }} exitosamente</span>\n                </div>\n                <p>Queremos agradecerle por haber confiado en <strong>RE/MAX Exclusive</strong> y en su agente <strong>{{ $('Webhook').item.json.body.agent_name }}</strong> para {{ $('Webhook').item.json.body.transaction_type === 'arriendo' ? 'el arriendo' : 'la venta' }} de su propiedad ubicada en <strong>{{ $('Webhook').item.json.body.property_address }}</strong>.</p>\n                <p>Ha sido un placer acompañarle en este proceso y esperamos haber cumplido con sus expectativas.</p>\n                <div class=\"review-box\">\n                    <h3>⭐ ¿Nos ayuda con una reseña?</h3>\n                    <p>Su opinión es muy importante para nosotros. Nos encantaría que compartiera su experiencia:</p>\n                    <a href=\"https://rem.ax/ReviewREMAXExclusive\" class=\"review-btn\">Dejar Reseña en Google</a>\n                </div>\n                <p>¡Muchas gracias y le deseamos lo mejor!</p>\n                <p style=\"margin-top: 25px;\">Cordialmente,<br><strong>{{ $('Webhook').item.json.body.agent_name }}</strong><br><em>RE/MAX Exclusive Chile</em></p>\n            </div>\n            <div class=\"footer\">\n                <p><strong>RE/MAX Exclusive Chile</strong></p>\n                <p>Sistema automático de notificaciones</p>\n            </div>\n        </div>\n    </div>\n</body>\n</html>",
+                "options": {
+                    "appendAttribution": false,
+                    "senderName": "RE/MAX Exclusive Chile"
+                }
+            },
+            "type": "n8n-nodes-base.gmail",
+            "typeVersion": 2.2,
+            "position": [
+                550,
+                200
+            ],
+            "id": "gmail-txn-seller-001",
+            "name": "Email Vendedor/Arrendador",
+            "credentials": {
+                "gmailOAuth2": {
+                    "id": "lxbAOjqaxS3bEojd",
+                    "name": "correo info@"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "sendTo": "={{ $('Webhook').item.json.body.buyer_email }}",
+                "subject": "=¡Felicitaciones por su nueva {{ $('Webhook').item.json.body.transaction_type === 'arriendo' ? 'propiedad en arriendo' : 'propiedad' }}! — RE/MAX Exclusive",
+                "message": "=<!DOCTYPE html>\n<html lang=\"es\">\n<head>\n    <meta charset=\"UTF-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <link href=\"https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap\" rel=\"stylesheet\">\n    <style>\n        * { margin: 0; padding: 0; box-sizing: border-box; }\n        body { font-family: 'Open Sans', sans-serif; background-color: #f5f5f5; }\n        .email-wrapper { background-color: #f5f5f5; padding: 30px 20px; }\n        .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }\n        .header { background: linear-gradient(135deg, #003DA5 0%, #0056D6 100%); padding: 35px 30px; text-align: center; }\n        .header img { max-height: 60px; margin-bottom: 15px; }\n        .header h1 { color: #ffffff; font-size: 22px; font-weight: 700; }\n        .content { padding: 35px 30px; }\n        .content p { color: #333; font-size: 15px; line-height: 1.7; margin-bottom: 18px; }\n        .success-badge { background: linear-gradient(135deg, #d4edda, #c3e6cb); border: 1px solid #28a745; border-radius: 8px; padding: 15px 20px; text-align: center; margin: 20px 0; }\n        .success-badge span { color: #155724; font-size: 16px; font-weight: 700; }\n        .review-box { background: linear-gradient(135deg, #fff3cd, #ffeaa7); border: 1px solid #ffc107; border-radius: 10px; padding: 25px; margin: 25px 0; text-align: center; }\n        .review-box h3 { color: #856404; font-size: 16px; margin-bottom: 10px; }\n        .review-box p { color: #856404; font-size: 14px; margin-bottom: 15px; }\n        .review-btn { display: inline-block; background: #003DA5; color: #ffffff; padding: 12px 30px; border-radius: 6px; text-decoration: none; font-weight: 700; font-size: 14px; }\n        .footer { background-color: #fafafa; padding: 20px 30px; text-align: center; border-top: 1px solid #e8e8e8; }\n        .footer p { font-size: 12px; color: #999; margin: 3px 0; }\n    </style>\n</head>\n<body>\n    <div class=\"email-wrapper\">\n        <div class=\"container\">\n            <div class=\"header\">\n                <img src=\"https://res.cloudinary.com/dhzmkxbek/image/upload/v1765974550/ChatGPT_Image_11_dic_2025_03_45_43_p.m._oajwry.png\" alt=\"RE/MAX\">\n                <h1>🎉 ¡Felicitaciones!</h1>\n            </div>\n            <div class=\"content\">\n                <p>Estimado/a <strong>{{ $('Webhook').item.json.body.buyer_name }}</strong>,</p>\n                <div class=\"success-badge\">\n                    <span>🏠 ¡{{ $('Webhook').item.json.body.transaction_type === 'arriendo' ? 'Bienvenido a su nuevo hogar' : 'Felicitaciones por su nueva propiedad' }}!</span>\n                </div>\n                <p>En nombre de <strong>RE/MAX Exclusive</strong> y de su agente <strong>{{ $('Webhook').item.json.body.agent_name }}</strong>, queremos felicitarle por {{ $('Webhook').item.json.body.transaction_type === 'arriendo' ? 'su nuevo arriendo' : 'la adquisición de su nueva propiedad' }} ubicada en <strong>{{ $('Webhook').item.json.body.property_address }}</strong>.</p>\n                <p>Fue un placer acompañarle en este importante proceso.</p>\n                <div class=\"review-box\">\n                    <h3>⭐ ¿Nos ayuda con una reseña?</h3>\n                    <p>Su opinión es muy valiosa para nosotros. Nos encantaría conocer su experiencia:</p>\n                    <a href=\"https://rem.ax/ReviewREMAXExclusive\" class=\"review-btn\">Dejar Reseña en Google</a>\n                </div>\n                <p>¡Le deseamos lo mejor en su nueva propiedad!</p>\n                <p style=\"margin-top: 25px;\">Cordialmente,<br><strong>{{ $('Webhook').item.json.body.agent_name }}</strong><br><em>RE/MAX Exclusive Chile</em></p>\n            </div>\n            <div class=\"footer\">\n                <p><strong>RE/MAX Exclusive Chile</strong></p>\n                <p>Sistema automático de notificaciones</p>\n            </div>\n        </div>\n    </div>\n</body>\n</html>",
+                "options": {
+                    "appendAttribution": false,
+                    "senderName": "RE/MAX Exclusive Chile"
+                }
+            },
+            "type": "n8n-nodes-base.gmail",
+            "typeVersion": 2.2,
+            "position": [
+                550,
+                400
+            ],
+            "id": "gmail-txn-buyer-001",
+            "name": "Email Comprador/Arrendatario",
+            "credentials": {
+                "gmailOAuth2": {
+                    "id": "lxbAOjqaxS3bEojd",
+                    "name": "correo info@"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "resource": "chat-api",
+                "operation": "send-presence",
+                "instanceName": "Remax%20Exclusive",
+                "remoteJid": "={{ $('Webhook').item.json.body.seller_phone.replace(/[^0-9]/g, '') }}@s.whatsapp.net",
+                "presence": "composing"
+            },
+            "type": "n8n-nodes-evolution-api.evolutionApi",
+            "typeVersion": 2,
+            "position": [
+                550,
+                600
+            ],
+            "id": "typing-seller-001",
+            "name": "Typing Vendedor",
+            "credentials": {
+                "evolutionApi": {
+                    "id": "8JJBbVReKMAi7X9f",
+                    "name": "Evolution account 2"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.remax-exclusive.cl/message/sendText/Remax%20Exclusive",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "q7x5n2BRH2IggeFdSGZ8e9zN8"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "number",
+                            "value": "={{ $('Webhook').item.json.body.seller_phone.replace(/[^0-9]/g, '') }}@s.whatsapp.net"
+                        },
+                        {
+                            "name": "text",
+                            "value": "={{ '🎉 *¡Felicitaciones!*\\n\\nEstimado/a ' + $('Webhook').item.json.body.seller_name + ',\\n\\nDesde *RE/MAX Exclusive* y su agente *' + $('Webhook').item.json.body.agent_name + '*, queremos agradecerle por confiar en nosotros para ' + ($('Webhook').item.json.body.transaction_type === 'arriendo' ? 'el arriendo' : 'la venta') + ' de su propiedad en *' + $('Webhook').item.json.body.property_address + '*.\\n\\n⭐ Nos encantaría conocer su experiencia. ¿Nos deja una reseña?\\n👉 https://rem.ax/ReviewREMAXExclusive\\n\\n¡Muchas gracias y le deseamos lo mejor!\\n\\n_RE/MAX Exclusive Chile_' }}"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                800,
+                600
+            ],
+            "id": "wa-seller-001",
+            "name": "WA Vendedor/Arrendador",
+            "retryOnFail": true
+        },
+        {
+            "parameters": {
+                "resource": "chat-api",
+                "operation": "send-presence",
+                "instanceName": "Remax%20Exclusive",
+                "remoteJid": "={{ $('Webhook').item.json.body.buyer_phone.replace(/[^0-9]/g, '') }}@s.whatsapp.net",
+                "presence": "composing"
+            },
+            "type": "n8n-nodes-evolution-api.evolutionApi",
+            "typeVersion": 2,
+            "position": [
+                550,
+                800
+            ],
+            "id": "typing-buyer-001",
+            "name": "Typing Comprador",
+            "credentials": {
+                "evolutionApi": {
+                    "id": "8JJBbVReKMAi7X9f",
+                    "name": "Evolution account 2"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.remax-exclusive.cl/message/sendText/Remax%20Exclusive",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "q7x5n2BRH2IggeFdSGZ8e9zN8"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "number",
+                            "value": "={{ $('Webhook').item.json.body.buyer_phone.replace(/[^0-9]/g, '') }}@s.whatsapp.net"
+                        },
+                        {
+                            "name": "text",
+                            "value": "={{ '🏠 *¡Felicitaciones!*\\n\\nEstimado/a ' + $('Webhook').item.json.body.buyer_name + ',\\n\\nDesde *RE/MAX Exclusive* y su agente *' + $('Webhook').item.json.body.agent_name + '*, queremos felicitarle por ' + ($('Webhook').item.json.body.transaction_type === 'arriendo' ? 'su nuevo arriendo' : 'la adquisición de su nueva propiedad') + ' en *' + $('Webhook').item.json.body.property_address + '*.\\n\\n⭐ Nos encantaría conocer su experiencia. ¿Nos deja una reseña?\\n👉 https://rem.ax/ReviewREMAXExclusive\\n\\n¡Le deseamos lo mejor en su nueva propiedad!\\n\\n_RE/MAX Exclusive Chile_' }}"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                800,
+                800
+            ],
+            "id": "wa-buyer-001",
+            "name": "WA Comprador/Arrendatario",
+            "retryOnFail": true
+        },
+        {
+            "parameters": {
+                "respondWith": "text",
+                "responseBody": "ok"
+            },
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1.1,
+            "position": [
+                550,
+                1000
+            ],
+            "id": "respond-txn-001",
+            "name": "Respond to Webhook"
+        }
+    ],
+    "connections": {
+        "Webhook": {
+            "main": [
+                [
+                    {
+                        "node": "Email Vendedor/Arrendador",
+                        "type": "main",
+                        "index": 0
+                    },
+                    {
+                        "node": "Email Comprador/Arrendatario",
+                        "type": "main",
+                        "index": 0
+                    },
+                    {
+                        "node": "Typing Vendedor",
+                        "type": "main",
+                        "index": 0
+                    },
+                    {
+                        "node": "Typing Comprador",
+                        "type": "main",
+                        "index": 0
+                    },
+                    {
+                        "node": "Respond to Webhook",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Typing Vendedor": {
+            "main": [
+                [
+                    {
+                        "node": "WA Vendedor/Arrendador",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Typing Comprador": {
+            "main": [
+                [
+                    {
+                        "node": "WA Comprador/Arrendatario",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1"
+    },
+    "meta": {
+        "instanceId": "remax-exclusive"
+    }
+}

@@ -1,0 +1,905 @@
+{
+    "nodes": [
+        {
+            "parameters": {
+                "sendTo": "admin@remax.cl",
+                "subject": "=Redireccionamiento lead",
+                "message": "=<!DOCTYPE html>\n<html lang=\"es\">\n<head>\n    <meta charset=\"UTF-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <link href=\"https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;600;700&display=swap\" rel=\"stylesheet\">\n    <title>RE/MAX Exclusive Chile - Nuevo Lead</title>\n    <style>\n        * { margin: 0; padding: 0; box-sizing: border-box; }\n        body { margin: 0; padding: 0; font-family: 'Open Sans', sans-serif; background-color: #f5f5f5; }\n        .email-wrapper { background-color: #f5f5f5; padding: 20px 0; }\n        .container { max-width: 700px; margin: 0 auto; background-color: #ffffff; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1); border-radius: 15px; overflow: hidden; }\n        .header { background: linear-gradient(135deg, #003DA5 0%, #0052d4 100%); padding: 30px; text-align: center; }\n        .header h1 { color: #ffffff; font-size: 28px; font-weight: 700; margin-bottom: 10px; }\n        .header p { color: #ffffff; font-size: 16px; opacity: 0.9; }\n        .content { padding: 35px 30px; }\n        .section { margin-bottom: 30px; }\n        .section-title { background-color: #E11B22; color: #ffffff; padding: 12px 20px; border-radius: 8px; font-size: 18px; font-weight: 700; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }\n        .data-table { width: 100%; border-collapse: collapse; background-color: #f8f9fa; border-radius: 8px; overflow: hidden; }\n        .data-table tr { border-bottom: 1px solid #e0e0e0; }\n        .data-table tr:last-child { border-bottom: none; }\n        .data-table td { padding: 15px 20px; font-size: 15px; }\n        .data-table td:first-child { font-weight: 600; color: #003DA5; width: 40%; }\n        .data-table td:last-child { color: #333333; }\n        .highlight-box { background: linear-gradient(to right, #fff3cd, #ffffff); border-left: 5px solid #E11B22; padding: 20px; border-radius: 8px; margin: 25px 0; }\n        .highlight-box p { margin: 0; font-size: 16px; color: #333333; }\n        .highlight-value { color: #E11B22; font-size: 18px; font-weight: 700; }\n        .resumen-box { background-color: #f8f9fa; padding: 20px; border-radius: 8px; line-height: 1.8; color: #333333; }\n        .footer { background-color: #f8f9fa; padding: 20px; text-align: center; border-top: 3px solid #003DA5; }\n        .footer p { margin: 5px 0; font-size: 13px; color: #666666; }\n        .footer strong { color: #E11B22; }\n    </style>\n</head>\n<body>\n    <div class=\"email-wrapper\">\n        <div class=\"container\">\n            <div class=\"header\">\n                <h1>\uD83C\uDFE0 Nuevo Lead Comercial</h1>\n                <p>Buenos días, a continuación anexamos los datos de un lead {{ $json.body.lead_data[0]['Tipo de transacción'] }} interesado. </p>\n            </div>\n            <div class=\"content\">\n                <div class=\"highlight-box\">\n                    <p><strong>Tipo de Transacción:</strong> <span class=\"highlight-value\">{{ $json.body.lead_data[0]['Tipo de transacción'] }}</span></p>\n                </div>\n                <div class=\"section\">\n                    <div class=\"section-title\">\uD83D\uDCCB Resumen</div>\n                    <div class=\"resumen-box\">{{ $json.body.lead_data[0].resumen }}</div>\n                </div>\n                <div class=\"section\">\n                    <div class=\"section-title\">\uD83D\uDC64 Datos de Contacto</div>\n                    <table class=\"data-table\">\n                        <tr><td>Nombre y Apellido</td><td>{{ $json.body.lead_data[0]['Datos Contacto'].nombre_apellido }}</td></tr>\n                        <tr><td>Teléfono</td><td><a href=\"tel:{{ $json.body.lead_data[0]['Datos Contacto'].telefono }}\" style=\"color: #003DA5; text-decoration: none;\">{{ $json.body.lead_data[0]['Datos Contacto'].telefono }}</a></td></tr>\n                        <tr><td>Correo Electrónico</td><td><a href=\"mailto:{{ $json.body.lead_data[0]['Datos Contacto'].correo }}\" style=\"color: #003DA5; text-decoration: none;\">{{ $json.body.lead_data[0]['Datos Contacto'].correo }}</a></td></tr>\n                        <tr><td>Información Adicional</td><td>{{ $json.body.lead_data[0]['Datos Contacto'].info_adicional }}</td></tr>\n                    </table>\n                </div>\n                <div class=\"section\">\n                    <div class=\"section-title\">\uD83D\uDCF1 Fuente del Lead</div>\n                    <table class=\"data-table\"><tr><td>Canal</td><td><strong>{{ $json.body.lead_data[0]['Fuente'] }}</strong></td></tr></table>\n                </div>\n                <div class=\"section\">\n                    <div class=\"section-title\">\uD83C\uDFE1 Datos de la Propiedad</div>\n                    <table class=\"data-table\">\n                        <tr><td>Tipo de Inmueble</td><td><strong>{{ $json.body.lead_data[0]['Datos Propiedad'].tipo_inmueble }}</strong></td></tr>\n                        <tr><td>Ubicación</td><td>{{ $json.body.lead_data[0]['Datos Propiedad'].direccion_propiedad }}</td></tr>\n                        <tr><td>Habitaciones</td><td>{{ $json.body.lead_data[0]['Datos Propiedad'].habitaciones }}</td></tr>\n                        <tr><td>Baños</td><td>{{ $json.body.lead_data[0]['Datos Propiedad'].banos }}</td></tr>\n                        <tr><td>Presupuesto Máximo</td><td style=\"color: #E11B22; font-weight: 700; font-size: 16px;\">{{ $json.body?.lead_data[0]['Datos Propiedad'].valor_maximo }}</td></tr>\n                    </table>\n                </div>\n                <div style=\"text-align: center; margin-top: 30px;\">\n                    <a href=\"{{ $json.body.lead_link }}\" style=\"display: inline-block; background-color: #003DA5; color: #ffffff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 15px;\">Ver Detalle Completo del Lead →</a>\n                </div>\n            </div>\n            <div class=\"footer\">\n                <p><strong>RE<span style=\"color: #003DA5;\">/</span>MAX <span style=\"color: #003DA5;\">Exclusive</span> Chile</strong></p>\n                <p>Dr. Carlos Charlin 1539, Providencia, Santiago</p>\n                <p><a href=\"https://www.remax-exclusive.cl\" style=\"color: #003DA5; text-decoration: none;\">www.remax-exclusive.cl</a></p>\n            </div>\n        </div>\n    </div>\n</body>\n</html>",
+                "options": {
+                    "appendAttribution": false,
+                    "ccList": "marinela.echenagucia@remax-exclusive.cl, josemiguel.raidi@remax-exclusive.cl",
+                    "senderName": "Remax Exclusive Chile"
+                }
+            },
+            "type": "n8n-nodes-base.gmail",
+            "typeVersion": 2.2,
+            "position": [
+                -96,
+                336
+            ],
+            "id": "b009720d-b163-47e1-9465-b5c61a44b46a",
+            "name": "enviar correo",
+            "webhookId": "f58fecc1-5064-48da-9d74-5d731d8e47ff",
+            "credentials": {
+                "gmailOAuth2": {
+                    "id": "lxbAOjqaxS3bEojd",
+                    "name": "correo info@"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "workflowInputs": {
+                    "values": [
+                        {
+                            "name": "Tipo de transacción"
+                        },
+                        {
+                            "name": "Datos Contacto",
+                            "type": "object"
+                        },
+                        {
+                            "name": "Datos Propiedad",
+                            "type": "object"
+                        },
+                        {
+                            "name": "resumen"
+                        },
+                        {
+                            "name": "id_conversacion"
+                        },
+                        {
+                            "name": "Fuente"
+                        }
+                    ]
+                }
+            },
+            "type": "n8n-nodes-base.executeWorkflowTrigger",
+            "typeVersion": 1.1,
+            "position": [
+                -384,
+                -176
+            ],
+            "id": "b5d15da0-bf9b-4919-9829-2388c0c87857",
+            "name": "inicio"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "=https://api.remax-exclusive.cl/message/sendText/Remax%20Exclusive",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "A47DF197AC02-4F21-BEB4-9F3485E5E4EB"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "text",
+                            "value": "=\uD83D\uDD14 *NUEVO LEAD - Interesado {{ $('inicio').item.json['Datos Propiedad'].tipo_transaccion }}*\n\uD83D\uDC64 *DATOS DE CONTACTO*\n{{ $('inicio').item.json['Datos Contacto'].nombre_apellido ? 'Nombre: ' + $('inicio').item.json['Datos Contacto'].nombre_apellido + '' : '' }}{{ $('inicio').item.json['Datos Contacto'].telefono ? 'Teléfono: +' + $('inicio').item.json['Datos Contacto'].telefono + '' : '' }}\n{{ $('inicio').item.json['Datos Contacto'].correo ? 'Email: ' + $('inicio').item.json['Datos Contacto'].correo + '' : '' }}\n\n\uD83C\uDFE0 *DATOS DE LA PROPIEDAD*\n{{ $('inicio').item.json['Datos Propiedad'].tipo_inmueble ? 'Tipo: ' + $('inicio').item.json['Datos Propiedad'].tipo_inmueble + '\\n' : '' }}{{ $('inicio').item.json['Datos Propiedad']?.direccion_propiedad ? 'Ubicación: ' + $('inicio').item.json['Datos Propiedad'].direccion_propiedad + '\\n' : '' }}{{ $('inicio').item.json['Datos Propiedad'].habitaciones ? 'Habitaciones: ' + $('inicio').item.json['Datos Propiedad'].habitaciones + '\\n' : '' }}{{ $('inicio').item.json['Datos Propiedad'].banos ? 'Baños: ' + $('inicio').item.json['Datos Propiedad'].banos + '\\n' : '' }}{{ $('inicio').item.json['Datos Propiedad'].valor_maximo ? 'Presupuesto Máximo: $' + $('inicio').item.json['Datos Propiedad'].valor_maximo + ' CLP\\n' : '' }}{{ $('inicio').item.json['Datos Propiedad'].caracteristicas_adicionales && $('inicio').item.json['Datos Propiedad'].caracteristicas_adicionales.length > 0 ? 'Características: ' + $('inicio').item.json['Datos Propiedad'].caracteristicas_adicionales.join(',') + '\\n' : '' }}{{ $('inicio').item.json['Datos Contacto'].info_adicional ? '\uD83D\uDCAC *COMENTARIOS ADICIONALES*\\n' + $('inicio').item.json['Datos Contacto'].info_adicional + '\\n' : '' }}{{ $('inicio').item.json.resumen ? '\uD83D\uDCDD *RESUMEN*\\n' + $('inicio').item.json.resumen + '\\n' : '' }}{{ $('inicio').item.json.id_conversacion ? 'Chat: https://wssp.remax-exclusive.cl/app/accounts/2/conversations/' + $('inicio').item.json.id_conversacion + '\\n' : '' }}{{ $('inicio').item.json.Fuente ? 'FUENTE: ' + $('inicio').item.json.Fuente : '' }}\nDerívalo a un agente: https://solicitudes.remax-exclusive.cl/busqueda/{{ $('Enviar a Supabase').item.json.short_id }}"
+                        },
+                        {
+                            "name": "number",
+                            "value": "120363425201828395@g.us"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                560,
+                -176
+            ],
+            "id": "d56d24f0-3d3b-442a-892d-8883d349eaa7",
+            "name": "enviar mensaje",
+            "retryOnFail": true
+        },
+        {
+            "parameters": {
+                "resource": "chat-api",
+                "operation": "send-presence",
+                "instanceName": "Remax%20Exclusive",
+                "remoteJid": "120363425201828395@g.us",
+                "delay": 3000
+            },
+            "type": "n8n-nodes-evolution-api.evolutionApi",
+            "typeVersion": 1,
+            "position": [
+                400,
+                -176
+            ],
+            "id": "347ce822-8aa9-48be-8028-d026e2178705",
+            "name": "enviar delay",
+            "credentials": {
+                "evolutionApi": {
+                    "id": "8JJBbVReKMAi7X9f",
+                    "name": "Evolution account 2"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "resource": "chat-api",
+                "operation": "read-messages",
+                "instanceName": "Remax%20Exclusive",
+                "remoteJid": "={{ $json.key.remoteJid }}",
+                "messageId": "={{ $json.key.id }}"
+            },
+            "type": "n8n-nodes-evolution-api.evolutionApi",
+            "typeVersion": 1,
+            "position": [
+                704,
+                -176
+            ],
+            "id": "589cdc7b-75b4-427a-b96e-a7dbf1f5af69",
+            "name": "marcar como leído",
+            "credentials": {
+                "evolutionApi": {
+                    "id": "8JJBbVReKMAi7X9f",
+                    "name": "Evolution account 2"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "=https://wdyfeolbuogoyngrvxkc.supabase.co/rest/v1/external_leads",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndkeWZlb2xidW9nb3luZ3J2eGtjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0ODIyMTUsImV4cCI6MjA4NDA1ODIxNX0.6wOgw7h9ZsnKIpkqYE7faXUlNHHdhSo7bIHMEdvIN1Y"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndkeWZlb2xidW9nb3luZ3J2eGtjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0ODIyMTUsImV4cCI6MjA4NDA1ODIxNX0.6wOgw7h9ZsnKIpkqYE7faXUlNHHdhSo7bIHMEdvIN1Y"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        },
+                        {
+                            "name": "Prefer",
+                            "value": "return=representation"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "contentType": "raw",
+                "body": "={\n  \"raw_data\": [\n    {\n      \"Tipo de transacción\": \"{{ $json['Tipo de transacción'] }}\",\n      \"Datos Contacto\": {\n        \"nombre_apellido\": \"{{ $json['Datos Contacto'].nombre_apellido }}\",\n        \"telefono\": \"{{ $json['Datos Contacto'].telefono }}\",\n        \"correo\": \"{{ $json['Datos Contacto'].correo }}\",\n        \"info_adicional\": \"\"\n      },\n      \"Datos Propiedad\": {\n        \"tipo_transaccion\": \"{{ $json['Datos Propiedad'].tipo_transaccion }}\",\n        \"tipo_inmueble\": \"{{ $json['Datos Propiedad'].tipo_inmueble }}\",\n        \"direccion_propiedad\": \"{{ $json['Datos Propiedad'].direccion_propiedad }}\",\n        \"habitaciones\": {{ $json['Datos Propiedad'].habitaciones ?? 0 }},\n        \"banos\": {{ $json['Datos Propiedad'].banos ?? 0 }},\n        \"caracteristicas_adicionales\": []\n      },\n      \"resumen\": \"{{ $json.resumen ?? '' }}\",\n      \"id_conversacion\": \"{{ $json.id_conversacion }}\",\n      \"Fuente\": \"{{ $json.Fuente }}\"\n    }\n  ]\n}",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.3,
+            "position": [
+                16,
+                -192
+            ],
+            "id": "6e4bfba0-2346-4f88-b96d-1039ff1c3472",
+            "name": "Enviar a Supabase"
+        },
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "recibir_datos",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 2.1,
+            "position": [
+                -544,
+                704
+            ],
+            "id": "22ae489f-9113-40b0-94a3-af69bc299379",
+            "name": "Webhook",
+            "webhookId": "23f4320e-53c2-4197-aa5b-12f953d7b3ca"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "={{$env['link_chatwoot']}}/api/v1/accounts/2/conversations",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"inbox_id\": \"3\",\n  \"contact_id\": \"{{ $json.payload[0].id }}\"\n}",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                496,
+                736
+            ],
+            "id": "04c200e7-ecbe-47d6-8065-444d37f66185",
+            "name": "crear_conversacion",
+            "credentials": {
+                "httpHeaderAuth": {
+                    "id": "9IlRfeiJqdaKWSQB",
+                    "name": "Chatwoot"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "={{$env['link_chatwoot']}}/api/v1/accounts/2/conversations/{{ $json.id }}/messages",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={   \n  \"content\": \"*NUEVO LEAD*\\n\\nEl equipo te ha derivado un lead\\n\\n *Detalles*:{{ $('Webhook').item.json.body.lead_link }}\\n\\nContáctalo ahora\\n\\nNo es necesario responder este mensaje\",\n  \"message_type\": \"outgoing\",\n  \"private\": false,\n  \"content_type\": \"text\"\n}",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                704,
+                736
+            ],
+            "id": "cad1ff78-dc67-48d3-83de-6e9933dfb7dc",
+            "name": "mensaje a agente",
+            "credentials": {
+                "httpHeaderAuth": {
+                    "id": "9IlRfeiJqdaKWSQB",
+                    "name": "Chatwoot"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "url": "https://wssp.remax-exclusive.cl/api/v1/accounts/2/contacts/search",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendQuery": true,
+                "queryParameters": {
+                    "parameters": [
+                        {
+                            "name": "q",
+                            "value": "={{ $json.body.agent.email }}"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.3,
+            "position": [
+                -192,
+                720
+            ],
+            "id": "4f59cd53-5352-4d47-943e-9279957f1a21",
+            "name": "buscar por correo",
+            "credentials": {
+                "httpHeaderAuth": {
+                    "id": "9IlRfeiJqdaKWSQB",
+                    "name": "Chatwoot"
+                },
+                "httpBearerAuth": {
+                    "id": "Z0Rz44PvcCXNjrbO",
+                    "name": "twenty CRM"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "rules": {
+                    "values": [
+                        {
+                            "conditions": {
+                                "options": {
+                                    "caseSensitive": true,
+                                    "leftValue": "",
+                                    "typeValidation": "strict",
+                                    "version": 3
+                                },
+                                "conditions": [
+                                    {
+                                        "leftValue": "={{ $json.meta.count }}",
+                                        "rightValue": "={{null}}",
+                                        "operator": {
+                                            "type": "number",
+                                            "operation": "equals"
+                                        },
+                                        "id": "92d85691-8ece-4138-91c7-4478fac55497"
+                                    }
+                                ],
+                                "combinator": "and"
+                            },
+                            "renameOutput": true,
+                            "outputKey": "no hay por correo"
+                        },
+                        {
+                            "conditions": {
+                                "options": {
+                                    "caseSensitive": true,
+                                    "leftValue": "",
+                                    "typeValidation": "strict",
+                                    "version": 3
+                                },
+                                "conditions": [
+                                    {
+                                        "id": "8fcd0f6d-e374-4a9a-b395-85421f91d6cc",
+                                        "leftValue": "={{ $json.meta.count }}",
+                                        "rightValue": "={{null}}",
+                                        "operator": {
+                                            "type": "number",
+                                            "operation": "notEquals"
+                                        }
+                                    }
+                                ],
+                                "combinator": "and"
+                            },
+                            "renameOutput": true,
+                            "outputKey": "Si hay correo"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.switch",
+            "typeVersion": 3.4,
+            "position": [
+                16,
+                720
+            ],
+            "id": "1e515449-962a-4d3e-991f-a6999040789e",
+            "name": "Switch"
+        },
+        {
+            "parameters": {
+                "url": "https://wssp.remax-exclusive.cl/api/v1/accounts/2/contacts/search",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendQuery": true,
+                "queryParameters": {
+                    "parameters": [
+                        {
+                            "name": "q",
+                            "value": "="
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.3,
+            "position": [
+                256,
+                608
+            ],
+            "id": "2d123497-0462-480d-9725-73528cc84f48",
+            "name": "buscar por telefono",
+            "credentials": {
+                "httpHeaderAuth": {
+                    "id": "9IlRfeiJqdaKWSQB",
+                    "name": "Chatwoot"
+                },
+                "httpBearerAuth": {
+                    "id": "Z0Rz44PvcCXNjrbO",
+                    "name": "twenty CRM"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "options": {
+                        "caseSensitive": true,
+                        "leftValue": "",
+                        "typeValidation": "strict",
+                        "version": 3
+                    },
+                    "conditions": [
+                        {
+                            "id": "07e49eb7-1fe5-4feb-9c99-f43b95d81598",
+                            "leftValue": "={{ $json.body.agent.email }}",
+                            "rightValue": "regional@remax.cl",
+                            "operator": {
+                                "type": "string",
+                                "operation": "equals"
+                            }
+                        }
+                    ],
+                    "combinator": "and"
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 2.3,
+            "position": [
+                -368,
+                704
+            ],
+            "id": "ea9539d4-1ba2-468b-9c85-86f3558ebe81",
+            "name": "If"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "=https://api.remax-exclusive.cl/message/sendText/Remax%20Exclusive",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "A47DF197AC02-4F21-BEB4-9F3485E5E4EB"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "text",
+                            "value": "=Lead enviado a Remax Chile con éxito"
+                        },
+                        {
+                            "name": "number",
+                            "value": "120363425201828395@g.us"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                288,
+                336
+            ],
+            "id": "1dda4dc1-34ec-4fb8-91d8-8f6e4bd7ed34",
+            "name": "enviar mensaje2",
+            "retryOnFail": true
+        },
+        {
+            "parameters": {
+                "resource": "chat-api",
+                "operation": "send-presence",
+                "instanceName": "Remax%20Exclusive",
+                "remoteJid": "120363425201828395@g.us",
+                "delay": 3000
+            },
+            "type": "n8n-nodes-evolution-api.evolutionApi",
+            "typeVersion": 1,
+            "position": [
+                128,
+                336
+            ],
+            "id": "4b52339c-ff4f-4ff7-acc7-bf4111092b20",
+            "name": "enviar delay1",
+            "credentials": {
+                "evolutionApi": {
+                    "id": "8JJBbVReKMAi7X9f",
+                    "name": "Evolution account 2"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "resource": "chat-api",
+                "operation": "read-messages",
+                "instanceName": "Remax%20Exclusive",
+                "remoteJid": "={{ $json.key.remoteJid }}",
+                "messageId": "={{ $json.key.id }}"
+            },
+            "type": "n8n-nodes-evolution-api.evolutionApi",
+            "typeVersion": 1,
+            "position": [
+                432,
+                336
+            ],
+            "id": "d5fde9be-ec87-44dc-9c3f-c2687dffe17e",
+            "name": "marcar como leído1",
+            "credentials": {
+                "evolutionApi": {
+                    "id": "8JJBbVReKMAi7X9f",
+                    "name": "Evolution account 2"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "url": "=https://wdyfeolbuogoyngrvxkc.supabase.co/rest/v1/profiles?email=eq.{{ $('Webhook').item.json.body.agent.email }}&select=id,first_name,last_name,phone,email",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndkeWZlb2xidW9nb3luZ3J2eGtjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2ODQ4MjIxNSwiZXhwIjoyMDg0MDU4MjE1fQ.zcJ1Sg-u-32xFQmiXzyDxJ9b40rGQpURP5flQVLIDCg"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndkeWZlb2xidW9nb3luZ3J2eGtjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2ODQ4MjIxNSwiZXhwIjoyMDg0MDU4MjE1fQ.zcJ1Sg-u-32xFQmiXzyDxJ9b40rGQpURP5flQVLIDCg"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.4,
+            "position": [
+                960,
+                736
+            ],
+            "id": "6544eff7-ba2b-425d-b354-2422f783fd3c",
+            "name": "Buscar agente en Supabase"
+        },
+        {
+            "parameters": {
+                "url": "=https://wdyfeolbuogoyngrvxkc.supabase.co/rest/v1/shift_bookings?agent_id=eq.{{ $json.id }}&booking_date=eq.{{ $now.format('yyyy-MM-dd') }}&status=eq.aprobado&select=id,shift,booking_date",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndkeWZlb2xidW9nb3luZ3J2eGtjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2ODQ4MjIxNSwiZXhwIjoyMDg0MDU4MjE1fQ.zcJ1Sg-u-32xFQmiXzyDxJ9b40rGQpURP5flQVLIDCg"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndkeWZlb2xidW9nb3luZ3J2eGtjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2ODQ4MjIxNSwiZXhwIjoyMDg0MDU4MjE1fQ.zcJ1Sg-u-32xFQmiXzyDxJ9b40rGQpURP5flQVLIDCg"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.4,
+            "position": [
+                1200,
+                736
+            ],
+            "id": "7653ff11-859a-4354-8bd1-c0ba5abbfb87",
+            "name": "Buscar turno hoy"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://wdyfeolbuogoyngrvxkc.supabase.co/rest/v1/contacts",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndkeWZlb2xidW9nb3luZ3J2eGtjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2ODQ4MjIxNSwiZXhwIjoyMDg0MDU4MjE1fQ.zcJ1Sg-u-32xFQmiXzyDxJ9b40rGQpURP5flQVLIDCg"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndkeWZlb2xidW9nb3luZ3J2eGtjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2ODQ4MjIxNSwiZXhwIjoyMDg0MDU4MjE1fQ.zcJ1Sg-u-32xFQmiXzyDxJ9b40rGQpURP5flQVLIDCg"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        },
+                        {
+                            "name": "Prefer",
+                            "value": "return=representation"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"first_name\": \"{{ $('Webhook').item.json.body.lead_data[0]['Datos Contacto'].nombre_apellido.split(' ')[0] }}\",\n  \"last_name\": \"{{ $('Webhook').item.json.body.lead_data[0]['Datos Contacto'].nombre_apellido.split(' ').slice(1).join(' ') }}\",\n  \"phone\": \"{{ $('Webhook').item.json.body.lead_data[0]['Datos Contacto'].telefono }}\",\n  \"email\": \"{{ $('Webhook').item.json.body.lead_data[0]['Datos Contacto'].correo }}\",\n  \"source\": \"Guardia\",\n  \"status\": \"Activo\",\n  \"need\": \"{{ $('Webhook').item.json.body.lead_data[0]['Tipo de transacción'] }}\",\n  \"agent_id\": \"{{ $('Buscar agente en Supabase').item.json.id }}\"\n}",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.4,
+            "position": [
+                1440,
+                736
+            ],
+            "id": "a1b2c3d4-1111-2222-3333-444455556666",
+            "name": "Crear contacto Guardia"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://wdyfeolbuogoyngrvxkc.supabase.co/rest/v1/shift_guard_leads",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndkeWZlb2xidW9nb3luZ3J2eGtjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2ODQ4MjIxNSwiZXhwIjoyMDg0MDU4MjE1fQ.zcJ1Sg-u-32xFQmiXzyDxJ9b40rGQpURP5flQVLIDCg"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndkeWZlb2xidW9nb3luZ3J2eGtjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2ODQ4MjIxNSwiZXhwIjoyMDg0MDU4MjE1fQ.zcJ1Sg-u-32xFQmiXzyDxJ9b40rGQpURP5flQVLIDCg"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        },
+                        {
+                            "name": "Prefer",
+                            "value": "return=representation"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"agent_id\": \"{{ $('Buscar agente en Supabase').item.json.id }}\",\n  \"contact_id\": \"{{ $json[0].id }}\",\n  \"shift_booking_id\": \"{{ $('Buscar turno hoy').item.json.id }}\"\n}",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.4,
+            "position": [
+                1680,
+                736
+            ],
+            "id": "6381fbe8-f2bb-416d-9f0d-0d7023d08c04",
+            "name": "Crear Guard Lead"
+        },
+        {
+            "parameters": {
+                "content": "## ENVIAR DETALLES A AGENTE\n",
+                "height": 496,
+                "width": 1456
+            },
+            "type": "n8n-nodes-base.stickyNote",
+            "position": [
+                -576,
+                656
+            ],
+            "typeVersion": 1,
+            "id": "6b66b965-99d2-48ad-aa9c-a6f6dfc3ef6b",
+            "name": "Sticky Note"
+        },
+        {
+            "parameters": {
+                "content": "## ENVIAR DETALLLE A REMAX CHILE\n",
+                "height": 304,
+                "width": 1456,
+                "color": 6
+            },
+            "type": "n8n-nodes-base.stickyNote",
+            "position": [
+                -560,
+                256
+            ],
+            "typeVersion": 1,
+            "id": "deeff84c-dd3e-494e-8f6d-9b127d556278",
+            "name": "Sticky Note1"
+        },
+        {
+            "parameters": {
+                "content": "## AUTO-DETECCIÓN GUARDIA\n\nSi el agente tiene turno aprobado hoy:\n1. Crea contacto CRM con source=Guardia\n2. Crea registro en shift_guard_leads\n\nSi NO tiene turno → el flujo se detiene naturalmente (0 items).",
+                "height": 280,
+                "width": 900,
+                "color": 4
+            },
+            "type": "n8n-nodes-base.stickyNote",
+            "position": [
+                900,
+                560
+            ],
+            "typeVersion": 1,
+            "id": "sticky-guard-detection",
+            "name": "Sticky Note Guard"
+        }
+    ],
+    "connections": {
+        "inicio": {
+            "main": [
+                [
+                    {
+                        "node": "Enviar a Supabase",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Enviar a Supabase": {
+            "main": [
+                [
+                    {
+                        "node": "enviar delay",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "enviar delay": {
+            "main": [
+                [
+                    {
+                        "node": "enviar mensaje",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "enviar mensaje": {
+            "main": [
+                [
+                    {
+                        "node": "marcar como leído",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Webhook": {
+            "main": [
+                [
+                    {
+                        "node": "If",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "If": {
+            "main": [
+                [
+                    {
+                        "node": "enviar correo",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "buscar por correo",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "enviar correo": {
+            "main": [
+                [
+                    {
+                        "node": "enviar delay1",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "enviar delay1": {
+            "main": [
+                [
+                    {
+                        "node": "enviar mensaje2",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "enviar mensaje2": {
+            "main": [
+                [
+                    {
+                        "node": "marcar como leído1",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "buscar por correo": {
+            "main": [
+                [
+                    {
+                        "node": "Switch",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Switch": {
+            "main": [
+                [
+                    {
+                        "node": "buscar por telefono",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "crear_conversacion",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "buscar por telefono": {
+            "main": [
+                [
+                    {
+                        "node": "crear_conversacion",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "crear_conversacion": {
+            "main": [
+                [
+                    {
+                        "node": "mensaje a agente",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "mensaje a agente": {
+            "main": [
+                [
+                    {
+                        "node": "Buscar agente en Supabase",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Buscar agente en Supabase": {
+            "main": [
+                [
+                    {
+                        "node": "Buscar turno hoy",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Buscar turno hoy": {
+            "main": [
+                [
+                    {
+                        "node": "Crear contacto Guardia",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Crear contacto Guardia": {
+            "main": [
+                [
+                    {
+                        "node": "Crear Guard Lead",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "pinData": {},
+    "meta": {
+        "templateCredsSetupCompleted": true,
+        "instanceId": "0002a29856458184b5061966e81801f3a5513533ef7b5639c4c272473a2edfe2"
+    }
+}

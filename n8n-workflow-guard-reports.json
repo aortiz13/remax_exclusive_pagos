@@ -1,0 +1,387 @@
+{
+    "name": "Guard Lead Reports - 8am Notify + 12pm Auto-Report",
+    "nodes": [
+        {
+            "parameters": {
+                "rule": {
+                    "interval": [
+                        {
+                            "triggerAtHour": 8,
+                            "triggerAtMinute": 0
+                        }
+                    ]
+                }
+            },
+            "type": "n8n-nodes-base.scheduleTrigger",
+            "typeVersion": 1.2,
+            "position": [
+                -600,
+                -200
+            ],
+            "id": "sched-8am",
+            "name": "Cron 8am"
+        },
+        {
+            "parameters": {
+                "rule": {
+                    "interval": [
+                        {
+                            "triggerAtHour": 12,
+                            "triggerAtMinute": 0
+                        }
+                    ]
+                }
+            },
+            "type": "n8n-nodes-base.scheduleTrigger",
+            "typeVersion": 1.2,
+            "position": [
+                -600,
+                400
+            ],
+            "id": "sched-12pm",
+            "name": "Cron 12pm"
+        },
+        {
+            "parameters": {
+                "jsCode": "// Query Supabase for guard leads with pending reports at correct milestone\nconst baseUrl = 'https://wdyfeolbuogoyngrvxkc.supabase.co/rest/v1';\nconst apikey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndkeWZlb2xidW9nb3luZ3J2eGtjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0ODIyMTUsImV4cCI6MjA4NDA1ODIxNX0.6wOgw7h9ZsnKIpkqYE7faXUlNHHdhSo7bIHMEdvIN1Y';\n\nconst headers = {\n    'apikey': apikey,\n    'Authorization': `Bearer ${apikey}`,\n    'Content-Type': 'application/json'\n};\n\n// Get all guard leads\nconst resp = await fetch(`${baseUrl}/shift_guard_leads?select=*,agent:profiles!shift_guard_leads_agent_id_fkey(id,first_name,last_name,email,phone),contact:contacts!shift_guard_leads_contact_id_fkey(id,first_name,last_name,phone,email,status,need,observations)`, { headers });\nconst guardLeads = await resp.json();\n\nconst now = new Date();\nconst pendingReports = [];\n\nfor (const lead of guardLeads) {\n    const assigned = new Date(lead.assigned_at);\n    const daysSince = Math.floor((now - assigned) / (1000 * 60 * 60 * 24));\n    \n    // Check each milestone\n    const milestones = [\n        { key: '2d', days: 2, label: 'Día 2' },\n        { key: '15d', days: 15, label: 'Día 15' },\n        { key: '30d', days: 30, label: 'Día 30' }\n    ];\n    \n    for (const m of milestones) {\n        if (daysSince >= m.days && !lead[`report_${m.key}_sent`]) {\n            pendingReports.push({\n                ...lead,\n                milestone: m.key,\n                milestone_label: m.label,\n                days_since: daysSince,\n                agent_name: `${lead.agent?.first_name || ''} ${lead.agent?.last_name || ''}`.trim(),\n                agent_email: lead.agent?.email,\n                agent_phone: lead.agent?.phone?.replace(/[^0-9]/g, ''),\n                contact_name: `${lead.contact?.first_name || ''} ${lead.contact?.last_name || ''}`.trim(),\n                contact_phone: lead.contact?.phone,\n                contact_email: lead.contact?.email,\n                contact_status: lead.contact?.status || 'Sin estado',\n                contact_need: lead.contact?.need || '-',\n                contact_observations: lead.contact?.observations || '-',\n                agent_notes: lead[`report_${m.key}_agent_notes`] || 'Sin notas del agente'\n            });\n        }\n    }\n}\n\nreturn pendingReports;"
+            },
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                -340,
+                -200
+            ],
+            "id": "code-query-8am",
+            "name": "Query Pending Reports 8am"
+        },
+        {
+            "parameters": {
+                "jsCode": "// Same query but for 12pm auto-report\nconst baseUrl = 'https://wdyfeolbuogoyngrvxkc.supabase.co/rest/v1';\nconst apikey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndkeWZlb2xidW9nb3luZ3J2eGtjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0ODIyMTUsImV4cCI6MjA4NDA1ODIxNX0.6wOgw7h9ZsnKIpkqYE7faXUlNHHdhSo7bIHMEdvIN1Y';\n\nconst headers = {\n    'apikey': apikey,\n    'Authorization': `Bearer ${apikey}`,\n    'Content-Type': 'application/json'\n};\n\n// Get all guard leads with contact activities\nconst resp = await fetch(`${baseUrl}/shift_guard_leads?select=*,agent:profiles!shift_guard_leads_agent_id_fkey(id,first_name,last_name,email,phone),contact:contacts!shift_guard_leads_contact_id_fkey(id,first_name,last_name,phone,email,status,need,observations,source)`, { headers });\nconst guardLeads = await resp.json();\n\nconst now = new Date();\nconst pendingReports = [];\n\nfor (const lead of guardLeads) {\n    const assigned = new Date(lead.assigned_at);\n    const daysSince = Math.floor((now - assigned) / (1000 * 60 * 60 * 24));\n    \n    const milestones = [\n        { key: '2d', days: 2, label: 'Día 2' },\n        { key: '15d', days: 15, label: 'Día 15' },\n        { key: '30d', days: 30, label: 'Día 30' }\n    ];\n    \n    for (const m of milestones) {\n        if (daysSince >= m.days && !lead[`report_${m.key}_sent`]) {\n            // Fetch contact activities for the storyline\n            let activities = [];\n            let tasks = [];\n            if (lead.contact_id) {\n                const actResp = await fetch(`${baseUrl}/contact_activities?contact_id=eq.${lead.contact_id}&order=created_at.desc&limit=20`, { headers });\n                activities = await actResp.json();\n                \n                const taskResp = await fetch(`${baseUrl}/crm_tasks?contact_id=eq.${lead.contact_id}&order=execution_date.desc&limit=20`, { headers });\n                tasks = await taskResp.json();\n            }\n            \n            // Build storyline text\n            let storyline = '';\n            if (activities.length > 0) {\n                storyline += '<h3>📋 Actividades Registradas</h3><ul>';\n                for (const a of activities) {\n                    const d = new Date(a.created_at).toLocaleDateString('es-CL', { day: 'numeric', month: 'short' });\n                    storyline += `<li><strong>${d}</strong> - ${a.type}: ${a.description}</li>`;\n                }\n                storyline += '</ul>';\n            } else {\n                storyline += '<p>⚠️ No hay actividades registradas para este contacto.</p>';\n            }\n            \n            if (tasks.length > 0) {\n                storyline += '<h3>✅ Tareas</h3><ul>';\n                for (const t of tasks) {\n                    const d = new Date(t.execution_date).toLocaleDateString('es-CL', { day: 'numeric', month: 'short' });\n                    const icon = t.completed ? '✅' : '⏳';\n                    storyline += `<li>${icon} <strong>${d}</strong> - ${t.action}${t.description ? ': ' + t.description : ''}</li>`;\n                }\n                storyline += '</ul>';\n            }\n            \n            pendingReports.push({\n                ...lead,\n                milestone: m.key,\n                milestone_label: m.label,\n                days_since: daysSince,\n                agent_name: `${lead.agent?.first_name || ''} ${lead.agent?.last_name || ''}`.trim(),\n                agent_email: lead.agent?.email,\n                agent_phone: lead.agent?.phone?.replace(/[^0-9]/g, ''),\n                contact_name: `${lead.contact?.first_name || ''} ${lead.contact?.last_name || ''}`.trim(),\n                contact_phone: lead.contact?.phone,\n                contact_email: lead.contact?.email,\n                contact_status: lead.contact?.status || 'Sin estado',\n                contact_need: lead.contact?.need || '-',\n                contact_observations: lead.contact?.observations || '-',\n                agent_notes: lead[`report_${m.key}_agent_notes`] || 'Sin notas del agente',\n                storyline: storyline\n            });\n        }\n    }\n}\n\nreturn pendingReports;"
+            },
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                -340,
+                400
+            ],
+            "id": "code-query-12pm",
+            "name": "Query Pending Reports 12pm"
+        },
+        {
+            "parameters": {
+                "resource": "chat-api",
+                "operation": "send-presence",
+                "instanceName": "Remax%20Exclusive",
+                "remoteJid": "={{ $json.agent_phone }}@s.whatsapp.net",
+                "delay": 2000
+            },
+            "type": "n8n-nodes-evolution-api.evolutionApi",
+            "typeVersion": 1,
+            "position": [
+                -80,
+                -200
+            ],
+            "id": "typing-8am",
+            "name": "Typing 8am",
+            "credentials": {
+                "evolutionApi": {
+                    "id": "8JJBbVReKMAi7X9f",
+                    "name": "Evolution account 2"
+                }
+            },
+            "onError": "continueRegularOutput"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.remax-exclusive.cl/message/sendText/Remax%20Exclusive",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "A47DF197AC02-4F21-BEB4-9F3485E5E4EB"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "number",
+                            "value": "={{ $json.agent_phone }}@s.whatsapp.net"
+                        },
+                        {
+                            "name": "text",
+                            "value": "=⏰ *RECORDATORIO - Reporte Lead de Guardia ({{ $json.milestone_label }})*\n\nHola {{ $json.agent_name }},\n\nHoy a las *12:00 PM* se enviará automáticamente a comercial el reporte del lead:\n\n👤 *{{ $json.contact_name }}*\n📞 {{ $json.contact_phone || 'Sin teléfono' }}\n📊 Estado: {{ $json.contact_status }}\n\n📝 Por favor verifica que toda la información esté cargada en tu contacto.\n\n💡 Si necesitas agregar una nota al reporte, ingresa aquí:\n🔗 https://solicitudes.remax-exclusive.cl/guard-leads\n\n_Este es un reporte automático del sistema de guardias._"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                120,
+                -200
+            ],
+            "id": "wa-8am",
+            "name": "WA Agente 8am",
+            "retryOnFail": true
+        },
+        {
+            "parameters": {
+                "resource": "chat-api",
+                "operation": "read-messages",
+                "instanceName": "Remax%20Exclusive",
+                "remoteJid": "={{ $json.key.remoteJid }}",
+                "messageId": "={{ $json.key.id }}"
+            },
+            "type": "n8n-nodes-evolution-api.evolutionApi",
+            "typeVersion": 1,
+            "position": [
+                320,
+                -200
+            ],
+            "id": "leido-8am",
+            "name": "Leído 8am",
+            "credentials": {
+                "evolutionApi": {
+                    "id": "8JJBbVReKMAi7X9f",
+                    "name": "Evolution account 2"
+                }
+            },
+            "onError": "continueRegularOutput"
+        },
+        {
+            "parameters": {
+                "resource": "chat-api",
+                "operation": "send-presence",
+                "instanceName": "Remax%20Exclusive",
+                "remoteJid": "={{ $json.agent_phone }}@s.whatsapp.net",
+                "delay": 2000
+            },
+            "type": "n8n-nodes-evolution-api.evolutionApi",
+            "typeVersion": 1,
+            "position": [
+                -80,
+                400
+            ],
+            "id": "typing-12pm",
+            "name": "Typing 12pm",
+            "credentials": {
+                "evolutionApi": {
+                    "id": "8JJBbVReKMAi7X9f",
+                    "name": "Evolution account 2"
+                }
+            },
+            "onError": "continueRegularOutput"
+        },
+        {
+            "parameters": {
+                "sendTo": "comercial@remax-exclusive.cl",
+                "subject": "=📊 Reporte Lead Guardia ({{ $json.milestone_label }}) - {{ $json.contact_name }} → {{ $json.agent_name }}",
+                "message": "=<!DOCTYPE html>\n<html lang=\"es\">\n<head>\n    <meta charset=\"UTF-8\">\n    <link href=\"https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;600;700&display=swap\" rel=\"stylesheet\">\n    <style>\n        * { margin: 0; padding: 0; box-sizing: border-box; }\n        body { font-family: 'Open Sans', sans-serif; background-color: #f5f5f5; }\n        .container { max-width: 700px; margin: 0 auto; background: #fff; border-radius: 15px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }\n        .header { background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%); padding: 30px; text-align: center; }\n        .header h1 { color: #fff; font-size: 24px; font-weight: 700; }\n        .header p { color: #fff; font-size: 14px; opacity: 0.9; margin-top: 5px; }\n        .badge { display: inline-block; background: rgba(255,255,255,0.2); color: #fff; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; margin-top: 10px; }\n        .content { padding: 30px; }\n        .section { margin-bottom: 25px; }\n        .section-title { background: #f59e0b; color: #fff; padding: 10px 18px; border-radius: 8px; font-size: 16px; font-weight: 700; margin-bottom: 15px; }\n        .data-table { width: 100%; border-collapse: collapse; background: #f8f9fa; border-radius: 8px; overflow: hidden; }\n        .data-table tr { border-bottom: 1px solid #e0e0e0; }\n        .data-table tr:last-child { border-bottom: none; }\n        .data-table td { padding: 12px 18px; font-size: 14px; }\n        .data-table td:first-child { font-weight: 600; color: #7c3aed; width: 35%; }\n        .storyline { background: #f8f9fa; padding: 20px; border-radius: 8px; line-height: 1.8; }\n        .storyline h3 { color: #7c3aed; margin-bottom: 10px; }\n        .storyline ul { padding-left: 20px; }\n        .storyline li { margin-bottom: 5px; }\n        .notes-box { background: linear-gradient(to right, #fef3c7, #fff); border-left: 5px solid #f59e0b; padding: 15px; border-radius: 8px; margin: 20px 0; }\n        .footer { background: #f8f9fa; padding: 20px; text-align: center; border-top: 3px solid #7c3aed; }\n        .footer p { font-size: 13px; color: #666; margin: 3px 0; }\n    </style>\n</head>\n<body>\n    <div class=\"container\">\n        <div class=\"header\">\n            <h1>🛡️ Reporte Lead de Guardia</h1>\n            <p>Reporte automático — {{ $json.milestone_label }}</p>\n            <span class=\"badge\">{{ $json.days_since }} días desde asignación</span>\n        </div>\n        <div class=\"content\">\n            <div class=\"section\">\n                <div class=\"section-title\">👤 Datos del Lead</div>\n                <table class=\"data-table\">\n                    <tr><td>Nombre</td><td><strong>{{ $json.contact_name }}</strong></td></tr>\n                    <tr><td>Teléfono</td><td>{{ $json.contact_phone || 'No registrado' }}</td></tr>\n                    <tr><td>Email</td><td>{{ $json.contact_email || 'No registrado' }}</td></tr>\n                    <tr><td>Estado CRM</td><td>{{ $json.contact_status }}</td></tr>\n                    <tr><td>Necesidad</td><td>{{ $json.contact_need }}</td></tr>\n                    <tr><td>Observaciones</td><td>{{ $json.contact_observations }}</td></tr>\n                </table>\n            </div>\n            <div class=\"section\">\n                <div class=\"section-title\">🏢 Agente Asignado</div>\n                <table class=\"data-table\">\n                    <tr><td>Agente</td><td><strong>{{ $json.agent_name }}</strong></td></tr>\n                    <tr><td>Email</td><td>{{ $json.agent_email }}</td></tr>\n                    <tr><td>Asignado</td><td>{{ new Date($json.assigned_at).toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' }) }}</td></tr>\n                </table>\n            </div>\n            <div class=\"notes-box\">\n                <p><strong>📝 Nota del Agente:</strong></p>\n                <p>{{ $json.agent_notes }}</p>\n            </div>\n            <div class=\"section\">\n                <div class=\"section-title\">📊 Storyline del Contacto</div>\n                <div class=\"storyline\">{{ $json.storyline }}</div>\n            </div>\n        </div>\n        <div class=\"footer\">\n            <p><strong>RE<span style=\"color:#7c3aed\">/</span>MAX Exclusive Chile</strong></p>\n            <p>Sistema de Guardias — Reporte Automático</p>\n        </div>\n    </div>\n</body>\n</html>",
+                "options": {
+                    "appendAttribution": false,
+                    "ccList": "marinela.echenagucia@remax-exclusive.cl, josemiguel.raidi@remax-exclusive.cl",
+                    "senderName": "Remax Exclusive - Reportes Guardia"
+                }
+            },
+            "type": "n8n-nodes-base.gmail",
+            "typeVersion": 2.2,
+            "position": [
+                120,
+                400
+            ],
+            "id": "email-report-12pm",
+            "name": "Email Reporte Comercial",
+            "credentials": {
+                "gmailOAuth2": {
+                    "id": "lxbAOjqaxS3bEojd",
+                    "name": "correo info@"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "jsCode": "// Mark report as sent in Supabase\nconst baseUrl = 'https://wdyfeolbuogoyngrvxkc.supabase.co/rest/v1';\nconst apikey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndkeWZlb2xidW9nb3luZ3J2eGtjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0ODIyMTUsImV4cCI6MjA4NDA1ODIxNX0.6wOgw7h9ZsnKIpkqYE7faXUlNHHdhSo7bIHMEdvIN1Y';\n\nconst milestone = $input.first().json.milestone;\nconst leadId = $input.first().json.id;\n\nconst updateData = {};\nupdateData[`report_${milestone}_sent`] = true;\nupdateData[`report_${milestone}_sent_at`] = new Date().toISOString();\n\nconst resp = await fetch(`${baseUrl}/shift_guard_leads?id=eq.${leadId}`, {\n    method: 'PATCH',\n    headers: {\n        'apikey': apikey,\n        'Authorization': `Bearer ${apikey}`,\n        'Content-Type': 'application/json',\n        'Prefer': 'return=minimal'\n    },\n    body: JSON.stringify(updateData)\n});\n\nreturn [{ json: { success: resp.ok, milestone, leadId } }];"
+            },
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                320,
+                400
+            ],
+            "id": "mark-sent",
+            "name": "Marcar Reporte Enviado"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.remax-exclusive.cl/message/sendText/Remax%20Exclusive",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "A47DF197AC02-4F21-BEB4-9F3485E5E4EB"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "number",
+                            "value": "={{ $('Query Pending Reports 12pm').item.json.agent_phone }}@s.whatsapp.net"
+                        },
+                        {
+                            "name": "text",
+                            "value": "=✅ *Reporte Lead de Guardia Enviado*\n\nEl reporte de *{{ $('Query Pending Reports 12pm').item.json.contact_name }}* ({{ $('Query Pending Reports 12pm').item.json.milestone_label }}) fue enviado a comercial.\n\n_Gracias por mantener la información actualizada._"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                520,
+                400
+            ],
+            "id": "wa-confirm-12pm",
+            "name": "WA Confirmación Agente",
+            "retryOnFail": true
+        },
+        {
+            "parameters": {
+                "content": "## REPORTES LEADS GUARDIA\n\n**8am:** Notifica al agente que a las 12pm se enviará el reporte.\nEl agente puede agregar notas en /guard-leads\n\n**12pm:** Auto-genera reporte del storyline del contacto (actividades + tareas) y lo envía a comercial por email.\nMarca el reporte como enviado y confirma al agente por WhatsApp.",
+                "height": 740,
+                "width": 1300
+            },
+            "type": "n8n-nodes-base.stickyNote",
+            "position": [
+                -640,
+                -320
+            ],
+            "typeVersion": 1,
+            "id": "sticky-1",
+            "name": "Sticky Note"
+        }
+    ],
+    "connections": {
+        "Cron 8am": {
+            "main": [
+                [
+                    {
+                        "node": "Query Pending Reports 8am",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Query Pending Reports 8am": {
+            "main": [
+                [
+                    {
+                        "node": "Typing 8am",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Typing 8am": {
+            "main": [
+                [
+                    {
+                        "node": "WA Agente 8am",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "WA Agente 8am": {
+            "main": [
+                [
+                    {
+                        "node": "Leído 8am",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Cron 12pm": {
+            "main": [
+                [
+                    {
+                        "node": "Query Pending Reports 12pm",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Query Pending Reports 12pm": {
+            "main": [
+                [
+                    {
+                        "node": "Typing 12pm",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Typing 12pm": {
+            "main": [
+                [
+                    {
+                        "node": "Email Reporte Comercial",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Email Reporte Comercial": {
+            "main": [
+                [
+                    {
+                        "node": "Marcar Reporte Enviado",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Marcar Reporte Enviado": {
+            "main": [
+                [
+                    {
+                        "node": "WA Confirmación Agente",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "pinData": {},
+    "meta": {
+        "templateCredsSetupCompleted": true,
+        "instanceId": "0002a29856458184b5061966e81801f3a5513533ef7b5639c4c272473a2edfe2"
+    }
+}

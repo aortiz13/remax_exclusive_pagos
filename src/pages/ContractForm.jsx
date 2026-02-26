@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Calendar as CalendarIcon, Upload, Plus, Trash2, MapPin, Search, ChevronRight, FileText, FileSignature, Handshake, CheckCircle2, ChevronDown, UserPlus, Users } from 'lucide-react'
 import { supabase } from '../services/supabase'
@@ -71,22 +71,26 @@ function DateField({ label, name, defaultValue, ...rest }) {
     )
 }
 
-function FileUploadField({ label, name, accept, multiple = false }) {
+const FileUploadField = forwardRef(function FileUploadField({ label, name, accept, multiple = false }, ref) {
     const [files, setFiles] = useState([])
     const inputRef = useRef(null)
+
+    // Expose getFiles() to parent via ref
+    useImperativeHandle(ref, () => ({
+        getFiles: () => files
+    }), [files])
 
     const handleFileChange = (e) => {
         const selectedFiles = Array.from(e.target.files || [])
         if (selectedFiles.length > 0) {
             setFiles(prev => multiple ? [...prev, ...selectedFiles] : [selectedFiles[0]])
         }
+        // Reset the input so the same file can be re-selected if needed
+        if (inputRef.current) inputRef.current.value = ''
     }
 
     const handleRemove = (index) => {
         setFiles(prev => prev.filter((_, i) => i !== index))
-        if (inputRef.current) {
-            inputRef.current.value = ''
-        }
     }
 
     return (
@@ -94,10 +98,9 @@ function FileUploadField({ label, name, accept, multiple = false }) {
             <Label className="text-sm font-semibold text-slate-700">{label}</Label>
             <Card className={"border-dashed border-2 cursor-pointer transition-colors " + (files.length > 0 ? 'bg-blue-50/50 border-primary/30' : 'bg-slate-50/50 border-slate-200 hover:bg-slate-100')} onClick={() => inputRef.current?.click()}>
                 <CardContent className="flex flex-col items-center justify-center py-8 text-center">
-                    <Input
+                    <input
                         ref={inputRef}
                         type="file"
-                        name={multiple ? name + '[]' : name}
                         accept={accept}
                         multiple={multiple}
                         className="hidden"
@@ -138,7 +141,7 @@ function FileUploadField({ label, name, accept, multiple = false }) {
             </Card>
         </div>
     )
-}
+})
 
 function PartyForm({ typeLabel, index, prefix, initialData = {}, onRemove, isRemovable, hideLaborData = false }) {
     const [personType, setPersonType] = useState('natural') // natural | juridica
@@ -492,6 +495,11 @@ function BuySellFormLogic({ user, profile, navigate, initialData = {}, requestId
     const [paymentMethod, setPaymentMethod] = useState(initialData?.forma_pago || 'contado')
     const [reservationCurrency, setReservationCurrency] = useState(initialData?.moneda_reserva || 'clp')
 
+    // File upload refs
+    const dominioRef = useRef(null)
+    const gpRef = useRef(null)
+    const otrosRef = useRef(null)
+
     const handleSaveDraft = async () => {
         if (!formRef.current) return
         const formData = new FormData(formRef.current)
@@ -556,27 +564,19 @@ function BuySellFormLogic({ user, profile, navigate, initialData = {}, requestId
         e.preventDefault()
         const formData = new FormData(e.currentTarget)
 
-        // Validation - Files
-        const dominio = formData.getAll('dominio_vigente[]')
-        const gp = formData.getAll('gp_certificado[]')
+        // Validation - Files (from refs)
+        const dominioFiles = dominioRef.current?.getFiles() || []
+        const gpFiles = gpRef.current?.getFiles() || []
+        const otrosFiles = otrosRef.current?.getFiles() || []
 
-        // Check helper
-        const hasValidFile = (files) => files && files.length > 0 && files.some(f => f.size > 0);
-
-        if (!hasValidFile(dominio)) {
-            const singleDom = formData.get('dominio_vigente')
-            if (!singleDom || singleDom.size === 0) {
-                toast.error('Debes adjuntar al menos un archivo de Dominio Vigente.')
-                return
-            }
+        if (dominioFiles.length === 0) {
+            toast.error('Debes adjuntar al menos un archivo de Dominio Vigente.')
+            return
         }
 
-        if (!hasValidFile(gp)) {
-            const singleGp = formData.get('gp_certificado')
-            if (!singleGp || singleGp.size === 0) {
-                toast.error('Debes adjuntar al menos un archivo de GP (Hipotecas y Gravámenes).')
-                return
-            }
+        if (gpFiles.length === 0) {
+            toast.error('Debes adjuntar al menos un archivo de GP (Hipotecas y Gravámenes).')
+            return
         }
 
         setIsSubmitting(true)
@@ -608,20 +608,10 @@ function BuySellFormLogic({ user, profile, navigate, initialData = {}, requestId
                     webhookData.append(key, value)
                 }
             })
-            // Append Files (Binary)
-            // Handle multiple files correctly for webhook
-            const fileFields = ['dominio_vigente', 'gp_certificado', 'otros_documentos']
-            fileFields.forEach(field => {
-                // Try both array syntax and plain syntax to catch all
-                const filesArray = formData.getAll(`${field} []`).length > 0 ? formData.getAll(`${field} []`) : formData.getAll(field);
-                if (filesArray.length > 0) {
-                    filesArray.forEach(file => {
-                        if (file instanceof File && file.size > 0) {
-                            webhookData.append(`${field} []`, file)
-                        }
-                    })
-                }
-            })
+            // Append Files from refs (reliable source of truth)
+            dominioFiles.forEach(file => webhookData.append('dominio_vigente[]', file))
+            gpFiles.forEach(file => webhookData.append('gp_certificado[]', file))
+            otrosFiles.forEach(file => webhookData.append('otros_documentos[]', file))
 
             // Append Generated PDF
             webhookData.append('detalles solicitud.pdf', pdfBlob, 'detalles solicitud.pdf')
@@ -863,12 +853,14 @@ function BuySellFormLogic({ user, profile, navigate, initialData = {}, requestId
                 <CardSection title="5. Documentación Adjunta (Obligatoria)">
                     <div className="grid grid-cols-1 gap-6">
                         <FileUploadField
+                            ref={dominioRef}
                             label="Dominio Vigente (Archivos PDF/Imágenes)"
                             name="dominio_vigente"
                             accept=".pdf,image/*,.doc,.docx"
                             multiple
                         />
                         <FileUploadField
+                            ref={gpRef}
                             label="Certificado GP (Hipotecas y Grav.)"
                             name="gp_certificado"
                             accept=".pdf,image/*,.doc,.docx"
@@ -876,6 +868,7 @@ function BuySellFormLogic({ user, profile, navigate, initialData = {}, requestId
                         />
                         <div className="pt-4 border-t mt-4">
                             <FileUploadField
+                                ref={otrosRef}
                                 label="Otros Documentos (Opcional - Poderes, Escrituras, etc.)"
                                 name="otros_documentos"
                                 accept=".pdf,image/*,.doc,.docx,.xls,.xlsx"
@@ -917,6 +910,10 @@ function LeaseFormLogic({ user, profile, navigate, initialData = {}, requestId =
     const [currency, setCurrency] = useState(initialData?.moneda_arriendo || 'clp')
 
     const [conRestitucion, setConRestitucion] = useState(initialData?.con_restitucion === 'SI')
+
+    // File upload refs
+    const dominioRef = useRef(null)
+    const otrosRef = useRef(null)
 
     const handleSaveDraft = async () => {
         if (!formRef.current) return
@@ -992,14 +989,11 @@ function LeaseFormLogic({ user, profile, navigate, initialData = {}, requestId =
         e.preventDefault()
         const formData = new FormData(e.currentTarget)
 
-        // Validation
-        const dominio = formData.get('dominio_vigente[]')
-        const fileInput = document.querySelector('input[name="dominio_vigente[]"]');
-        const hasFiles = fileInput && fileInput.files.length > 0;
+        // Validation - Files (from refs)
+        const dominioFiles = dominioRef.current?.getFiles() || []
+        const otrosFiles = otrosRef.current?.getFiles() || []
 
-        // If editing and no new file, it's ok if not replacing. But here we enforce checking size if present.
-        // For now, let's assume if it's a new request, it's mandatory.
-        if (!requestId && !hasFiles) {
+        if (!requestId && dominioFiles.length === 0) {
             toast.error('Debes adjuntar el Dominio Vigente.')
             return
         }
@@ -1056,23 +1050,9 @@ function LeaseFormLogic({ user, profile, navigate, initialData = {}, requestId =
                 }
             }
 
-            // Append Files
-            const appendFiles = (baseFieldName) => {
-                // Check both "name" and "name[]" to be safe
-                const files = formData.getAll(baseFieldName).length > 0
-                    ? formData.getAll(baseFieldName)
-                    : formData.getAll(`${baseFieldName} []`);
-
-                files.forEach((file) => {
-                    if (file instanceof File && file.size > 0) {
-                        // We append with the base name (common in webhooks) or array syntax if preferred
-                        // Let's use array syntax for destination to ensure lists are clear
-                        webhookData.append(`${baseFieldName} []`, file);
-                    }
-                });
-            }
-            appendFiles('dominio_vigente')
-            appendFiles('otros_documentos')
+            // Append Files from refs (reliable source of truth)
+            dominioFiles.forEach(file => webhookData.append('dominio_vigente[]', file))
+            otrosFiles.forEach(file => webhookData.append('otros_documentos[]', file))
 
             // Append Generated PDF
             webhookData.append('detalles solicitud.pdf', pdfBlob, 'detalles solicitud.pdf')
@@ -1402,9 +1382,9 @@ function LeaseFormLogic({ user, profile, navigate, initialData = {}, requestId =
                 </CardSection>
 
                 <CardSection title="5. Documentación Adjunta">
-                    <FileUploadField label="Dominio Vigente" name="dominio_vigente" accept=".pdf,image/*,.doc,.docx,.xls,.xlsx,.csv" multiple={true} />
+                    <FileUploadField ref={dominioRef} label="Dominio Vigente" name="dominio_vigente" accept=".pdf,image/*,.doc,.docx,.xls,.xlsx,.csv" multiple={true} />
                     <div className="pt-4"></div>
-                    <FileUploadField label="Otros Documentos (Opcional)" name="otros_documentos" accept=".pdf,image/*,.doc,.docx,.xls,.xlsx,.csv" multiple={true} />
+                    <FileUploadField ref={otrosRef} label="Otros Documentos (Opcional)" name="otros_documentos" accept=".pdf,image/*,.doc,.docx,.xls,.xlsx,.csv" multiple={true} />
                 </CardSection>
 
                 <CardSection title="6. Notas Adicionales">
@@ -1437,6 +1417,10 @@ function AnnexFormLogic({ user, profile, navigate, initialData = {}, requestId =
     const [properties, setProperties] = useState([])
     const [loadingProperties, setLoadingProperties] = useState(false)
     const [selectedPropertyId, setSelectedPropertyId] = useState('')
+
+    // File upload refs
+    const contratoRef = useRef(null)
+    const docAdicionalesRef = useRef(null)
 
     const handleSaveDraft = async () => {
         if (!formRef.current) return
@@ -1533,15 +1517,11 @@ function AnnexFormLogic({ user, profile, navigate, initialData = {}, requestId =
         e.preventDefault()
         const formData = new FormData(e.currentTarget)
 
-        // Validation
-        const contrato = formData.get('contrato_original')
-        // Check if file provided. For edits, it might be skipped if not changing. 
-        // But for "Anexo" usually we want the contract reference.
-        // Let's assume strict for new requests.
-        const fileInput = document.querySelector('input[name="contrato_original"]');
-        const hasFiles = fileInput && fileInput.files.length > 0;
+        // Validation - Files (from refs)
+        const contratoFiles = contratoRef.current?.getFiles() || []
+        const docAdicionalesFiles = docAdicionalesRef.current?.getFiles() || []
 
-        if (!requestId && !hasFiles) {
+        if (!requestId && contratoFiles.length === 0) {
             toast.error('Debes adjuntar el Contrato Original.')
             return
         }
@@ -1566,20 +1546,9 @@ function AnnexFormLogic({ user, profile, navigate, initialData = {}, requestId =
                 }
             }
 
-            // Files - Helper
-            const appendFiles = (baseFieldName) => {
-                const files = formData.getAll(baseFieldName).length > 0
-                    ? formData.getAll(baseFieldName)
-                    : formData.getAll(`${baseFieldName} []`);
-
-                files.forEach((file) => {
-                    if (file instanceof File && file.size > 0) {
-                        webhookData.append(`${baseFieldName} []`, file);
-                    }
-                });
-            }
-            appendFiles('contrato_original')
-            appendFiles('documentos_adicionales')
+            // Append Files from refs (reliable source of truth)
+            contratoFiles.forEach(file => webhookData.append('contrato_original[]', file))
+            docAdicionalesFiles.forEach(file => webhookData.append('documentos_adicionales[]', file))
 
             // Trigger Webhook
             await triggerLegalWebhook(webhookData)
@@ -1686,11 +1655,13 @@ function AnnexFormLogic({ user, profile, navigate, initialData = {}, requestId =
                 <CardSection title="3. Documentación Requerida">
                     <div className="space-y-6">
                         <FileUploadField
+                            ref={contratoRef}
                             label="Contrato Original (Obligatorio)"
                             name="contrato_original"
                             accept=".pdf,image/*,.doc,.docx"
                         />
                         <FileUploadField
+                            ref={docAdicionalesRef}
                             label="Documentos Adicionales (Opcional)"
                             name="documentos_adicionales"
                             accept=".pdf,image/*,.doc,.docx"
