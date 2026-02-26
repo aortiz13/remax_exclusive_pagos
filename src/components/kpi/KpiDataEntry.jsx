@@ -16,11 +16,11 @@ const KPI_SOURCES = [
         indicatorColor: '#2563eb',
         icon: MessageSquare,
         kpis: [
-            { label: 'Inicios de Conversación', icon: MessageSquare, description: 'Se registra al agregar una acción tipo "Llamada en frío" o "Otra (I.C)" en el CRM.', path: '/crm', cta: 'Ir al CRM' },
-            { label: 'Cafés Relacionales', icon: Coffee, description: 'Se registra al crear una acción "Café relacional" en el módulo CRM.', path: '/crm', cta: 'Ir al CRM' },
-            { label: 'Entrevistas Venta (Prelisting)', icon: UserCheck, description: 'Se registra al crear la acción "Entrevista Venta (Pre-listing)" en el CRM.', path: '/crm', cta: 'Ir al CRM' },
-            { label: 'Entrevistas Compra (Prebuying)', icon: UserCheck, description: 'Se registra al crear la acción "Entrevista Compra (Pre-Buying)" en el CRM.', path: '/crm', cta: 'Ir al CRM' },
-            { label: 'Evaluaciones Comerciales', icon: FileText, description: 'Se registra automáticamente al crear una acción tipo "Evaluación Comercial".', path: '/crm', cta: 'Ir al CRM' },
+            { label: 'Inicios de Conversación', icon: MessageSquare, description: 'Se registra al agregar una acción tipo "Llamada en frío" o "Otra (I.C)" en el CRM.', path: '/crm/actions', cta: 'Ir a Acciones' },
+            { label: 'Cafés Relacionales', icon: Coffee, description: 'Se registra al crear una acción "Café relacional" en el módulo CRM.', path: '/crm/actions', cta: 'Ir a Acciones' },
+            { label: 'Entrevistas Venta (Prelisting)', icon: UserCheck, description: 'Se registra al crear la acción "Entrevista Venta (Pre-listing)" en el CRM.', path: '/crm/actions', cta: 'Ir a Acciones' },
+            { label: 'Entrevistas Compra (Prebuying)', icon: UserCheck, description: 'Se registra al crear la acción "Entrevista Compra (Pre-Buying)" en el CRM.', path: '/crm/actions', cta: 'Ir a Acciones' },
+            { label: 'Evaluaciones Comerciales', icon: FileText, description: 'Se registra automáticamente al crear una acción tipo "Evaluación Comercial".', path: '/crm/actions', cta: 'Ir a Acciones' },
         ]
     },
     {
@@ -32,7 +32,7 @@ const KPI_SOURCES = [
         kpis: [
             { label: 'Captaciones Nuevas', icon: Home, description: 'Se registra automáticamente al guardar una nueva propiedad desde "Nueva Captación".', path: '/new-mandate', cta: 'Nueva Captación' },
             { label: 'Cartera Activa', icon: Building2, description: 'Se registra automáticamente al activar una propiedad en el sistema de propiedades.', path: '/properties', cta: 'Propiedades' },
-            { label: 'Bajas de Precio', icon: TrendingDown, description: 'Se registra automáticamente al crear una acción "Baja de Precio" en el CRM.', path: '/crm', cta: 'Ir al CRM' },
+            { label: 'Bajas de Precio', icon: TrendingDown, description: 'Se registra automáticamente al crear una acción "Baja de Precio" en el CRM.', path: '/crm/actions', cta: 'Ir a Acciones' },
         ]
     },
     {
@@ -42,10 +42,10 @@ const KPI_SOURCES = [
         indicatorColor: '#d97706',
         icon: Eye,
         kpis: [
-            { label: 'Visitas Propiedades', icon: Eye, description: 'Se registra al crear una acción "Visita Propiedad" en el módulo CRM.', path: '/crm', cta: 'Ir al CRM' },
-            { label: 'Visitas Compradores', icon: Eye, description: 'Se registra al crear una acción "Visita Comprador" en el módulo CRM.', path: '/crm', cta: 'Ir al CRM' },
-            { label: 'Ofertas en Negociación', icon: FileText, description: 'Se registra automáticamente al crear una acción "Carta Oferta" en el CRM.', path: '/crm', cta: 'Ir al CRM' },
-            { label: 'Promesas Firmadas', icon: Handshake, description: 'Se registra al crear una acción "Promesa Firmada" en el módulo CRM.', path: '/crm', cta: 'Ir al CRM' },
+            { label: 'Visitas Propiedades', icon: Eye, description: 'Se registra al crear una acción "Visita Propiedad" en el módulo CRM.', path: '/crm/actions', cta: 'Ir a Acciones' },
+            { label: 'Visitas Compradores', icon: Eye, description: 'Se registra al crear una acción "Visita Comprador" en el módulo CRM.', path: '/crm/actions', cta: 'Ir a Acciones' },
+            { label: 'Ofertas en Negociación', icon: FileText, description: 'Se registra automáticamente al crear una acción "Carta Oferta" en el CRM.', path: '/crm/actions', cta: 'Ir a Acciones' },
+            { label: 'Promesas Firmadas', icon: Handshake, description: 'Se registra al crear una acción "Promesa Firmada" en el módulo CRM.', path: '/crm/actions', cta: 'Ir a Acciones' },
         ]
     },
     {
@@ -55,9 +55,9 @@ const KPI_SOURCES = [
         indicatorColor: '#003aad',
         icon: DollarSign,
         kpis: [
-            { label: 'Honorarios Brutos', icon: DollarSign, description: 'Se registra automáticamente al crear un "Cierre de negocio" en el CRM. El monto en CLP queda guardado en el KPI.', path: '/crm', cta: 'Ir al CRM' },
-            { label: 'Valor Cierres de Operación', icon: DollarSign, description: 'Se registra automáticamente al registrar el valor de la operación en "Cierre de negocio".', path: '/crm', cta: 'Ir al CRM' },
-            { label: 'Referidos', icon: Users, description: 'Se registra automáticamente al incluir referidos en un "Cierre de negocio".', path: '/crm', cta: 'Ir al CRM' },
+            { label: 'Honorarios Brutos', icon: DollarSign, description: 'Se registra automáticamente al crear un "Cierre de negocio" en el CRM. El monto en CLP queda guardado en el KPI.', path: '/crm/actions', cta: 'Ir a Acciones' },
+            { label: 'Valor Cierres de Operación', icon: DollarSign, description: 'Se registra automáticamente al registrar el valor de la operación en "Cierre de negocio".', path: '/crm/actions', cta: 'Ir a Acciones' },
+            { label: 'Referidos', icon: Users, description: 'Se registra automáticamente al incluir referidos en un "Cierre de negocio".', path: '/crm/actions', cta: 'Ir a Acciones' },
         ]
     },
 ]

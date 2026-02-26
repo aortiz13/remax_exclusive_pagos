@@ -26,7 +26,9 @@ import {
     Download,
     GraduationCap,
     Folder,
-    Camera
+    Camera,
+    Kanban,
+    Activity
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
@@ -77,6 +79,8 @@ export default function Sidebar() {
         title: 'CRM',
         items: [
             { title: 'Contactos & Tareas', icon: Users, path: '/crm' },
+            { title: 'Acciones', icon: Activity, path: '/crm/actions' },
+            { title: 'Pipeline Ventas', icon: Kanban, path: '/crm/pipeline' },
             ...(!isPostulante ? [{ title: 'Mapa Propiedades', icon: MapPin, path: '/crm/map' }] : []),
         ]
     }

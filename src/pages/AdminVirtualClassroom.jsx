@@ -115,13 +115,17 @@ export default function AdminVirtualClassroom() {
             ]
 
             let addedCount = 0
+            let updatedCount = 0
             let removedCount = 0
+            let errorCount = 0
 
-            // 1. Fetch current status from DB for these categories
-            const { data: dbVideos } = await supabase
+            // 1. Fetch ALL current videos from DB for these categories
+            const { data: dbVideos, error: fetchError } = await supabase
                 .from('virtual_classroom_videos')
                 .select('id, youtube_id, category')
                 .in('category', playlists.map(p => p.category))
+
+            if (fetchError) throw fetchError
 
             const dbVideosMap = {}
             dbVideos?.forEach(v => {
@@ -129,56 +133,64 @@ export default function AdminVirtualClassroom() {
             })
 
             for (const playlist of playlists) {
+                toast.loading(`Sincronizando ${playlist.category}...`, { id: toastId })
                 const ytVideos = await import('../services/youtube').then(m => m.fetchPlaylistItems(playlist.id))
                 const ytIds = new Set(ytVideos.map(v => v.youtube_id))
 
-                // 2. Addition / Update logic
+                console.log(`[Sync] Playlist ${playlist.category}: ${ytVideos.length} videos from YouTube`)
+
+                // 2. Upsert all videos from YouTube (insert new, update existing)
                 for (const video of ytVideos) {
-                    if (!dbVideosMap[video.youtube_id]) {
-                        // New video
-                        await supabase.from('virtual_classroom_videos').insert({
-                            title: video.title,
-                            video_url: video.video_url,
-                            thumbnail_url: video.thumbnail_url,
-                            description: video.description,
-                            category: playlist.category,
-                            duration: video.duration,
-                            youtube_id: video.youtube_id,
-                            video_date: video.video_date
-                        })
+                    const videoData = {
+                        title: video.title,
+                        video_url: video.video_url,
+                        thumbnail_url: video.thumbnail_url,
+                        description: video.description,
+                        category: playlist.category,
+                        duration: video.duration,
+                        youtube_id: video.youtube_id,
+                        video_date: video.video_date
+                    }
+
+                    const isNew = !dbVideosMap[video.youtube_id]
+
+                    const { error: upsertError } = await supabase
+                        .from('virtual_classroom_videos')
+                        .upsert(videoData, { onConflict: 'youtube_id' })
+
+                    if (upsertError) {
+                        console.error(`[Sync] Error upserting video "${video.title}" (${video.youtube_id}):`, upsertError)
+                        errorCount++
+                    } else if (isNew) {
                         addedCount++
                     } else {
-                        // Existing - Update metadata to ensure all fields (like video_date) are current
-                        await supabase
-                            .from('virtual_classroom_videos')
-                            .update({
-                                title: video.title,
-                                video_url: video.video_url,
-                                thumbnail_url: video.thumbnail_url,
-                                description: video.description,
-                                duration: video.duration,
-                                video_date: video.video_date
-                            })
-                            .eq('youtube_id', video.youtube_id)
+                        updatedCount++
                     }
                 }
 
-                // 3. Deletion logic (Remove from DB if NOT in YouTube anymore)
+                // 3. Deletion logic (Remove from DB if NOT in YouTube playlist anymore)
                 const videosToRemove = dbVideos?.filter(v => v.category === playlist.category && !ytIds.has(v.youtube_id))
                 if (videosToRemove?.length > 0) {
                     const idsToRemove = videosToRemove.map(v => v.id)
-                    await supabase.from('virtual_classroom_videos').delete().in('id', idsToRemove)
-                    removedCount += idsToRemove.length
+                    const { error: deleteError } = await supabase.from('virtual_classroom_videos').delete().in('id', idsToRemove)
+                    if (deleteError) {
+                        console.error(`[Sync] Error removing old videos:`, deleteError)
+                    } else {
+                        removedCount += idsToRemove.length
+                    }
                 }
             }
 
             toast.dismiss(toastId)
-            if (addedCount > 0 || removedCount > 0) {
-                toast.success(`Sincronización completa: +${addedCount} / -${removedCount}`)
-                fetchVideos()
+            const summary = `+${addedCount} nuevos, ${updatedCount} actualizados, -${removedCount} eliminados`
+            if (errorCount > 0) {
+                toast.warning(`Sincronización con ${errorCount} error(es): ${summary}`)
+            } else if (addedCount > 0 || removedCount > 0) {
+                toast.success(`Sincronización completa: ${summary}`)
             } else {
-                toast.success('Todo actualizado. No hay cambios.')
+                toast.success(`Todo actualizado. ${updatedCount} videos verificados.`)
             }
+            fetchVideos()
 
         } catch (error) {
             console.error('Sync error:', error)
