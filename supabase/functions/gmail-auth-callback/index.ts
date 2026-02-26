@@ -333,14 +333,26 @@ function extractEmail(headerValue: string): string | null {
     return match ? match[1].toLowerCase().trim() : headerValue.toLowerCase().trim();
 }
 
+// Decodes a Gmail base64url string to a proper UTF-8 string.
+// atob() returns Latin-1 bytes which corrupts multi-byte UTF-8 chars (e.g. ó becomes � or Ã³).
+function decodeBase64ToUtf8(base64url: string): string {
+    const base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
+    const binaryStr = atob(base64);
+    const bytes = new Uint8Array(binaryStr.length);
+    for (let i = 0; i < binaryStr.length; i++) {
+        bytes[i] = binaryStr.charCodeAt(i);
+    }
+    return new TextDecoder('utf-8').decode(bytes);
+}
+
 async function extractBody(payload: any): Promise<{ html: string | null, plain: string | null }> {
     let html = null;
     let plain = null;
 
     if (payload.mimeType === 'text/html' && payload.body?.data) {
-        html = atob(payload.body.data.replace(/-/g, '+').replace(/_/g, '/'));
+        html = decodeBase64ToUtf8(payload.body.data);
     } else if (payload.mimeType === 'text/plain' && payload.body?.data) {
-        plain = atob(payload.body.data.replace(/-/g, '+').replace(/_/g, '/'));
+        plain = decodeBase64ToUtf8(payload.body.data);
     } else if (payload.parts) {
         for (const part of payload.parts) {
             const result = await extractBody(part);
