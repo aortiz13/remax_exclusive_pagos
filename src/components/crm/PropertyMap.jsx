@@ -89,9 +89,27 @@ const PropertyMap = () => {
 
     return (
         <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 overflow-hidden shadow-sm">
-            <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
+            <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex flex-wrap justify-between items-center gap-3">
                 <h3 className="font-semibold text-lg">Mapa de Propiedades</h3>
-                <Badge variant="outline">{properties.length} Ubicaciones</Badge>
+                <div className="flex items-center gap-4 flex-wrap">
+                    <div className="flex items-center gap-1.5">
+                        <span className="w-3 h-3 rounded-full inline-block" style={{ backgroundColor: '#ef4444' }} />
+                        <span className="text-xs text-muted-foreground">Venta</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                        <span className="w-3 h-3 rounded-full inline-block" style={{ backgroundColor: '#22c55e' }} />
+                        <span className="text-xs text-muted-foreground">Arriendo</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                        <span className="w-3 h-3 rounded-full inline-block" style={{ backgroundColor: '#f97316' }} />
+                        <span className="text-xs text-muted-foreground">Administración</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                        <span className="w-3 h-3 rounded-full inline-block" style={{ backgroundColor: '#3b82f6' }} />
+                        <span className="text-xs text-muted-foreground">Otros</span>
+                    </div>
+                    <Badge variant="outline">{properties.length} Ubicaciones</Badge>
+                </div>
             </div>
             <div className="h-[500px] w-full relative z-0">
                 <MapContainer

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useAuth } from '../../context/AuthContext'
 import {
     Table,
     TableBody,
@@ -30,7 +31,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui"
-import { Plus, Search, MoreHorizontal, Home, MapPin, GripHorizontal, Columns, ExternalLink, Trash2 } from 'lucide-react'
+import { Plus, Search, MoreHorizontal, Home, MapPin, GripHorizontal, Columns, ExternalLink, Trash2, Users } from 'lucide-react'
 import { supabase } from '../../services/supabase'
 import PropertyQuickView from './PropertyQuickView'
 import PropertyForm from './PropertyForm'
@@ -79,13 +80,22 @@ const SortableHeader = ({ id, children }) => {
 };
 
 
+const PRIVILEGED_ROLES = ['superadministrador', 'comercial', 'legal']
+
 const PropertyList = () => {
+    const { user, profile } = useAuth()
+    const isPrivileged = PRIVILEGED_ROLES.includes(profile?.role)
+
     const [properties, setProperties] = useState([])
     const [loading, setLoading] = useState(true)
     const [searchTerm, setSearchTerm] = useState('')
     const [isFormOpen, setIsFormOpen] = useState(false)
     const [isQuickViewOpen, setIsQuickViewOpen] = useState(false)
     const [selectedProperty, setSelectedProperty] = useState(null)
+
+    // Agent filter (privileged roles only)
+    const [agents, setAgents] = useState([])
+    const [agentFilter, setAgentFilter] = useState('all')
 
     // Delete State
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
@@ -120,6 +130,20 @@ const PropertyList = () => {
         fetchProperties()
     }, [])
 
+    // Fetch agents list for privileged roles
+    useEffect(() => {
+        if (!isPrivileged) return
+        const fetchAgents = async () => {
+            const { data } = await supabase
+                .from('profiles')
+                .select('id, first_name, last_name')
+                .eq('role', 'agent')
+                .order('first_name')
+            setAgents(data || [])
+        }
+        fetchAgents()
+    }, [isPrivileged])
+
     const fetchProperties = async () => {
         try {
             setLoading(true)
@@ -140,12 +164,19 @@ const PropertyList = () => {
         }
     }
 
-    const filteredProperties = properties.filter(property =>
-        (property.address?.toLowerCase().includes(searchTerm.toLowerCase()) || '') ||
-        (property.commune?.toLowerCase().includes(searchTerm.toLowerCase()) || '') ||
-        (property.contacts?.first_name?.toLowerCase().includes(searchTerm.toLowerCase()) || '') ||
-        (property.contacts?.last_name?.toLowerCase().includes(searchTerm.toLowerCase()) || '')
-    ).sort((a, b) => {
+    const filteredProperties = properties.filter(property => {
+        // Agent filter
+        if (agentFilter !== 'all' && property.agent_id !== agentFilter) return false
+        // Text search
+        const term = searchTerm.toLowerCase()
+        if (!searchTerm) return true
+        return (
+            (property.address?.toLowerCase().includes(term) || false) ||
+            (property.commune?.toLowerCase().includes(term) || false) ||
+            (property.contacts?.first_name?.toLowerCase().includes(term) || false) ||
+            (property.contacts?.last_name?.toLowerCase().includes(term) || false)
+        )
+    }).sort((a, b) => {
         const dateA = new Date(a.created_at)
         const dateB = new Date(b.created_at)
         return sortOrder === 'newest' ? dateB - dateA : dateA - dateB
@@ -385,6 +416,23 @@ const PropertyList = () => {
                             <SelectItem value="oldest">Más Antiguos</SelectItem>
                         </SelectContent>
                     </Select>
+
+                    {isPrivileged && agents.length > 0 && (
+                        <Select value={agentFilter} onValueChange={setAgentFilter}>
+                            <SelectTrigger className="w-[180px] bg-white dark:bg-slate-950">
+                                <Users className="w-4 h-4 mr-2 text-muted-foreground" />
+                                <SelectValue placeholder="Agente" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">Todos los Agentes</SelectItem>
+                                {agents.map(agent => (
+                                    <SelectItem key={agent.id} value={agent.id}>
+                                        {agent.first_name} {agent.last_name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    )}
 
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
