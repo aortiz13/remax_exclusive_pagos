@@ -159,25 +159,44 @@ export default function AgentDocuments() {
         }
     }
 
+
+    const sanitizeForStorage = (name) => {
+        return name
+            .normalize('NFD')                    // Decompose accents
+            .replace(/[\u0300-\u036f]/g, '')     // Remove accent marks
+            .replace(/[^a-zA-Z0-9.-]/g, '_')     // Replace non-ASCII with underscores
+            .replace(/_+/g, '_')                 // Collapse underscores
+            .replace(/^_|_$/g, '')               // Trim underscores
+    }
+
     const handleFileUpload = async (event) => {
         const file = event.target.files[0]
         if (!file) return
 
         try {
             setUploading(true)
-            const fileExt = file.name.split('.').pop()
-            const storagePath = `${profile.id}/${Date.now()}_${file.name}`
 
-            // 1. Upload to Storage
+            // 1. Pretty name for DB (normalized NFC)
+            const prettyName = file.name
+                .normalize('NFC')
+                .replace(/\s+/g, ' ')
+                .trim()
+
+            // 2. Safe key for Storage (ASCII only)
+            const safeFileName = sanitizeForStorage(prettyName)
+            const fileExt = prettyName.split('.').pop()
+            const storagePath = `${profile.id}/${Date.now()}_${safeFileName}`
+
+            // 3. Upload to Storage
             const { error: uploadError } = await supabase.storage
                 .from('agent_documents')
                 .upload(storagePath, file)
 
             if (uploadError) throw uploadError
 
-            // 2. Insert into DB
+            // 4. Insert into DB
             const { error: dbError } = await supabase.from('agent_files').insert({
-                name: file.name,
+                name: prettyName,
                 storage_path: storagePath,
                 file_type: fileExt,
                 file_size: file.size,

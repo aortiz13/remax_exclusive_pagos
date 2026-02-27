@@ -3,7 +3,7 @@ import { supabase, getCustomPublicUrl } from '../services/supabase'
 import { getTargetsGrouped, getTargetByKey, getAllTargets } from '../services/tutorialTargets'
 import { generateTutorialAudio, generateRemotionProps, publishToAulaVirtual, deleteTutorial } from '../services/tutorialPipeline'
 import { generateAutoScript } from '../services/autoScriptGenerator'
-import { Button, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui'
+import { Button, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '@/components/ui'
 import { toast } from 'sonner'
 import {
     Loader2, Plus, Trash2, Video, Play, Upload, ChevronDown, ChevronRight,
@@ -634,6 +634,7 @@ export default function AdminVideoGenerator() {
     const [loading, setLoading] = useState(true)
     const [editingTutorial, setEditingTutorial] = useState(null) // null = list, {} = new, {id:...} = edit
     const [generating, setGenerating] = useState(null) // tutorial id being generated
+    const [confirmAction, setConfirmAction] = useState(null) // { type: 'publish'|'delete', tutorial }
 
     const fetchTutorials = useCallback(async () => {
         const { data, error } = await supabase
@@ -671,7 +672,6 @@ export default function AdminVideoGenerator() {
     }
 
     const handlePublish = async (tutorial) => {
-        if (!confirm('¿Publicar este tutorial en el Aula Virtual?')) return
         try {
             await publishToAulaVirtual(tutorial.id)
             toast.success('Tutorial publicado en Aula Virtual')
@@ -681,13 +681,23 @@ export default function AdminVideoGenerator() {
     }
 
     const handleDelete = async (tutorial) => {
-        if (!confirm('¿Eliminar este tutorial permanentemente?')) return
         try {
             await deleteTutorial(tutorial.id)
             toast.success('Tutorial eliminado')
             fetchTutorials()
         } catch (err) {
             toast.error('Error: ' + err.message)
+        }
+    }
+
+    const handleConfirmAction = async () => {
+        if (!confirmAction) return
+        const { type, tutorial } = confirmAction
+        setConfirmAction(null)
+        if (type === 'publish') {
+            await handlePublish(tutorial)
+        } else if (type === 'delete') {
+            await handleDelete(tutorial)
         }
     }
 
@@ -864,7 +874,7 @@ export default function AdminVideoGenerator() {
 
                                     {tutorial.status === 'completed' && (
                                         <button
-                                            onClick={() => handlePublish(tutorial)}
+                                            onClick={() => setConfirmAction({ type: 'publish', tutorial })}
                                             className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg transition-colors"
                                         >
                                             <BookOpen className="w-3.5 h-3.5" /> Publicar
@@ -872,7 +882,7 @@ export default function AdminVideoGenerator() {
                                     )}
 
                                     <button
-                                        onClick={() => handleDelete(tutorial)}
+                                        onClick={() => setConfirmAction({ type: 'delete', tutorial })}
                                         className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors ml-auto"
                                     >
                                         <Trash2 className="w-3.5 h-3.5" />
@@ -883,6 +893,31 @@ export default function AdminVideoGenerator() {
                     ))}
                 </div>
             )}
+
+            {/* ── Confirmation Modal ── */}
+            <AlertDialog open={!!confirmAction} onOpenChange={(open) => { if (!open) setConfirmAction(null) }}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>
+                            {confirmAction?.type === 'delete' ? '¿Estás seguro?' : '¿Publicar tutorial?'}
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                            {confirmAction?.type === 'delete'
+                                ? `Esta acción eliminará "${confirmAction?.tutorial?.title}" permanentemente.`
+                                : `Esta acción publicará "${confirmAction?.tutorial?.title}" en el Aula Virtual.`}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={handleConfirmAction}
+                            className={confirmAction?.type === 'delete' ? 'bg-red-600 hover:bg-red-700' : ''}
+                        >
+                            {confirmAction?.type === 'delete' ? 'Eliminar' : 'Publicar'}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     )
 }
