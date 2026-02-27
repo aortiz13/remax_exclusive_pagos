@@ -221,11 +221,13 @@ const NewMandate = () => {
                         property_address: formData.address,
                         operation_type: formData.operation_type
                     }
-                    fetch('https://workflow.remax-exclusive.cl/webhook/mandate-thankyou', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(thankyouPayload)
-                    }).catch(err => console.error('Thank-you webhook error:', err))
+                    try {
+                        fetch('https://workflow.remax-exclusive.cl/webhook/mandate-thankyou', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(thankyouPayload)
+                        }).catch(() => { /* webhook not deployed yet — silent */ })
+                    } catch { /* ignore */ }
                 }
             }
 
@@ -344,17 +346,22 @@ const NewMandate = () => {
 
             // 6. Create first management report (due in 15 days)
             if (mandate?.id && formData.contact_id) {
-                const dueDate = new Date()
-                dueDate.setDate(dueDate.getDate() + 15)
-                await supabase.from('management_reports').insert({
-                    property_id: formData.property_id || null,
-                    mandate_id: mandate.id,
-                    agent_id: user.id,
-                    owner_contact_id: formData.contact_id,
-                    report_number: 1,
-                    due_date: dueDate.toISOString().split('T')[0],
-                    status: 'pending'
-                }).catch(err => console.error('Management report creation error:', err))
+                try {
+                    const dueDate = new Date()
+                    dueDate.setDate(dueDate.getDate() + 15)
+                    const { error: reportErr } = await supabase.from('management_reports').insert({
+                        property_id: formData.property_id || null,
+                        mandate_id: mandate.id,
+                        agent_id: user.id,
+                        owner_contact_id: formData.contact_id,
+                        report_number: 1,
+                        due_date: dueDate.toISOString().split('T')[0],
+                        status: 'pending'
+                    })
+                    if (reportErr) console.error('Management report creation error:', reportErr)
+                } catch (err) {
+                    console.error('Management report creation error:', err)
+                }
             }
 
             toast.success('Captación registrada con éxito')
