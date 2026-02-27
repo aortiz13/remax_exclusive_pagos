@@ -206,7 +206,10 @@ export default function AdminCaptaciones() {
 
     // ─── File URL builder ─────────────────────────────────────────────────────
     const getFileUrl = (filePath) => {
-        const { data } = supabase.storage.from('mandates').getPublicUrl(filePath)
+        // Handle legacy entries stored as objects {path, index} instead of strings
+        const path = typeof filePath === 'object' ? filePath?.path : filePath
+        if (!path || typeof path !== 'string') return null
+        const { data } = supabase.storage.from('mandates').getPublicUrl(path)
         return data?.publicUrl
     }
 
