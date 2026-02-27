@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '../../services/supabase'
+import { supabase, getCustomPublicUrl } from '../../services/supabase'
 import {
     X, Zap, CheckCircle2, Circle, Mail, FileSignature, ClipboardCheck,
     ScrollText, Activity, Home, User, Calendar, MapPin, DollarSign,
@@ -50,9 +50,7 @@ function formatPrice(price, currency) {
 function getFileUrl(filePath) {
     // Handle legacy entries stored as objects {path, index} instead of strings
     const path = typeof filePath === 'object' ? filePath?.path : filePath
-    if (!path || typeof path !== 'string') return null
-    const { data } = supabase.storage.from('mandates').getPublicUrl(path)
-    return data?.publicUrl
+    return getCustomPublicUrl('mandates', path)
 }
 
 function getFileName(filePath) {

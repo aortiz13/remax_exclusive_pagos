@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { supabase } from '../services/supabase'
+import { supabase, getCustomPublicUrl } from '../services/supabase'
 import { getTargetsGrouped, getTargetByKey, getAllTargets } from '../services/tutorialTargets'
 import { generateTutorialAudio, generateRemotionProps, publishToAulaVirtual, deleteTutorial } from '../services/tutorialPipeline'
 import { generateAutoScript } from '../services/autoScriptGenerator'
@@ -305,10 +305,7 @@ function TutorialForm({ tutorial, onSave, onCancel }) {
                     .from('tutorial-assets')
                     .upload(path, recordingFile, { upsert: true })
                 if (upError) throw upError
-                const { data: urlData } = supabase.storage
-                    .from('tutorial-assets')
-                    .getPublicUrl(path)
-                recordingUrl = urlData.publicUrl
+                recordingUrl = getCustomPublicUrl('tutorial-assets', path)
             }
 
             if (tutorial?.id) {

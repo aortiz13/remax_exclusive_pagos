@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react'
-import { supabase } from '../services/supabase'
+import { supabase, getCustomPublicUrl } from '../services/supabase'
 import { useAuth } from '../context/AuthContext'
 import {
     Folder,
@@ -285,9 +285,8 @@ export default function AgentDocuments() {
     }
 
     const handlePreview = async (file) => {
-        const { data } = supabase.storage
-            .from('agent_documents')
-            .getPublicUrl(file.storage_path)
+        // Initializing preview
+        setPreviewUrl(null)
 
         // Note: For private buckets, getPublicUrl might return a URL that requires a token
         // or we might need creating a signed URL if the bucket is not public.
@@ -301,7 +300,8 @@ export default function AgentDocuments() {
             if (error) throw error
 
             if (data?.signedUrl) {
-                setPreviewUrl(data.signedUrl)
+                const customUrl = data.signedUrl.replace('wdyfeolbuogoyngrvxkc.supabase.co', 'solicitudes.remax-exclusive.cl')
+                setPreviewUrl(customUrl)
                 setPreviewTitle(file.name)
                 setIsPreviewOpen(true)
             }

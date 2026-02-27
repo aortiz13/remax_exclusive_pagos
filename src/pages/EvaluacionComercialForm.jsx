@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../services/supabase';
+import { supabase, getCustomPublicUrl } from '../services/supabase';
 import { triggerEvaluacionComercialWebhook } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
@@ -188,10 +188,7 @@ export default function EvaluacionComercialForm() {
 
                     if (uploadError) throw uploadError;
 
-                    const { data: { publicUrl } } = supabase.storage
-                        .from('contracts')
-                        .getPublicUrl(filePath);
-
+                    const publicUrl = getCustomPublicUrl('contracts', filePath)
                     uploadedUrls.push({ name: file.name, url: publicUrl });
                 }
                 return uploadedUrls;

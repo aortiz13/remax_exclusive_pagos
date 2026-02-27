@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { supabase } from '../services/supabase'
+import { supabase, getCustomPublicUrl } from '../services/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Button, Input, Textarea, Label } from '@/components/ui'
 import { FileText, Send, ArrowLeft, Loader2, Save, Eye, Upload, Image as ImageIcon, BarChart3, X } from 'lucide-react'
@@ -120,9 +120,7 @@ export default function ManagementReportPage() {
 
             if (uploadError) throw uploadError
 
-            const { data: { publicUrl } } = supabase.storage
-                .from('mandates')
-                .getPublicUrl(filePath)
+            const publicUrl = getCustomPublicUrl('mandates', filePath)
 
             if (type === 'chart') {
                 setChartImage(publicUrl)
