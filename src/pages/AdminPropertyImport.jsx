@@ -144,6 +144,17 @@ const AdminPropertyImport = () => {
             }
             setExistingLinks(foundLinks)
 
+            // Check for ROL matches (manual properties the agent already created)
+            const listingRefs = allProperties.map(p => p.listing_reference).filter(Boolean)
+            let rolMatchCount = 0
+            if (listingRefs.length > 0) {
+                const { data: rolMatches } = await supabase
+                    .from('properties')
+                    .select('rol_number, listing_reference')
+                    .or(`rol_number.in.(${listingRefs.join(',')}),listing_reference.in.(${listingRefs.join(',')})`)
+                if (rolMatches) rolMatchCount = rolMatches.length
+            }
+
             // Select all by default
             const allSelected = {}
             allProperties.forEach((_, idx) => { allSelected[idx] = true })
@@ -160,6 +171,7 @@ const AdminPropertyImport = () => {
                 closed: closedCount,
                 withHistory,
                 duplicates: allProperties.filter(p => foundLinks.has(p.source_url)).length,
+                matched: rolMatchCount,
             })
 
             toast.success(`Escaneo completo: ${allProperties.length} propiedades físicas (${totalListings} listings totales)`)
@@ -172,10 +184,65 @@ const AdminPropertyImport = () => {
         }
     }
 
+    // Helper: builds a merge object that only fills empty/null fields on the existing property
+    const buildMergeUpdate = (existing, incoming) => {
+        const update = {}
+        const isEmpty = (val) => val === null || val === undefined || val === '' || val === 0
+
+        // Fields to fill only if empty — never overwrite agent's data
+        const fillIfEmpty = {
+            address: incoming.address,
+            commune: incoming.commune || incoming.address?.split(',')[1]?.trim() || '',
+            property_type: incoming.property_type,
+            operation_type: incoming.operation_type || 'venta',
+            price: incoming.price || 0,
+            currency: incoming.currency || 'CLP',
+            bedrooms: incoming.bedrooms,
+            bathrooms: incoming.bathrooms,
+            m2_total: incoming.m2_total,
+            m2_built: incoming.m2_built,
+            listing_link: incoming.source_url,
+            latitude: incoming.latitude,
+            longitude: incoming.longitude,
+            image_url: incoming.image_url,
+            published_at: incoming.published_at,
+            last_updated_at: incoming.last_updated_at,
+            expires_at: incoming.expires_at,
+            sold_at: incoming.sold_at,
+            sold_price: incoming.sold_price,
+            is_exclusive: incoming.is_exclusive || false,
+            year_built: incoming.year_built,
+            maintenance_fee: incoming.maintenance_fee,
+            virtual_tour_url: incoming.virtual_tour_url,
+            video_url: incoming.video_url,
+            parking_spaces: incoming.parking_spaces ? String(incoming.parking_spaces) : null,
+            floor_number: incoming.floor_number ? String(incoming.floor_number) : null,
+        }
+
+        for (const [key, newVal] of Object.entries(fillIfEmpty)) {
+            if (isEmpty(existing[key]) && !isEmpty(newVal)) {
+                update[key] = newVal
+            }
+        }
+
+        // Always set these RE/MAX-specific fields (they identify the listing, not agent data)
+        update.listing_reference = incoming.listing_reference
+        update.remax_listing_id = incoming.listing_id
+        update.listing_status_uid = incoming.listing_status_uid
+        update.transaction_type_uid = incoming.transaction_type_uid
+        // Mark source as remax so the sync recognizes it next time
+        update.source = 'remax'
+        update.updated_at = new Date().toISOString()
+
+        // NEVER touch: notes, status, owner_id, documentation_link, unit_number, contacts
+        return update
+    }
+
     const handleImport = async () => {
         setImporting(true)
         const errors = []
         let importedCount = 0
+        let matchedCount = 0
 
         try {
             const propertiesToImport = scannedProperties.filter((_, idx) => selectedProperties[idx])
@@ -201,102 +268,192 @@ const AdminPropertyImport = () => {
                 }
 
                 try {
-                    // 1. Delete existing RE/MAX properties for this specific agent
-                    const { data: existingProps } = await supabase
+                    // 1. Fetch ALL existing properties for this agent (both manual and remax)
+                    const { data: allExistingProps } = await supabase
                         .from('properties')
-                        .select('id')
+                        .select('id, rol_number, listing_reference, source, address, commune, property_type, operation_type, price, currency, bedrooms, bathrooms, m2_total, m2_built, notes, listing_link, latitude, longitude, image_url, published_at, last_updated_at, expires_at, sold_at, sold_price, is_exclusive, year_built, maintenance_fee, virtual_tour_url, video_url, parking_spaces, floor_number, status, owner_id, documentation_link, unit_number')
                         .eq('agent_id', agentProfile.id)
-                        .eq('source', 'remax')
 
-                    if (existingProps && existingProps.length > 0) {
-                        const propIds = existingProps.map(p => p.id)
-                        await supabase.from('mandates').update({ property_id: null }).in('property_id', propIds)
-                        await supabase.from('crm_tasks').delete().in('property_id', propIds)
-                        await supabase.from('crm_actions').delete().in('property_id', propIds)
-                        await supabase.from('property_listing_history').delete().in('property_id', propIds)
-                        await supabase.from('properties').delete().in('id', propIds)
+                    const existingByRol = {}
+                    const existingRemaxIds = []
+                    if (allExistingProps) {
+                        for (const ep of allExistingProps) {
+                            // Index manual properties by their rol_number for ROL matching
+                            if (ep.rol_number && ep.rol_number.trim()) {
+                                existingByRol[ep.rol_number.trim()] = ep
+                            }
+                            // Also index remax properties by listing_reference
+                            if (ep.listing_reference && ep.listing_reference.trim()) {
+                                existingByRol[ep.listing_reference.trim()] = ep
+                            }
+                            // Collect pure remax property IDs (no rol_number = not manually created)
+                            if (ep.source === 'remax' && !ep.rol_number) {
+                                existingRemaxIds.push(ep.id)
+                            }
+                        }
                     }
 
-                    // 2. Map and Insert properties
-                    const dbProperties = props.map(p => ({
-                        address: p.address,
-                        commune: p.commune || p.address?.split(',')[1]?.trim() || '',
-                        property_type: p.property_type,
-                        operation_type: p.operation_type || 'venta',
-                        price: p.price || 0,
-                        currency: p.currency || 'CLP',
-                        bedrooms: p.bedrooms,
-                        bathrooms: p.bathrooms,
-                        m2_total: p.m2_total,
-                        m2_built: p.m2_built,
-                        notes: p.description,
-                        listing_link: p.source_url,
-                        latitude: p.latitude,
-                        longitude: p.longitude,
-                        status: p.status || ['Publicada'],
-                        source: 'remax',
-                        agent_id: agentProfile.id,
-                        image_url: p.image_url,
-                        published_at: p.published_at,
-                        last_updated_at: p.last_updated_at,
-                        expires_at: p.expires_at,
-                        sold_at: p.sold_at,
-                        sold_price: p.sold_price,
-                        listing_status_uid: p.listing_status_uid,
-                        listing_reference: p.listing_reference,
-                        remax_listing_id: p.listing_id,
-                        transaction_type_uid: p.transaction_type_uid,
-                        is_exclusive: p.is_exclusive || false,
-                        year_built: p.year_built,
-                        maintenance_fee: p.maintenance_fee,
-                        virtual_tour_url: p.virtual_tour_url,
-                        video_url: p.video_url,
-                        parking_spaces: String(p.parking_spaces || ''), // Ensure string
-                        floor_number: String(p.floor_number || ''), // Ensure string
-                    }))
+                    // 2. Separate: matched (ROL exists) vs new (no match)
+                    const toMerge = []  // {existing, incoming} pairs
+                    const toInsert = [] // new properties to insert fresh
 
-                    const { data: insertedProps, error: insertError } = await supabase
-                        .from('properties')
-                        .insert(dbProperties)
-                        .select('id, listing_reference, agent_id')
+                    for (const p of props) {
+                        const ref = p.listing_reference?.trim()
+                        if (ref && existingByRol[ref]) {
+                            toMerge.push({ existing: existingByRol[ref], incoming: p })
+                        } else {
+                            toInsert.push(p)
+                        }
+                    }
 
-                    if (insertError) throw insertError
+                    // 3. MERGE matched properties (only fill empty fields)
+                    for (const { existing, incoming } of toMerge) {
+                        const mergeData = buildMergeUpdate(existing, incoming)
+                        // Also set rol_number if it was empty (ensure both fields are synced)
+                        if (!existing.rol_number && incoming.listing_reference) {
+                            mergeData.rol_number = incoming.listing_reference
+                        }
 
-                    // 3. Insert history
-                    if (insertedProps) {
-                        const historyRecords = []
-                        for (const inserted of insertedProps) {
-                            const original = props.find(p => p.listing_reference === inserted.listing_reference)
-                            if (original?.history && original.history.length > 0) {
-                                for (const h of original.history) {
-                                    historyRecords.push({
-                                        property_id: inserted.id,
-                                        listing_reference: inserted.listing_reference,
-                                        remax_listing_id: h.listing_id,
-                                        published_at: h.published_at,
-                                        expired_at: h.expires_at,
-                                        price: h.price,
-                                        currency: h.currency,
-                                        listing_status_uid: h.listing_status_uid,
-                                        status_label: h.status_label,
-                                        agent_id: inserted.agent_id,
-                                    })
+                        const { error: mergeErr } = await supabase
+                            .from('properties')
+                            .update(mergeData)
+                            .eq('id', existing.id)
+
+                        if (mergeErr) {
+                            console.error(`Error merging property ${existing.id}:`, mergeErr)
+                            errors.push(`Error al actualizar propiedad ${existing.address}: ${mergeErr.message}`)
+                        } else {
+                            matchedCount++
+
+                            // Insert history for this matched property (timeline)
+                            if (incoming.history && incoming.history.length > 0) {
+                                for (const h of incoming.history) {
+                                    // Check if history entry already exists
+                                    const { data: existingH } = await supabase
+                                        .from('property_listing_history')
+                                        .select('id')
+                                        .eq('property_id', existing.id)
+                                        .eq('remax_listing_id', String(h.listing_id))
+                                        .maybeSingle()
+
+                                    if (!existingH) {
+                                        await supabase.from('property_listing_history').insert({
+                                            property_id: existing.id,
+                                            listing_reference: incoming.listing_reference,
+                                            remax_listing_id: h.listing_id,
+                                            published_at: h.published_at,
+                                            expired_at: h.expires_at,
+                                            price: h.price,
+                                            currency: h.currency,
+                                            listing_status_uid: h.listing_status_uid,
+                                            status_label: h.status_label,
+                                            agent_id: agentProfile.id,
+                                        })
+                                    }
                                 }
                             }
                         }
-
-                        if (historyRecords.length > 0) {
-                            const { error: histErr } = await supabase
-                                .from('property_listing_history')
-                                .insert(historyRecords)
-                            if (histErr) console.error(`Error history ${remaxAgentId}:`, histErr)
-                        }
                     }
 
-                    // 4. Update KPI
+                    // 4. Delete ONLY pure remax properties that are NOT matched
+                    // (don't touch manually created ones even if they have source='remax' from a previous merge)
+                    const matchedIds = new Set(toMerge.map(m => m.existing.id))
+                    const idsToDelete = existingRemaxIds.filter(id => !matchedIds.has(id))
+
+                    if (idsToDelete.length > 0) {
+                        await supabase.from('mandates').update({ property_id: null }).in('property_id', idsToDelete)
+                        await supabase.from('crm_tasks').delete().in('property_id', idsToDelete)
+                        await supabase.from('crm_actions').delete().in('property_id', idsToDelete)
+                        await supabase.from('property_listing_history').delete().in('property_id', idsToDelete)
+                        await supabase.from('properties').delete().in('id', idsToDelete)
+                    }
+
+                    // 5. Insert NEW properties (no ROL match found)
+                    if (toInsert.length > 0) {
+                        const dbProperties = toInsert.map(p => ({
+                            address: p.address,
+                            commune: p.commune || p.address?.split(',')[1]?.trim() || '',
+                            property_type: p.property_type,
+                            operation_type: p.operation_type || 'venta',
+                            price: p.price || 0,
+                            currency: p.currency || 'CLP',
+                            bedrooms: p.bedrooms,
+                            bathrooms: p.bathrooms,
+                            m2_total: p.m2_total,
+                            m2_built: p.m2_built,
+                            notes: p.description,
+                            listing_link: p.source_url,
+                            latitude: p.latitude,
+                            longitude: p.longitude,
+                            status: p.status || ['Publicada'],
+                            source: 'remax',
+                            agent_id: agentProfile.id,
+                            image_url: p.image_url,
+                            published_at: p.published_at,
+                            last_updated_at: p.last_updated_at,
+                            expires_at: p.expires_at,
+                            sold_at: p.sold_at,
+                            sold_price: p.sold_price,
+                            listing_status_uid: p.listing_status_uid,
+                            listing_reference: p.listing_reference,
+                            rol_number: p.listing_reference, // Sync ROL with listing_reference
+                            remax_listing_id: p.listing_id,
+                            transaction_type_uid: p.transaction_type_uid,
+                            is_exclusive: p.is_exclusive || false,
+                            year_built: p.year_built,
+                            maintenance_fee: p.maintenance_fee,
+                            virtual_tour_url: p.virtual_tour_url,
+                            video_url: p.video_url,
+                            parking_spaces: String(p.parking_spaces || ''),
+                            floor_number: String(p.floor_number || ''),
+                        }))
+
+                        const { data: insertedProps, error: insertError } = await supabase
+                            .from('properties')
+                            .insert(dbProperties)
+                            .select('id, listing_reference, agent_id')
+
+                        if (insertError) throw insertError
+
+                        // Insert history for new properties
+                        if (insertedProps) {
+                            const historyRecords = []
+                            for (const inserted of insertedProps) {
+                                const original = toInsert.find(p => p.listing_reference === inserted.listing_reference)
+                                if (original?.history && original.history.length > 0) {
+                                    for (const h of original.history) {
+                                        historyRecords.push({
+                                            property_id: inserted.id,
+                                            listing_reference: inserted.listing_reference,
+                                            remax_listing_id: h.listing_id,
+                                            published_at: h.published_at,
+                                            expired_at: h.expires_at,
+                                            price: h.price,
+                                            currency: h.currency,
+                                            listing_status_uid: h.listing_status_uid,
+                                            status_label: h.status_label,
+                                            agent_id: inserted.agent_id,
+                                        })
+                                    }
+                                }
+                            }
+
+                            if (historyRecords.length > 0) {
+                                const { error: histErr } = await supabase
+                                    .from('property_listing_history')
+                                    .insert(historyRecords)
+                                if (histErr) console.error(`Error history ${remaxAgentId}:`, histErr)
+                            }
+                        }
+
+                        importedCount += toInsert.length
+                    }
+
+                    // 6. Update KPI
                     const INACTIVE_STATUSES = ['Vendida', 'Retirada', 'Pausada', 'Arrendada']
                     const todayStr = new Date().toISOString().split('T')[0]
-                    const activeCount = dbProperties.filter(p =>
+                    const allAgentProps = [...toInsert, ...toMerge.map(m => m.incoming)]
+                    const activeCount = allAgentProps.filter(p =>
                         !(p.status || []).some(s => INACTIVE_STATUSES.includes(s))
                     ).length
 
@@ -324,8 +481,6 @@ const AdminPropertyImport = () => {
                         }
                     }
 
-                    importedCount += props.length
-
                 } catch (agentError) {
                     console.error(`Error importing agent ${remaxAgentId}:`, agentError)
                     errors.push(`Agente ${agentProfile.first_name} ${agentProfile.last_name}: ${agentError.message}`)
@@ -344,8 +499,12 @@ const AdminPropertyImport = () => {
                 )
             }
 
-            if (importedCount > 0) {
-                toast.success(`${importedCount} propiedades importadas correctamente 🎉`)
+            const totalProcessed = importedCount + matchedCount
+            if (totalProcessed > 0) {
+                const parts = []
+                if (importedCount > 0) parts.push(`${importedCount} nuevas importadas`)
+                if (matchedCount > 0) parts.push(`${matchedCount} matcheadas y actualizadas`)
+                toast.success(`${parts.join(', ')} 🎉`)
                 setScannedProperties([])
                 setSelectedProperties({})
                 setScanStats(null)
@@ -435,7 +594,7 @@ const AdminPropertyImport = () => {
 
             {/* Scan Stats */}
             {scanStats && (
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-3 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 animate-in fade-in slide-in-from-bottom-4 duration-500">
                     <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 p-4 rounded-xl border border-blue-100 dark:border-blue-900">
                         <div className="text-2xl font-bold text-blue-700 dark:text-blue-300">{scanStats.total}</div>
                         <div className="text-xs text-blue-600/80 dark:text-blue-400/80">Propiedades Físicas</div>
@@ -452,6 +611,11 @@ const AdminPropertyImport = () => {
                     <div className="bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-950/30 dark:to-violet-950/30 p-4 rounded-xl border border-purple-100 dark:border-purple-900">
                         <div className="text-2xl font-bold text-purple-700 dark:text-purple-300">{scanStats.withHistory}</div>
                         <div className="text-xs text-purple-600/80">Con Historial</div>
+                    </div>
+                    <div className="bg-gradient-to-br from-cyan-50 to-teal-50 dark:from-cyan-950/30 dark:to-teal-950/30 p-4 rounded-xl border border-cyan-100 dark:border-cyan-900">
+                        <div className="text-2xl font-bold text-cyan-700 dark:text-cyan-300">{scanStats.matched}</div>
+                        <div className="text-xs text-cyan-600/80">Matcheadas por ROL</div>
+                        <div className="text-[10px] text-muted-foreground mt-1">Se actualizarán, no duplicarán</div>
                     </div>
                     <div className="bg-gradient-to-br from-gray-50 to-slate-50 dark:from-gray-950/30 dark:to-slate-950/30 p-4 rounded-xl border border-gray-200 dark:border-gray-800">
                         <div className="text-2xl font-bold text-gray-700 dark:text-gray-300">{scanStats.duplicates}</div>

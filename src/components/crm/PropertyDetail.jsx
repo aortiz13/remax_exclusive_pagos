@@ -258,6 +258,7 @@ const PropertyDetail = () => {
                             </span>
                         )}
                         {property.unit_number && <span>• Depto {property.unit_number}</span>}
+                        {property.rol_number && <span>• ROL {property.rol_number}</span>}
                         {property.commune && <span>• {property.commune}</span>}
                     </div>
                 </div>
@@ -411,6 +412,10 @@ const PropertyDetail = () => {
                                     <div className="col-span-2">
                                         <span className="block text-muted-foreground">Dirección Completa</span>
                                         <span>{property.address}, {property.unit_number}, {property.commune}</span>
+                                    </div>
+                                    <div>
+                                        <span className="block text-muted-foreground">ROL</span>
+                                        <span>{property.rol_number || '-'}</span>
                                     </div>
                                 </div>
                             </div>
