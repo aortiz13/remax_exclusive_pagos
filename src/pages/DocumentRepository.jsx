@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
-import { supabase } from '../services/supabase'
+import { supabase, getCustomPublicUrl } from '../services/supabase'
 import { useAuth } from '../context/AuthContext'
 import {
     Button,
@@ -225,12 +225,9 @@ export default function DocumentRepository({ category: propCategory }) {
     }
 
     const handlePreview = async (doc) => {
-        const { data } = supabase.storage
-            .from('documents')
-            .getPublicUrl(doc.file_path)
-
-        if (data?.publicUrl) {
-            setPreviewUrl(data.publicUrl)
+        const url = getCustomPublicUrl('documents', doc.file_path)
+        if (url) {
+            setPreviewUrl(url)
             setPreviewTitle(doc.title)
             setIsPreviewOpen(true)
         } else {

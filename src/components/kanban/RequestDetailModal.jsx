@@ -1,6 +1,6 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, Badge } from '@/components/ui'
 import { useEffect, useState } from 'react'
-import { supabase } from '@/services/supabase'
+import { supabase, getCustomPublicUrl } from '@/services/supabase'
 import { triggerEvaluacionComercialCompletionWebhook } from '@/services/api'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -436,7 +436,7 @@ export function RequestDetailModal({ request, isOpen, onClose }) {
             const filePath = `${request.id}/${folder}/${fileName}`
             const { error: uploadError } = await supabase.storage.from('contracts').upload(filePath, file)
             if (uploadError) throw uploadError
-            const { data: { publicUrl } } = supabase.storage.from('contracts').getPublicUrl(filePath)
+            const publicUrl = getCustomPublicUrl('contracts', filePath)
             uploadedUrls.push({ name: file.name, url: publicUrl })
         }
         return uploadedUrls

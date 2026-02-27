@@ -3,7 +3,7 @@
  * Coordinates: script → TTS generation → audio upload → status tracking
  */
 
-import { supabase } from './supabase'
+import { supabase, getCustomPublicUrl } from './supabase'
 import { generateSpeechWithTimestamps, base64ToBlob } from './googleTTS'
 
 /**
@@ -53,15 +53,13 @@ export async function generateTutorialAudio(tutorialId, voiceConfig = {}) {
             if (uploadError) throw uploadError
 
             // Get public URL
-            const { data: urlData } = supabase.storage
-                .from('tutorial-assets')
-                .getPublicUrl(audioPath)
+            const publicUrl = getCustomPublicUrl('tutorial-assets', audioPath)
 
             // Update segment with audio URL and alignment data
             await supabase
                 .from('tutorial_segments')
                 .update({
-                    audio_url: urlData.publicUrl,
+                    audio_url: publicUrl,
                     alignment_data: {
                         timepoints: result.timepoints,
                         wordMap: result.wordMap

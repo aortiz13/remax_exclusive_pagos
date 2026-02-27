@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '../../services/supabase'
+import { supabase, getCustomPublicUrl } from '../../services/supabase'
 import { fetchUnifiedTimeline, EVENT_TYPES } from '../../services/timelineService'
 import TimelineEventModal from './TimelineEventModal'
 import { Badge } from '@/components/ui'
@@ -118,9 +118,7 @@ const PAGE_SIZE = 30
 function getMandateFileUrl(filePath) {
     // Handle legacy entries stored as objects {path, index} instead of strings
     const path = typeof filePath === 'object' ? filePath?.path : filePath
-    if (!path || typeof path !== 'string') return null
-    const { data } = supabase.storage.from('mandates').getPublicUrl(path)
-    return data?.publicUrl
+    return getCustomPublicUrl('mandates', path)
 }
 
 // ── Component ──────────────────────────────────────────────────
