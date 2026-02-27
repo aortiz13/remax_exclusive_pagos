@@ -9,6 +9,7 @@ import {
     LogOut,
     ChevronLeft,
     ChevronRight,
+    ChevronDown,
     PlusCircle,
     FileText,
     BarChart3,
@@ -32,15 +33,33 @@ import {
     Video,
     ClipboardCheck
 } from 'lucide-react'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'framer-motion'
+
+const STORAGE_KEY = 'sidebar-collapsed-sections'
+
+function loadCollapsedSections() {
+    try {
+        const stored = localStorage.getItem(STORAGE_KEY)
+        return stored ? JSON.parse(stored) : {}
+    } catch {
+        return {}
+    }
+}
+
+function saveCollapsedSections(state) {
+    try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+    } catch { /* ignore */ }
+}
 
 export default function Sidebar() {
     const { profile, signOut } = useAuth()
     const navigate = useNavigate()
     const location = useLocation()
     const [isCollapsed, setIsCollapsed] = useState(false)
+    const [collapsedSections, setCollapsedSections] = useState(loadCollapsedSections)
 
     // Expose sidebar width as CSS variable for fixed-position modals
     useEffect(() => {
@@ -51,6 +70,14 @@ export default function Sidebar() {
         await signOut()
         navigate('/login')
     }
+
+    const toggleSection = useCallback((sectionTitle) => {
+        setCollapsedSections(prev => {
+            const next = { ...prev, [sectionTitle]: !prev[sectionTitle] }
+            saveCollapsedSections(next)
+            return next
+        })
+    }, [])
 
     const role = profile?.role
     const isPostulante = role === 'postulantes'
@@ -96,45 +123,82 @@ export default function Sidebar() {
         ]
     }
 
-    const aulaVirtual = {
-        title: 'AULA VIRTUAL',
-        items: [{ title: 'Aula Virtual', icon: GraduationCap, path: '/aula-virtual' }]
-    }
-
-    const documentos = {
-        title: 'DOCUMENTOS',
+    // Merged section: Aula Virtual + Documentos → FORMACIÓN Y DOCS
+    const formacionYDocs = {
+        title: 'FORMACIÓN Y DOCS',
         items: [
+            { title: 'Aula Virtual', icon: GraduationCap, path: '/aula-virtual' },
             { title: 'Documentos Remax', icon: FileText, path: '/documents' },
-            { title: 'Mis Documentos', icon: Folder, path: '/my-documents' }
+            { title: 'Mis Documentos', icon: Folder, path: '/my-documents' },
         ]
     }
 
-    // Admin section per role
+    // Admin section per role — now with sub-groups for superadmin/legal
     const adminSectionByRole = {
         superadministrador: {
             title: 'ADMIN',
-            items: [
-                { title: 'Administración', icon: Users, path: '/admin/invites' },
-                { title: 'Solicitudes', icon: FileText, path: '/admin/requests' },
-                { title: 'Captaciones', icon: ClipboardList, path: '/admin/captaciones' },
-                { title: 'Importar Propiedades', icon: Download, path: '/admin/import' },
-                { title: 'Config. Aula Virtual', icon: Settings, path: '/admin/aula-virtual' },
-                { title: 'Video Tutoriales', icon: Video, path: '/admin/video-generator' },
-                { title: 'Agenda Cámara 360°', icon: Camera, path: '/admin/camera-schedule' },
-                { title: 'Agenda Turnos', icon: Shield, path: '/admin/shift-schedule' },
-                { title: 'Leads Guardia', icon: FileText, path: '/guard-leads' },
+            subgroups: [
+                {
+                    label: 'Gestión',
+                    items: [
+                        { title: 'Administración', icon: Users, path: '/admin/invites' },
+                        { title: 'Solicitudes', icon: FileText, path: '/admin/requests' },
+                        { title: 'Captaciones', icon: ClipboardList, path: '/admin/captaciones' },
+                        { title: 'Importar Propiedades', icon: Download, path: '/admin/import' },
+                    ]
+                },
+                {
+                    label: 'Contenido',
+                    items: [
+                        { title: 'Config. Aula Virtual', icon: Settings, path: '/admin/aula-virtual' },
+                        { title: 'Video Tutoriales', icon: Video, path: '/admin/video-generator' },
+                    ]
+                },
+                {
+                    label: 'Agendas',
+                    items: [
+                        { title: 'Agenda Cámara 360°', icon: Camera, path: '/admin/camera-schedule' },
+                        { title: 'Agenda Turnos', icon: Shield, path: '/admin/shift-schedule' },
+                    ]
+                },
+                {
+                    label: 'Operaciones',
+                    items: [
+                        { title: 'Leads Guardia', icon: FileText, path: '/guard-leads' },
+                    ]
+                }
             ]
         },
         legal: {
             title: 'ADMIN',
-            items: [
-                { title: 'Administración', icon: Users, path: '/admin/invites' },
-                { title: 'Solicitudes', icon: FileText, path: '/admin/requests' },
-                { title: 'Captaciones', icon: ClipboardList, path: '/admin/captaciones' },
-                { title: 'Importar Propiedades', icon: Download, path: '/admin/import' },
-                { title: 'Config. Aula Virtual', icon: Settings, path: '/admin/aula-virtual' },
-                { title: 'Agenda Turnos', icon: Shield, path: '/admin/shift-schedule' },
-                { title: 'Leads Guardia', icon: FileText, path: '/guard-leads' },
+            subgroups: [
+                {
+                    label: 'Gestión',
+                    items: [
+                        { title: 'Administración', icon: Users, path: '/admin/invites' },
+                        { title: 'Solicitudes', icon: FileText, path: '/admin/requests' },
+                        { title: 'Captaciones', icon: ClipboardList, path: '/admin/captaciones' },
+                        { title: 'Importar Propiedades', icon: Download, path: '/admin/import' },
+                    ]
+                },
+                {
+                    label: 'Contenido',
+                    items: [
+                        { title: 'Config. Aula Virtual', icon: Settings, path: '/admin/aula-virtual' },
+                    ]
+                },
+                {
+                    label: 'Agendas',
+                    items: [
+                        { title: 'Agenda Turnos', icon: Shield, path: '/admin/shift-schedule' },
+                    ]
+                },
+                {
+                    label: 'Operaciones',
+                    items: [
+                        { title: 'Leads Guardia', icon: FileText, path: '/guard-leads' },
+                    ]
+                }
             ]
         },
         comercial: {
@@ -167,10 +231,9 @@ export default function Sidebar() {
     // Assemble sections based on role
     let sections
     if (isPostulante) {
-        // Postulantes: no INDICADORES, no TOOLS, no Mapa, solo invite en ADMIN
-        sections = [general, crm, aulaVirtual, documentos]
+        sections = [general, crm, formacionYDocs]
     } else {
-        sections = [general, indicadores, crm, tools, aulaVirtual, documentos]
+        sections = [general, indicadores, crm, tools, formacionYDocs]
     }
 
     const adminSection = adminSectionByRole[role]
@@ -226,6 +289,95 @@ export default function Sidebar() {
                     </span>
                 )}
             </button>
+        )
+    }
+
+    const SectionHeader = ({ title, isExpanded, onToggle }) => {
+        if (isCollapsed) return null
+
+        return (
+            <button
+                onClick={onToggle}
+                className="w-full flex items-center justify-between px-3 mb-2 group cursor-pointer"
+            >
+                <motion.h4
+                    initial={{ opacity: 0, y: 5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest select-none"
+                >
+                    {title}
+                </motion.h4>
+                <motion.div
+                    animate={{ rotate: isExpanded ? 0 : -90 }}
+                    transition={{ duration: 0.2 }}
+                    className="text-slate-300 dark:text-slate-600 group-hover:text-slate-500 dark:group-hover:text-slate-400 transition-colors"
+                >
+                    <ChevronDown className="w-3.5 h-3.5" />
+                </motion.div>
+            </button>
+        )
+    }
+
+    const SubgroupLabel = ({ label }) => {
+        if (isCollapsed) return null
+
+        return (
+            <div className="px-3 pt-2 pb-1 first:pt-0">
+                <span className="text-[9px] font-semibold text-slate-300 dark:text-slate-600 uppercase tracking-wider">
+                    {label}
+                </span>
+            </div>
+        )
+    }
+
+    const renderSection = (section, idx) => {
+        const isExpanded = !collapsedSections[section.title]
+        const hasSubgroups = section.subgroups && section.subgroups.length > 0
+
+        // Get all items (flat or from subgroups) for collapsed icon mode
+        const allItems = hasSubgroups
+            ? section.subgroups.flatMap(sg => sg.items)
+            : (section.items || [])
+
+        return (
+            <div key={idx}>
+                <SectionHeader
+                    title={section.title}
+                    isExpanded={isExpanded}
+                    onToggle={() => toggleSection(section.title)}
+                />
+
+                <AnimatePresence initial={false}>
+                    {(isExpanded || isCollapsed) && (
+                        <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.25, ease: 'easeInOut' }}
+                            className="overflow-hidden"
+                        >
+                            {hasSubgroups ? (
+                                <div className="space-y-0.5">
+                                    {section.subgroups.map((subgroup, sgIdx) => (
+                                        <div key={sgIdx}>
+                                            <SubgroupLabel label={subgroup.label} />
+                                            {subgroup.items.map((item) => (
+                                                <MenuItem key={item.path} item={item} />
+                                            ))}
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="space-y-1">
+                                    {allItems.map((item) => (
+                                        <MenuItem key={item.path} item={item} />
+                                    ))}
+                                </div>
+                            )}
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+            </div>
         )
     }
 
@@ -305,26 +457,8 @@ export default function Sidebar() {
             </AnimatePresence>
 
             {/* Scrollable Content */}
-            <div className="flex-1 overflow-y-auto py-6 px-4 scrollbar-none space-y-8 relative z-10">
-                {sections.map((section, idx) => (
-                    <div key={idx}>
-                        {!isCollapsed && (
-                            <motion.h4
-                                initial={{ opacity: 0, y: 5 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: 0.1 * idx }}
-                                className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-3 px-3"
-                            >
-                                {section.title}
-                            </motion.h4>
-                        )}
-                        <div className="space-y-1">
-                            {section.items.map((item) => (
-                                <MenuItem key={item.path} item={item} />
-                            ))}
-                        </div>
-                    </div>
-                ))}
+            <div className="flex-1 overflow-y-auto py-6 px-4 scrollbar-none space-y-6 relative z-10">
+                {sections.map((section, idx) => renderSection(section, idx))}
             </div>
 
             {/* Bottom Card - User Profile */}
@@ -374,4 +508,3 @@ export default function Sidebar() {
         </motion.aside>
     )
 }
-
