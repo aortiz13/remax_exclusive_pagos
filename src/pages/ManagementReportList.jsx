@@ -29,8 +29,7 @@ export default function ManagementReportList() {
                 .select(`
                     *,
                     properties:property_id(address, commune),
-                    owner:owner_contact_id(first_name, last_name, email),
-                    agent:agent_id(first_name, last_name)
+                    owner:owner_contact_id(first_name, last_name, email)
                 `)
                 .order('due_date', { ascending: true })
 
@@ -45,7 +44,20 @@ export default function ManagementReportList() {
 
             const { data, error } = await query
             if (error) throw error
-            setReports(data || [])
+
+            // For admin: enrich with agent names from profiles
+            let enriched = data || []
+            if (isAdmin && enriched.length > 0) {
+                const agentIds = [...new Set(enriched.map(r => r.agent_id).filter(Boolean))]
+                const { data: agentProfiles } = await supabase
+                    .from('profiles')
+                    .select('id, first_name, last_name')
+                    .in('id', agentIds)
+                const agentMap = Object.fromEntries((agentProfiles || []).map(a => [a.id, a]))
+                enriched = enriched.map(r => ({ ...r, agent: agentMap[r.agent_id] || null }))
+            }
+
+            setReports(enriched)
         } catch (err) {
             console.error('Error fetching reports:', err)
         } finally {
