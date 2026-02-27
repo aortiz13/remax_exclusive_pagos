@@ -11,6 +11,7 @@ import { useNavigate } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'framer-motion'
 import { sendShiftNotification, SHIFT_EVENTS } from '../services/shiftNotifications'
+import { deleteShiftCalendarEvent } from '../services/shiftCalendarSync'
 
 const SHIFT_CONFIG = {
     1: { label: 'Turno 1', time: '09:00 – 13:00', color: 'from-amber-400 to-orange-500', bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-700' },
@@ -208,6 +209,10 @@ export default function ShiftBookingPage() {
             return
         }
         sendShiftNotification(SHIFT_EVENTS.SHIFT_CANCELLED, booking, profile)
+
+        // Remove calendar event + delete from Google Calendar
+        deleteShiftCalendarEvent(booking, profile.id)
+
         toast.success('Turno cancelado.')
         await fetchBookings()
     }

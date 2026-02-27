@@ -10,6 +10,7 @@ import {
 import { cn } from '@/lib/utils'
 import { motion } from 'framer-motion'
 import { sendShiftNotification, SHIFT_EVENTS } from '../services/shiftNotifications'
+import { createShiftCalendarEvent, deleteShiftCalendarEvent } from '../services/shiftCalendarSync'
 
 const SHIFT_CONFIG = {
     1: { label: 'Turno 1', time: '09:00 – 13:00', color: 'from-amber-400 to-orange-500', bg: 'bg-amber-50', text: 'text-amber-700' },
@@ -184,6 +185,10 @@ export default function AdminShiftSchedule() {
         }).eq('id', booking.id)
         if (error) { toast.error('Error: ' + error.message); return }
         sendShiftNotification(SHIFT_EVENTS.SHIFT_APPROVED, { ...booking, status: 'aprobado' }, booking.agent || {})
+
+        // Create calendar event + sync to Google Calendar
+        createShiftCalendarEvent(booking, booking.agent_id)
+
         toast.success('Turno aprobado.')
         fetchAll()
     }
@@ -204,6 +209,10 @@ export default function AdminShiftSchedule() {
         }).eq('id', booking.id)
         if (error) { toast.error('Error: ' + error.message); return }
         sendShiftNotification(SHIFT_EVENTS.SHIFT_REJECTED, { ...booking, status: 'rechazado' }, booking.agent || {}, notes || '')
+
+        // Remove calendar event + delete from Google Calendar
+        deleteShiftCalendarEvent(booking, booking.agent_id)
+
         toast.success('Turno rechazado.')
         fetchAll()
     }
