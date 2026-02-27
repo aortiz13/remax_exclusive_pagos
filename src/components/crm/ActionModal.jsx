@@ -421,6 +421,10 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
                 label: 'Guardar Acción',
                 onClick: async () => {
                     try {
+                        if (!user?.id) {
+                            toast.error('Sesión expirada. Por favor, inicie sesión nuevamente.');
+                            return;
+                        }
                         const resolvedType = actionType === 'Otra (I.C)' ? otherActionType : actionType;
                         const { data: actionRow, error: actionError } = await supabase
                             .from('crm_actions')
@@ -577,10 +581,10 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
 
                         toast.success('Acción registrada exitosamente');
 
-                        // Log to timeline
+                        // Log to timeline (fire-and-forget, must not block save)
                         const firstContactId = selectedContactIds[0] || null;
                         const finalPropId = selectedPropertyId === 'none' ? null : selectedPropertyId;
-                        await logActivity({
+                        logActivity({
                             action: 'Acción',
                             entity_type: finalPropId ? 'Propiedad' : 'Contacto',
                             entity_id: finalPropId || firstContactId,

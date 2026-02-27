@@ -11,11 +11,11 @@ export const logActivity = async ({
     contact_id = null
 }) => {
     try {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) return
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session?.user) return
 
         const { error } = await supabase.from('activity_logs').insert({
-            actor_id: user.id,
+            actor_id: session.user.id,
             action,
             entity_type,
             entity_id,
