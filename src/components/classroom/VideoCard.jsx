@@ -113,6 +113,29 @@ export default function VideoCard({ video, isAdmin = false, onDelete, onEdit, is
                         </div>
                     </div>
                 </motion.div>
+
+                {/* Cinema Mode Modal */}
+                <Dialog open={showModal} onOpenChange={setShowModal}>
+                    <DialogContent className="max-w-4xl p-0 overflow-hidden bg-black border-slate-800 aspect-video ring-0 outline-none">
+                        <DialogTitle className="sr-only">{video.title}</DialogTitle>
+                        <DialogDescription className="sr-only">Reproduciendo video: {video.title}</DialogDescription>
+
+                        {showModal && videoId ? (
+                            <iframe
+                                className="w-full h-full"
+                                src={`https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1`}
+                                title={video.title}
+                                frameBorder="0"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                                allowFullScreen
+                            ></iframe>
+                        ) : (
+                            <div className="flex items-center justify-center h-full text-white">
+                                <p>Error: ID de video no encontrado.</p>
+                            </div>
+                        )}
+                    </DialogContent>
+                </Dialog>
             </>
         )
     }

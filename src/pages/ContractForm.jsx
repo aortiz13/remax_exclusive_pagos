@@ -10,8 +10,6 @@ import ContactPickerInline from '../components/ui/ContactPickerInline'
 import PropertyPickerInline from '../components/ui/PropertyPickerInline'
 import { autoLinkContactProperty } from '../services/autoLink'
 import { logActivity } from '../services/activityService'
-import { generateExcel } from '../lib/generateExcel'
-import { generatePDF } from '../lib/generatePDF'
 import { triggerLegalWebhook } from '../services/api'
 import { Button, Card, CardContent, CardHeader, CardTitle, CardDescription, Input, Label, Textarea } from '@/components/ui'
 import { ArrowLeft, Building2, Key, Save, UploadCloud, FilePlus } from 'lucide-react'
@@ -591,14 +589,6 @@ function BuySellFormLogic({ user, profile, navigate, initialData = {}, requestId
             formData.append('forma_pago', paymentMethod)
             formData.append('moneda_reserva', reservationCurrency)
 
-            // Remove empty files & Re-append valid ones handled by webhookData below
-            // ... (structure below handles this)
-
-            // Generate Excel
-            const excelBlob = await generateExcel(formData)
-
-            // Generate PDF
-            const pdfBlob = await generatePDF(formData)
 
             // Prepare Webhook Payload
             const webhookData = new FormData()
@@ -612,9 +602,6 @@ function BuySellFormLogic({ user, profile, navigate, initialData = {}, requestId
             dominioFiles.forEach(file => webhookData.append('dominio_vigente[]', file))
             gpFiles.forEach(file => webhookData.append('gp_certificado[]', file))
             otrosFiles.forEach(file => webhookData.append('otros_documentos[]', file))
-
-            // Append Generated PDF
-            webhookData.append('detalles solicitud.pdf', pdfBlob, 'detalles solicitud.pdf')
 
             // Trigger Webhook
             await triggerLegalWebhook(webhookData)
@@ -1033,12 +1020,6 @@ function LeaseFormLogic({ user, profile, navigate, initialData = {}, requestId =
             // Note: FormData with same name appends. We need to filter.
             // Actually, we will construct the webhook payload carefully.
 
-            // Generate Excel logic (simplified for logic but assumes backend handles lists)
-            // For excel generation, we might need to flatten arrays or handle them.
-            // Current generator might accept the formData as is.
-
-            const excelBlob = await generateExcel(formData)
-            const pdfBlob = await generatePDF(formData)
 
             // Prepare Webhook Payload
             const webhookData = new FormData()
@@ -1053,9 +1034,6 @@ function LeaseFormLogic({ user, profile, navigate, initialData = {}, requestId =
             // Append Files from refs (reliable source of truth)
             dominioFiles.forEach(file => webhookData.append('dominio_vigente[]', file))
             otrosFiles.forEach(file => webhookData.append('otros_documentos[]', file))
-
-            // Append Generated PDF
-            webhookData.append('detalles solicitud.pdf', pdfBlob, 'detalles solicitud.pdf')
 
             // Trigger Webhook
             await triggerLegalWebhook(webhookData)
@@ -1539,7 +1517,7 @@ function AnnexFormLogic({ user, profile, navigate, initialData = {}, requestId =
             // Prepare Webhook Payload
             const webhookData = new FormData()
 
-            // Append data
+            // Append all string data
             for (const [key, value] of formData.entries()) {
                 if (typeof value === 'string') {
                     webhookData.append(key, value)
