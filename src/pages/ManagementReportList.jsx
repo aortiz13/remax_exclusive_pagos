@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../services/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Button, Badge } from '@/components/ui'
-import { FileText, Clock, CheckCircle, AlertTriangle, Loader2, ChevronRight, Plus } from 'lucide-react'
+import { FileText, Clock, CheckCircle, AlertTriangle, Loader2, ChevronRight, Plus, Construction } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 
@@ -77,6 +77,17 @@ export default function ManagementReportList() {
 
     return (
         <div className="max-w-5xl mx-auto space-y-6">
+            {/* Construction Banner */}
+            <div className="rounded-xl p-4 flex items-center gap-3 bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-200 shadow-sm">
+                <div className="p-2 bg-amber-100 rounded-lg">
+                    <Construction className="w-5 h-5 text-amber-600" />
+                </div>
+                <div>
+                    <p className="font-semibold text-sm text-slate-900">🚧 Sección en Construcción</p>
+                    <p className="text-xs text-slate-500">Estamos mejorando esta sección. Algunas funciones pueden no estar disponibles aún.</p>
+                </div>
+            </div>
+
             {/* Header */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div>

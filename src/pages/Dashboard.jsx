@@ -32,6 +32,8 @@ export default function Dashboard() {
     const [isActionModalOpen, setIsActionModalOpen] = useState(false)
     const [pendingReports, setPendingReports] = useState(0)
     const [overdueReports, setOverdueReports] = useState(0)
+    const [pendingFollowups, setPendingFollowups] = useState(0)
+    const [dueFollowups, setDueFollowups] = useState([]) // For specific overdue/due soon items
 
     useEffect(() => {
         startTour()
@@ -72,7 +74,45 @@ export default function Dashboard() {
                 console.error('Error fetching report counts:', err)
             }
         }
+
+        const fetchFollowupCounts = async () => {
+            try {
+                const isAdminRole = ['superadministrador', 'comercial', 'legal'].includes(profile?.role)
+                let query = supabase
+                    .from('transaction_followups')
+                    .select('*, properties(address)')
+                    .eq('status', 'pending')
+                    .order('due_date', { ascending: true })
+
+                if (!isAdminRole) {
+                    query = query.eq('agent_id', user.id)
+                }
+
+                const { data, error } = await query
+                if (error) throw error
+
+                if (data) {
+                    const today = new Date()
+                    today.setHours(0, 0, 0, 0)
+                    const weekLater = new Date(today)
+                    weekLater.setDate(today.getDate() + 7)
+
+                    // Only show followups due today or earlier, or within next 7 days
+                    const urgent = data.filter(f => {
+                        const d = new Date(f.due_date + 'T12:00:00')
+                        return d <= weekLater
+                    })
+
+                    setPendingFollowups(data.length)
+                    setDueFollowups(urgent)
+                }
+            } catch (err) {
+                console.error('Error fetching followup counts:', err)
+            }
+        }
+
         fetchReportCounts()
+        fetchFollowupCounts()
     }, [user, profile])
 
     const fetchRequests = async () => {
@@ -331,6 +371,34 @@ export default function Dashboard() {
                         </div>
                     </div>
                     <ArrowUpRight className="w-5 h-5 text-slate-400" />
+                </motion.div>
+            )}
+
+            {/* Transaction Followups Banner */}
+            {dueFollowups.length > 0 && (
+                <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="rounded-xl p-4 flex items-center justify-between transition-all border bg-gradient-to-r from-emerald-50 to-teal-50 border-emerald-200 shadow-sm"
+                >
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-lg bg-emerald-100">
+                            <Activity className="w-5 h-5 text-emerald-600" />
+                        </div>
+                        <div>
+                            <p className="font-semibold text-sm text-slate-900">
+                                ✨ Tienes {dueFollowups.length} seguimiento(s) post-transmisión pendiente(s) esta semana
+                            </p>
+                            <div className="flex flex-wrap gap-2 mt-1">
+                                {dueFollowups.slice(0, 3).map(f => (
+                                    <span key={f.id} className="text-[10px] bg-white/50 border border-emerald-100 px-2 py-0.5 rounded text-emerald-700">
+                                        {f.milestone === '1month' ? '1 mes' : f.milestone === '6months' ? '6 meses' : '1 año'} - {f.properties?.address?.split(',')[0]}
+                                    </span>
+                                ))}
+                                {dueFollowups.length > 3 && <span className="text-[10px] text-slate-500">+{dueFollowups.length - 3} más</span>}
+                            </div>
+                        </div>
+                    </div>
                 </motion.div>
             )}
 
