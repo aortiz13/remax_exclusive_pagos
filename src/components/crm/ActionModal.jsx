@@ -16,7 +16,15 @@ import {
     SelectTrigger,
     SelectValue,
     Textarea,
-    Checkbox
+    Checkbox,
+    AlertDialog,
+    AlertDialogContent,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogCancel,
+    AlertDialogAction
 } from "@/components/ui";
 import { supabase } from '../../services/supabase';
 import { toast } from 'sonner';
@@ -157,6 +165,7 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
     // UI state for creation modals
     const [isCreateContactOpen, setIsCreateContactOpen] = useState(false);
     const [isCreatePropertyOpen, setIsCreatePropertyOpen] = useState(false);
+    const [showSaveConfirm, setShowSaveConfirm] = useState(false);
 
     // Combobox state
     const [openContactCombo, setOpenContactCombo] = useState(false);
@@ -415,199 +424,191 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
             return;
         }
 
-        toast('⚠️ Aviso de Seguridad', {
-            description: 'Una vez registrada esta acción NO se podrá editar posteriormente, únicamente eliminar. ¿Está seguro?',
-            action: {
-                label: 'Guardar Acción',
-                onClick: async () => {
-                    try {
-                        if (!user?.id) {
-                            toast.error('Sesión expirada. Por favor, inicie sesión nuevamente.');
-                            return;
-                        }
-                        const resolvedType = actionType === 'Otra (I.C)' ? otherActionType : actionType;
-                        const { data: actionRow, error: actionError } = await supabase
-                            .from('crm_actions')
-                            .insert({
-                                agent_id: user.id,
-                                action_type: resolvedType,
-                                action_date: actionDate,
-                                property_id: selectedPropertyId === 'none' ? null : selectedPropertyId,
-                                note: note || null,
-                                is_conversation_starter: actionType.includes('(I.C)'),
-                                call_result: actionType.startsWith('Llamada') ? (callResult === 'Otra' ? otherCallResult : callResult) : null,
-                                // Cierre de negocio fields
-                                deal_type: resolvedType === 'Cierre de negocio' ? dealType : null,
-                                closing_value: resolvedType === 'Cierre de negocio' ? toCLP(closingValue, closingCurrency) : null,
-                                gross_fees: resolvedType === 'Cierre de negocio' ? toCLP(grossFees, feesCurrency) : null,
-                            })
-                            .select()
-                            .single();
+        setShowSaveConfirm(true);
+    };
 
-                        if (actionError) throw actionError;
+    const executeSave = async () => {
+        setShowSaveConfirm(false);
+        try {
+            if (!user?.id) {
+                toast.error('Sesión expirada. Por favor, inicie sesión nuevamente.');
+                return;
+            }
+            const resolvedType = actionType === 'Otra (I.C)' ? otherActionType : actionType;
+            const { data: actionRow, error: actionError } = await supabase
+                .from('crm_actions')
+                .insert({
+                    agent_id: user.id,
+                    action_type: resolvedType,
+                    action_date: actionDate,
+                    property_id: selectedPropertyId === 'none' ? null : selectedPropertyId,
+                    note: note || null,
+                    is_conversation_starter: actionType.includes('(I.C)'),
+                    call_result: actionType.startsWith('Llamada') ? (callResult === 'Otra' ? otherCallResult : callResult) : null,
+                    // Cierre de negocio fields
+                    deal_type: resolvedType === 'Cierre de negocio' ? dealType : null,
+                    closing_value: resolvedType === 'Cierre de negocio' ? toCLP(closingValue, closingCurrency) : null,
+                    gross_fees: resolvedType === 'Cierre de negocio' ? toCLP(grossFees, feesCurrency) : null,
+                })
+                .select()
+                .single();
 
-                        // Create follow-up tasks if requested
-                        if (createFollowUp) {
-                            for (const task of followUpTasks) {
-                                let followUpDate = calculateFollowUpDate(task.delay, actionDate, task.customDate);
+            if (actionError) throw actionError;
 
-                                if (task.useSpecificTime && task.specificTime) {
-                                    const [hours, minutes] = task.specificTime.split(':');
-                                    followUpDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
-                                } else {
-                                    // Set to local midnight and mark as all-day
-                                    // Robust parsing: extract year, month, day to avoid any UTC shift
-                                    const y = followUpDate.getFullYear();
-                                    const m = followUpDate.getMonth();
-                                    const d = followUpDate.getDate();
-                                    followUpDate = new Date(y, m, d, 0, 0, 0);
-                                }
+            // Create follow-up tasks if requested
+            if (createFollowUp) {
+                for (const task of followUpTasks) {
+                    let followUpDate = calculateFollowUpDate(task.delay, actionDate, task.customDate);
 
-                                const { data: taskRow, error: taskError } = await supabase
-                                    .from('crm_tasks')
-                                    .insert({
-                                        agent_id: user.id,
-                                        contact_id: selectedContactIds[0] || null,
-                                        property_id: selectedPropertyId === 'none' ? null : selectedPropertyId,
-                                        action: `Seguimiento: ${resolvedType}`,
-                                        execution_date: followUpDate.toISOString(),
-                                        action_id: actionRow.id,
-                                        task_type: 'task',
-                                        is_all_day: !task.useSpecificTime
-                                    })
-                                    .select()
-                                    .single();
+                    if (task.useSpecificTime && task.specificTime) {
+                        const [hours, minutes] = task.specificTime.split(':');
+                        followUpDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+                    } else {
+                        // Set to local midnight and mark as all-day
+                        // Robust parsing: extract year, month, day to avoid any UTC shift
+                        const y = followUpDate.getFullYear();
+                        const m = followUpDate.getMonth();
+                        const d = followUpDate.getDate();
+                        followUpDate = new Date(y, m, d, 0, 0, 0);
+                    }
 
-                                if (taskError) {
-                                    console.error('Error creating follow-up task:', taskError);
-                                } else if (user.id) {
-                                    try {
-                                        const { data: profile } = await supabase.from('profiles').select('google_refresh_token').eq('id', user.id).single();
-                                        if (profile?.google_refresh_token) {
-                                            supabase.functions.invoke('google-calendar-sync', {
-                                                body: { agentId: user.id, action: 'push_to_google', taskId: taskRow.id }
-                                            });
-                                        }
-                                    } catch (error) {
-                                        console.error('Error triggering google sync:', error);
-                                    }
-                                }
+                    const { data: taskRow, error: taskError } = await supabase
+                        .from('crm_tasks')
+                        .insert({
+                            agent_id: user.id,
+                            contact_id: selectedContactIds[0] || null,
+                            property_id: selectedPropertyId === 'none' ? null : selectedPropertyId,
+                            action: `Seguimiento: ${resolvedType}`,
+                            execution_date: followUpDate.toISOString(),
+                            action_id: actionRow.id,
+                            task_type: 'task',
+                            is_all_day: !task.useSpecificTime
+                        })
+                        .select()
+                        .single();
+
+                    if (taskError) {
+                        console.error('Error creating follow-up task:', taskError);
+                    } else if (user.id) {
+                        try {
+                            const { data: profile } = await supabase.from('profiles').select('google_refresh_token').eq('id', user.id).single();
+                            if (profile?.google_refresh_token) {
+                                supabase.functions.invoke('google-calendar-sync', {
+                                    body: { agentId: user.id, action: 'push_to_google', taskId: taskRow.id }
+                                });
                             }
+                        } catch (error) {
+                            console.error('Error triggering google sync:', error);
                         }
-
-                        // Insert junction rows for contacts
-                        if (selectedContactIds.length > 0) {
-                            const contactRows = selectedContactIds.map(cid => ({
-                                action_id: actionRow.id,
-                                contact_id: cid
-                            }));
-                            const { error: contactsError } = await supabase
-                                .from('crm_action_contacts')
-                                .insert(contactRows);
-                            if (contactsError) throw contactsError;
-                        }
-
-                        // Auto-increment KPI if this action type maps to a KPI field
-                        const kpiField = ACTION_KPI_MAP[resolvedType];
-                        if (kpiField) {
-                            const actionDateStr = (actionDate || '').split('T')[0];
-                            const { data: existingKpi } = await supabase
-                                .from('kpi_records')
-                                .select(`id, ${kpiField}`)
-                                .eq('agent_id', user.id)
-                                .eq('period_type', 'daily')
-                                .eq('date', actionDateStr)
-                                .single();
-                            if (existingKpi) {
-                                await supabase
-                                    .from('kpi_records')
-                                    .update({ [kpiField]: (existingKpi[kpiField] || 0) + 1 })
-                                    .eq('id', existingKpi.id);
-                            } else {
-                                await supabase
-                                    .from('kpi_records')
-                                    .insert({
-                                        agent_id: user.id,
-                                        period_type: 'daily',
-                                        date: actionDateStr,
-                                        [kpiField]: 1,
-                                        new_listings: 0, conversations_started: 0, relational_coffees: 0,
-                                        sales_interviews: 0, buying_interviews: 0, commercial_evaluations: 0,
-                                        active_portfolio: 0, price_reductions: 0, portfolio_visits: 0,
-                                        buyer_visits: 0, offers_in_negotiation: 0, signed_promises: 0,
-                                        billing_primary: 0, referrals_count: 0, billing_secondary: 0,
-                                    });
-                            }
-                        }
-
-                        // Special case: Cierre de negocio → billing_primary += gross_fees, billing_secondary += closing_value
-                        if (resolvedType === 'Cierre de negocio') {
-                            // Use the local calendar date to avoid UTC-offset issues (Chile is UTC-3)
-                            const todayLocal = toISOLocal(new Date()).split('T')[0];
-                            const feesInCLP = toCLP(grossFees, feesCurrency) || 0;
-                            const closingInCLP = toCLP(closingValue, closingCurrency) || 0;
-                            const { data: existingKpi } = await supabase
-                                .from('kpi_records')
-                                .select('id, billing_primary, billing_secondary')
-                                .eq('agent_id', user.id)
-                                .eq('period_type', 'daily')
-                                .eq('date', todayLocal)
-                                .single();
-                            if (existingKpi) {
-                                await supabase
-                                    .from('kpi_records')
-                                    .update({
-                                        billing_primary: (parseFloat(existingKpi.billing_primary) || 0) + feesInCLP,
-                                        billing_secondary: (parseFloat(existingKpi.billing_secondary) || 0) + closingInCLP,
-                                    })
-                                    .eq('id', existingKpi.id);
-                            } else {
-                                await supabase
-                                    .from('kpi_records')
-                                    .insert({
-                                        agent_id: user.id,
-                                        period_type: 'daily',
-                                        date: todayLocal,
-                                        billing_primary: feesInCLP,
-                                        billing_secondary: closingInCLP,
-                                        new_listings: 0, conversations_started: 0, relational_coffees: 0,
-                                        sales_interviews: 0, buying_interviews: 0, commercial_evaluations: 0,
-                                        active_portfolio: 0, price_reductions: 0, portfolio_visits: 0,
-                                        buyer_visits: 0, offers_in_negotiation: 0, signed_promises: 0,
-                                        referrals_count: 0,
-                                    });
-                            }
-                        }
-
-                        toast.success('Acción registrada exitosamente');
-
-                        // Log to timeline (fire-and-forget, must not block save)
-                        const firstContactId = selectedContactIds[0] || null;
-                        const finalPropId = selectedPropertyId === 'none' ? null : selectedPropertyId;
-                        logActivity({
-                            action: 'Acción',
-                            entity_type: finalPropId ? 'Propiedad' : 'Contacto',
-                            entity_id: finalPropId || firstContactId,
-                            description: `Acción registrada: ${resolvedType}${note ? ` — ${note.substring(0, 100)}` : ''}`,
-                            contact_id: firstContactId,
-                            property_id: finalPropId,
-                            details: { action_type: resolvedType, action_id: actionRow.id }
-                        }).catch(() => { });
-
-                        if (onActionSaved) onActionSaved(actionRow);
-                        onClose();
-                    } catch (err) {
-                        console.error('Error saving action:', err);
-                        toast.error('Error al guardar la acción. Intente nuevamente.');
                     }
                 }
-            },
-            cancel: {
-                label: 'Cancelar',
-                onClick: () => { }
-            },
-            duration: 8000
-        });
+            }
+
+            // Insert junction rows for contacts
+            if (selectedContactIds.length > 0) {
+                const contactRows = selectedContactIds.map(cid => ({
+                    action_id: actionRow.id,
+                    contact_id: cid
+                }));
+                const { error: contactsError } = await supabase
+                    .from('crm_action_contacts')
+                    .insert(contactRows);
+                if (contactsError) throw contactsError;
+            }
+
+            // Auto-increment KPI if this action type maps to a KPI field
+            const kpiField = ACTION_KPI_MAP[resolvedType];
+            if (kpiField) {
+                const actionDateStr = (actionDate || '').split('T')[0];
+                const { data: existingKpi } = await supabase
+                    .from('kpi_records')
+                    .select(`id, ${kpiField}`)
+                    .eq('agent_id', user.id)
+                    .eq('period_type', 'daily')
+                    .eq('date', actionDateStr)
+                    .single();
+                if (existingKpi) {
+                    await supabase
+                        .from('kpi_records')
+                        .update({ [kpiField]: (existingKpi[kpiField] || 0) + 1 })
+                        .eq('id', existingKpi.id);
+                } else {
+                    await supabase
+                        .from('kpi_records')
+                        .insert({
+                            agent_id: user.id,
+                            period_type: 'daily',
+                            date: actionDateStr,
+                            [kpiField]: 1,
+                            new_listings: 0, conversations_started: 0, relational_coffees: 0,
+                            sales_interviews: 0, buying_interviews: 0, commercial_evaluations: 0,
+                            active_portfolio: 0, price_reductions: 0, portfolio_visits: 0,
+                            buyer_visits: 0, offers_in_negotiation: 0, signed_promises: 0,
+                            billing_primary: 0, referrals_count: 0, billing_secondary: 0,
+                        });
+                }
+            }
+
+            // Special case: Cierre de negocio → billing_primary += gross_fees, billing_secondary += closing_value
+            if (resolvedType === 'Cierre de negocio') {
+                // Use the local calendar date to avoid UTC-offset issues (Chile is UTC-3)
+                const todayLocal = toISOLocal(new Date()).split('T')[0];
+                const feesInCLP = toCLP(grossFees, feesCurrency) || 0;
+                const closingInCLP = toCLP(closingValue, closingCurrency) || 0;
+                const { data: existingKpi } = await supabase
+                    .from('kpi_records')
+                    .select('id, billing_primary, billing_secondary')
+                    .eq('agent_id', user.id)
+                    .eq('period_type', 'daily')
+                    .eq('date', todayLocal)
+                    .single();
+                if (existingKpi) {
+                    await supabase
+                        .from('kpi_records')
+                        .update({
+                            billing_primary: (parseFloat(existingKpi.billing_primary) || 0) + feesInCLP,
+                            billing_secondary: (parseFloat(existingKpi.billing_secondary) || 0) + closingInCLP,
+                        })
+                        .eq('id', existingKpi.id);
+                } else {
+                    await supabase
+                        .from('kpi_records')
+                        .insert({
+                            agent_id: user.id,
+                            period_type: 'daily',
+                            date: todayLocal,
+                            billing_primary: feesInCLP,
+                            billing_secondary: closingInCLP,
+                            new_listings: 0, conversations_started: 0, relational_coffees: 0,
+                            sales_interviews: 0, buying_interviews: 0, commercial_evaluations: 0,
+                            active_portfolio: 0, price_reductions: 0, portfolio_visits: 0,
+                            buyer_visits: 0, offers_in_negotiation: 0, signed_promises: 0,
+                            referrals_count: 0,
+                        });
+                }
+            }
+
+            toast.success('Acción registrada exitosamente');
+
+            // Log to timeline (fire-and-forget, must not block save)
+            const firstContactId = selectedContactIds[0] || null;
+            const finalPropId = selectedPropertyId === 'none' ? null : selectedPropertyId;
+            logActivity({
+                action: 'Acción',
+                entity_type: finalPropId ? 'Propiedad' : 'Contacto',
+                entity_id: finalPropId || firstContactId,
+                description: `Acción registrada: ${resolvedType}${note ? ` — ${note.substring(0, 100)}` : ''}`,
+                contact_id: firstContactId,
+                property_id: finalPropId,
+                details: { action_type: resolvedType, action_id: actionRow.id }
+            }).catch(() => { });
+
+            if (onActionSaved) onActionSaved(actionRow);
+            onClose();
+        } catch (err) {
+            console.error('Error saving action:', err);
+            toast.error('Error al guardar la acción. Intente nuevamente.');
+        }
     };
 
     const toggleContactSelect = (contactId) => {
@@ -1277,6 +1278,24 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
                     />
                 )
             }
+
+            {/* ── Save Confirmation Modal ── */}
+            <AlertDialog open={showSaveConfirm} onOpenChange={setShowSaveConfirm}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>⚠️ Aviso de Seguridad</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Una vez registrada esta acción NO se podrá editar posteriormente, únicamente eliminar. ¿Está seguro?
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction onClick={executeSave}>
+                            Guardar Acción
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </>
     );
 };
