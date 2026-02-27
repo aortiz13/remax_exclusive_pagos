@@ -307,7 +307,7 @@ const AdminPropertyImport = () => {
                             .eq('agent_id', agentProfile.id)
                             .eq('period_type', 'daily')
                             .eq('date', todayStr)
-                            .single()
+                            .maybeSingle()
 
                         if (existingKpi) {
                             await supabase.from('kpi_records').update({ active_portfolio: activeCount }).eq('id', existingKpi.id)

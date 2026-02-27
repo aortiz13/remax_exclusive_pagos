@@ -48,11 +48,16 @@ function formatPrice(price, currency) {
 }
 
 function getFileUrl(filePath) {
-    const { data } = supabase.storage.from('mandates').getPublicUrl(filePath)
+    // Handle legacy entries stored as objects {path, index} instead of strings
+    const path = typeof filePath === 'object' ? filePath?.path : filePath
+    if (!path || typeof path !== 'string') return null
+    const { data } = supabase.storage.from('mandates').getPublicUrl(path)
     return data?.publicUrl
 }
 
-function getFileName(path) {
+function getFileName(filePath) {
+    const path = typeof filePath === 'object' ? filePath?.path : filePath
+    if (!path || typeof path !== 'string') return 'Documento'
     const parts = path.split('/')
     const filename = parts[parts.length - 1]
     // Remove the random prefix: timestamp_random.ext → just show Doc N

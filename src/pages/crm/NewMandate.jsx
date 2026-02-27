@@ -89,9 +89,17 @@ const NewMandate = () => {
     const isArriendo = formData.operation_type === 'Arriendo'
     const priceRaw = parseFloat(formData.price || 0)
 
+    const getArriendoInCLP = () => {
+        if (!formData.price) return 0
+        const price = parseFloat(formData.price)
+        if (formData.currency === 'CLP') return price
+        if (formData.currency === 'UF' && ufValue > 0) return price * ufValue
+        return 0
+    }
+
     const showPhotographer = isExclusive && isRM && (
         (isVenta && valueInUF >= 4000) ||
-        (isArriendo && priceRaw >= 1000000)
+        (isArriendo && getArriendoInCLP() >= 1000000)
     )
     const show360Camera = isExclusive && isRM
 
@@ -242,7 +250,7 @@ const NewMandate = () => {
                         d.setDate(d.getDate() + parseInt(formData.capture_duration))
                         return d.toISOString().split('T')[0]
                     })(),
-                    file_urls: uploadedUrls,
+                    file_urls: uploadedUrls.map(u => u.path),
                     status: 'pendiente'
                 }])
                 .select()
@@ -292,7 +300,7 @@ const NewMandate = () => {
                 .eq('agent_id', user.id)
                 .eq('period_type', 'daily')
                 .eq('date', todayStr)
-                .single()
+                .maybeSingle()
 
             if (existingKpi) {
                 await supabase
@@ -528,24 +536,32 @@ const NewMandate = () => {
                                     placeholder="Monto"
                                     className="flex-1"
                                 />
-                                {formData.operation_type === 'Arriendo' ? (
-                                    <div className="w-24 h-10 flex items-center justify-center rounded-xl border-2 border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 text-sm font-bold text-slate-500">
-                                        CLP
-                                    </div>
-                                ) : (
-                                    <select
-                                        className="w-24 h-10 rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                                        value={formData.currency}
-                                        onChange={(e) => setFormData(prev => ({ ...prev, currency: e.target.value }))}
-                                    >
-                                        <option value="UF">UF</option>
-                                        <option value="CLP">CLP</option>
-                                    </select>
-                                )}
+                                <select
+                                    className="w-24 h-10 rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                    value={formData.currency}
+                                    onChange={(e) => setFormData(prev => ({ ...prev, currency: e.target.value }))}
+                                >
+                                    {formData.operation_type === 'Arriendo' ? (
+                                        <>
+                                            <option value="CLP">CLP</option>
+                                            <option value="UF">UF</option>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <option value="UF">UF</option>
+                                            <option value="CLP">CLP</option>
+                                        </>
+                                    )}
+                                </select>
                             </div>
-                            {formData.price && formData.currency === 'CLP' && ufValue > 0 && formData.operation_type !== 'Arriendo' && (
+                            {formData.price && formData.currency === 'CLP' && ufValue > 0 && (
                                 <p className="text-[10px] text-slate-500 italic mt-1">
                                     Equivalente a ≈ {valueInUF.toLocaleString('es-CL', { maximumFractionDigits: 1 })} UF (valor UF: ${ufValue.toLocaleString('es-CL')})
+                                </p>
+                            )}
+                            {formData.price && formData.currency === 'UF' && ufValue > 0 && formData.operation_type === 'Arriendo' && (
+                                <p className="text-[10px] text-slate-500 italic mt-1">
+                                    Equivalente a ≈ ${getArriendoInCLP().toLocaleString('es-CL', { maximumFractionDigits: 0 })} CLP (valor UF: ${ufValue.toLocaleString('es-CL')})
                                 </p>
                             )}
                         </div>
@@ -618,7 +634,7 @@ const NewMandate = () => {
                                         name="operation_type"
                                         value="Arriendo"
                                         checked={formData.operation_type === 'Arriendo'}
-                                        onChange={(e) => setFormData(prev => ({ ...prev, operation_type: e.target.value, currency: e.target.value === 'Arriendo' ? 'CLP' : prev.currency }))}
+                                        onChange={(e) => setFormData(prev => ({ ...prev, operation_type: e.target.value, currency: e.target.value === 'Arriendo' ? 'CLP' : 'UF' }))}
                                     />
                                     <span className="font-bold">Arriendo</span>
                                 </label>
