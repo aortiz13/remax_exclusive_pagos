@@ -792,20 +792,41 @@ export default function AgentDocuments() {
                     </DialogHeader>
                     <div className="flex-1 bg-slate-100 rounded-lg overflow-hidden relative">
                         {previewUrl && (
-                            <iframe
-                                src={
-                                    /\.(xls|xlsx|xlsm|xlsb|xltx|xlt|doc|docx|docm|ppt|pptx|pptm)$/i.test(previewTitle)
-                                        ? `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(previewUrl)}`
-                                        : `https://docs.google.com/viewer?url=${encodeURIComponent(previewUrl)}&embedded=true`
-                                }
-                                className="w-full h-full border-0"
-                                frameBorder="0"
-                                title="Document Preview"
-                            />
+                            <>
+                                {/\.(png|jpe?g|gif|webp|svg)$/i.test(previewTitle) ? (
+                                    <div className="w-full h-full flex items-center justify-center p-4">
+                                        <img
+                                            src={previewUrl}
+                                            alt={previewTitle}
+                                            className="max-w-full max-h-full object-contain shadow-lg"
+                                        />
+                                    </div>
+                                ) : /\.pdf$/i.test(previewTitle) ? (
+                                    <iframe
+                                        src={`${previewUrl}#toolbar=0`}
+                                        className="w-full h-full border-0"
+                                        title="PDF Preview"
+                                    />
+                                ) : (
+                                    <iframe
+                                        src={
+                                            /\.(xls|xlsx|xlsm|xlsb|xltx|xlt|doc|docx|docm|ppt|pptx|pptm)$/i.test(previewTitle)
+                                                ? `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(previewUrl)}`
+                                                : `https://docs.google.com/viewer?url=${encodeURIComponent(previewUrl)}&embedded=true`
+                                        }
+                                        className="w-full h-full border-0"
+                                        frameBorder="0"
+                                        title="Document Preview"
+                                    />
+                                )}
+                            </>
                         )}
                         {!previewUrl && (
                             <div className="absolute inset-0 flex items-center justify-center text-slate-400">
-                                Cargando previsualización...
+                                <div className="flex flex-col items-center gap-2">
+                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                                    <p>Cargando previsualización...</p>
+                                </div>
                             </div>
                         )}
                     </div>
