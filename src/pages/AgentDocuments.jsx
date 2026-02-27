@@ -319,8 +319,7 @@ export default function AgentDocuments() {
             if (error) throw error
 
             if (data?.signedUrl) {
-                const customUrl = data.signedUrl.replace('wdyfeolbuogoyngrvxkc.supabase.co', 'solicitudes.remax-exclusive.cl')
-                setPreviewUrl(customUrl)
+                setPreviewUrl(data.signedUrl)
                 setPreviewTitle(file.name)
                 setIsPreviewOpen(true)
             }
@@ -795,7 +794,7 @@ export default function AgentDocuments() {
                         {previewUrl && (
                             <iframe
                                 src={
-                                    /\.(xls|xlsx|doc|docx|ppt|pptx)$/i.test(previewTitle)
+                                    /\.(xls|xlsx|xlsm|xlsb|xltx|xlt|doc|docx|docm|ppt|pptx|pptm)$/i.test(previewTitle)
                                         ? `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(previewUrl)}`
                                         : `https://docs.google.com/viewer?url=${encodeURIComponent(previewUrl)}&embedded=true`
                                 }
