@@ -220,7 +220,7 @@ const PropertyForm = ({ property, isOpen, onClose, isSimplified = false }) => {
                     .eq('agent_id', user.id)
                     .eq('period_type', 'daily')
                     .eq('date', todayStr)
-                    .single()
+                    .maybeSingle()
                 if (existingKpi) {
                     await supabase
                         .from('kpi_records')
