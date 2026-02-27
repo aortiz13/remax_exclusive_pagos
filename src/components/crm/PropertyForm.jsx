@@ -46,6 +46,7 @@ const PropertyForm = ({ property, isOpen, onClose, isSimplified = false }) => {
         property_type: 'Departamento',
         address: '',
         unit_number: '',
+        rol_number: '',
         commune: '',
         owner_id: null,
         status: ['En Venta'],
@@ -161,6 +162,13 @@ const PropertyForm = ({ property, isOpen, onClose, isSimplified = false }) => {
 
     const handleSubmit = async (e) => {
         e.preventDefault()
+
+        // ROL is mandatory for new properties
+        if (!property?.id && !formData.rol_number?.trim()) {
+            toast.error('El ROL de la propiedad es obligatorio')
+            return
+        }
+
         setLoading(true)
 
         try {
@@ -433,6 +441,18 @@ const PropertyForm = ({ property, isOpen, onClose, isSimplified = false }) => {
                                     <div className="space-y-2">
                                         <label className="text-sm font-medium">Número de Unidad (Opcional)</label>
                                         <Input name="unit_number" value={formData.unit_number} onChange={handleChange} placeholder="Depto 101, etc." />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium">
+                                            ROL <span className="text-red-500">*</span>
+                                        </label>
+                                        <Input
+                                            name="rol_number"
+                                            value={formData.rol_number}
+                                            onChange={handleChange}
+                                            placeholder="Ej: 1234-56"
+                                            required
+                                        />
                                     </div>
                                 </Section>
 
