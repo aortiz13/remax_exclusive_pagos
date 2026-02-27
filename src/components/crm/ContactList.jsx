@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useAuth } from '../../context/AuthContext'
 import {
     Table,
     TableBody,
@@ -25,7 +26,7 @@ import {
     SelectValue,
     Label,
 } from "@/components/ui"
-import { Plus, Search, MoreHorizontal, Phone, Mail, MapPin, GripHorizontal, Columns } from 'lucide-react'
+import { Plus, Search, MoreHorizontal, Phone, Mail, MapPin, GripHorizontal, Columns, Users } from 'lucide-react'
 import { supabase } from '../../services/supabase'
 import ContactForm from './ContactForm'
 import ContactImporter from './ContactImporter'
@@ -75,13 +76,22 @@ const SortableHeader = ({ id, children }) => {
 };
 
 
+const PRIVILEGED_ROLES = ['superadministrador', 'comercial', 'legal']
+
 const ContactList = () => {
+    const { user, profile } = useAuth()
+    const isPrivileged = PRIVILEGED_ROLES.includes(profile?.role)
+
     const [contacts, setContacts] = useState([])
     const [loading, setLoading] = useState(true)
     const [searchTerm, setSearchTerm] = useState('')
     const [isFormOpen, setIsFormOpen] = useState(false)
     const [selectedContact, setSelectedContact] = useState(null)
     const navigate = useNavigate()
+
+    // Agent filter (privileged roles only)
+    const [agents, setAgents] = useState([])
+    const [agentFilter, setAgentFilter] = useState('all')
 
     // Column State
     const [columns, setColumns] = useState([
@@ -119,6 +129,20 @@ const ContactList = () => {
         // Load columns from localStorage if implementation desired
     }, [])
 
+    // Fetch agents list for privileged roles
+    useEffect(() => {
+        if (!isPrivileged) return
+        const fetchAgents = async () => {
+            const { data } = await supabase
+                .from('profiles')
+                .select('id, first_name, last_name')
+                .eq('role', 'agent')
+                .order('first_name')
+            setAgents(data || [])
+        }
+        fetchAgents()
+    }, [isPrivileged])
+
     const fetchContacts = async () => {
         try {
             setLoading(true)
@@ -136,12 +160,19 @@ const ContactList = () => {
         }
     }
 
-    const filteredContacts = contacts.filter(contact =>
-        contact.first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        contact.last_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        contact.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        contact.phone?.includes(searchTerm)
-    ).filter(contact => {
+    const filteredContacts = contacts.filter(contact => {
+        // Agent filter
+        if (agentFilter !== 'all' && contact.agent_id !== agentFilter) return false
+        // Text search
+        const term = searchTerm.toLowerCase()
+        if (!searchTerm) return true
+        return (
+            contact.first_name?.toLowerCase().includes(term) ||
+            contact.last_name?.toLowerCase().includes(term) ||
+            contact.email?.toLowerCase().includes(term) ||
+            contact.phone?.includes(searchTerm)
+        )
+    }).filter(contact => {
         if (filters.profession && !contact.profession?.toLowerCase().includes(filters.profession.toLowerCase())) return false
         if (filters.rating && !contact.rating?.toLowerCase().includes(filters.rating.toLowerCase())) return false
         if (filters.rating_80_20 && !contact.rating_80_20?.toLowerCase().includes(filters.rating_80_20.toLowerCase())) return false
@@ -409,6 +440,23 @@ const ContactList = () => {
                             <SelectItem value="oldest">Más Antiguos</SelectItem>
                         </SelectContent>
                     </Select>
+
+                    {isPrivileged && agents.length > 0 && (
+                        <Select value={agentFilter} onValueChange={setAgentFilter}>
+                            <SelectTrigger className="w-[180px] bg-white dark:bg-slate-950">
+                                <Users className="w-4 h-4 mr-2 text-muted-foreground" />
+                                <SelectValue placeholder="Agente" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">Todos los Agentes</SelectItem>
+                                {agents.map(agent => (
+                                    <SelectItem key={agent.id} value={agent.id}>
+                                        {agent.first_name} {agent.last_name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    )}
 
                     {/* Column Selector */}
                     <DropdownMenu>
