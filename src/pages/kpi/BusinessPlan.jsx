@@ -596,7 +596,6 @@ export default function BusinessPlan() {
                     {[
                         { name: 'mission', label: 'Misión', placeholder: '¿Cuál es tu propósito hoy?', icon: Target, color: 'blue' },
                         { name: 'vision', label: 'Visión', placeholder: '¿Dónde quieres estar?', icon: Lightbulb, color: 'purple' },
-                        { name: 'mantra_text', label: 'Mantra', placeholder: 'Tu afirmación económica...', icon: Zap, color: 'amber' },
                     ].map(f => (
                         <div key={f.name} className={`p-3 rounded-xl border border-${f.color}-100 bg-${f.color}-50/30`}>
                             <label className={`text-[0.6rem] font-bold text-${f.color}-500 uppercase tracking-wider flex items-center gap-1 mb-1.5`}>
@@ -607,19 +606,25 @@ export default function BusinessPlan() {
                         </div>
                     ))}
 
-                    {/* Goals */}
-                    <div className="grid grid-cols-2 gap-2 mt-auto">
-                        <div className="p-2.5 rounded-xl bg-gradient-to-br from-slate-900 to-slate-800 text-white">
-                            <label className="text-[0.5rem] font-bold text-blue-300 uppercase block mb-1">Meta Mensual</label>
-                            <div className="flex items-center gap-1">
-                                <span className="text-slate-400 text-[0.6rem]">$</span>
-                                <input type="number" name="monthly_goal" value={plan.monthly_goal || ''} onChange={hp}
-                                    className="flex-1 text-sm font-bold text-white border-none p-0 focus:ring-0 bg-transparent" placeholder="0" />
+                    {/* Mantra del emprendedor */}
+                    <div className="p-4 rounded-2xl border-2 border-amber-200 bg-gradient-to-br from-amber-50/60 to-yellow-50/40">
+                        <label className="text-xs font-bold text-amber-600 uppercase tracking-wider flex items-center gap-1.5 mb-3">
+                            <Zap className="w-4 h-4" /> Mantra del emprendedor
+                        </label>
+                        <p className="text-sm font-semibold text-gray-800 mb-4">El objetivo para mi negocio es ganar más de:</p>
+                        <div className="space-y-2.5">
+                            <div className="p-3 rounded-xl bg-gradient-to-br from-slate-900 to-slate-800 text-white">
+                                <label className="text-[0.6rem] font-bold text-blue-300 uppercase block mb-1.5">Meta Mensual</label>
+                                <div className="flex items-center gap-1">
+                                    <span className="text-slate-400 text-sm">$</span>
+                                    <input type="number" name="monthly_goal" value={plan.monthly_goal || ''} onChange={hp}
+                                        className="flex-1 text-lg font-bold text-white border-none p-0 focus:ring-0 bg-transparent" placeholder="0" />
+                                </div>
                             </div>
-                        </div>
-                        <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200">
-                            <label className="text-[0.5rem] font-bold text-emerald-500 uppercase block mb-1">Anual (×12)</label>
-                            <p className="text-sm font-bold text-emerald-700">{fmtCLP(annualGoal)}</p>
+                            <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200">
+                                <label className="text-[0.6rem] font-bold text-emerald-500 uppercase block mb-1.5">Meta Anual (×12)</label>
+                                <p className="text-lg font-bold text-emerald-700">{fmtCLP(annualGoal)}</p>
+                            </div>
                         </div>
                     </div>
 
