@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { supabase, getCustomPublicUrl } from '../services/supabase';
 import { triggerEvaluacionComercialWebhook } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -20,12 +20,15 @@ import {
 } from 'lucide-react';
 
 export default function EvaluacionComercialForm() {
+    const { id } = useParams();
     const navigate = useNavigate();
     const { user, profile } = useAuth();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
     const [properties, setProperties] = useState([]);
     const [loadingProperties, setLoadingProperties] = useState(true);
+    const [loadingRequest, setLoadingRequest] = useState(!!id);
+    const [existingFiles, setExistingFiles] = useState([]);
 
     // Form State
     const [observaciones, setObservaciones] = useState('');
@@ -50,6 +53,49 @@ export default function EvaluacionComercialForm() {
     useEffect(() => {
         fetchProperties();
     }, []);
+
+    // Load existing request data for edit mode
+    useEffect(() => {
+        if (!id) return;
+        const fetchRequest = async () => {
+            try {
+                const { data, error } = await supabase
+                    .from('requests')
+                    .select('*')
+                    .eq('id', id)
+                    .single();
+
+                if (error) throw error;
+
+                if (data && data.data) {
+                    const d = data.data;
+                    // Propiedad
+                    setPropRol(d.propiedad?.rol || '');
+                    setPropDireccion(d.propiedad?.direccion || '');
+                    setPropComuna(d.propiedad?.comuna || '');
+                    // Propietario
+                    setPropNombre(d.propietario?.nombre_apellido || '');
+                    setPropRut(d.propietario?.rut || '');
+                    setPropEmail(d.propietario?.correo || '');
+                    setPropTelefono(d.propietario?.telefono || '');
+                    setPropDirParticular(d.propietario?.direccion_particular || '');
+                    // Observaciones
+                    setObservaciones(d.observaciones || '');
+                    // Existing attached files (already uploaded URLs)
+                    if (d.archivos_adjuntos && d.archivos_adjuntos.length > 0) {
+                        setExistingFiles(d.archivos_adjuntos);
+                    }
+                }
+            } catch (error) {
+                console.error('Error fetching request:', error);
+                toast.error('Error al cargar la solicitud');
+                navigate('/dashboard');
+            } finally {
+                setLoadingRequest(false);
+            }
+        };
+        fetchRequest();
+    }, [id, navigate]);
 
     const fetchProperties = async () => {
         try {
@@ -142,10 +188,35 @@ export default function EvaluacionComercialForm() {
         setFiles(prev => prev.filter((_, i) => i !== index));
     };
 
+    // Extract storage path from a public URL (supports custom domain and default Supabase domain)
+    const extractStoragePath = (url) => {
+        const marker = '/storage/v1/object/public/contracts/';
+        const idx = url.indexOf(marker);
+        if (idx !== -1) return url.substring(idx + marker.length);
+        return null;
+    };
+
+    const removeExistingFile = async (index) => {
+        const file = existingFiles[index];
+        if (file?.url) {
+            const storagePath = extractStoragePath(file.url);
+            if (storagePath) {
+                const { error } = await supabase.storage.from('contracts').remove([storagePath]);
+                if (error) {
+                    console.error('Error deleting file from storage:', error);
+                    toast.error('Error al eliminar el archivo del almacenamiento');
+                    return;
+                }
+            }
+        }
+        setExistingFiles(prev => prev.filter((_, i) => i !== index));
+        toast.success('Archivo eliminado');
+    };
+
     const validateForm = () => {
         if (!propDireccion) return "La dirección de la propiedad es obligatoria.";
         if (!propNombre || !propRut) return "Nombre y RUT del propietario son obligatorios.";
-        if (files.length === 0) return "Debe adjuntar al menos un documento.";
+        if (files.length === 0 && existingFiles.length === 0) return "Debe adjuntar al menos un documento.";
         return null;
     };
 
@@ -220,17 +291,27 @@ export default function EvaluacionComercialForm() {
                 }
             };
 
+            const allFiles = [...existingFiles, ...uploadedDocsUrls];
             const dbPayload = {
                 user_id: user?.id,
                 type: 'evaluacion_comercial',
                 status: 'submitted',
                 data: {
                     ...payloadData,
-                    archivos_adjuntos: uploadedDocsUrls
-                }
+                    archivos_adjuntos: allFiles
+                },
+                updated_at: new Date().toISOString()
             };
-            const { error: dbError } = await supabase.from('requests').insert(dbPayload);
-            if (dbError) throw dbError;
+
+            if (id) {
+                // Update existing request
+                const { error: dbError } = await supabase.from('requests').update(dbPayload).eq('id', id);
+                if (dbError) throw dbError;
+            } else {
+                // Insert new request
+                const { error: dbError } = await supabase.from('requests').insert(dbPayload);
+                if (dbError) throw dbError;
+            }
 
             const webhookPayload = {
                 ...payloadData,
@@ -284,13 +365,13 @@ export default function EvaluacionComercialForm() {
                     </Button>
                     <div className="flex-1">
                         <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100 leading-tight">
-                            Solicitud de Evaluación Comercial
+                            {id ? 'Editar Solicitud de Evaluación Comercial' : 'Solicitud de Evaluación Comercial'}
                         </h1>
                         <p className="text-sm text-slate-500 font-medium">Completa los detalles para generar la orden de tasación</p>
                     </div>
                     <div className="hidden sm:block">
                         <span className="px-3 py-1 bg-blue-50 dark:bg-blue-900/30 text-[#003aad] dark:text-blue-400 text-[10px] font-bold uppercase tracking-wider rounded-full border border-blue-100 dark:border-blue-900/50">
-                            Nueva Solicitud
+                            {id ? 'Editando' : 'Nueva Solicitud'}
                         </span>
                     </div>
                 </div>
@@ -479,6 +560,7 @@ export default function EvaluacionComercialForm() {
 
                             {files.length > 0 && (
                                 <div className="mt-6 space-y-2">
+                                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Nuevos archivos</p>
                                     {files.map((file, idx) => (
                                         <div
                                             key={idx}
@@ -500,6 +582,35 @@ export default function EvaluacionComercialForm() {
                                                 size="icon"
                                                 className="h-8 w-8 text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
                                                 onClick={() => removeFile(idx)}
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </Button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {existingFiles.length > 0 && (
+                                <div className="mt-6 space-y-2">
+                                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Archivos ya adjuntos</p>
+                                    {existingFiles.map((file, idx) => (
+                                        <div
+                                            key={`existing-${idx}`}
+                                            className="flex items-center justify-between p-3 bg-emerald-50/50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-800 rounded-lg"
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <div className="p-2 rounded bg-emerald-50 text-emerald-600">
+                                                    <FileText className="w-4 h-4" />
+                                                </div>
+                                                <span className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate max-w-[200px] sm:max-w-md">
+                                                    {file.name}
+                                                </span>
+                                            </div>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-8 w-8 text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                                                onClick={() => removeExistingFile(idx)}
                                             >
                                                 <Trash2 className="w-4 h-4" />
                                             </Button>

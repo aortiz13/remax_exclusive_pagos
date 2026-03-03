@@ -56,7 +56,7 @@ export default function BusinessPlan() {
     }, 0), [investments])
     const planPct = useMemo(() => getPlanPercentage(agentPlan), [agentPlan])
     const remaxPct = useMemo(() => (Number(plan.remax_percentage) || 9.5) / 100, [plan.remax_percentage])
-    const officePct = useMemo(() => (Number(plan.office_participation) || 60) / 100, [plan.office_participation])
+    const officePct = 1 - planPct
     const sellerPct = useMemo(() => (Number(plan.seller_percentage) || 95) / 100, [plan.seller_percentage])
     const landlordPct = useMemo(() => 1 - sellerPct, [sellerPct])
     const minBilling = useMemo(() => {
@@ -294,9 +294,9 @@ export default function BusinessPlan() {
             {/* 2. Parámetros del negocio */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
                 {[
-                    { label: '% de RE/MAX Chile', name: 'remax_percentage', suffix: '%', val: plan.remax_percentage },
+                    { label: '% de RE/MAX Chile', val: '9.5%', ro: true },
                     { label: 'Plan de Asociación', val: `${planInfo.label} (${planInfo.pct}%)`, ro: true, note: 'Admin' },
-                    { label: 'Participación oficina en el negocio', name: 'office_participation', suffix: '%', val: plan.office_participation },
+                    { label: 'Participación oficina en el negocio', val: `${Math.round((1 - planPct) * 100)}%`, ro: true },
                 ].map((p, i) => (
                     <div key={i} className={`p-2.5 rounded-lg border ${p.ro ? 'bg-gray-50 border-gray-100' : 'border-gray-200 hover:border-blue-200'} transition-colors`}>
                         <label className="text-[0.55rem] font-bold text-gray-400 uppercase tracking-wider block mb-0.5">{p.label}</label>
@@ -372,13 +372,9 @@ export default function BusinessPlan() {
                                     className="flex-1 text-xs font-bold text-gray-900 border-none p-0 focus:ring-0 bg-transparent w-full" />
                             </div>
                         </div>
-                        <div className="p-2 rounded-lg border border-gray-200 bg-white">
+                        <div className="p-2 rounded-lg bg-gray-50 border border-gray-100">
                             <label className="text-[0.5rem] font-bold text-gray-400 uppercase block mb-0.5">% Comisión promedio</label>
-                            <div className="flex items-center gap-0.5">
-                                <input type="number" name="sale_commission" value={plan.sale_commission || ''} onChange={hp}
-                                    className="flex-1 text-xs font-bold text-gray-900 border-none p-0 focus:ring-0 bg-transparent w-full" />
-                                <span className="text-gray-400 text-[0.6rem]">%</span>
-                            </div>
+                            <p className="text-xs font-bold text-gray-700">2%</p>
                         </div>
                         <div className="p-2 rounded-lg bg-emerald-100 border border-emerald-200">
                             <label className="text-[0.5rem] font-bold text-emerald-600 uppercase block">Nº transacciones (puntas) mínimas al año</label>
@@ -438,9 +434,9 @@ export default function BusinessPlan() {
                         { label: 'Captaciones/mes', name: 'monthly_captures', icon: Target },
                         { label: 'Negocios proc./mes', name: 'monthly_deals_in_process', icon: Activity },
                     ].map(o => (
-                        <div key={o.name} className="p-2.5 rounded-lg border border-gray-200 hover:border-blue-200 transition-colors">
+                        <div key={o.name} className="p-2.5 rounded-lg bg-gray-50 border border-gray-100">
                             <label className="text-[0.5rem] font-bold text-gray-400 uppercase block mb-1 leading-tight">{o.label}</label>
-                            <input type="number" name={o.name} value={plan[o.name] || ''} onChange={hp} className="text-base font-bold text-gray-900 border-none p-0 focus:ring-0 bg-transparent w-full" />
+                            <p className="text-base font-bold text-gray-700">{plan[o.name]}</p>
                         </div>
                     ))}
                 </div>

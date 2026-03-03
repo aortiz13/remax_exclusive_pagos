@@ -368,9 +368,11 @@ export default function CalendarPage() {
                     body: { agentId: user.id, action: 'sync_from_google' }
                 })
                 if (retryResponse.error) throw retryResponse.error
-                toast.success(`Sincronizados ${retryResponse.data?.count || 0} eventos`, { id: toastId })
+                const retryTotal = (retryResponse.data?.results?.events || 0) + (retryResponse.data?.results?.tasks || 0)
+                toast.success(retryTotal > 0 ? `Sincronizados ${retryTotal} eventos` : 'Calendario sincronizado — sin cambios nuevos', { id: toastId })
             } else {
-                toast.success(`Sincronizados ${data?.count || 0} eventos`, { id: toastId })
+                const syncTotal = (data?.results?.events || 0) + (data?.results?.tasks || 0)
+                toast.success(syncTotal > 0 ? `Sincronizados ${syncTotal} eventos` : 'Calendario sincronizado — sin cambios nuevos', { id: toastId })
             }
 
             fetchEvents()

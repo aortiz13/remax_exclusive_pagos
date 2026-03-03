@@ -235,7 +235,7 @@ serve(async (req) => {
             }
 
             console.log(`Sync complete. Results:`, results);
-            return new Response(JSON.stringify({ success: true, results }), {
+            return new Response(JSON.stringify({ success: true, results, count: results.events + results.tasks }), {
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             });
         }
