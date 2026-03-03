@@ -132,7 +132,7 @@ serve(async (req) => {
             const results = { events: 0, tasks: 0 };
 
             // 1. Fetch Calendar Events
-            let calendarUrl = 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
+            const baseCalendarUrl = 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
             const calParams = new URLSearchParams();
             if (profile.google_sync_token && !reset) {
                 calParams.set('syncToken', profile.google_sync_token);
@@ -140,34 +140,58 @@ serve(async (req) => {
                 const today = new Date();
                 today.setHours(0, 0, 0, 0);
                 calParams.set('timeMin', today.toISOString());
+                calParams.set('singleEvents', 'true');
+                calParams.set('orderBy', 'startTime');
             }
-            calendarUrl += `?${calParams.toString()}`;
+            calParams.set('maxResults', '250');
 
-            const calResponse = await fetch(calendarUrl, {
-                headers: { Authorization: `Bearer ${accessToken}` },
-            });
+            let allEvents: any[] = [];
+            let nextPageToken: string | undefined;
+            let nextSyncToken: string | undefined;
 
-            if (calResponse.status === 410) {
-                await adminClient.from('profiles').update({ google_sync_token: null }).eq('id', agentId);
-                return new Response(JSON.stringify({ retry: true }), {
-                    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            // Paginate through all results
+            do {
+                const pageParams = new URLSearchParams(calParams);
+                if (nextPageToken) {
+                    pageParams.set('pageToken', nextPageToken);
+                }
+                const calendarUrl = `${baseCalendarUrl}?${pageParams.toString()}`;
+
+                const calResponse = await fetch(calendarUrl, {
+                    headers: { Authorization: `Bearer ${accessToken}` },
                 });
-            }
 
-            if (calResponse.ok) {
-                const data = await calResponse.json();
-                const events = data.items || [];
+                if (calResponse.status === 410) {
+                    await adminClient.from('profiles').update({ google_sync_token: null }).eq('id', agentId);
+                    return new Response(JSON.stringify({ retry: true }), {
+                        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                    });
+                }
 
+                if (calResponse.ok) {
+                    const data = await calResponse.json();
+                    allEvents = allEvents.concat(data.items || []);
+                    nextPageToken = data.nextPageToken;
+                    nextSyncToken = data.nextSyncToken;
+                } else {
+                    console.error('Calendar fetch error:', calResponse.status, await calResponse.text());
+                    break;
+                }
+            } while (nextPageToken);
+
+            console.log(`Fetched ${allEvents.length} calendar events`);
+
+            if (allEvents.length > 0) {
                 // Fetch existing task types to avoid overwriting them
-                const googleEventIds = events.filter(e => e.status !== 'cancelled').map(e => e.id);
+                const googleEventIds = allEvents.filter(e => e.status !== 'cancelled').map(e => e.id);
                 const { data: existingTasks } = await adminClient
                     .from('crm_tasks')
                     .select('google_event_id, task_type')
-                    .in('google_event_id', googleEventIds);
+                    .in('google_event_id', googleEventIds.length > 0 ? googleEventIds : ['__none__']);
 
                 const typeMap = new Map(existingTasks?.map(t => [t.google_event_id, t.task_type]) || []);
 
-                for (const event of events) {
+                for (const event of allEvents) {
                     if (event.status === 'cancelled') {
                         await adminClient.from('crm_tasks').delete().eq('google_event_id', event.id);
                     } else {
@@ -194,9 +218,9 @@ serve(async (req) => {
                         }
                     }
                 }
-                if (data.nextSyncToken) {
-                    await adminClient.from('profiles').update({ google_sync_token: data.nextSyncToken }).eq('id', agentId);
-                }
+            }
+            if (nextSyncToken) {
+                await adminClient.from('profiles').update({ google_sync_token: nextSyncToken }).eq('id', agentId);
             }
 
             // 2. Fetch Google Tasks
