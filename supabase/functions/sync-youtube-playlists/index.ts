@@ -25,6 +25,60 @@ const parseDuration = (duration: string) => {
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 };
 
+/**
+ * Fetches ALL items from a YouTube playlist, paginating through all pages.
+ * YouTube API returns max 50 items per page via `nextPageToken`.
+ */
+async function fetchAllPlaylistItems(playlistId: string) {
+    const allItems: any[] = [];
+    let nextPageToken = '';
+
+    do {
+        const url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId=${playlistId}&key=${YOUTUBE_API_KEY}${nextPageToken ? `&pageToken=${nextPageToken}` : ''}`;
+        const res = await fetch(url);
+        const data = await res.json();
+
+        if (!res.ok) {
+            throw new Error(`YouTube API Error: ${data.error?.message}`);
+        }
+
+        allItems.push(...(data.items || []));
+        nextPageToken = data.nextPageToken || '';
+    } while (nextPageToken);
+
+    // Filter out private/deleted videos
+    return allItems.filter((item: any) =>
+        item.snippet.title !== 'Private video' &&
+        item.snippet.title !== 'Deleted video'
+    );
+}
+
+/**
+ * Fetches durations for a list of video IDs, chunking in batches of 50
+ * (YouTube videos.list API also has a 50 ID limit per request).
+ */
+async function fetchDurationsMap(videoIds: string[]) {
+    const durationsMap: Record<string, string> = {};
+
+    for (let i = 0; i < videoIds.length; i += 50) {
+        const chunk = videoIds.slice(i, i + 50);
+        const idsParam = chunk.join(',');
+
+        if (!idsParam) continue;
+
+        const res = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=contentDetails&id=${idsParam}&key=${YOUTUBE_API_KEY}`);
+        const data = await res.json();
+
+        if (data.items) {
+            data.items.forEach((v: any) => {
+                durationsMap[v.id] = parseDuration(v.contentDetails.duration);
+            });
+        }
+    }
+
+    return durationsMap;
+}
+
 serve(async (req) => {
     try {
         const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
@@ -43,28 +97,18 @@ serve(async (req) => {
         )
 
         for (const playlist of PLAYLISTS) {
-            // Fetch playlist items
-            const res = await fetch(`https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId=${playlist.id}&key=${YOUTUBE_API_KEY}`)
-            const data = await res.json()
-
-            if (!res.ok) throw new Error(`YouTube API Error: ${data.error?.message}`)
-
-            const items = data.items.filter((item: any) =>
-                item.snippet.title !== 'Private video' &&
-                item.snippet.title !== 'Deleted video'
-            )
+            // Fetch ALL playlist items with pagination
+            const items = await fetchAllPlaylistItems(playlist.id)
 
             const ytIds = new Set(items.map((v: any) => v.snippet.resourceId.videoId))
+            const videoIdsList = Array.from(ytIds) as string[]
 
-            // Fetch durations
-            const videoIds = Array.from(ytIds).join(',')
-            const vRes = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=contentDetails&id=${videoIds}&key=${YOUTUBE_API_KEY}`)
-            const vData = await vRes.json()
-            const durationsMap = Object.fromEntries(
-                (vData.items || []).map((v: any) => [v.id, parseDuration(v.contentDetails.duration)])
-            )
+            console.log(`[Sync] Playlist ${playlist.category}: ${videoIdsList.length} videos from YouTube`)
 
-            // 2. Addition logic
+            // Fetch durations in chunks of 50
+            const durationsMap = await fetchDurationsMap(videoIdsList)
+
+            // 2. Addition logic — insert new videos not yet in DB
             for (const item of items) {
                 const youtubeId = item.snippet.resourceId.videoId
                 if (!dbVideosMap[youtubeId]) {
@@ -75,13 +119,14 @@ serve(async (req) => {
                         description: item.snippet.description,
                         category: playlist.category,
                         duration: durationsMap[youtubeId] || '0:00',
-                        youtube_id: youtubeId
+                        youtube_id: youtubeId,
+                        video_date: item.snippet.publishedAt
                     })
                     addedCount++
                 }
             }
 
-            // 3. Deletion logic
+            // 3. Deletion logic — remove from DB if no longer in YouTube playlist
             const videosToRemove = (dbVideos || []).filter(v => v.category === playlist.category && !ytIds.has(v.youtube_id))
             if (videosToRemove.length > 0) {
                 const idsToRemove = videosToRemove.map(v => v.id)
@@ -89,6 +134,8 @@ serve(async (req) => {
                 removedCount += idsToRemove.length
             }
         }
+
+        console.log(`[Sync] Complete: +${addedCount} added, -${removedCount} removed`)
 
         return new Response(JSON.stringify({
             success: true,
@@ -99,6 +146,7 @@ serve(async (req) => {
         })
 
     } catch (error) {
+        console.error('[Sync] Error:', error)
         return new Response(JSON.stringify({ success: false, error: error.message }), {
             status: 500,
             headers: { "Content-Type": "application/json" },

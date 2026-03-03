@@ -599,22 +599,32 @@ export function RequestDetailModal({ request, isOpen, onClose }) {
                         {data.archivos_adjuntos?.length > 0 && (
                             <Section title="Documentos Adjuntos del Agente" icon={FileText}>
                                 <div className="space-y-2 col-span-2">
-                                    {data.archivos_adjuntos.map((file, idx) => (
-                                        <div key={idx} className="flex items-center justify-between p-3 bg-white dark:bg-slate-900 rounded-lg border border-slate-200">
-                                            <div className="flex items-center gap-2">
-                                                <FileText className="h-4 w-4 text-primary" />
-                                                <span className="text-sm font-medium">{file.name}</span>
+                                    {data.archivos_adjuntos.map((file, idx) => {
+                                        // Convert custom domain URL to original Supabase URL
+                                        // to avoid the SPA router intercepting the navigation
+                                        const downloadUrl = file.url
+                                            ? file.url.replace(
+                                                'https://solicitudes.remax-exclusive.cl/storage/v1/object/public/',
+                                                'https://wdyfeolbuogoyngrvxkc.supabase.co/storage/v1/object/public/'
+                                            )
+                                            : file.url
+                                        return (
+                                            <div key={idx} className="flex items-center justify-between p-3 bg-white dark:bg-slate-900 rounded-lg border border-slate-200">
+                                                <div className="flex items-center gap-2">
+                                                    <FileText className="h-4 w-4 text-primary" />
+                                                    <span className="text-sm font-medium">{file.name}</span>
+                                                </div>
+                                                <a
+                                                    href={downloadUrl}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="text-xs text-primary hover:underline flex items-center gap-1 font-medium bg-primary/10 px-2 py-1 rounded-md"
+                                                >
+                                                    Ver <ExternalLink className="h-3 w-3" />
+                                                </a>
                                             </div>
-                                            <a
-                                                href={file.url}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="text-xs text-primary hover:underline flex items-center gap-1 font-medium bg-primary/10 px-2 py-1 rounded-md"
-                                            >
-                                                Ver <ExternalLink className="h-3 w-3" />
-                                            </a>
-                                        </div>
-                                    ))}
+                                        )
+                                    })}
                                 </div>
                             </Section>
                         )}
