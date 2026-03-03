@@ -137,9 +137,9 @@ serve(async (req) => {
             if (profile.google_sync_token && !reset) {
                 calParams.set('syncToken', profile.google_sync_token);
             } else {
-                const sixMonthsAgo = new Date();
-                sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-                calParams.set('timeMin', sixMonthsAgo.toISOString());
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                calParams.set('timeMin', today.toISOString());
             }
             calendarUrl += `?${calParams.toString()}`;
 
