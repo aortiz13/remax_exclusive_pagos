@@ -191,7 +191,9 @@ export default function Dashboard() {
             toast.error('Solo el agente que creó esta solicitud puede editarla.')
             return
         }
-        if (req.type === 'invoice') {
+        if (req.type === 'evaluacion_comercial') {
+            navigate(`/request/evaluacion-comercial/${req.id}`)
+        } else if (req.type === 'invoice') {
             navigate(`/request/invoice/${req.id}`)
         } else if (req.data?.contract_type) {
             navigate(`/request/contract/${req.id}`)

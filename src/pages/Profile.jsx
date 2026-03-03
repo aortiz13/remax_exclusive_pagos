@@ -56,7 +56,10 @@ export default function Profile() {
                     body: { agentId: user.id, action: 'sync_from_google' }
                 }).then(({ data: syncData, error: syncError }) => {
                     if (syncError) console.error('Initial sync error:', syncError)
-                    else toast.success(`Sincronizados ${syncData?.count || 0} eventos de Google`)
+                    else {
+                        const totalSynced = (syncData?.results?.events || 0) + (syncData?.results?.tasks || 0)
+                        toast.success(totalSynced > 0 ? `Sincronizados ${totalSynced} eventos de Google` : 'Google Calendar vinculado — sin cambios nuevos')
+                    }
                 })
 
                 await refreshProfile()
