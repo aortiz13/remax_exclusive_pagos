@@ -482,6 +482,17 @@ export function RequestDetailModal({ request, isOpen, onClose }) {
                 })))
             ])
 
+            // Convert custom domain URLs to direct Supabase URLs so that
+            // external services (n8n webhook) can download files directly
+            // from the CDN without being intercepted by the SPA router.
+            const toDirectUrl = (item) => ({
+                ...item,
+                url: item.url?.replace(
+                    'https://solicitudes.remax-exclusive.cl/storage/v1/object/public/',
+                    'https://wdyfeolbuogoyngrvxkc.supabase.co/storage/v1/object/public/'
+                )
+            })
+
             let webhookRes
             if (resolvedType === 'evaluacion_comercial') {
                 const payload = {
@@ -504,8 +515,8 @@ export function RequestDetailModal({ request, isOpen, onClose }) {
                     tipo_solicitud: typeParams.label,
                     contexto_solicitud: resolveAddress(data) || 'Solicitud Genérica',
                     notas: completionNotes,
-                    contratos: contractUrls,
-                    adjuntos: attachmentUrls,
+                    contratos: contractUrls.map(toDirectUrl),
+                    adjuntos: attachmentUrls.map(toDirectUrl),
                     admin_email: 'departamento.legal@remax-exclusive.cl'
                 }
                 webhookRes = await fetch('https://workflow.remax-exclusive.cl/webhook/enviar-contrato', {
