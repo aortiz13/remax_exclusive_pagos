@@ -8,11 +8,12 @@ import {
     Send, X, Paperclip, Trash2,
     Bold, Italic, Underline as UnderlineIcon, Strikethrough,
     List, ListOrdered, Quote, Undo, Redo, Link as LinkIcon,
-    ListTodo, Activity
+    ListTodo, Activity, Users
 } from 'lucide-react';
 import { supabase } from '../../services/supabase';
 import TaskModal from '../crm/TaskModal';
 import ActionModal from '../crm/ActionModal';
+import ContactPickerInline from '../ui/ContactPickerInline';
 
 // Helper component for the Link Popover
 const LinkPopover = ({ editor, isOpen, onClose }) => {
@@ -180,6 +181,7 @@ const EmailComposer = ({ onClose, onSuccess, replyTo = null, userProfile, initia
     const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
     const [isActionModalOpen, setIsActionModalOpen] = useState(false);
     const [contactIdForLink, setContactIdForLink] = useState(null);
+    const [showContactPicker, setShowContactPicker] = useState(!replyTo && !initialDraft);
 
     // Look up contact by 'to' email then open the modal
     const resolveContactAndOpen = async (openFn) => {
@@ -323,15 +325,49 @@ const EmailComposer = ({ onClose, onSuccess, replyTo = null, userProfile, initia
                 </div>
 
                 {/* Inputs */}
-                <div className="px-4 py-2 border-b border-gray-100 flex items-center">
-                    <span className="text-gray-500 text-sm w-12">Para:</span>
-                    <input
-                        type="email"
-                        value={to}
-                        onChange={(e) => setTo(e.target.value)}
-                        className="flex-1 outline-none text-sm p-1"
-                        placeholder="correo@ejemplo.com"
-                    />
+                <div className="px-4 py-2 border-b border-gray-100">
+                    {showContactPicker ? (
+                        <div className="flex flex-col gap-1">
+                            <ContactPickerInline
+                                label="Seleccionar destinatario"
+                                onSelectContact={(contact) => {
+                                    if (contact && contact.email) {
+                                        setTo(contact.email);
+                                        setShowContactPicker(false);
+                                    } else if (!contact) {
+                                        // "Ingresar manualmente" selected
+                                        setShowContactPicker(false);
+                                    }
+                                }}
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowContactPicker(false)}
+                                className="text-xs text-blue-600 hover:text-blue-800 self-start ml-1 transition-colors"
+                            >
+                                Escribir correo manualmente
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="flex items-center">
+                            <span className="text-gray-500 text-sm w-12">Para:</span>
+                            <input
+                                type="email"
+                                value={to}
+                                onChange={(e) => setTo(e.target.value)}
+                                className="flex-1 outline-none text-sm p-1"
+                                placeholder="correo@ejemplo.com"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowContactPicker(true)}
+                                className="p-1.5 rounded hover:bg-blue-50 text-gray-400 hover:text-blue-600 transition-colors"
+                                title="Buscar en contactos"
+                            >
+                                <Users className="w-4 h-4" />
+                            </button>
+                        </div>
+                    )}
                 </div>
                 <div className="px-4 py-2 border-b border-gray-100 flex items-center">
                     <span className="text-gray-500 text-sm w-12">Asunto:</span>
