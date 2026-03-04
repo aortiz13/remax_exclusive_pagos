@@ -4,7 +4,7 @@ import { supabase } from '../services/supabase'
 import { Button, Input, Label, Card, CardHeader, CardTitle, CardContent, CardFooter, CardDescription, Alert, AlertDescription, Badge, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui'
 import { useAuth } from '../context/AuthContext'
 import { Navigate } from 'react-router-dom'
-import { Trash2, Shield, User, Loader2, Upload, FileText, CheckCircle2, AlertCircle, X, Edit2, Crown, Award } from 'lucide-react'
+import { Trash2, Shield, User, Loader2, Upload, FileText, CheckCircle2, AlertCircle, X, Edit2, Crown, Award, CalendarCheck } from 'lucide-react'
 import ExcelJS from 'exceljs'
 
 const ASSOCIATION_PLANS = [
@@ -358,6 +358,22 @@ export default function AdminInvites() {
         }
     }
 
+    const toggleShiftEligible = async (user) => {
+        const newValue = !user.shift_eligible
+        try {
+            const { error } = await supabase
+                .from('profiles')
+                .update({ shift_eligible: newValue })
+                .eq('id', user.id)
+            if (error) throw error
+            setUsers(users.map(u => u.id === user.id ? { ...u, shift_eligible: newValue } : u))
+            toast.success(`${user.first_name} ${newValue ? 'habilitado' : 'deshabilitado'} para turnos de guardia`)
+        } catch (error) {
+            console.error('Error toggling shift eligibility:', error)
+            toast.error('Error al actualizar elegibilidad')
+        }
+    }
+
     return (
         <div className="container max-w-4xl mx-auto px-4 py-8 space-y-8">
             {/* Invite Section — only visible for managers */}
@@ -606,6 +622,21 @@ export default function AdminInvites() {
                                                         </Badge>
                                                     ) : null
                                                 })()}
+                                                {u.role === 'agent' && (
+                                                    <Badge
+                                                        variant="outline"
+                                                        className={`text-[10px] h-5 px-1.5 cursor-pointer hover:opacity-80 transition-opacity ${
+                                                            u.shift_eligible
+                                                                ? 'bg-orange-100 text-orange-700 border-orange-300'
+                                                                : 'bg-gray-100 text-gray-400 border-gray-200'
+                                                        }`}
+                                                        onClick={(e) => { e.stopPropagation(); canManage && toggleShiftEligible(u) }}
+                                                        title={canManage ? 'Clic para cambiar elegibilidad de turnos' : (u.shift_eligible ? 'Habilitado para guardias' : 'No habilitado para guardias')}
+                                                    >
+                                                        <CalendarCheck className="w-2.5 h-2.5 mr-0.5" />
+                                                        {u.shift_eligible ? 'Guardia ✓' : 'Sin guardia'}
+                                                    </Badge>
+                                                )}
                                                 {u.id === profile?.id && <span className="ml-2 text-xs text-muted-foreground">(Tú)</span>}
                                             </p>
                                             <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -661,14 +692,24 @@ export default function AdminInvites() {
                                     {u.id !== profile?.id && canManage && (
                                         <div className="flex items-center gap-1">
                                             {u.role === 'agent' && (
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    title="Asignar Plan de Asociación"
-                                                    onClick={() => handlePlanClick(u)}
-                                                >
-                                                    <Crown className="h-4 w-4 text-amber-500" />
-                                                </Button>
+                                                <>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        title="Asignar Plan de Asociación"
+                                                        onClick={() => handlePlanClick(u)}
+                                                    >
+                                                        <Crown className="h-4 w-4 text-amber-500" />
+                                                    </Button>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        title={u.shift_eligible ? 'Deshabilitar guardia' : 'Habilitar guardia'}
+                                                        onClick={() => toggleShiftEligible(u)}
+                                                    >
+                                                        <CalendarCheck className={`h-4 w-4 ${u.shift_eligible ? 'text-orange-500' : 'text-gray-300'}`} />
+                                                    </Button>
+                                                </>
                                             )}
                                             <Button
                                                 variant="ghost"

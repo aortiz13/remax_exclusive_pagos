@@ -164,7 +164,7 @@ export default function Sidebar() {
                 {
                     label: 'Operaciones',
                     items: [
-                        { title: 'Leads Guardia', icon: FileText, path: '/guard-leads' },
+                        { title: 'Leads Asignados', icon: FileText, path: '/guard-leads' },
                     ]
                 }
             ]
@@ -196,7 +196,7 @@ export default function Sidebar() {
                 {
                     label: 'Operaciones',
                     items: [
-                        { title: 'Leads Guardia', icon: FileText, path: '/guard-leads' },
+                        { title: 'Leads Asignados', icon: FileText, path: '/guard-leads' },
                     ]
                 }
             ]
@@ -209,7 +209,7 @@ export default function Sidebar() {
                 { title: 'Captaciones', icon: ClipboardList, path: '/admin/captaciones' },
                 { title: 'Agenda Cámara 360°', icon: Camera, path: '/admin/camera-schedule' },
                 { title: 'Agenda Turnos', icon: Shield, path: '/admin/shift-schedule' },
-                { title: 'Leads Guardia', icon: FileText, path: '/guard-leads' },
+                { title: 'Leads Asignados', icon: FileText, path: '/guard-leads' },
             ]
         },
         administracion: {
@@ -217,7 +217,7 @@ export default function Sidebar() {
             items: [
                 { title: 'Solicitudes', icon: FileText, path: '/admin/requests' },
                 { title: 'Agenda Turnos', icon: Shield, path: '/admin/shift-schedule' },
-                { title: 'Leads Guardia', icon: FileText, path: '/guard-leads' },
+                { title: 'Leads Asignados', icon: FileText, path: '/guard-leads' },
             ]
         },
         postulantes: {
