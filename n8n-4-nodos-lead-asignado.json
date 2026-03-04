@@ -1,0 +1,162 @@
+{
+    "meta": {
+        "instanceId": "remax"
+    },
+    "nodes": [
+        {
+            "parameters": {
+                "url": "=https://wdyfeolbuogoyngrvxkc.supabase.co/rest/v1/shift_bookings?agent_id=eq.{{ $('Buscar agente en Supabase1').item.json.id }}&booking_date=eq.{{ $now.format('yyyy-MM-dd') }}&status=eq.aprobado&select=id,shift,booking_date",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndkeWZlb2xidW9nb3luZ3J2eGtjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2ODQ4MjIxNSwiZXhwIjoyMDg0MDU4MjE1fQ.zcJ1Sg-u-32xFQmiXzyDxJ9b40rGQpURP5flQVLIDCg"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndkeWZlb2xidW9nb3luZ3J2eGtjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2ODQ4MjIxNSwiZXhwIjoyMDg0MDU4MjE1fQ.zcJ1Sg-u-32xFQmiXzyDxJ9b40rGQpURP5flQVLIDCg"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.4,
+            "position": [
+                928,
+                768
+            ],
+            "id": "a1000001-0001-0001-0001-000000000001",
+            "name": "Buscar turno hoy",
+            "alwaysOutputData": true,
+            "onError": "continueRegularOutput"
+        },
+        {
+            "parameters": {
+                "jsCode": "const shifts = $input.all().map(i => i.json);\nconst hasShift = shifts.length > 0 && !!shifts[0]?.id;\nconst isGuard = hasShift;\nconst shiftBookingId = isGuard ? shifts[0].id : null;\n\nconst webhookData = $('Webhook').item.json.body;\nconst leadData = webhookData.lead_data[0];\nconst agentId = $('Buscar agente en Supabase1').item.json.id;\nconst nombres = (leadData['Datos Contacto'].nombre_apellido || '').split(' ');\n\nreturn [{\n    json: {\n        is_guard: isGuard,\n        shift_booking_id: shiftBookingId,\n        agent_id: agentId,\n        first_name: nombres[0] || '',\n        last_name: nombres.slice(1).join(' ') || '',\n        phone: leadData['Datos Contacto'].telefono || '',\n        email: leadData['Datos Contacto'].correo || '',\n        source: isGuard ? 'Guardia' : 'Lead Derivado',\n        need: leadData['Tipo de transacción'] || ''\n    }\n}];"
+            },
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1152,
+                768
+            ],
+            "id": "a1000001-0001-0001-0001-000000000002",
+            "name": "Preparar Lead"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://wdyfeolbuogoyngrvxkc.supabase.co/rest/v1/contacts",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndkeWZlb2xidW9nb3luZ3J2eGtjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2ODQ4MjIxNSwiZXhwIjoyMDg0MDU4MjE1fQ.zcJ1Sg-u-32xFQmiXzyDxJ9b40rGQpURP5flQVLIDCg"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndkeWZlb2xidW9nb3luZ3J2eGtjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2ODQ4MjIxNSwiZXhwIjoyMDg0MDU4MjE1fQ.zcJ1Sg-u-32xFQmiXzyDxJ9b40rGQpURP5flQVLIDCg"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        },
+                        {
+                            "name": "Prefer",
+                            "value": "return=representation"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"first_name\": \"{{ $json.first_name }}\",\n  \"last_name\": \"{{ $json.last_name }}\",\n  \"phone\": \"{{ $json.phone }}\",\n  \"email\": \"{{ $json.email }}\",\n  \"source\": \"{{ $json.source }}\",\n  \"status\": \"Activo\",\n  \"need\": \"{{ $json.need }}\",\n  \"agent_id\": \"{{ $json.agent_id }}\"\n}",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.4,
+            "position": [
+                1376,
+                768
+            ],
+            "id": "a1000001-0001-0001-0001-000000000003",
+            "name": "Crear Contacto CRM"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://wdyfeolbuogoyngrvxkc.supabase.co/rest/v1/shift_guard_leads",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndkeWZlb2xidW9nb3luZ3J2eGtjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2ODQ4MjIxNSwiZXhwIjoyMDg0MDU4MjE1fQ.zcJ1Sg-u-32xFQmiXzyDxJ9b40rGQpURP5flQVLIDCg"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndkeWZlb2xidW9nb3luZ3J2eGtjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2ODQ4MjIxNSwiZXhwIjoyMDg0MDU4MjE1fQ.zcJ1Sg-u-32xFQmiXzyDxJ9b40rGQpURP5flQVLIDCg"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        },
+                        {
+                            "name": "Prefer",
+                            "value": "return=representation"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"agent_id\": \"{{ $('Preparar Lead').item.json.agent_id }}\",\n  \"contact_id\": \"{{ $json[0].id }}\",\n  \"is_guard\": {{ $('Preparar Lead').item.json.is_guard }},\n  \"shift_booking_id\": {{ $('Preparar Lead').item.json.shift_booking_id ? '\"' + $('Preparar Lead').item.json.shift_booking_id + '\"' : 'null' }}\n}",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.4,
+            "position": [
+                1600,
+                768
+            ],
+            "id": "a1000001-0001-0001-0001-000000000004",
+            "name": "Crear Guard Lead"
+        }
+    ],
+    "connections": {
+        "Buscar turno hoy": {
+            "main": [
+                [
+                    {
+                        "node": "Preparar Lead",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Preparar Lead": {
+            "main": [
+                [
+                    {
+                        "node": "Crear Contacto CRM",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Crear Contacto CRM": {
+            "main": [
+                [
+                    {
+                        "node": "Crear Guard Lead",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    }
+}

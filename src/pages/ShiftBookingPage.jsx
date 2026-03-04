@@ -52,9 +52,6 @@ export default function ShiftBookingPage() {
     const [showCancelDialog, setShowCancelDialog] = useState(false)
     const [cancelBooking, setCancelBooking] = useState(null)
 
-    // Eligibility state
-    const [eligibility, setEligibility] = useState({ captaciones: 0, cierres: 0, checked: false })
-
     // Compute week dates (Mon–Fri)
     const weekDates = useMemo(() => {
         const today = new Date()
@@ -78,20 +75,8 @@ export default function ShiftBookingPage() {
         return `${fmt(weekDates[0])} – ${fmt(weekDates[4])}`
     }, [weekDates])
 
-    // Check eligibility
-    useEffect(() => {
-        if (!profile?.id) return
-        async function check() {
-            const [{ count: captaciones }, { count: cierres }] = await Promise.all([
-                supabase.from('mandates').select('id', { count: 'exact', head: true }).eq('agent_id', profile.id),
-                supabase.from('crm_actions').select('id', { count: 'exact', head: true }).eq('agent_id', profile.id).eq('action_type', 'Cierre de negocio'),
-            ])
-            setEligibility({ captaciones: captaciones || 0, cierres: cierres || 0, checked: true })
-        }
-        check()
-    }, [profile?.id])
-
-    const isEligible = eligibility.captaciones >= 2 && eligibility.cierres >= 1
+    // Eligibility: manually controlled by admins via profiles.shift_eligible
+    const isEligible = !!profile?.shift_eligible
 
     // Fetch bookings for current week + agents
     useEffect(() => {
@@ -242,21 +227,19 @@ export default function ShiftBookingPage() {
             </div>
 
             {/* Eligibility Status */}
-            {eligibility.checked && (
-                <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
-                    {isEligible ? (
-                        <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-sm font-medium">
-                            <CheckCircle2 className="w-4 h-4" />
-                            Cumples los requisitos — {eligibility.captaciones} captaciones y {eligibility.cierres} cierre(s) de negocio registrados.
-                        </div>
-                    ) : (
-                        <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 text-sm font-medium">
-                            <Ban className="w-4 h-4" />
-                            No cumples los requisitos mínimos — Necesitas al menos 2 captaciones (tienes {eligibility.captaciones}) y 1 cierre de negocio (tienes {eligibility.cierres}).
-                        </div>
-                    )}
-                </motion.div>
-            )}
+            <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
+                {isEligible ? (
+                    <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-sm font-medium">
+                        <CheckCircle2 className="w-4 h-4" />
+                        Estás habilitado para solicitar turnos de guardia.
+                    </div>
+                ) : (
+                    <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 text-sm font-medium">
+                        <Ban className="w-4 h-4" />
+                        No estás habilitado para solicitar turnos. Contacta a tu administrador para ser habilitado.
+                    </div>
+                )}
+            </motion.div>
 
             {/* Conditions Panel */}
             <AnimatePresence>
