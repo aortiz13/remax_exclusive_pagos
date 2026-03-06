@@ -37,7 +37,7 @@ export default function GuardLeadReportPage() {
     const [filterDateFrom, setFilterDateFrom] = useState('')
     const [filterDateTo, setFilterDateTo] = useState('')
 
-    const isAdmin = ['superadministrador', 'comercial', 'legal', 'administracion'].includes(profile?.role)
+    const isAdmin = ['superadministrador', 'comercial', 'legal', 'administracion', 'tecnico'].includes(profile?.role)
 
     useEffect(() => { fetchLeads() }, [])
     useEffect(() => { if (isAdmin) fetchAgents() }, [isAdmin])

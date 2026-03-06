@@ -6,7 +6,7 @@ const ChatwootWidget = () => {
 
     // Hidden for guests (no user) or admins
     // We wait for loading to be false to avoid flickering or showing it briefly before role is known
-    const shouldHide = loading || !user || profile?.role === 'superadministrador';
+    const shouldHide = loading || !user || ['superadministrador', 'tecnico'].includes(profile?.role);
 
     useEffect(() => {
         // If it should be hidden, ensure it's hidden and don't load the script if not needed

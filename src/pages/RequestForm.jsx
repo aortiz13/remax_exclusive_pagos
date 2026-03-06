@@ -17,6 +17,7 @@ import { Save, Building, Briefcase, DollarSign } from 'lucide-react'
 import { autoLinkContactProperty } from '../services/autoLink'
 import { updateContactFromRequestData, buildDueñoContactFields, buildArrendatarioContactFields, buildParteAContactFields, buildParteBContactFields } from '../services/contactSync'
 import { logActivity } from '../services/activityService'
+import { auditLog } from '../services/auditLogService'
 
 export default function RequestForm() {
     const { id } = useParams()
@@ -132,6 +133,10 @@ export default function RequestForm() {
                 if (error) {
                     console.error('Error fetching request:', error)
                     toast.error('Error al cargar la solicitud')
+                    auditLog.error('solicitudes', 'request.load.failed', `Error cargando solicitud ${id}: ${error.message}`, {
+                        module: 'RequestForm', error_code: error.code,
+                        details: { requestId: id, error: error.message }
+                    })
                     console.log('RequestForm: Redirigiendo a dashboard porque falló la carga con id:', id)
                     navigate('/dashboard')
                     return
@@ -194,9 +199,17 @@ export default function RequestForm() {
 
             if (error) throw error
             toast.success('Borrador guardado exitosamente')
+            auditLog.info('solicitudes', 'request.draft.saved', `Borrador ${id ? 'actualizado' : 'creado'}: ${formData.tipoSolicitud || 'sin tipo'}`, {
+                module: 'RequestForm',
+                details: { requestId: id, type: formData.tipoSolicitud, step: currentStep }
+            })
         } catch (error) {
             console.error('Error saving draft:', error)
             toast.error('Error al guardar el borrador')
+            auditLog.error('solicitudes', 'request.draft.failed', `Error guardando borrador: ${error.message}`, {
+                module: 'RequestForm',
+                details: { requestId: id, error: error.message, type: formData.tipoSolicitud }
+            })
         }
     }
 
@@ -442,6 +455,10 @@ export default function RequestForm() {
                                             if (id) {
                                                 await supabase.from('requests').update({ status: 'submitted' }).eq('id', id)
                                             }
+                                            auditLog.info('solicitudes', 'request.submitted', `Solicitud enviada: ${formData.tipoSolicitud}`, {
+                                                module: 'RequestForm',
+                                                details: { requestId: id, type: formData.tipoSolicitud, address: formData.direccion }
+                                            })
 
                                             // Log request submission to timeline
                                             const isVenta = formData.tipoSolicitud === 'venta'
@@ -530,6 +547,10 @@ export default function RequestForm() {
                                             if (id) {
                                                 await supabase.from('requests').update({ status: 'submitted' }).eq('id', id)
                                             }
+                                            auditLog.info('solicitudes', 'request.submitted', `Solicitud arriendo enviada`, {
+                                                module: 'RequestForm',
+                                                details: { requestId: id, type: 'arriendo', address: formData.direccion }
+                                            })
                                             // Auto-link contacts to property if selected from CRM
                                             const propId = formData._crmPropertyId
                                             const agentId = user?.id

@@ -52,7 +52,7 @@ export default function Dashboard() {
         if (!user) return
         const fetchReportCounts = async () => {
             try {
-                const isAdminRole = ['superadministrador', 'comercial', 'legal'].includes(profile?.role)
+                const isAdminRole = ['superadministrador', 'comercial', 'legal', 'tecnico'].includes(profile?.role)
                 let query = supabase
                     .from('management_reports')
                     .select('id, due_date, status', { count: 'exact' })
@@ -77,7 +77,7 @@ export default function Dashboard() {
 
         const fetchFollowupCounts = async () => {
             try {
-                const isAdminRole = ['superadministrador', 'comercial', 'legal'].includes(profile?.role)
+                const isAdminRole = ['superadministrador', 'comercial', 'legal', 'tecnico'].includes(profile?.role)
                 let query = supabase
                     .from('transaction_followups')
                     .select('*, properties(address)')
@@ -137,7 +137,7 @@ export default function Dashboard() {
             } else {
                 // agent / superadministrador: only their own requests (all statuses including drafts)
                 // superadministrador can see everything — but drafts only of owned requests
-                if (role === 'superadministrador') {
+                if (role === 'superadministrador' || role === 'tecnico') {
                     // sees all requests; drafts included for their own, excluded for others
                     // Use a filter: status not in draft/borrador OR user_id = current user
                     query = query.or(`user_id.eq.${user.id},and(status.neq.draft,status.neq.borrador)`)
@@ -345,29 +345,21 @@ export default function Dashboard() {
     return (
         <div className="p-4 md:p-8 max-w-[1600px] mx-auto space-y-8 bg-slate-50/50 min-h-screen">
 
-            {/* Pending Reports Banner */}
-            {pendingReports > 0 && (
+            {/* Overdue Reports Banner — only shows when reports are past due */}
+            {overdueReports > 0 && (
                 <motion.div
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
                     onClick={() => navigate('/informes-gestion')}
-                    className={cn(
-                        "rounded-xl p-4 flex items-center justify-between cursor-pointer transition-all hover:shadow-md border",
-                        overdueReports > 0
-                            ? "bg-gradient-to-r from-red-50 to-amber-50 border-red-200 hover:border-red-300"
-                            : "bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200 hover:border-blue-300"
-                    )}
+                    className="rounded-xl p-4 flex items-center justify-between cursor-pointer transition-all hover:shadow-md border bg-gradient-to-r from-red-50 to-amber-50 border-red-200 hover:border-red-300"
                 >
                     <div className="flex items-center gap-3">
-                        <div className={cn("p-2 rounded-lg", overdueReports > 0 ? "bg-red-100" : "bg-blue-100")}>
-                            {overdueReports > 0 ? <AlertTriangle className="w-5 h-5 text-red-600" /> : <ClipboardCheck className="w-5 h-5 text-blue-600" />}
+                        <div className="p-2 rounded-lg bg-red-100">
+                            <AlertTriangle className="w-5 h-5 text-red-600" />
                         </div>
                         <div>
                             <p className="font-semibold text-sm text-slate-900">
-                                {overdueReports > 0
-                                    ? `⚠️ ${overdueReports} informe(s) de gestión atrasado(s)`
-                                    : `📋 ${pendingReports} informe(s) de gestión pendiente(s)`
-                                }
+                                ⚠️ {overdueReports} informe(s) de gestión atrasado(s)
                             </p>
                             <p className="text-xs text-slate-500">Haz clic para ver y completar tus informes periódicos</p>
                         </div>

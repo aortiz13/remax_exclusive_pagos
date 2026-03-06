@@ -80,7 +80,7 @@ const SortableHeader = ({ id, children }) => {
 };
 
 
-const PRIVILEGED_ROLES = ['superadministrador', 'comercial', 'legal']
+const PRIVILEGED_ROLES = ['superadministrador', 'comercial', 'legal', 'tecnico']
 
 const PropertyList = () => {
     const { user, profile } = useAuth()

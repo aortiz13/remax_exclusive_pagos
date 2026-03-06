@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { auditLog } from './auditLogService'
 
 /**
  * Updates a CRM contact with data filled in during a request submission.
@@ -34,10 +35,23 @@ export async function updateContactFromRequestData(contactId, fieldsMap, exclude
 
         if (error) {
             console.error('[contactSync] Error updating contact:', error)
+            auditLog.error('crm', 'contact.sync.failed', `Error sincronizando contacto ${contactId}`, {
+                module: 'contactSync',
+                error_code: error.code,
+                details: { contactId, fields: Object.keys(updates), error: error.message }
+            })
+        } else {
+            auditLog.info('crm', 'contact.sync.success', `Contacto ${contactId} sincronizado (${Object.keys(updates).length} campos)`, {
+                module: 'contactSync',
+                details: { contactId, updatedFields: Object.keys(updates) }
+            })
         }
     } catch (err) {
-        // Non-blocking: request submission should succeed even if sync fails
         console.error('[contactSync] Exception updating contact:', err)
+        auditLog.error('crm', 'contact.sync.exception', `Excepción sincronizando contacto: ${err.message}`, {
+            module: 'contactSync',
+            details: { contactId, error: err.message }
+        })
     }
 }
 

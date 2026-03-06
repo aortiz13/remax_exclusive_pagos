@@ -39,6 +39,7 @@ const ACTION_TYPES = [
     "Carta Oferta",
     "Baja de Precio",
     "Cierre de negocio",
+    "Contrato de arriendo firmado",
     "Promesa Firmada",
     "Llamada en frío (I.C)",
     "Llamada vendedor/arrendador (I.C)",
@@ -52,6 +53,7 @@ const ACTION_TYPES = [
 const ACTION_KPI_MAP = {
     'Carta Oferta': 'offers_in_negotiation',
     'Baja de Precio': 'price_reductions',
+    'Contrato de arriendo firmado': 'signed_promises',
     // NOTE: 'Cierre de negocio' is handled separately with money amounts, not a -1 counter
 };
 

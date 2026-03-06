@@ -13,6 +13,7 @@ import ContactForm from './ContactForm'
 import TransactionCompletionModal from './TransactionCompletionModal'
 import { cn } from "@/lib/utils"
 import { logActivity } from '../../services/activityService'
+import { auditLog } from '../../services/auditLogService'
 import { ROLES, ROLE_COLORS } from './AddParticipantModal'
 
 
@@ -263,6 +264,11 @@ const PropertyForm = ({ property, isOpen, onClose, isSimplified = false }) => {
             }
 
             toast.success(property ? 'Propiedad actualizada' : 'Propiedad creada')
+            auditLog.info('crm', property?.id ? 'property.updated' : 'property.created',
+                `${property?.id ? 'Propiedad actualizada' : 'Propiedad creada'}: ${formData.address}`, {
+                module: 'PropertyForm',
+                details: { propertyId: savedProperty?.id, address: formData.address, type: formData.property_type, status: formData.status }
+            })
 
             // If property was just marked as sold/rented, show transaction completion modal
             if (isNewCompletion && savedProperty) {
@@ -275,6 +281,10 @@ const PropertyForm = ({ property, isOpen, onClose, isSimplified = false }) => {
         } catch (error) {
             console.error('Error saving property:', error)
             toast.error('Error al guardar propiedad')
+            auditLog.error('crm', 'property.save.failed', `Error guardando propiedad: ${error.message}`, {
+                module: 'PropertyForm', error_code: error.code,
+                details: { propertyId: property?.id, address: formData.address, error: error.message }
+            })
         } finally {
             setLoading(false)
         }

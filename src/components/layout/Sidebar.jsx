@@ -31,7 +31,8 @@ import {
     Kanban,
     Activity,
     Video,
-    ClipboardCheck
+    ClipboardCheck,
+    ScrollText
 } from 'lucide-react'
 import { useState, useEffect, useCallback } from 'react'
 import { cn } from '@/lib/utils'
@@ -98,7 +99,7 @@ export default function Sidebar() {
         items: [
             { title: 'Mis KPIs', icon: BarChart3, path: '/kpis/dashboard' },
             { title: 'Mi Plan de Negocio', icon: Target, path: '/kpis/business-plan' },
-            ...(['superadministrador', 'legal'].includes(role) ? [{
+            ...(['superadministrador', 'legal', 'tecnico'].includes(role) ? [{
                 title: 'Dashboard CEO', icon: FileBarChart, path: '/admin/kpis'
             }] : [])
         ]
@@ -165,6 +166,46 @@ export default function Sidebar() {
                     label: 'Operaciones',
                     items: [
                         { title: 'Leads Asignados', icon: FileText, path: '/guard-leads' },
+                    ]
+                }
+            ]
+        },
+        tecnico: {
+            title: 'ADMIN',
+            subgroups: [
+                {
+                    label: 'Gestión',
+                    items: [
+                        { title: 'Administración', icon: Users, path: '/admin/invites' },
+                        { title: 'Solicitudes', icon: FileText, path: '/admin/requests' },
+                        { title: 'Captaciones', icon: ClipboardList, path: '/admin/captaciones' },
+                        { title: 'Importar Propiedades', icon: Download, path: '/admin/import' },
+                    ]
+                },
+                {
+                    label: 'Contenido',
+                    items: [
+                        { title: 'Config. Aula Virtual', icon: Settings, path: '/admin/aula-virtual' },
+                        { title: 'Video Tutoriales', icon: Video, path: '/admin/video-generator' },
+                    ]
+                },
+                {
+                    label: 'Agendas',
+                    items: [
+                        { title: 'Agenda Cámara 360°', icon: Camera, path: '/admin/camera-schedule' },
+                        { title: 'Agenda Turnos', icon: Shield, path: '/admin/shift-schedule' },
+                    ]
+                },
+                {
+                    label: 'Operaciones',
+                    items: [
+                        { title: 'Leads Asignados', icon: FileText, path: '/guard-leads' },
+                    ]
+                },
+                {
+                    label: 'Sistema',
+                    items: [
+                        { title: 'Auditoría / Logs', icon: ScrollText, path: '/admin/audit-logs' },
                     ]
                 }
             ]

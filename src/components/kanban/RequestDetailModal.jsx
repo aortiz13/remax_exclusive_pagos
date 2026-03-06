@@ -10,6 +10,7 @@ import {
     FilePlus, BarChart3, Phone, Mail
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { auditLog } from '@/services/auditLogService'
 
 // ─── Type configuration (label + colour) ────────────────────────────────────
 const TYPE_CONFIG = {
@@ -379,7 +380,7 @@ export function RequestDetailModal({ request, isOpen, onClose }) {
             const { data: { user } } = await supabase.auth.getUser()
             if (user) {
                 const { data } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-                setIsAdmin(['superadministrador', 'legal', 'comercial', 'administracion'].includes(data?.role))
+                setIsAdmin(['superadministrador', 'legal', 'comercial', 'administracion', 'tecnico'].includes(data?.role))
             }
         }
         checkAdmin()
@@ -555,11 +556,19 @@ export function RequestDetailModal({ request, isOpen, onClose }) {
             })
 
             toast.success('Solicitud completada y enviada con éxito.')
+            auditLog.info('solicitudes', 'request.completed', `Solicitud ${typeParams.label} completada (${request.id})`, {
+                module: 'RequestDetailModal',
+                details: { requestId: request.id, type: resolvedType, address: resolveAddress(data) }
+            })
             onClose()
             window.location.reload()
         } catch (error) {
             console.error('Error completing request:', error)
             toast.error('Error al completar la solicitud: ' + error.message)
+            auditLog.error('solicitudes', 'request.completion.failed', `Error completando solicitud: ${error.message}`, {
+                module: 'RequestDetailModal', error_code: error.code,
+                details: { requestId: request.id, type: resolvedType, error: error.message }
+            })
         } finally {
             setIsCompleting(false)
         }

@@ -14,7 +14,7 @@ export default function ManagementReportList() {
     const [loading, setLoading] = useState(true)
     const [filter, setFilter] = useState('all')
 
-    const isAdmin = ['superadministrador', 'comercial', 'legal'].includes(profile?.role)
+    const isAdmin = ['superadministrador', 'comercial', 'legal', 'tecnico'].includes(profile?.role)
 
     useEffect(() => {
         fetchReports()
@@ -209,7 +209,7 @@ export default function ManagementReportList() {
                                                 {displayCfg.label}
                                             </span>
                                             <p className="text-xs text-slate-400 mt-1">
-                                                Vence: {dueDate.toLocaleDateString('es-CL')}
+                                                Enviar: {dueDate.toLocaleDateString('es-CL')}
                                             </p>
                                         </div>
                                         <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-blue-500 transition-colors" />

@@ -195,6 +195,7 @@ export default function AdminKpiView() {
                 .from('profiles')
                 .select('id, first_name, last_name, email')
                 .neq('role', 'superadministrador')
+                .neq('role', 'tecnico')
             setAgents(data || [])
         } catch (error) {
             console.error('Error fetching agents:', error)

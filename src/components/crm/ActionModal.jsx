@@ -57,7 +57,8 @@ const ACTION_TYPES = [
     "Visita comprador/arrendatario (Canje)",
     "Carta Oferta",
     "Baja de Precio",
-    "Cierre de negocio",
+    "Facturación",
+    "Contrato de arriendo firmado",
     "Promesa Firmada",
     "Llamada en frío (I.C)",
     "Llamada vendedor/arrendador (I.C)",
@@ -71,7 +72,8 @@ const ACTION_TYPES = [
 const ACTION_KPI_MAP = {
     'Carta Oferta': 'offers_in_negotiation',
     'Baja de Precio': 'price_reductions',
-    // Note: Cierre de negocio uses gross_fees value stored in billing_primary (handled separately)
+    'Contrato de arriendo firmado': 'signed_promises',
+    // Note: Facturación uses gross_fees value stored in billing_primary (handled separately)
 };
 
 const CALL_RESULTS = [
@@ -108,7 +110,7 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
     // New state for call result
     const [callResult, setCallResult] = useState('');
     const [otherCallResult, setOtherCallResult] = useState('');
-    // Cierre de negocio specific fields
+    // Facturación specific fields
     const [dealType, setDealType] = useState('');
     const [closingValue, setClosingValue] = useState('');
     const [grossFees, setGrossFees] = useState('');
@@ -399,19 +401,19 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
         //     return;
         // }
 
-        const requiresProperty = ['Visita Propiedad', 'Evaluación Comercial', 'Baja de Precio', 'Cierre de negocio'].includes(actionType);
+        const requiresProperty = ['Visita Propiedad', 'Evaluación Comercial', 'Baja de Precio', 'Facturación', 'Contrato de arriendo firmado'].includes(actionType);
         if (requiresProperty && (!selectedPropertyId || selectedPropertyId === 'none')) {
             toast.error(`Para la acción "${actionType}", seleccionar una propiedad es obligatorio.`);
             return;
         }
 
-        const requiresContact = ['Baja de Precio', 'Cierre de negocio'].includes(actionType);
+        const requiresContact = ['Baja de Precio', 'Facturación', 'Contrato de arriendo firmado'].includes(actionType);
         if (requiresContact && selectedContactIds.length === 0 && !hasSelectedNone) {
             toast.error(`Para la acción "${actionType}", asociar al menos un contacto es obligatorio.`);
             return;
         }
 
-        if (actionType === 'Cierre de negocio') {
+        if (actionType === 'Facturación') {
             if (!dealType) { toast.error('Debe seleccionar el tipo de operación (Venta o Arriendo).'); return; }
             if (!closingValue || isNaN(parseFloat(closingValue))) { toast.error('Debe ingresar el valor de cierre de operación.'); return; }
             if (!grossFees || isNaN(parseFloat(grossFees))) { toast.error('Debe ingresar el valor de honorarios brutos.'); return; }
@@ -449,10 +451,10 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
                     is_conversation_starter: actionType.includes('(I.C)'),
                     is_canje: actionType === 'Visita Propiedad' ? isCanje : false,
                     call_result: actionType.startsWith('Llamada') ? (callResult === 'Otra' ? otherCallResult : callResult) : null,
-                    // Cierre de negocio fields
-                    deal_type: resolvedType === 'Cierre de negocio' ? dealType : null,
-                    closing_value: resolvedType === 'Cierre de negocio' ? toCLP(closingValue, closingCurrency) : null,
-                    gross_fees: resolvedType === 'Cierre de negocio' ? toCLP(grossFees, feesCurrency) : null,
+                    // Facturación fields
+                    deal_type: resolvedType === 'Facturación' ? dealType : null,
+                    closing_value: resolvedType === 'Facturación' ? toCLP(closingValue, closingCurrency) : null,
+                    gross_fees: resolvedType === 'Facturación' ? toCLP(grossFees, feesCurrency) : null,
                 })
                 .select()
                 .single();
@@ -553,8 +555,8 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
                 }
             }
 
-            // Special case: Cierre de negocio → billing_primary += gross_fees, billing_secondary += closing_value
-            if (resolvedType === 'Cierre de negocio') {
+            // Special case: Facturación → billing_primary += gross_fees, billing_secondary += closing_value
+            if (resolvedType === 'Facturación') {
                 // Use the local calendar date to avoid UTC-offset issues (Chile is UTC-3)
                 const todayLocal = toISOLocal(new Date()).split('T')[0];
                 const feesInCLP = toCLP(grossFees, feesCurrency) || 0;
@@ -785,8 +787,8 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
                             </div>
                         )}
 
-                        {/* Cierre de negocio fields - conditionally visible */}
-                        {(actionType === 'Cierre de negocio' || (viewOnly && actionData?.action_type === 'Cierre de negocio')) && (
+                        {/* Facturación fields - conditionally visible */}
+                        {(actionType === 'Facturación' || (viewOnly && actionData?.action_type === 'Facturación')) && (
                             <div className="space-y-3 animate-in fade-in slide-in-from-top-1 duration-200 p-4 rounded-xl border border-blue-200 dark:border-blue-900 bg-blue-50/60 dark:bg-blue-950/30 shadow-sm">
                                 <div className="flex items-center gap-2 mb-1">
                                     <div className="h-5 w-1 rounded-full bg-primary" />
@@ -906,7 +908,7 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
                             <div className="space-y-2">
                                 <Label htmlFor="property">
                                     Propiedad Asociada
-                                    {actionType === 'Cierre de negocio'
+                                    {actionType === 'Facturación'
                                         ? <span className="text-red-500 ml-1">*</span>
                                         : <span className="text-muted-foreground text-xs ml-1">(Opcional)</span>
                                     }

@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { supabase } from '../services/supabase'
+import { auditLog } from '../services/auditLogService'
 import { Button, Input, Label, Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui'
 import { CardDescription } from '@/components/ui' // CardDescription is not exported in index.jsx? checking...
 import { useNavigate } from 'react-router-dom'
@@ -23,6 +24,10 @@ export default function Login() {
             navigate('/dashboard')
         } catch (error) {
             toast.error(error.message)
+            auditLog.warn('auth', 'login.failed', `Intento de login fallido para ${email}: ${error.message}`, {
+                module: 'Login',
+                details: { email, error: error.message }
+            })
         } finally {
             setLoading(false)
         }

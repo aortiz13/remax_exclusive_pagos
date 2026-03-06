@@ -10,6 +10,7 @@
  */
 
 import { supabase } from './supabase'
+import { auditLog } from './auditLogService'
 
 const SHIFT_CONFIG = {
     1: { label: 'Turno 1', time: '09:00 – 13:00', startTime: '09:00:00', endTime: '13:00:00' },
@@ -64,6 +65,10 @@ export async function createShiftCalendarEvent(booking, agentId) {
 
         if (taskErr) {
             console.error('Error creating shift calendar task:', taskErr)
+            auditLog.error('system', 'shift.task.create.failed', `Error creando tarea de turno`, {
+                module: 'shiftCalendarSync', error_code: taskErr.code,
+                details: { bookingId: booking.id, agentId, error: taskErr.message }
+            })
             return null
         }
 
@@ -79,11 +84,23 @@ export async function createShiftCalendarEvent(booking, agentId) {
         // Push to Google Calendar (fire and forget)
         supabase.functions.invoke('google-calendar-sync', {
             body: { agentId, action: 'push_to_google', taskId }
-        }).catch(e => console.error('Google sync shift error:', e))
+        }).catch(e => {
+            console.error('Google sync shift error:', e)
+            auditLog.error('calendar', 'google.sync.shift.failed', `Error sincronizando turno con Google Calendar`, {
+                module: 'shiftCalendarSync', details: { taskId, error: e.message }
+            })
+        })
+
+        auditLog.info('system', 'shift.task.created', `Tarea de turno creada para booking ${booking.id}`, {
+            module: 'shiftCalendarSync', details: { bookingId: booking.id, taskId, agentId }
+        })
 
         return taskId
     } catch (err) {
         console.error('Error in createShiftCalendarEvent:', err)
+        auditLog.error('system', 'shift.create.exception', err.message, {
+            module: 'shiftCalendarSync', details: { bookingId: booking.id, error: err.message }
+        })
         return null
     }
 }
@@ -124,5 +141,8 @@ export async function deleteShiftCalendarEvent(booking, agentId) {
             .eq('id', booking.id)
     } catch (err) {
         console.error('Error in deleteShiftCalendarEvent:', err)
+        auditLog.error('system', 'shift.delete.exception', err.message, {
+            module: 'shiftCalendarSync', details: { bookingId: booking.id, error: err.message }
+        })
     }
 }

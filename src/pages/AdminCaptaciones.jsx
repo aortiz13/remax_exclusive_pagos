@@ -47,7 +47,7 @@ export default function AdminCaptaciones() {
     const [expandedCards, setExpandedCards] = useState({})
 
     // Access guard
-    const allowedRoles = ['superadministrador', 'legal', 'comercial']
+    const allowedRoles = ['superadministrador', 'legal', 'comercial', 'tecnico']
     const hasAccess = allowedRoles.includes(profile?.role)
 
     const fetchMandates = useCallback(async () => {

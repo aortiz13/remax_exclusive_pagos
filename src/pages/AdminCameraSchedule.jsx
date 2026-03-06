@@ -285,7 +285,7 @@ export default function AdminCameraSchedule() {
     }
 
     // Role gate
-    if (!profile || !['superadministrador', 'comercial'].includes(profile.role)) {
+    if (!profile || !['superadministrador', 'comercial', 'tecnico'].includes(profile.role)) {
         return <div className="p-8 text-center text-slate-500">No tienes acceso a esta página.</div>
     }
 
