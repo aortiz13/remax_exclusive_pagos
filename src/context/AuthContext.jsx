@@ -2,6 +2,7 @@
 import { createContext, useContext, useEffect, useState, useRef } from 'react'
 import { supabase } from '../services/supabase'
 import { toast } from 'sonner'
+import { auditLog } from '../services/auditLogService'
 
 const AuthContext = createContext({})
 
@@ -96,6 +97,13 @@ export const AuthProvider = ({ children }) => {
             }
             setProfile(data)
 
+            // Set audit log user context
+            if (data) {
+                const fullName = `${data.first_name || ''} ${data.last_name || ''}`.trim()
+                auditLog.setUser({ id: userId, email: data.email, name: fullName })
+                auditLog.info('auth', 'session.loaded', `Sesión cargada: ${fullName}`, { module: 'AuthContext' })
+            }
+
             // Set Chatwoot User Identity
             if (data && window.$chatwoot) {
                 const userName = `${data.first_name || ''} ${data.last_name || ''}`.trim();
@@ -121,6 +129,9 @@ export const AuthProvider = ({ children }) => {
     }
 
     const signOut = async () => {
+        auditLog.info('auth', 'logout', 'Usuario cerró sesión', { module: 'AuthContext' })
+        auditLog.flush()
+        auditLog.clearUser()
         await supabase.auth.signOut()
         setUser(null)
         setProfile(null)

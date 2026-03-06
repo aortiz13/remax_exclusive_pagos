@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { toast } from 'sonner'
 import { supabase } from '../services/supabase'
+import { auditLog } from '../services/auditLogService'
 import { Button, Input, Label, Card, CardHeader, CardTitle, CardContent, CardFooter, CardDescription, Alert, AlertDescription, Badge, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui'
 import { useAuth } from '../context/AuthContext'
 import { Navigate } from 'react-router-dom'
@@ -56,8 +57,8 @@ export default function AdminInvites() {
     const [processingResults, setProcessingResults] = useState(null)
     const fileInputRef = useRef(null)
 
-    const INVITES_ALLOWED_ROLES = ['superadministrador', 'legal', 'comercial', 'postulantes']
-    const canManage = ['superadministrador', 'legal', 'comercial'].includes(profile?.role)
+    const INVITES_ALLOWED_ROLES = ['superadministrador', 'legal', 'comercial', 'postulantes', 'tecnico']
+    const canManage = ['superadministrador', 'legal', 'comercial', 'tecnico'].includes(profile?.role)
 
     useEffect(() => {
         if (INVITES_ALLOWED_ROLES.includes(profile?.role)) {
@@ -86,7 +87,7 @@ export default function AdminInvites() {
 
 
     // Protect: Only superadministrador, legal, comercial, postulantes
-    if (!authLoading && !['superadministrador', 'legal', 'comercial', 'postulantes'].includes(profile?.role)) {
+    if (!authLoading && !['superadministrador', 'legal', 'comercial', 'postulantes', 'tecnico'].includes(profile?.role)) {
         return <Navigate to="/dashboard" />
     }
 
@@ -102,6 +103,10 @@ export default function AdminInvites() {
             if (error) throw error
 
             toast.success('Invitación enviada correctamente')
+            auditLog.info('admin', 'user.invited', `Invitación enviada a ${email} (${role})`, {
+                module: 'AdminInvites',
+                details: { email, firstName, lastName, role }
+            })
             setEmail('')
             setFirstName('')
             setLastName('')
@@ -111,6 +116,9 @@ export default function AdminInvites() {
         } catch (error) {
             console.error('Error sending invite:', error)
             toast.error('Error al enviar invitación: ' + error.message)
+            auditLog.error('admin', 'user.invite.failed', `Error invitando a ${email}: ${error.message}`, {
+                module: 'AdminInvites', details: { email, error: error.message }
+            })
         } finally {
             setLoading(false)
         }
@@ -285,6 +293,10 @@ export default function AdminInvites() {
 
             setUsers(users.filter(u => u.id !== userId))
             toast.success('Usuario eliminado correctamente')
+            auditLog.warn('admin', 'user.deleted', `Usuario eliminado: ${userToDelete.email}`, {
+                module: 'AdminInvites',
+                details: { userId, email: userToDelete.email, name: `${userToDelete.first_name} ${userToDelete.last_name}` }
+            })
 
         } catch (error) {
             console.error('Error deleting user:', error)
@@ -320,6 +332,10 @@ export default function AdminInvites() {
 
             setUsers(users.map(u => u.id === userToEdit.id ? { ...u, remax_agent_id: remaxId } : u))
             toast.success('ID REMAX actualizado')
+            auditLog.info('admin', 'user.remax_id.updated', `ID REMAX actualizado para ${userToEdit.email}: ${remaxId}`, {
+                module: 'AdminInvites',
+                details: { userId: userToEdit.id, email: userToEdit.email, remaxId }
+            })
             setIsEditIdOpen(false)
             setUserToEdit(null)
         } catch (error) {
@@ -348,6 +364,10 @@ export default function AdminInvites() {
             setUsers(users.map(u => u.id === planUser.id ? { ...u, association_plan: selectedPlan } : u))
             const planInfo = ASSOCIATION_PLANS.find(p => p.key === selectedPlan)
             toast.success(`Plan ${planInfo?.label} (${planInfo?.pct}%) asignado a ${planUser.first_name}`)
+            auditLog.info('admin', 'user.plan.updated', `Plan ${planInfo?.label} asignado a ${planUser.email}`, {
+                module: 'AdminInvites',
+                details: { userId: planUser.id, email: planUser.email, plan: selectedPlan, pct: planInfo?.pct }
+            })
             setIsPlanOpen(false)
             setPlanUser(null)
         } catch (error) {
@@ -368,6 +388,10 @@ export default function AdminInvites() {
             if (error) throw error
             setUsers(users.map(u => u.id === user.id ? { ...u, shift_eligible: newValue } : u))
             toast.success(`${user.first_name} ${newValue ? 'habilitado' : 'deshabilitado'} para turnos de guardia`)
+            auditLog.info('admin', 'user.shift_eligible.toggled', `${user.email} ${newValue ? 'habilitado' : 'deshabilitado'} para guardias`, {
+                module: 'AdminInvites',
+                details: { userId: user.id, email: user.email, shiftEligible: newValue }
+            })
         } catch (error) {
             console.error('Error toggling shift eligibility:', error)
             toast.error('Error al actualizar elegibilidad')
@@ -625,11 +649,10 @@ export default function AdminInvites() {
                                                 {u.role === 'agent' && (
                                                     <Badge
                                                         variant="outline"
-                                                        className={`text-[10px] h-5 px-1.5 cursor-pointer hover:opacity-80 transition-opacity ${
-                                                            u.shift_eligible
-                                                                ? 'bg-orange-100 text-orange-700 border-orange-300'
-                                                                : 'bg-gray-100 text-gray-400 border-gray-200'
-                                                        }`}
+                                                        className={`text-[10px] h-5 px-1.5 cursor-pointer hover:opacity-80 transition-opacity ${u.shift_eligible
+                                                            ? 'bg-orange-100 text-orange-700 border-orange-300'
+                                                            : 'bg-gray-100 text-gray-400 border-gray-200'
+                                                            }`}
                                                         onClick={(e) => { e.stopPropagation(); canManage && toggleShiftEligible(u) }}
                                                         title={canManage ? 'Clic para cambiar elegibilidad de turnos' : (u.shift_eligible ? 'Habilitado para guardias' : 'No habilitado para guardias')}
                                                     >
@@ -805,8 +828,8 @@ export default function AdminInvites() {
                                 key={plan.key}
                                 onClick={() => setSelectedPlan(plan.key)}
                                 className={`w-full flex items-center justify-between p-3 rounded-lg border-2 transition-all ${selectedPlan === plan.key
-                                        ? `${plan.color} border-current shadow-sm scale-[1.02]`
-                                        : 'border-gray-100 hover:border-gray-200 bg-white'
+                                    ? `${plan.color} border-current shadow-sm scale-[1.02]`
+                                    : 'border-gray-100 hover:border-gray-200 bg-white'
                                     }`}
                             >
                                 <div className="flex items-center gap-3">

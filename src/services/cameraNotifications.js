@@ -4,6 +4,7 @@
  */
 
 const N8N_WEBHOOK_URL = 'https://workflow.remax-exclusive.cl/webhook/camera-360-notifications'
+import { auditLog } from './auditLogService'
 
 /**
  * Send a camera notification event to n8n
@@ -44,10 +45,24 @@ export async function sendCameraNotification(event, booking, agent, adminNotes =
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
-        }).catch(err => console.error('Camera notification failed:', err))
+        }).then(() => {
+            auditLog.info('camera', `notification.${event}`, `Notificación cámara enviada: ${event}`, {
+                module: 'cameraNotifications',
+                details: { event, bookingId: booking.id, agentEmail: agent.email }
+            })
+        }).catch(err => {
+            console.error('Camera notification failed:', err)
+            auditLog.error('camera', `notification.${event}.failed`, `Error enviando notificación cámara: ${err.message}`, {
+                module: 'cameraNotifications',
+                details: { event, bookingId: booking.id, error: err.message }
+            })
+        })
 
     } catch (err) {
         console.error('Error preparing camera notification:', err)
+        auditLog.error('camera', 'notification.prepare.exception', err.message, {
+            module: 'cameraNotifications', details: { event, error: err.message }
+        })
     }
 }
 

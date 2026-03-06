@@ -14,7 +14,7 @@ export default function AdminRequests() {
 
     const [selectedRequest, setSelectedRequest] = useState(null)
 
-    const ALLOWED_ROLES = ['superadministrador', 'legal', 'comercial', 'administracion']
+    const ALLOWED_ROLES = ['superadministrador', 'legal', 'comercial', 'administracion', 'tecnico']
 
     useEffect(() => {
         if (ALLOWED_ROLES.includes(profile?.role)) {
@@ -101,7 +101,7 @@ export default function AdminRequests() {
     }
 
     // Protect: Only privileged roles
-    const ADMIN_ROLES = ['superadministrador', 'legal', 'comercial', 'administracion']
+    const ADMIN_ROLES = ['superadministrador', 'legal', 'comercial', 'administracion', 'tecnico']
     if (!authLoading && !ADMIN_ROLES.includes(profile?.role)) {
         return <Navigate to="/dashboard" />
     }

@@ -4,6 +4,7 @@
  */
 
 const N8N_WEBHOOK_URL = 'https://workflow.remax-exclusive.cl/webhook/captacion-vista'
+import { auditLog } from './auditLogService'
 
 /**
  * Send a captación-vista notification to n8n
@@ -34,14 +35,25 @@ export async function sendCaptacionVistaNotification(mandate, agent) {
             timestamp: new Date().toISOString(),
         }
 
-        // Fire and forget — don't block the UI
         fetch(N8N_WEBHOOK_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
-        }).catch(err => console.error('Captación notification failed:', err))
+        }).then(() => {
+            auditLog.info('crm', 'notification.captacion_vista', `Notificación captación enviada para mandato ${mandate.id}`, {
+                module: 'captacionNotifications', details: { mandateId: mandate.id, agentEmail: agent.email }
+            })
+        }).catch(err => {
+            console.error('Captación notification failed:', err)
+            auditLog.error('crm', 'notification.captacion_vista.failed', `Error enviando notificación captación: ${err.message}`, {
+                module: 'captacionNotifications', details: { mandateId: mandate.id, error: err.message }
+            })
+        })
 
     } catch (err) {
         console.error('Error preparing captación notification:', err)
+        auditLog.error('crm', 'notification.captacion.exception', err.message, {
+            module: 'captacionNotifications', details: { error: err.message }
+        })
     }
 }

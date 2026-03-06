@@ -1,5 +1,6 @@
 
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { useEffect, useRef } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import Header from './components/layout/Header'
@@ -47,7 +48,12 @@ import ManagementReportPage from './pages/ManagementReportPage'
 import AdminVideoGenerator from './pages/AdminVideoGenerator'
 import ChatwootWidget from './components/chatwoot/ChatwootWidget'
 import CameraAgentActions from './components/crm/CameraAgentActions'
+import AdminAuditLogs from './pages/AdminAuditLogs'
 import { Toaster } from 'sonner'
+import { initGlobalErrorCapture, auditLog } from './services/auditLogService'
+
+// Initialize global error capture once
+initGlobalErrorCapture()
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -91,6 +97,24 @@ const Layout = ({ children }) => {
   )
 }
 
+// Route change logger — logs every navigation to audit
+const RouteChangeLogger = () => {
+  const location = useLocation()
+  const prevPath = useRef(location.pathname)
+
+  useEffect(() => {
+    if (location.pathname !== prevPath.current) {
+      auditLog.info('navigation', 'route.change', `Navegó a ${location.pathname}`, {
+        module: 'App',
+        details: { from: prevPath.current, to: location.pathname }
+      })
+      prevPath.current = location.pathname
+    }
+  }, [location.pathname])
+
+  return null
+}
+
 const queryClient = new QueryClient()
 
 function App() {
@@ -99,6 +123,7 @@ function App() {
       <AuthProvider>
         <Router>
           <Layout>
+            <RouteChangeLogger />
             <Routes>
               <Route path="/login" element={<Login />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -214,6 +239,11 @@ function App() {
               <Route path="/admin/captaciones" element={
                 <ProtectedRoute>
                   <AdminCaptaciones />
+                </ProtectedRoute>
+              } />
+              <Route path="/admin/audit-logs" element={
+                <ProtectedRoute>
+                  <AdminAuditLogs />
                 </ProtectedRoute>
               } />
               <Route path="/admin/shift-schedule" element={

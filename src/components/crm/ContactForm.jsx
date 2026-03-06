@@ -11,6 +11,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui"
 import { cn } from "@/lib/utils"
 import { logActivity } from '../../services/activityService'
+import { auditLog } from '../../services/auditLogService'
 import { ROLES, ROLE_COLORS } from './AddParticipantModal'
 
 const Section = ({ title, children }) => (
@@ -209,6 +210,10 @@ const ContactForm = ({ contact, isOpen, onClose, isSimplified = false, initialEm
                 await savePropertyLinks(newContactData.id)
 
                 toast.success('Contacto creado')
+                auditLog.info('crm', 'contact.created', `Contacto creado: ${formData.first_name} ${formData.last_name}`, {
+                    module: 'ContactForm',
+                    details: { contactId: newContactData.id, name: `${formData.first_name} ${formData.last_name}`, email: formData.email }
+                })
                 onClose(newContactData)
             } else {
                 // Update
@@ -230,12 +235,20 @@ const ContactForm = ({ contact, isOpen, onClose, isSimplified = false, initialEm
                 await savePropertyLinks(contact.id)
 
                 toast.success('Contacto actualizado')
+                auditLog.info('crm', 'contact.updated', `Contacto actualizado: ${formData.first_name} ${formData.last_name}`, {
+                    module: 'ContactForm',
+                    details: { contactId: contact.id, name: `${formData.first_name} ${formData.last_name}` }
+                })
                 onClose({ ...dataToSave, id: contact.id })
             }
 
         } catch (error) {
             console.error('Error saving contact:', error)
             toast.error('Error al guardar contacto')
+            auditLog.error('crm', 'contact.save.failed', `Error guardando contacto: ${error.message}`, {
+                module: 'ContactForm', error_code: error.code,
+                details: { contactId: contact?.id, name: `${formData.first_name} ${formData.last_name}`, error: error.message }
+            })
         } finally {
             setLoading(false)
         }

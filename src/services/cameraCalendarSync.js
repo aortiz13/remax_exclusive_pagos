@@ -8,6 +8,7 @@
  */
 
 import { supabase } from './supabase'
+import { auditLog } from './auditLogService'
 
 const CAMERA_EVENT_DESCRIPTION = (booking, adminNotes) => {
     const returnDate = booking.return_date || booking.booking_date
@@ -53,7 +54,13 @@ export async function createCameraCalendarEvents(booking, agentId, comercialId, 
             .insert(taskPayload(agentId))
             .select('id')
             .single()
-        if (agentErr) console.error('Error creating agent task:', agentErr)
+        if (agentErr) {
+            console.error('Error creating agent task:', agentErr)
+            auditLog.error('camera', 'camera.task.create.agent.failed', `Error creando tarea cámara para agente`, {
+                module: 'cameraCalendarSync', error_code: agentErr.code,
+                details: { bookingId: booking.id, agentId, error: agentErr.message }
+            })
+        }
 
         // Create task for comercial
         const { data: comercialTask, error: comercialErr } = await supabase
@@ -61,7 +68,13 @@ export async function createCameraCalendarEvents(booking, agentId, comercialId, 
             .insert(taskPayload(comercialId))
             .select('id')
             .single()
-        if (comercialErr) console.error('Error creating comercial task:', comercialErr)
+        if (comercialErr) {
+            console.error('Error creating comercial task:', comercialErr)
+            auditLog.error('camera', 'camera.task.create.comercial.failed', `Error creando tarea cámara para comercial`, {
+                module: 'cameraCalendarSync', error_code: comercialErr.code,
+                details: { bookingId: booking.id, comercialId, error: comercialErr.message }
+            })
+        }
 
         // Save task IDs in booking
         const agentTaskId = agentTask?.id || null
@@ -77,17 +90,35 @@ export async function createCameraCalendarEvents(booking, agentId, comercialId, 
         if (agentTaskId) {
             supabase.functions.invoke('google-calendar-sync', {
                 body: { agentId, action: 'push_to_google', taskId: agentTaskId }
-            }).catch(e => console.error('Google sync agent error:', e))
+            }).catch(e => {
+                console.error('Google sync agent error:', e)
+                auditLog.error('calendar', 'google.sync.agent.failed', `Error sincronizando con Google Calendar (agente)`, {
+                    module: 'cameraCalendarSync', details: { taskId: agentTaskId, error: e.message }
+                })
+            })
         }
         if (comercialTaskId) {
             supabase.functions.invoke('google-calendar-sync', {
                 body: { agentId: comercialId, action: 'push_to_google', taskId: comercialTaskId }
-            }).catch(e => console.error('Google sync comercial error:', e))
+            }).catch(e => {
+                console.error('Google sync comercial error:', e)
+                auditLog.error('calendar', 'google.sync.comercial.failed', `Error sincronizando con Google Calendar (comercial)`, {
+                    module: 'cameraCalendarSync', details: { taskId: comercialTaskId, error: e.message }
+                })
+            })
         }
+
+        auditLog.info('camera', 'camera.booking.tasks_created', `Tareas de cámara creadas para booking ${booking.id}`, {
+            module: 'cameraCalendarSync',
+            details: { bookingId: booking.id, agentTaskId, comercialTaskId, address: booking.property_address }
+        })
 
         return { agentTaskId, comercialTaskId }
     } catch (err) {
         console.error('Error in createCameraCalendarEvents:', err)
+        auditLog.error('camera', 'camera.booking.create.exception', err.message, {
+            module: 'cameraCalendarSync', details: { bookingId: booking.id, error: err.message }
+        })
         return { agentTaskId: null, comercialTaskId: null }
     }
 }
@@ -128,6 +159,9 @@ export async function updateCameraCalendarEvents(booking, agentId, comercialId, 
         }
     } catch (err) {
         console.error('Error in updateCameraCalendarEvents:', err)
+        auditLog.error('camera', 'camera.booking.update.exception', err.message, {
+            module: 'cameraCalendarSync', details: { bookingId: booking.id, error: err.message }
+        })
     }
 }
 
@@ -167,6 +201,9 @@ export async function deleteCameraCalendarEvents(booking, agentId, comercialId) 
         }).eq('id', booking.id)
     } catch (err) {
         console.error('Error in deleteCameraCalendarEvents:', err)
+        auditLog.error('camera', 'camera.booking.delete.exception', err.message, {
+            module: 'cameraCalendarSync', details: { bookingId: booking.id, error: err.message }
+        })
     }
 }
 
@@ -189,5 +226,8 @@ export async function completeCameraCalendarEvents(booking, agentId, comercialId
         }
     } catch (err) {
         console.error('Error in completeCameraCalendarEvents:', err)
+        auditLog.error('camera', 'camera.booking.complete.exception', err.message, {
+            module: 'cameraCalendarSync', details: { bookingId: booking.id, error: err.message }
+        })
     }
 }

@@ -76,7 +76,7 @@ const SortableHeader = ({ id, children }) => {
 };
 
 
-const PRIVILEGED_ROLES = ['superadministrador', 'comercial', 'legal']
+const PRIVILEGED_ROLES = ['superadministrador', 'comercial', 'legal', 'tecnico']
 
 const ContactList = () => {
     const { user, profile } = useAuth()

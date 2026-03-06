@@ -4,6 +4,7 @@
  */
 
 const N8N_WEBHOOK_URL = 'https://workflow.remax-exclusive.cl/webhook/shift-notifications'
+import { auditLog } from './auditLogService'
 
 const SHIFT_LABELS = { 1: 'Turno 1 (09:00 – 13:00)', 2: 'Turno 2 (13:00 – 18:00)' }
 
@@ -37,15 +38,26 @@ export async function sendShiftNotification(event, shift, agent, adminNotes = ''
             timestamp: new Date().toISOString(),
         }
 
-        // Fire and forget — don't block the UI
         fetch(N8N_WEBHOOK_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
-        }).catch(err => console.error('Shift notification failed:', err))
+        }).then(() => {
+            auditLog.info('system', `notification.shift.${event}`, `Notificación turno enviada: ${event}`, {
+                module: 'shiftNotifications', details: { event, shiftId: shift.id, agentEmail: agent.email }
+            })
+        }).catch(err => {
+            console.error('Shift notification failed:', err)
+            auditLog.error('system', `notification.shift.${event}.failed`, `Error enviando notificación turno: ${err.message}`, {
+                module: 'shiftNotifications', details: { event, shiftId: shift.id, error: err.message }
+            })
+        })
 
     } catch (err) {
         console.error('Error preparing shift notification:', err)
+        auditLog.error('system', 'notification.shift.exception', err.message, {
+            module: 'shiftNotifications', details: { event, error: err.message }
+        })
     }
 }
 

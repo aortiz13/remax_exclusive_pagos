@@ -36,7 +36,7 @@ export default function Header() {
     ]
 
     const role = profile?.role
-    if (['superadministrador', 'legal'].includes(role)) {
+    if (['superadministrador', 'legal', 'tecnico'].includes(role)) {
         menuItems.push({ title: 'Dashboard CEO', icon: FileText, path: '/admin/kpis' })
         menuItems.push({ title: 'Administración', icon: Settings, path: '/admin/invites' })
     } else if (role === 'comercial') {
