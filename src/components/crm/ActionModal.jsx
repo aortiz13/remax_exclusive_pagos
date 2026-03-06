@@ -28,7 +28,7 @@ import {
 } from "@/components/ui";
 import { supabase } from '../../services/supabase';
 import { toast } from 'sonner';
-import { Check, ChevronsUpDown, X, Plus, Trash2, Clock, Mail, MapPin } from "lucide-react";
+import { Check, ChevronsUpDown, X, Plus, Trash2, Clock, Mail, MapPin, ArrowLeftRight } from "lucide-react";
 import { cn, toISOLocal } from "@/lib/utils";
 import { useNavigate } from 'react-router-dom';
 import {
@@ -54,14 +54,14 @@ const ACTION_TYPES = [
     "Entrevista Compra (Pre-Buying)",
     "Evaluación Comercial",
     "Visita Propiedad",
-    "Visita Comprador",
+    "Visita comprador/arrendatario (Canje)",
     "Carta Oferta",
     "Baja de Precio",
     "Cierre de negocio",
     "Promesa Firmada",
     "Llamada en frío (I.C)",
-    "Llamada de vendedor activo (I.C)",
-    "Llamada de comprador activo (I.C)",
+    "Llamada vendedor/arrendador (I.C)",
+    "Llamada comprador/arrendatario (I.C)",
     "Llamada a base relacional (I.C)",
     "Vista a conserjes (I.C)",
     "Otra (I.C)"
@@ -103,6 +103,7 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
     const [actionDate, setActionDate] = useState(toISOLocal()); // YYYY-MM-DDTHH:mm
     const [note, setNote] = useState('');
     const [hasSelectedNone, setHasSelectedNone] = useState(false);
+    const [isCanje, setIsCanje] = useState(false);
 
     // New state for call result
     const [callResult, setCallResult] = useState('');
@@ -192,6 +193,7 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
                     }
                 }
                 setNote(actionData.note || '');
+                setIsCanje(actionData.is_canje || false);
 
                 // Load call result
                 if (actionData.call_result) {
@@ -222,6 +224,7 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
                 setGrossFees('');
                 setClosingCurrency('CLP');
                 setFeesCurrency('CLP');
+                setIsCanje(false);
                 setCreateFollowUp(false);
                 setMandateDetails(null);
                 setFollowUpTasks([{
@@ -396,7 +399,7 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
         //     return;
         // }
 
-        const requiresProperty = ['Visita Propiedad', 'Visita Comprador', 'Evaluación Comercial', 'Baja de Precio', 'Cierre de negocio'].includes(actionType);
+        const requiresProperty = ['Visita Propiedad', 'Evaluación Comercial', 'Baja de Precio', 'Cierre de negocio'].includes(actionType);
         if (requiresProperty && (!selectedPropertyId || selectedPropertyId === 'none')) {
             toast.error(`Para la acción "${actionType}", seleccionar una propiedad es obligatorio.`);
             return;
@@ -444,6 +447,7 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
                     property_id: selectedPropertyId === 'none' ? null : selectedPropertyId,
                     note: note || null,
                     is_conversation_starter: actionType.includes('(I.C)'),
+                    is_canje: actionType === 'Visita Propiedad' ? isCanje : false,
                     call_result: actionType.startsWith('Llamada') ? (callResult === 'Otra' ? otherCallResult : callResult) : null,
                     // Cierre de negocio fields
                     deal_type: resolvedType === 'Cierre de negocio' ? dealType : null,
@@ -703,6 +707,58 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
                             )}
                         </div>
 
+                        {/* Canje toggle — visible only for "Visita Propiedad" */}
+                        {actionType === 'Visita Propiedad' && (
+                            <div className="animate-in fade-in slide-in-from-top-1 duration-200">
+                                <button
+                                    type="button"
+                                    disabled={viewOnly}
+                                    onClick={() => !viewOnly && setIsCanje(prev => !prev)}
+                                    className={cn(
+                                        "w-full flex items-center gap-3 p-3 rounded-xl border-2 transition-all",
+                                        isCanje
+                                            ? "border-amber-500 bg-amber-50 dark:bg-amber-950/30 shadow-sm"
+                                            : "border-gray-200 dark:border-gray-700 hover:border-amber-300 dark:hover:border-amber-700",
+                                        viewOnly && "cursor-default opacity-80"
+                                    )}
+                                >
+                                    <div className={cn(
+                                        "flex items-center justify-center h-8 w-8 rounded-lg shrink-0 transition-colors",
+                                        isCanje
+                                            ? "bg-amber-500 text-white"
+                                            : "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500"
+                                    )}>
+                                        <ArrowLeftRight className="h-4 w-4" />
+                                    </div>
+                                    <div className="flex flex-col items-start text-left">
+                                        <span className={cn(
+                                            "text-sm font-semibold",
+                                            isCanje ? "text-amber-700 dark:text-amber-400" : "text-foreground"
+                                        )}>
+                                            Canje
+                                        </span>
+                                        <span className="text-xs text-muted-foreground">
+                                            Marcar si la visita fue traída por un colega externo
+                                        </span>
+                                    </div>
+                                    <div className={cn(
+                                        "ml-auto h-5 w-9 rounded-full transition-colors relative shrink-0",
+                                        isCanje ? "bg-amber-500" : "bg-gray-300 dark:bg-gray-600"
+                                    )}>
+                                        <div className={cn(
+                                            "absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform",
+                                            isCanje ? "translate-x-4" : "translate-x-0.5"
+                                        )} />
+                                    </div>
+                                </button>
+                                {isCanje && !viewOnly && (
+                                    <p className="text-xs text-amber-600 dark:text-amber-400 mt-1.5 ml-1">
+                                        Registre los datos del colega externo en el campo "Notas" a continuación.
+                                    </p>
+                                )}
+                            </div>
+                        )}
+
                         {/* Call Result selector - conditionally visible */}
                         {actionType.startsWith('Llamada') && (
                             <div className="space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
@@ -845,42 +901,44 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
                             </div>
                         )}
 
-                        {/* Property Selector */}
-                        <div className="space-y-2">
-                            <Label htmlFor="property">
-                                Propiedad Asociada
-                                {actionType === 'Cierre de negocio'
-                                    ? <span className="text-red-500 ml-1">*</span>
-                                    : <span className="text-muted-foreground text-xs ml-1">(Opcional)</span>
-                                }
-                            </Label>
-                            <Select
-                                disabled={viewOnly}
-                                value={selectedPropertyId}
-                                onValueChange={(val) => {
-                                    if (val === 'new') {
-                                        setIsCreatePropertyOpen(true);
-                                        setSelectedPropertyId('none');
-                                    } else {
-                                        setSelectedPropertyId(val);
+                        {/* Property Selector — hidden for "Visita comprador/arrendatario (Canje)" */}
+                        {actionType !== 'Visita comprador/arrendatario (Canje)' && (
+                            <div className="space-y-2">
+                                <Label htmlFor="property">
+                                    Propiedad Asociada
+                                    {actionType === 'Cierre de negocio'
+                                        ? <span className="text-red-500 ml-1">*</span>
+                                        : <span className="text-muted-foreground text-xs ml-1">(Opcional)</span>
                                     }
-                                }}
-                            >
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Seleccione propiedad" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="new" className="text-primary font-medium">
-                                        + Crear nueva propiedad
-                                    </SelectItem>
-                                    <div className="h-px bg-muted my-1" />
-                                    <SelectItem value="none">Ninguna</SelectItem>
-                                    {properties.map(p => (
-                                        <SelectItem key={p.id} value={p.id}>{p.address}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
+                                </Label>
+                                <Select
+                                    disabled={viewOnly}
+                                    value={selectedPropertyId}
+                                    onValueChange={(val) => {
+                                        if (val === 'new') {
+                                            setIsCreatePropertyOpen(true);
+                                            setSelectedPropertyId('none');
+                                        } else {
+                                            setSelectedPropertyId(val);
+                                        }
+                                    }}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Seleccione propiedad" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="new" className="text-primary font-medium">
+                                            + Crear nueva propiedad
+                                        </SelectItem>
+                                        <div className="h-px bg-muted my-1" />
+                                        <SelectItem value="none">Ninguna</SelectItem>
+                                        {properties.map(p => (
+                                            <SelectItem key={p.id} value={p.id}>{p.address}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        )}
 
                         {/* Contact Selector (Multi) */}
                         <div className="space-y-2">
@@ -1002,7 +1060,13 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
                             ) : (
                                 <Textarea
                                     id="note"
-                                    placeholder="Detalles de la acción..."
+                                    placeholder={
+                                        actionType === 'Visita comprador/arrendatario (Canje)'
+                                            ? 'Ej: Nombre del corredor colega, Link de la publicación de la propiedad visitada...'
+                                            : (actionType === 'Visita Propiedad' && isCanje)
+                                                ? 'Ej: Nombre del corredor colega que trajo la visita, oficina, teléfono o email de contacto...'
+                                                : 'Detalles de la acción...'
+                                    }
                                     value={note}
                                     onChange={(e) => setNote(e.target.value)}
                                     className="min-h-[100px]"

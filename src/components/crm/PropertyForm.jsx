@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { Button, Input, Textarea, Select, Label, Switch, Checkbox, Badge } from '@/components/ui'
-import { X, Save, Search, Plus, Check, ChevronsUpDown, Trash2, UserPlus } from 'lucide-react'
+import { X, Save, Search, Plus, Check, ChevronsUpDown, Trash2, UserPlus, Info } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '../../services/supabase'
 import { useAuth } from '../../context/AuthContext'
@@ -163,11 +163,7 @@ const PropertyForm = ({ property, isOpen, onClose, isSimplified = false }) => {
     const handleSubmit = async (e) => {
         e.preventDefault()
 
-        // ROL is mandatory for new properties
-        if (!property?.id && !formData.rol_number?.trim()) {
-            toast.error('El ROL de la propiedad es obligatorio')
-            return
-        }
+        // ROL is optional — no validation needed
 
         setLoading(true)
 
@@ -444,15 +440,22 @@ const PropertyForm = ({ property, isOpen, onClose, isSimplified = false }) => {
                                     </div>
                                     <div className="space-y-2">
                                         <label className="text-sm font-medium">
-                                            ROL <span className="text-red-500">*</span>
+                                            ROL <span className="text-xs text-muted-foreground font-normal">(Opcional)</span>
                                         </label>
                                         <Input
                                             name="rol_number"
                                             value={formData.rol_number}
                                             onChange={handleChange}
                                             placeholder="Ej: 1234-56"
-                                            required
                                         />
+                                        {!formData.rol_number?.trim() && (
+                                            <div className="flex items-start gap-2 p-2.5 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 mt-1.5">
+                                                <Info className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" />
+                                                <p className="text-xs text-blue-700 dark:text-blue-300 leading-relaxed">
+                                                    Una vez que tengas el ROL, agrégalo aquí para traer automáticamente la información del listing de REMAX.
+                                                </p>
+                                            </div>
+                                        )}
                                     </div>
                                 </Section>
 
