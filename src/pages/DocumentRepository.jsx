@@ -41,6 +41,7 @@ export default function DocumentRepository({ category: propCategory }) {
     // Preview State
     const [previewUrl, setPreviewUrl] = useState(null)
     const [previewTitle, setPreviewTitle] = useState('')
+    const [previewFilePath, setPreviewFilePath] = useState('')
     const [isPreviewOpen, setIsPreviewOpen] = useState(false)
 
     const categoryTitle = category === 'purchase' ? 'Formularios Tipo de Compraventa' :
@@ -229,6 +230,7 @@ export default function DocumentRepository({ category: propCategory }) {
         if (url) {
             setPreviewUrl(url)
             setPreviewTitle(doc.title)
+            setPreviewFilePath(doc.file_path)
             setIsPreviewOpen(true)
         } else {
             toast.error('No se pudo obtener el enlace')
@@ -701,7 +703,7 @@ export default function DocumentRepository({ category: propCategory }) {
                         {previewUrl && (
                             <iframe
                                 src={
-                                    /\.(xls|xlsx|doc|docx|ppt|pptx)$/i.test(previewTitle)
+                                    /\.(xls|xlsx|doc|docx|ppt|pptx)$/i.test(previewFilePath)
                                         ? `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(previewUrl)}`
                                         : `https://docs.google.com/viewer?url=${encodeURIComponent(previewUrl)}&embedded=true`
                                 }
