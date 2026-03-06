@@ -8,6 +8,7 @@ export const supabase = createClient(supabaseUrl, supabaseKey)
 
 export const getCustomPublicUrl = (bucket, path) => {
     if (!path) return null
-    // Use custom domain for storage URLs as requested by user
-    return `https://solicitudes.remax-exclusive.cl/storage/v1/object/public/${bucket}/${path}`
+    // Use the actual Supabase storage URL so files are accessible publicly
+    // (the custom domain serves the SPA frontend and returns index.html for all routes)
+    return `${supabaseUrl}/storage/v1/object/public/${bucket}/${path}`
 }
