@@ -41,8 +41,8 @@ const ACTION_TYPES = [
     "Cierre de negocio",
     "Promesa Firmada",
     "Llamada en frío (I.C)",
-    "Llamada de vendedor activo (I.C)",
-    "Llamada de comprador activo (I.C)",
+    "Llamada vendedor/arrendador (I.C)",
+    "Llamada comprador/arrendatario (I.C)",
     "Llamada a base relacional (I.C)",
     "Vista a conserjes (I.C)",
     "Otra (I.C)"
