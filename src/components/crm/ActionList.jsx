@@ -169,7 +169,7 @@ const ActionList = () => {
                     }}
                     className="bg-indigo-600 hover:bg-indigo-700 text-white shrink-0"
                 >
-                    <Plus className="w-4 h-4 mr-2" /> Agregar Acción
+                    <Plus className="w-4 h-4 mr-2" /> <span>Agregar Acción</span>
                 </Button>
             </div>
 
@@ -242,12 +242,12 @@ const ActionList = () => {
                                                     {action.action_type}
                                                     {action.mandate_id && (
                                                         <span className="text-[10px] bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 px-1.5 py-0.5 rounded-full font-semibold border border-green-200 dark:border-green-800">
-                                                            🏠 Captación
+                                                            <span>🏠 Captación</span>
                                                         </span>
                                                     )}
                                                     {action.is_conversation_starter && (
                                                         <span className="text-[10px] bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200 px-1.5 py-0.5 rounded-full font-semibold border border-amber-200 dark:border-amber-800">
-                                                            I.C.
+                                                            <span>I.C.</span>
                                                         </span>
                                                     )}
                                                 </div>
@@ -427,10 +427,10 @@ const ActionList = () => {
                                             {loading ? (
                                                 <div className="flex items-center justify-center gap-2">
                                                     <Loader2 className="h-4 w-4 animate-spin" />
-                                                    Cargando acciones...
+                                                    <span>Cargando acciones...</span>
                                                 </div>
                                             ) : (
-                                                'No se encontraron acciones.'
+                                                <span>No se encontraron acciones.</span>
                                             )}
                                         </TableCell>
                                     </TableRow>
