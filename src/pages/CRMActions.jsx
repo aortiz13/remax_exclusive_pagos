@@ -1,4 +1,5 @@
 import ActionList from '../components/crm/ActionList'
+import ErrorBoundary from '../components/ErrorBoundary'
 
 const CRMActions = () => {
     return (
@@ -8,7 +9,9 @@ const CRMActions = () => {
                 <p className="text-muted-foreground">Historial de acciones de tu CRM.</p>
             </div>
 
-            <ActionList />
+            <ErrorBoundary fallbackMessage="Error al cargar las acciones. Intenta recargar la página.">
+                <ActionList />
+            </ErrorBoundary>
         </div>
     )
 }
