@@ -11,10 +11,29 @@ import PropertyPickerInline from '../components/ui/PropertyPickerInline'
 import { autoLinkContactProperty } from '../services/autoLink'
 import { logActivity } from '../services/activityService'
 import { triggerLegalWebhook } from '../services/api'
-import { Button, Card, CardContent, CardHeader, CardTitle, CardDescription, Input, Label, Textarea } from '@/components/ui'
+import { Button, Card, CardContent, CardHeader, CardTitle, CardDescription, Input, Label, Textarea, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui'
 import { ArrowLeft, Building2, Key, Save, UploadCloud, FilePlus } from 'lucide-react'
 
 // --- HELPER COMPONENTS ---
+
+function SelectUncontrolled({ name, defaultValue, placeholder, className, options }) {
+    const [value, setValue] = useState(defaultValue || '')
+    return (
+        <>
+            <input type="hidden" name={name} value={value} />
+            <Select value={value || undefined} onValueChange={v => setValue(v)}>
+                <SelectTrigger className={className}>
+                    <SelectValue placeholder={placeholder} />
+                </SelectTrigger>
+                <SelectContent className="z-[300]">
+                    {options.map(o => (
+                        <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                    ))}
+                </SelectContent>
+            </Select>
+        </>
+    )
+}
 
 function CardSection({ title, children }) {
     return (
@@ -225,21 +244,21 @@ function PartyForm({ typeLabel, index, prefix, initialData = {}, onRemove, isRem
                     {['Vendedor', 'Comprador'].includes(typeLabel) ? (
                         <div className="space-y-2">
                             <Label htmlFor={`${prefix} _civil`} className="text-xs font-semibold uppercase text-slate-500">Estado Civil</Label>
-                            <select
-                                id={`${prefix} _civil`}
+                            <SelectUncontrolled
                                 name={`${prefix} _civil`}
                                 defaultValue={getValue('civil')}
+                                placeholder="Seleccione..."
                                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                            >
-                                <option value="">Seleccione...</option>
-                                <option value="Soltero">Soltero</option>
-                                <option value="Casado Bajo comunidad Conyugal">Casado Bajo comunidad Conyugal</option>
-                                <option value="Casado con Separación de Bienes">Casado con Separación de Bienes</option>
-                                <option value="Viudo">Viudo</option>
-                                <option value="Divorciado">Divorciado</option>
-                                <option value="Conviviente civil con Separación de Bienes">Conviviente Civil con Separación de Bienes</option>
-                                <option value="Conviviente Civil con Comunidad de Bienes">Conviviente Civil con Comunidad de Bienes</option>
-                            </select>
+                                options={[
+                                    { value: 'Soltero', label: 'Soltero' },
+                                    { value: 'Casado Bajo comunidad Conyugal', label: 'Casado Bajo comunidad Conyugal' },
+                                    { value: 'Casado con Separación de Bienes', label: 'Casado con Separación de Bienes' },
+                                    { value: 'Viudo', label: 'Viudo' },
+                                    { value: 'Divorciado', label: 'Divorciado' },
+                                    { value: 'Conviviente civil con Separación de Bienes', label: 'Conviviente Civil con Separación de Bienes' },
+                                    { value: 'Conviviente Civil con Comunidad de Bienes', label: 'Conviviente Civil con Comunidad de Bienes' },
+                                ]}
+                            />
                         </div>
                     ) : (
                         <Field label="Estado Civil" name={`${prefix} _civil`} defaultValue={getEffectiveValue('civil')} />
@@ -783,15 +802,15 @@ function BuySellFormLogic({ user, profile, navigate, initialData = {}, requestId
                 <CardSection title="Acuerdos para Promesa">
                     <div className="mb-6 space-y-2">
                         <Label>Forma de Pago</Label>
-                        <select
-                            name="forma_pago_selector"
-                            value={paymentMethod}
-                            onChange={(e) => setPaymentMethod(e.target.value)}
-                            className="flex h-10 w-full md:w-1/3 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                        >
-                            <option value="contado">Al Contado</option>
-                            <option value="credito">Con Crédito Hipotecario</option>
-                        </select>
+                        <Select value={paymentMethod} onValueChange={v => setPaymentMethod(v)}>
+                            <SelectTrigger className="flex h-10 w-full md:w-1/3 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="z-[300]">
+                                <SelectItem value="contado">Al Contado</SelectItem>
+                                <SelectItem value="credito">Con Crédito Hipotecario</SelectItem>
+                            </SelectContent>
+                        </Select>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 animate-in fade-in">
@@ -1226,13 +1245,18 @@ function LeaseFormLogic({ user, profile, navigate, initialData = {}, requestId =
 
                         <div className="space-y-2">
                             <Label>Reajuste</Label>
-                            <select name="reajuste" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" defaultValue={initialData.reajuste}>
-                                <option value="semestral">Semestral</option>
-                                <option value="anual">Anual</option>
-                                <option value="trimestral">Trimestral</option>
-                                <option value="mensual">Mensual</option>
-                                <option value="sin_reajuste">Sin Reajuste</option>
-                            </select>
+                            <SelectUncontrolled
+                                name="reajuste"
+                                defaultValue={initialData.reajuste || 'semestral'}
+                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                options={[
+                                    { value: 'semestral', label: 'Semestral' },
+                                    { value: 'anual', label: 'Anual' },
+                                    { value: 'trimestral', label: 'Trimestral' },
+                                    { value: 'mensual', label: 'Mensual' },
+                                    { value: 'sin_reajuste', label: 'Sin Reajuste' },
+                                ]}
+                            />
                         </div>
 
 
@@ -1591,19 +1615,18 @@ function AnnexFormLogic({ user, profile, navigate, initialData = {}, requestId =
                         <div className="flex gap-2 items-center">
                             <div className="relative w-full max-w-md">
                                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-500" />
-                                <select
-                                    className="flex h-10 w-full rounded-md border border-input bg-white pl-9 pr-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                                    onChange={handlePropertySelect}
-                                    value={selectedPropertyId}
-                                    disabled={loadingProperties}
-                                >
-                                    <option value="">Seleccionar propiedad...</option>
-                                    {properties.map(p => (
-                                        <option key={p.id} value={p.id}>
-                                            {p.address} {p.commune ? `- ${p.commune} ` : ''}
-                                        </option>
-                                    ))}
-                                </select>
+                                <Select value={selectedPropertyId || undefined} onValueChange={v => handlePropertySelect({ target: { value: v } })} disabled={loadingProperties}>
+                                    <SelectTrigger className="flex h-10 w-full rounded-md border border-input bg-white pl-9 pr-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                                        <SelectValue placeholder="Seleccionar propiedad..." />
+                                    </SelectTrigger>
+                                    <SelectContent className="z-[300]">
+                                        {properties.map(p => (
+                                            <SelectItem key={p.id} value={p.id}>
+                                                {p.address} {p.commune ? `- ${p.commune} ` : ''}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                             </div>
                             {loadingProperties && <span className="text-xs text-slate-400">Cargando...</span>}
                         </div>

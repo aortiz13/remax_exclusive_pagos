@@ -21,6 +21,7 @@ import AdminPropertyImport from './pages/AdminPropertyImport'
 import LeadDetail from './pages/LeadDetail'
 import WeeklyKpiForm from './components/kpi/WeeklyKpiForm'
 import EvaluacionComercialForm from './pages/EvaluacionComercialForm'
+import CameraRequestPage from './pages/CameraRequestPage'
 
 import KpiDashboard from './components/kpi/KpiDashboard'
 import AdminKpiView from './components/kpi/AdminKpiView'
@@ -208,7 +209,11 @@ function App() {
                 </ProtectedRoute>
               } />
 
-
+              <Route path="/request/camera-360" element={
+                <ProtectedRoute>
+                  <CameraRequestPage />
+                </ProtectedRoute>
+              } />
 
               <Route path="/admin/invites" element={
                 <ProtectedRoute>

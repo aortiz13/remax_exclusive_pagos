@@ -19,7 +19,7 @@ const fetchThreads = async (agentId) => {
             )
         `)
         .eq('agent_id', agentId)
-        .order('updated_at', { ascending: false });
+        .order('last_message_at', { ascending: false, nullsFirst: false });
 
     if (error) throw error;
     return data;
@@ -328,9 +328,22 @@ const EmailList = ({ userProfile, onSelectThread, currentFolder, readThreadIds =
     const parsedFilters = parseQuery(searchTerm);
     const activeChips = isSearchActive ? activeFiltersFromParsed(parsedFilters) : [];
 
-    const filteredThreads = isSearchActive
+    const filteredThreads = (isSearchActive
         ? folderFilteredThreads.filter(t => matchesFilters(t, parsedFilters, readThreadIds))
-        : folderFilteredThreads;
+        : folderFilteredThreads
+    ).sort((a, b) => {
+        const aMessages = a.email_messages || [];
+        const bMessages = b.email_messages || [];
+        const aLatest = aMessages.reduce((max, m) => {
+            const d = new Date(m.received_at).getTime();
+            return d > max ? d : max;
+        }, 0);
+        const bLatest = bMessages.reduce((max, m) => {
+            const d = new Date(m.received_at).getTime();
+            return d > max ? d : max;
+        }, 0);
+        return bLatest - aLatest;
+    });
 
     const totalPages = Math.ceil(filteredThreads.length / PAGE_SIZE);
     const pagedThreads = filteredThreads.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);

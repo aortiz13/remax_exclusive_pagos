@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import {
     Table,
@@ -67,7 +67,7 @@ const SortableHeader = ({ id, children }) => {
 
     return (
         <TableHead ref={setNodeRef} style={style} {...attributes} {...listeners}>
-            <div className="flex items-center justify-center gap-2">
+            <div className="flex items-center justify-start gap-2">
                 <GripHorizontal className="w-4 h-4 text-gray-400" />
                 {children}
             </div>
@@ -160,18 +160,63 @@ const ContactList = () => {
         }
     }
 
+    // Deep search helper: searches all fields and returns matched field labels
+    const CONTACT_FIELD_LABELS = {
+        first_name: 'Nombre',
+        last_name: 'Apellido',
+        email: 'Correo',
+        phone: 'Teléfono',
+        profession: 'Profesión',
+        occupation: 'Ocupación',
+        sex: 'Sexo',
+        source: 'Fuente',
+        source_detail: 'Detalle Fuente',
+        neighborhood: 'Barrio',
+        address: 'Dirección',
+        barrio_comuna: 'Comuna',
+        need: 'Necesidad',
+        need_other: 'Otra Necesidad',
+        rating: 'Clasificación',
+        rating_80_20: 'Clasificación 80/20',
+        status: 'Estado',
+        about: 'Acerca de',
+        current_action: 'Acción Actual',
+        observations: 'Observaciones',
+        rut: 'RUT',
+        religion: 'Religión',
+        family_group: 'Grupo Familiar',
+        parent_status: 'Estado Parental',
+        parent_notes: 'Notas Parentales',
+        bank_name: 'Banco',
+        bank_account_type: 'Tipo Cuenta',
+        bank_account_number: 'N° Cuenta',
+    }
+
+    const searchContactFields = (contact, term) => {
+        const matches = []
+        for (const [field, label] of Object.entries(CONTACT_FIELD_LABELS)) {
+            const value = contact[field]
+            if (value == null) continue
+            const strValue = String(value).toLowerCase()
+            if (strValue.includes(term)) {
+                matches.push(label)
+            }
+        }
+        // Search full name combo
+        const fullName = `${contact.first_name || ''} ${contact.last_name || ''}`.toLowerCase()
+        if (fullName.includes(term) && !matches.includes('Nombre') && !matches.includes('Apellido')) {
+            matches.push('Nombre Completo')
+        }
+        return matches
+    }
+
     const filteredContacts = contacts.filter(contact => {
         // Agent filter
         if (agentFilter !== 'all' && contact.agent_id !== agentFilter) return false
         // Text search
-        const term = searchTerm.toLowerCase()
         if (!searchTerm) return true
-        return (
-            contact.first_name?.toLowerCase().includes(term) ||
-            contact.last_name?.toLowerCase().includes(term) ||
-            contact.email?.toLowerCase().includes(term) ||
-            contact.phone?.includes(searchTerm)
-        )
+        const term = searchTerm.toLowerCase()
+        return searchContactFields(contact, term).length > 0
     }).filter(contact => {
         if (filters.profession && !contact.profession?.toLowerCase().includes(filters.profession.toLowerCase())) return false
         if (filters.rating && !contact.rating?.toLowerCase().includes(filters.rating.toLowerCase())) return false
@@ -185,6 +230,12 @@ const ContactList = () => {
         const dateB = new Date(b.created_at)
         return sortOrder === 'newest' ? dateB - dateA : dateA - dateB
     })
+
+    // Memoize match results for rendering
+    const getContactMatches = (contact) => {
+        if (!searchTerm) return []
+        return searchContactFields(contact, searchTerm.toLowerCase())
+    }
 
     const handleEdit = (contact) => {
         setSelectedContact(contact)
@@ -259,7 +310,7 @@ const ContactList = () => {
         switch (colId) {
             case 'name':
                 return (
-                    <div className="flex flex-col items-center">
+                    <div className="flex flex-col items-start">
                         <span>{contact.first_name} {contact.last_name}</span>
                         {contact.profession && <span className="text-xs text-muted-foreground">{contact.profession}</span>}
                     </div>
@@ -272,7 +323,7 @@ const ContactList = () => {
                 return contact.need || '-'
             case 'contact':
                 return (
-                    <div className="flex flex-col gap-1 text-sm items-center">
+                    <div className="flex flex-col gap-1 text-sm items-start">
                         {contact.email && (
                             <div className="flex items-center gap-1">
                                 <Mail className="h-3 w-3 text-muted-foreground" />
@@ -307,7 +358,7 @@ const ContactList = () => {
                 )
             case 'actions':
                 return (
-                    <div className="text-center">
+                    <div className="text-left">
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                                 <Button variant="ghost" className="h-8 w-8 p-0">
@@ -532,15 +583,34 @@ const ContactList = () => {
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                filteredContacts.map((contact) => (
-                                    <TableRow key={contact.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/crm/contact/${contact.id}`)}>
-                                        {visibleColumns.map((col) => (
-                                            <TableCell key={col.id} className="text-center">
-                                                {renderCellContent(col.id, contact)}
-                                            </TableCell>
-                                        ))}
-                                    </TableRow>
-                                ))
+                                filteredContacts.map((contact) => {
+                                    const matches = getContactMatches(contact)
+                                    return (
+                                        <React.Fragment key={contact.id}>
+                                            <TableRow className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/crm/contact/${contact.id}`)}>
+                                                {visibleColumns.map((col) => (
+                                                    <TableCell key={col.id} className="text-left">
+                                                        {renderCellContent(col.id, contact)}
+                                                    </TableCell>
+                                                ))}
+                                            </TableRow>
+                                            {searchTerm && matches.length > 0 && (
+                                                <TableRow className="border-0 hover:bg-transparent">
+                                                    <TableCell colSpan={visibleColumns.length} className="py-1 px-4 border-0 border-b">
+                                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                                            <span className="text-[11px] text-muted-foreground italic">Encontrado en:</span>
+                                                            {matches.map((match, i) => (
+                                                                <span key={i} className="text-[11px] px-1.5 py-0.5 bg-amber-50 text-amber-700 rounded border border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800">
+                                                                    {match}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    </TableCell>
+                                                </TableRow>
+                                            )}
+                                        </React.Fragment>
+                                    )
+                                })
                             )}
                         </TableBody>
                     </Table>

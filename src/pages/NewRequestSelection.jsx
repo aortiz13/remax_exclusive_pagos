@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { Card, CardContent } from "@/components/ui"
-import { Building2, FileText, ArrowLeft, Receipt, Shield } from "lucide-react"
+import { Building2, FileText, ArrowLeft, Receipt, Shield, Camera } from "lucide-react"
 import { Button } from "@/components/ui"
 
 export default function NewRequestSelection() {
@@ -95,6 +95,23 @@ export default function NewRequestSelection() {
                                 <h3 className="text-xl font-bold text-slate-900 group-hover:text-orange-700 transition-colors">Agendar Turno / Guardia</h3>
                                 <p className="text-sm text-slate-500 max-w-[200px] mx-auto">
                                     Reservar turno en oficina para recibir leads.
+                                </p>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card
+                        className="cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:shadow-xl border-2 hover:border-blue-500 group"
+                        onClick={() => navigate('/request/camera-360')}
+                    >
+                        <CardContent className="flex flex-col items-center justify-center p-12 text-center space-y-6">
+                            <div className="p-6 rounded-full bg-blue-50 group-hover:bg-blue-100 transition-colors">
+                                <Camera className="h-12 w-12 text-blue-600" />
+                            </div>
+                            <div className="space-y-2">
+                                <h3 className="text-xl font-bold text-slate-900 group-hover:text-blue-700 transition-colors">Solicitar Cámara 360°</h3>
+                                <p className="text-sm text-slate-500 max-w-[200px] mx-auto">
+                                    Reservar cámara 360° para propiedad captada en exclusiva.
                                 </p>
                             </div>
                         </CardContent>

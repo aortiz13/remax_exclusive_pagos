@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { Button } from '@/components/ui'
+import { Button, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui'
 import {
     Calculator, DollarSign, TrendingUp, ShieldCheck,
     Briefcase, ChevronRight, ChevronLeft, Calendar, FileCheck,
@@ -198,13 +198,18 @@ export default function StepCalculos({ data, onUpdate, onNext, onBack }) {
             totalAdmin = montoAdmin + ivaAdmin
         }
 
-        const totalCancelar = totalArriendoInicial + garantia + gastosNotarialesB + totalComisionB + seguro
+        // Seguro: quién paga?
+        const seguroPayer = data.seguroPagadoPor || 'arrendatario'
+        const seguroArrendatario = seguroPayer === 'arrendatario' ? seguro : 0
+        const seguroArrendador = seguroPayer === 'arrendador' ? seguro : 0
+
+        const totalCancelar = totalArriendoInicial + garantia + gastosNotarialesB + totalComisionB + seguroArrendatario
 
         // Otros gastos (deducted from owner)
         const otrosGastos = Array.isArray(data.otrosGastos) ? data.otrosGastos : []
         const totalOtrosGastos = otrosGastos.reduce((sum, g) => sum + (Number(g.monto) || 0), 0)
 
-        const totalEgresosOwner = totalComisionA + gastosNotarialesA + certDominio + totalAdmin + totalOtrosGastos
+        const totalEgresosOwner = totalComisionA + gastosNotarialesA + certDominio + totalAdmin + totalOtrosGastos + seguroArrendador
         const totalRecibir = (totalArriendoInicial + garantia) - totalEgresosOwner
 
         setResults({
@@ -221,6 +226,8 @@ export default function StepCalculos({ data, onUpdate, onNext, onBack }) {
             ufUsed: ufVal,
             feeAlert: feeAlertA || feeAlertB,
             seguroDetalle,
+            seguroArrendatario,
+            seguroArrendador,
             totalOtrosGastos
         })
 
@@ -364,26 +371,26 @@ export default function StepCalculos({ data, onUpdate, onNext, onBack }) {
                                 </label>
                             </div>
                             <p className="text-xs text-slate-500 mb-3">Define el plazo para el cálculo de honorarios.</p>
-                            <select
-                                value={contractTimeMode}
-                                onChange={(e) => {
-                                    const newMode = e.target.value
-                                    setContractTimeMode(newMode)
-                                    if (isCommercial) {
-                                        onUpdate('duracionContrato', newMode === 'short' ? 12 : 61)
-                                    } else {
-                                        onUpdate('duracionContrato', newMode === 'short' ? 12 : 25)
-                                    }
-                                }}
-                                className="w-full px-3 py-2 text-sm border border-primary/20 bg-white rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all font-medium text-slate-700 mb-3"
-                            >
-                                <option value="short">
-                                    {isCommercial ? 'Hasta 5 años (50% canon)' : 'Hasta 2 años (50% canon)'}
-                                </option>
-                                <option value="long">
-                                    {isCommercial ? 'Mayor a 5 años (2% total)' : 'Mayor a 2 años (2% total)'}
-                                </option>
-                            </select>
+                            <Select value={contractTimeMode} onValueChange={(newMode) => {
+                                setContractTimeMode(newMode)
+                                if (isCommercial) {
+                                    onUpdate('duracionContrato', newMode === 'short' ? 12 : 61)
+                                } else {
+                                    onUpdate('duracionContrato', newMode === 'short' ? 12 : 25)
+                                }
+                            }}>
+                                <SelectTrigger className="w-full px-3 py-2 text-sm border border-primary/20 bg-white rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all font-medium text-slate-700 mb-3">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="z-[300]">
+                                    <SelectItem value="short">
+                                        {isCommercial ? 'Hasta 5 años (50% canon)' : 'Hasta 2 años (50% canon)'}
+                                    </SelectItem>
+                                    <SelectItem value="long">
+                                        {isCommercial ? 'Mayor a 5 años (2% total)' : 'Mayor a 2 años (2% total)'}
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
                             {contractTimeMode === 'long' && (
                                 <div className="animate-in slide-in-from-top-2 duration-200 relative">
                                     <input
@@ -560,7 +567,39 @@ export default function StepCalculos({ data, onUpdate, onNext, onBack }) {
                                     />
                                 </div>
                                 {data.chkSeguro && (
-                                    <div className="animate-in slide-in-from-top-2 duration-200 mt-3 space-y-2">
+                                    <div className="animate-in slide-in-from-top-2 duration-200 mt-3 space-y-3">
+                                        {/* Quién paga el seguro - Pill Toggle */}
+                                        <div>
+                                            <label className="block text-xs text-slate-500 font-medium mb-1.5">¿Quién asume el pago?</label>
+                                            <div className="bg-slate-100 p-1 rounded-xl inline-flex gap-1">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => onUpdate('seguroPagadoPor', 'arrendatario')}
+                                                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${(data.seguroPagadoPor || 'arrendatario') === 'arrendatario'
+                                                            ? 'bg-white text-primary shadow-sm'
+                                                            : 'text-slate-500 hover:text-slate-700'
+                                                        }`}
+                                                >
+                                                    Arrendatario
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => onUpdate('seguroPagadoPor', 'arrendador')}
+                                                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${data.seguroPagadoPor === 'arrendador'
+                                                            ? 'bg-white text-primary shadow-sm'
+                                                            : 'text-slate-500 hover:text-slate-700'
+                                                        }`}
+                                                >
+                                                    Arrendador
+                                                </button>
+                                            </div>
+                                            <p className="text-[10px] text-slate-400 mt-1">
+                                                {(data.seguroPagadoPor || 'arrendatario') === 'arrendatario'
+                                                    ? 'Se sumará al cobro del arrendatario.'
+                                                    : 'Se deducirá del monto a transferir al arrendador.'
+                                                }
+                                            </p>
+                                        </div>
                                         {/* Auto-calculated amount with info tooltip */}
                                         <div className="flex items-center gap-2">
                                             <div className="flex-1 px-3 py-2 bg-primary/5 text-primary text-sm rounded-lg border border-primary/10 font-bold font-mono flex items-center justify-between">
@@ -965,7 +1004,7 @@ export default function StepCalculos({ data, onUpdate, onNext, onBack }) {
                                             value={formatCurrency(data.montoGastosNotarialesArrendatario || 0)}
                                         />
                                     )}
-                                    {results.montoSeguro > 0 && (
+                                    {results.montoSeguro > 0 && (data.seguroPagadoPor || 'arrendatario') === 'arrendatario' && (
                                         <SummaryRow label="+ Seguro Restitución" value={formatCurrency(results.montoSeguro)} />
                                     )}
 
@@ -982,6 +1021,13 @@ export default function StepCalculos({ data, onUpdate, onNext, onBack }) {
                                         />
                                     )}
 
+                                    {results.montoSeguro > 0 && data.seguroPagadoPor === 'arrendador' && (
+                                        <SummaryRow
+                                            label="– Seguro Restitución"
+                                            value={formatCurrency(results.montoSeguro)}
+                                            className="text-red-300"
+                                        />
+                                    )}
                                     {results.totalOtrosGastos > 0 && (
                                         <SummaryRow
                                             label="– Otros Gastos"
@@ -998,7 +1044,7 @@ export default function StepCalculos({ data, onUpdate, onNext, onBack }) {
                                     </span>
                                     <span className="text-2xl font-extrabold font-mono">{formatCurrency(results.totalCancelar)}</span>
                                     <p className="text-[10px] text-slate-400 mt-1 leading-tight">
-                                        Incluye arriendo, garantía, notaría y honorarios.
+                                        Incluye arriendo, garantía, notaría{(data.seguroPagadoPor || 'arrendatario') === 'arrendatario' && results.montoSeguro > 0 ? ', seguro' : ''} y honorarios.
                                     </p>
                                 </div>
 

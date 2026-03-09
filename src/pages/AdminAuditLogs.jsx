@@ -10,6 +10,7 @@ import {
     Calendar, Eye, ExternalLink, Copy, Check
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui'
 import { toast } from 'sonner'
 
 const PAGE_SIZE = 50
@@ -486,45 +487,48 @@ export default function AdminAuditLogs() {
                                 {/* Agent */}
                                 <div>
                                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">Agente</label>
-                                    <select
-                                        value={filters.agentId}
-                                        onChange={e => setFilters(f => ({ ...f, agentId: e.target.value }))}
-                                        className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30"
-                                    >
-                                        <option value="">Todos</option>
-                                        {agents.map(a => (
-                                            <option key={a.id} value={a.id}>{a.first_name} {a.last_name} ({a.email})</option>
-                                        ))}
-                                    </select>
+                                    <Select value={filters.agentId || "__all__"} onValueChange={v => setFilters(f => ({ ...f, agentId: v === "__all__" ? "" : v }))}>
+                                        <SelectTrigger className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30">
+                                            <SelectValue placeholder="Todos" />
+                                        </SelectTrigger>
+                                        <SelectContent className="z-[300]">
+                                            <SelectItem value="__all__">Todos</SelectItem>
+                                            {agents.map(a => (
+                                                <SelectItem key={a.id} value={a.id}>{a.first_name} {a.last_name} ({a.email})</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
                                 </div>
                                 {/* Level */}
                                 <div>
                                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">Nivel</label>
-                                    <select
-                                        value={filters.level}
-                                        onChange={e => setFilters(f => ({ ...f, level: e.target.value }))}
-                                        className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30"
-                                    >
-                                        <option value="">Todos</option>
-                                        <option value="error">🔴 Error</option>
-                                        <option value="warning">🟡 Warning</option>
-                                        <option value="info">🔵 Info</option>
-                                        <option value="debug">⚪ Debug</option>
-                                    </select>
+                                    <Select value={filters.level || "__all__"} onValueChange={v => setFilters(f => ({ ...f, level: v === "__all__" ? "" : v }))}>
+                                        <SelectTrigger className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30">
+                                            <SelectValue placeholder="Todos" />
+                                        </SelectTrigger>
+                                        <SelectContent className="z-[300]">
+                                            <SelectItem value="__all__">Todos</SelectItem>
+                                            <SelectItem value="error">🔴 Error</SelectItem>
+                                            <SelectItem value="warning">🟡 Warning</SelectItem>
+                                            <SelectItem value="info">🔵 Info</SelectItem>
+                                            <SelectItem value="debug">⚪ Debug</SelectItem>
+                                        </SelectContent>
+                                    </Select>
                                 </div>
                                 {/* Category */}
                                 <div>
                                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">Categoría</label>
-                                    <select
-                                        value={filters.category}
-                                        onChange={e => setFilters(f => ({ ...f, category: e.target.value }))}
-                                        className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30"
-                                    >
-                                        <option value="">Todas</option>
-                                        {Object.entries(CATEGORY_LABELS).map(([k, v]) => (
-                                            <option key={k} value={k}>{v}</option>
-                                        ))}
-                                    </select>
+                                    <Select value={filters.category || "__all__"} onValueChange={v => setFilters(f => ({ ...f, category: v === "__all__" ? "" : v }))}>
+                                        <SelectTrigger className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30">
+                                            <SelectValue placeholder="Todas" />
+                                        </SelectTrigger>
+                                        <SelectContent className="z-[300]">
+                                            <SelectItem value="__all__">Todas</SelectItem>
+                                            {Object.entries(CATEGORY_LABELS).map(([k, v]) => (
+                                                <SelectItem key={k} value={k}>{v}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
                                 </div>
                             </div>
                         </motion.div>

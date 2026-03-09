@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback } from 'react'
 import {
     Button, Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
-    DialogFooter
+    DialogFooter, Select, SelectTrigger, SelectContent, SelectItem, SelectValue
 } from '@/components/ui'
 import {
     Upload, FileSpreadsheet, Check, Loader2, X, ChevronRight,
@@ -497,26 +497,30 @@ const ContactImporter = ({ isOpen, onClose, onSuccess }) => {
 
                                         {/* Column selector */}
                                         <div className="w-48 shrink-0">
-                                            <select
-                                                className={`w-full text-xs h-9 border rounded-lg px-2 pr-6 bg-white transition-all appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-300 ${isMapped
+                                            <Select
+                                                value={mapping[field.id] ? String(mapping[field.id]) : '__ignore__'}
+                                                onValueChange={(val) => setMapping({
+                                                    ...mapping,
+                                                    [field.id]: val === '__ignore__' ? '' : Number(val)
+                                                })}
+                                            >
+                                                <SelectTrigger className={`w-full text-xs h-9 ${isMapped
                                                     ? 'border-emerald-300 text-slate-800'
                                                     : field.required
                                                         ? 'border-red-300 text-slate-500'
                                                         : 'border-slate-200 text-slate-500 hover:border-slate-300'
-                                                    }`}
-                                                value={mapping[field.id] || ''}
-                                                onChange={e => setMapping({
-                                                    ...mapping,
-                                                    [field.id]: e.target.value ? Number(e.target.value) : ''
-                                                })}
-                                            >
-                                                <option value="">— Ignorar —</option>
-                                                {headers.map(h => (
-                                                    <option key={h.col} value={h.col}>
-                                                        {h.label}
-                                                    </option>
-                                                ))}
-                                            </select>
+                                                    }`}>
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent className="z-[300]">
+                                                    <SelectItem value="__ignore__">— Ignorar —</SelectItem>
+                                                    {headers.map(h => (
+                                                        <SelectItem key={h.col} value={String(h.col)}>
+                                                            {h.label}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
                                         </div>
                                     </div>
                                 )

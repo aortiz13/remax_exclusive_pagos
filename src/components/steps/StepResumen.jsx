@@ -140,6 +140,7 @@ export default function StepResumen({ data, onUpdate, onBack, onComplete }) {
             // Seguro de restitución
             seguro_restitucion: data.chkSeguro ? "SI" : "NO",
             seguro_monto: data.chkSeguro ? Number(data.montoSeguro) : 0,
+            seguro_pagado_por: data.chkSeguro ? (data.seguroPagadoPor || 'arrendatario') : null,
             seguro_calculo_detalle: calculations.seguroDetalle || null,
 
             // Certificado dominio vigente
@@ -575,7 +576,12 @@ export default function StepResumen({ data, onUpdate, onBack, onComplete }) {
                     </div>
                     {data.chkSeguro && (
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">Seguro Restitución</span>
+                        <span className="text-muted-foreground">
+                          Seguro Restitución
+                          <span className="text-xs ml-1 opacity-70">
+                            ({(data.seguroPagadoPor || 'arrendatario') === 'arrendatario' ? 'cobra arrendatario' : 'descuenta arrendador'})
+                          </span>
+                        </span>
                         <span>{formatCurrency(calculations.montoSeguro)}</span>
                       </div>
                     )}

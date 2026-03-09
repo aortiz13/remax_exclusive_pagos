@@ -334,10 +334,10 @@ export default function RequestForm() {
 
     // STEPS CONFIG
     const ARRIENDO_STEPS = [
-        { id: 1, label: 'Propiedad' },
-        { id: 2, label: 'Dueño / Banco' },
-        { id: 3, label: 'Arrendatario' },
-        { id: 4, label: 'Cálculos' },
+        { id: 1, label: 'Cálculos' },
+        { id: 2, label: 'Propiedad' },
+        { id: 3, label: 'Dueño / Banco' },
+        { id: 4, label: 'Arrendatario' },
         { id: 5, label: 'Resumen' },
     ]
 
@@ -483,7 +483,7 @@ export default function RequestForm() {
                                                 // Link Parte B (Comprador/Arrendatario)
                                                 const contactBId = formData[`_crm${isVenta ? 'Comprador' : 'Arrendatario'}ContactId`]
                                                 if (contactBId) {
-                                                    await autoLinkContactProperty(contactBId, propId, isVenta ? 'comprador' : 'arrendatario', agentId)
+                                                    await autoLinkContactProperty(contactBId, propId, isVenta ? 'comprador' : 'arrendatario_residente', agentId)
                                                 }
                                             }
                                             // Auto-sync filled-in data back to CRM contacts
@@ -494,7 +494,7 @@ export default function RequestForm() {
                                             }
                                             const parteBContactId = formData[`_crm${isVenta ? 'Comprador' : 'Arrendatario'}ContactId`]
                                             if (parteBContactId) {
-                                                const prefixB = isVenta ? 'comprador' : 'arrendatario'
+                                                const prefixB = isVenta ? 'comprador' : 'arrendatario_residente'
                                                 await updateContactFromRequestData(parteBContactId, buildParteBContactFields(formData, isVenta), formData[`_syncExclude_${prefixB}`] || [])
                                             }
                                         }}
@@ -507,7 +507,7 @@ export default function RequestForm() {
                         {isArriendo && (
                             <>
                                 {currentStep === 1 && (
-                                    <StepPropiedad
+                                    <StepCalculos
                                         data={formData}
                                         onUpdate={handleUpdate}
                                         onNext={nextStep}
@@ -515,7 +515,7 @@ export default function RequestForm() {
                                     />
                                 )}
                                 {currentStep === 2 && (
-                                    <StepDueñoBanco
+                                    <StepPropiedad
                                         data={formData}
                                         onUpdate={handleUpdate}
                                         onNext={nextStep}
@@ -523,7 +523,7 @@ export default function RequestForm() {
                                     />
                                 )}
                                 {currentStep === 3 && (
-                                    <StepArrendatario
+                                    <StepDueñoBanco
                                         data={formData}
                                         onUpdate={handleUpdate}
                                         onNext={nextStep}
@@ -531,7 +531,7 @@ export default function RequestForm() {
                                     />
                                 )}
                                 {currentStep === 4 && (
-                                    <StepCalculos
+                                    <StepArrendatario
                                         data={formData}
                                         onUpdate={handleUpdate}
                                         onNext={nextStep}
@@ -561,7 +561,7 @@ export default function RequestForm() {
                                                 }
                                                 // Link Arrendatario
                                                 if (formData._crmArrendatarioContactId) {
-                                                    await autoLinkContactProperty(formData._crmArrendatarioContactId, propId, 'arrendatario', agentId)
+                                                    await autoLinkContactProperty(formData._crmArrendatarioContactId, propId, 'arrendatario_residente', agentId)
                                                 }
                                             }
                                             // Auto-sync filled-in data back to CRM contacts

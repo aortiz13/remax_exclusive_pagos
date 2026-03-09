@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { Button, Input, Textarea, Select, Label, Switch, Checkbox, Badge } from '@/components/ui'
+import { Button, Input, Textarea, Select, SelectTrigger, SelectContent, SelectItem, SelectValue, Label, Switch, Checkbox, Badge } from '@/components/ui'
 import { X, Save, Search, Plus, Check, ChevronsUpDown, Trash2, UserPlus, Info } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '../../services/supabase'
@@ -389,16 +389,16 @@ const PropertyForm = ({ property, isOpen, onClose, isSimplified = false }) => {
                                     <div className="grid grid-cols-2 gap-4 mb-2">
                                         <div className="space-y-2">
                                             <label className="text-sm font-medium">Moneda</label>
-                                            <select
-                                                name="currency"
-                                                value={formData.currency}
-                                                onChange={handleChange}
-                                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                            >
-                                                <option value="CLP">CLP (Pesos)</option>
-                                                <option value="UF">UF</option>
-                                                <option value="USD">USD</option>
-                                            </select>
+                                            <Select value={formData.currency || 'CLP'} onValueChange={(val) => setFormData(prev => ({ ...prev, currency: val }))}>
+                                                <SelectTrigger className="w-full">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent className="z-[300]">
+                                                    <SelectItem value="CLP">CLP (Pesos)</SelectItem>
+                                                    <SelectItem value="UF">UF</SelectItem>
+                                                    <SelectItem value="USD">USD</SelectItem>
+                                                </SelectContent>
+                                            </Select>
                                         </div>
                                         <div className="space-y-2">
                                             <label className="text-sm font-medium">Precio</label>
@@ -414,14 +414,14 @@ const PropertyForm = ({ property, isOpen, onClose, isSimplified = false }) => {
 
                                     <div className="space-y-2">
                                         <label className="text-sm font-medium">Tipo de Propiedad</label>
-                                        <select
-                                            name="property_type"
-                                            value={formData.property_type}
-                                            onChange={handleChange}
-                                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                        >
-                                            {PROPERTY_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                                        </select>
+                                        <Select value={formData.property_type} onValueChange={(val) => setFormData(prev => ({ ...prev, property_type: val }))}>
+                                            <SelectTrigger className="w-full">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent className="z-[300]">
+                                                {PROPERTY_TYPES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                                            </SelectContent>
+                                        </Select>
                                     </div>
                                     <div className="space-y-2 lg:col-span-2">
                                         <label className="text-sm font-medium">Dirección</label>
@@ -587,15 +587,16 @@ const PropertyForm = ({ property, isOpen, onClose, isSimplified = false }) => {
                                         </div>
                                         <div className="w-36">
                                             <Label className="text-xs mb-1 block">Rol</Label>
-                                            <select
-                                                value={newLinkRole}
-                                                onChange={(e) => setNewLinkRole(e.target.value)}
-                                                className="flex h-9 w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
-                                            >
-                                                {ROLES.map(r => (
-                                                    <option key={r.value} value={r.value}>{r.label}</option>
-                                                ))}
-                                            </select>
+                                            <Select value={newLinkRole} onValueChange={setNewLinkRole}>
+                                                <SelectTrigger className="w-full h-9 text-sm">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent className="z-[300]">
+                                                    {ROLES.map(r => (
+                                                        <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
                                         </div>
                                         <Button
                                             type="button"

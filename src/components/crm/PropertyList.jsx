@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import {
     Table,
@@ -71,7 +71,7 @@ const SortableHeader = ({ id, children }) => {
 
     return (
         <TableHead ref={setNodeRef} style={style} {...attributes} {...listeners}>
-            <div className="flex items-center justify-center gap-2">
+            <div className="flex items-center justify-start gap-2">
                 <GripHorizontal className="w-4 h-4 text-gray-400" />
                 {children}
             </div>
@@ -104,7 +104,7 @@ const PropertyList = () => {
 
     // Column State
     const [columns, setColumns] = useState([
-        { id: 'image', label: '', visible: true },
+        { id: 'image', label: 'Foto', visible: true },
         { id: 'type', label: 'Tipo', visible: true },
         { id: 'address', label: 'Dirección', visible: true },
         { id: 'commune', label: 'Comuna', visible: true },
@@ -164,23 +164,77 @@ const PropertyList = () => {
         }
     }
 
+    // Deep search helper: searches all fields and returns matched field labels
+    const PROPERTY_FIELD_LABELS = {
+        address: 'Dirección',
+        commune: 'Comuna',
+        property_type: 'Tipo',
+        unit_number: 'Unidad',
+        operation_type: 'Operación',
+        price: 'Precio',
+        currency: 'Moneda',
+        notes: 'Notas',
+        source: 'Fuente',
+        listing_link: 'Link Publicación',
+        listing_reference: 'Referencia',
+        remax_listing_id: 'ID Remax',
+        year_built: 'Año Construcción',
+        parking_spaces: 'Estacionamientos',
+        floor_number: 'Piso',
+        rol_number: 'ROL',
+        virtual_tour_url: 'Tour Virtual',
+        video_url: 'Video URL',
+        documentation_link: 'Documentación',
+        m2_total: 'M² Total',
+        m2_built: 'M² Construidos',
+        bedrooms: 'Dormitorios',
+        bathrooms: 'Baños',
+        maintenance_fee: 'Gastos Comunes',
+    }
+
+    const searchPropertyFields = (property, term) => {
+        const matches = []
+        // Search text fields
+        for (const [field, label] of Object.entries(PROPERTY_FIELD_LABELS)) {
+            const value = property[field]
+            if (value == null) continue
+            const strValue = String(value).toLowerCase()
+            if (strValue.includes(term)) {
+                matches.push(label)
+            }
+        }
+        // Search status array
+        if (Array.isArray(property.status)) {
+            const statusMatch = property.status.some(s => s?.toLowerCase().includes(term))
+            if (statusMatch) matches.push('Estado')
+        }
+        // Search owner (joined contact)
+        const ownerName = property.contacts
+            ? `${property.contacts.first_name || ''} ${property.contacts.last_name || ''}`.toLowerCase()
+            : ''
+        if (ownerName.includes(term)) matches.push('Dueño')
+
+        return matches
+    }
+
     const filteredProperties = properties.filter(property => {
         // Agent filter
         if (agentFilter !== 'all' && property.agent_id !== agentFilter) return false
         // Text search
-        const term = searchTerm.toLowerCase()
         if (!searchTerm) return true
-        return (
-            (property.address?.toLowerCase().includes(term) || false) ||
-            (property.commune?.toLowerCase().includes(term) || false) ||
-            (property.contacts?.first_name?.toLowerCase().includes(term) || false) ||
-            (property.contacts?.last_name?.toLowerCase().includes(term) || false)
-        )
+        const term = searchTerm.toLowerCase()
+        return searchPropertyFields(property, term).length > 0
     }).sort((a, b) => {
         const dateA = new Date(a.created_at)
         const dateB = new Date(b.created_at)
         return sortOrder === 'newest' ? dateB - dateA : dateA - dateB
     })
+
+    // Memoize match results for rendering
+    const getPropertyMatches = (property) => {
+        if (!searchTerm) return []
+        return searchPropertyFields(property, searchTerm.toLowerCase())
+    }
 
     const handleRowClick = (property) => {
         setSelectedProperty(property)
@@ -282,7 +336,7 @@ const PropertyList = () => {
         switch (colId) {
             case 'image':
                 return (
-                    <div className="flex justify-center">
+                    <div className="flex justify-start">
                         {property.image_url ? (
                             <img
                                 src={property.image_url}
@@ -298,17 +352,22 @@ const PropertyList = () => {
                 )
             case 'type':
                 return (
-                    <div className="flex flex-col items-center">
+                    <div className="flex flex-col items-start">
                         <Badge variant="outline">{property.property_type || 'Sin tipo'}</Badge>
                     </div>
                 )
-            case 'address':
+            case 'address': {
+                // Extract only street number and name (first 2 comma-separated parts)
+                const shortAddress = property.address
+                    ? property.address.split(',').slice(0, 2).map(s => s.trim()).join(', ')
+                    : '-'
                 return (
-                    <div className="flex flex-col items-center max-w-[200px] truncate">
-                        <span>{property.address}</span>
+                    <div className="flex flex-col items-start max-w-[200px]">
+                        <span className="truncate w-full" title={property.address}>{shortAddress}</span>
                         {property.unit_number && <span className="text-xs text-muted-foreground">Unidad: {property.unit_number}</span>}
                     </div>
                 )
+            }
             case 'commune':
                 return property.commune || '-'
             case 'price':
@@ -325,7 +384,7 @@ const PropertyList = () => {
                 )
             case 'status':
                 return (
-                    <div className="flex flex-wrap gap-1 justify-center">
+                    <div className="flex flex-wrap gap-1 justify-start">
                         {property.status && property.status.map((s, i) => (
                             <span key={i} className="bg-slate-100 text-slate-800 text-xs px-2 py-0.5 rounded-full dark:bg-slate-800 dark:text-slate-300">
                                 {s}
@@ -354,7 +413,7 @@ const PropertyList = () => {
                     : '-'
             case 'actions':
                 return (
-                    <div className="text-center">
+                    <div className="text-left">
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                                 <Button variant="ghost" className="h-8 w-8 p-0">
@@ -501,15 +560,34 @@ const PropertyList = () => {
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                filteredProperties.map((property) => (
-                                    <TableRow key={property.id} className="cursor-pointer hover:bg-muted/50" onClick={() => handleRowClick(property)}>
-                                        {visibleColumns.map((col) => (
-                                            <TableCell key={col.id} className="text-center">
-                                                {renderCellContent(col.id, property)}
-                                            </TableCell>
-                                        ))}
-                                    </TableRow>
-                                ))
+                                filteredProperties.map((property) => {
+                                    const matches = getPropertyMatches(property)
+                                    return (
+                                        <React.Fragment key={property.id}>
+                                            <TableRow className="cursor-pointer hover:bg-muted/50" onClick={() => handleRowClick(property)}>
+                                                {visibleColumns.map((col) => (
+                                                    <TableCell key={col.id} className="text-left">
+                                                        {renderCellContent(col.id, property)}
+                                                    </TableCell>
+                                                ))}
+                                            </TableRow>
+                                            {searchTerm && matches.length > 0 && (
+                                                <TableRow className="border-0 hover:bg-transparent">
+                                                    <TableCell colSpan={visibleColumns.length} className="py-1 px-4 border-0 border-b">
+                                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                                            <span className="text-[11px] text-muted-foreground italic">Encontrado en:</span>
+                                                            {matches.map((match, i) => (
+                                                                <span key={i} className="text-[11px] px-1.5 py-0.5 bg-amber-50 text-amber-700 rounded border border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800">
+                                                                    {match}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    </TableCell>
+                                                </TableRow>
+                                            )}
+                                        </React.Fragment>
+                                    )
+                                })
                             )}
                         </TableBody>
                     </Table>

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { Button, Input, Label, Textarea } from '@/components/ui'
+import { Button, Input, Label, Textarea, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui'
 import { X, Save, Calendar, Clock, Check, ChevronsUpDown, Plus, Activity, Mail } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { supabase } from '../../services/supabase'
@@ -427,20 +427,23 @@ const TaskModal = ({ task, contactId, propertyId, isOpen, onClose }) => {
 
                         <div className="space-y-2">
                             <label className="text-sm font-medium">Recordatorio</label>
-                            <select
-                                name="reminder_minutes"
+                            <Select
                                 value={formData.reminder_minutes}
-                                onChange={handleChange}
-                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                onValueChange={(val) => setFormData(prev => ({ ...prev, reminder_minutes: val }))}
                             >
-                                <option value="none">Sin recordatorio</option>
-                                <option value="10">10 min antes</option>
-                                <option value="20">20 min antes</option>
-                                <option value="30">30 min antes</option>
-                                <option value="40">40 min antes</option>
-                                <option value="50">50 min antes</option>
-                                <option value="60">1 hora antes</option>
-                            </select>
+                                <SelectTrigger className="w-full">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="z-[300]">
+                                    <SelectItem value="none">Sin recordatorio</SelectItem>
+                                    <SelectItem value="10">10 min antes</SelectItem>
+                                    <SelectItem value="20">20 min antes</SelectItem>
+                                    <SelectItem value="30">30 min antes</SelectItem>
+                                    <SelectItem value="40">40 min antes</SelectItem>
+                                    <SelectItem value="50">50 min antes</SelectItem>
+                                    <SelectItem value="60">1 hora antes</SelectItem>
+                                </SelectContent>
+                            </Select>
                         </div>
                     </form>
                 </div>

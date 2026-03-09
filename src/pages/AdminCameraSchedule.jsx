@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../services/supabase'
-import { Button, Card, CardContent, Label } from '@/components/ui'
+import { Button, Card, CardContent, Label, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui'
 import { toast } from 'sonner'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
@@ -665,13 +665,16 @@ export default function AdminCameraSchedule() {
                                             {/* Handoff config */}
                                             <div className="p-4 bg-slate-50 rounded-xl space-y-3">
                                                 <p className="text-xs font-bold text-slate-700 flex items-center gap-1"><UserCheck className="w-3.5 h-3.5" /> Configurar Traspaso</p>
-                                                <select className="w-full h-9 rounded-lg border border-slate-200 px-3 text-sm"
-                                                    value={handoffData.agent_id} onChange={(e) => setHandoffData(p => ({ ...p, agent_id: e.target.value }))}>
-                                                    <option value="">Seleccionar agente de traspaso</option>
-                                                    {Object.entries(agents).filter(([id]) => id !== actionModal.booking.agent_id).map(([id, a]) => (
-                                                        <option key={id} value={id}>{a.name}</option>
-                                                    ))}
-                                                </select>
+                                                <Select value={handoffData.agent_id || undefined} onValueChange={v => setHandoffData(p => ({ ...p, agent_id: v }))}>
+                                                    <SelectTrigger className="w-full h-9 rounded-lg border border-slate-200 px-3 text-sm">
+                                                        <SelectValue placeholder="Seleccionar agente de traspaso" />
+                                                    </SelectTrigger>
+                                                    <SelectContent className="z-[300]">
+                                                        {Object.entries(agents).filter(([id]) => id !== actionModal.booking.agent_id).map(([id, a]) => (
+                                                            <SelectItem key={id} value={id}>{a.name}</SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
                                                 <input type="text" className="w-full h-9 rounded-lg border border-slate-200 px-3 text-sm"
                                                     placeholder="Lugar de traspaso (ej: Oficina RE/MAX)"
                                                     value={handoffData.location} onChange={(e) => setHandoffData(p => ({ ...p, location: e.target.value }))} />
@@ -738,11 +741,15 @@ export default function AdminCameraSchedule() {
                                     <div className="grid grid-cols-2 gap-3">
                                         <div className="space-y-1">
                                             <Label className="text-xs font-bold text-slate-600">Cámara</Label>
-                                            <select className="w-full h-9 rounded-lg border border-slate-200 px-3 text-sm"
-                                                value={rescheduleData.camera_unit || 1} onChange={(e) => setRescheduleData(p => ({ ...p, camera_unit: Number(e.target.value) }))}>
-                                                <option value={1}>Cámara 1</option>
-                                                <option value={2}>Cámara 2</option>
-                                            </select>
+                                            <Select value={String(rescheduleData.camera_unit || 1)} onValueChange={v => setRescheduleData(p => ({ ...p, camera_unit: Number(v) }))}>
+                                                <SelectTrigger className="w-full h-9 rounded-lg border border-slate-200 px-3 text-sm">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent className="z-[300]">
+                                                    <SelectItem value="1">Cámara 1</SelectItem>
+                                                    <SelectItem value="2">Cámara 2</SelectItem>
+                                                </SelectContent>
+                                            </Select>
                                         </div>
                                         <div />
                                     </div>

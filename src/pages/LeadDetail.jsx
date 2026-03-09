@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../services/supabase'
-import { Card, CardContent, Button, Badge } from "@/components/ui"
+import { Card, CardContent, Button, Badge, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui"
 import {
     Loader2, UserCheck, Phone, Mail, MapPin,
     Home, DollarSign, CheckCircle2
@@ -216,19 +216,19 @@ export default function LeadDetail() {
                         </h3>
                     </div>
                     <CardContent className="p-4 space-y-4">
-                        <select
-                            className="w-full h-12 px-3 rounded-lg border border-slate-300 bg-white text-base focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                            value={selectedAgent}
-                            onChange={(e) => setSelectedAgent(e.target.value)}
-                        >
-                            <option value="">-- Elegir un Agente --</option>
-                            <option value="remax_chile" className="font-bold text-blue-600">Remax Chile (Regional)</option>
-                            {agents.map(agent => (
-                                <option key={agent.id} value={agent.id}>
-                                    {agent.first_name} {agent.last_name}
-                                </option>
-                            ))}
-                        </select>
+                        <Select value={selectedAgent || undefined} onValueChange={v => setSelectedAgent(v)}>
+                            <SelectTrigger className="w-full h-12 px-3 rounded-lg border border-slate-300 bg-white text-base focus:ring-2 focus:ring-blue-500 outline-none transition-all">
+                                <SelectValue placeholder="-- Elegir un Agente --" />
+                            </SelectTrigger>
+                            <SelectContent className="z-[300]">
+                                <SelectItem value="remax_chile">Remax Chile (Regional)</SelectItem>
+                                {agents.map(agent => (
+                                    <SelectItem key={agent.id} value={agent.id}>
+                                        {agent.first_name} {agent.last_name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
 
                         <Button
                             className="w-full h-12 text-base font-semibold shadow-lg shadow-blue-900/10"
