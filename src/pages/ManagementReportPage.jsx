@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { supabase, getCustomPublicUrl } from '../services/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Button, Input, Textarea, Label } from '@/components/ui'
-import { FileText, Send, ArrowLeft, ArrowRight, Loader2, Save, Download, Upload, Image as ImageIcon, BarChart3, X, Plus, File, Trash2, Camera, Check } from 'lucide-react'
+import { FileText, Send, ArrowLeft, ArrowRight, Loader2, Save, Download, Upload, Image as ImageIcon, BarChart3, X, Plus, File, Trash2, Camera, Check, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import html2canvas from 'html2canvas'
@@ -491,36 +491,78 @@ export default function ManagementReportPage() {
                 }
             }
 
-            // Generate PDF from the offscreen report
+            // Generate PDF section-by-section to match Descargar PDF page structure
             toast.loading('Generando PDF del informe...', { id: 'pdf-gen' })
             try {
                 const reportEl = document.getElementById('pdf-offscreen-content')
                 if (reportEl) {
-                    const canvas = await html2canvas(reportEl, {
-                        scale: 1.5,
-                        useCORS: true,
-                        allowTaint: true,
-                        backgroundColor: '#ffffff',
-                        logging: false,
-                    })
-                    const imgData = canvas.toDataURL('image/jpeg', 0.85)
+                    const footerAgentName = `${report?.agent?.first_name || profile?.first_name || ''} ${report?.agent?.last_name || profile?.last_name || ''}`.trim()
+                    const styles = Array.from(document.querySelectorAll('link[rel="stylesheet"], style')).map(el => el.outerHTML).join('\n')
+
+                    // Fix relative image paths to absolute so they render in the iframe
+                    let reportHtml = reportEl.innerHTML
+                    reportHtml = reportHtml.replace(/src="\/([^"]+)"/g, `src="${window.location.origin}/$1"`)
+
+                    const fullHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Reporte</title>${styles}
+                        <style>
+                            body { margin: 0; padding: 0; width: 794px; background: white; }
+                            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+                            section { border-bottom: none !important; }
+                        </style></head><body>${reportHtml}</body></html>`
+
+                    const iframe = document.createElement('iframe')
+                    iframe.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;height:10000px;border:none;'
+                    document.body.appendChild(iframe)
+                    iframe.contentDocument.open()
+                    iframe.contentDocument.write(fullHtml)
+                    iframe.contentDocument.close()
+                    await new Promise(resolve => { iframe.onload = resolve; setTimeout(resolve, 2000) })
+                    await new Promise(resolve => setTimeout(resolve, 1500))
+
+                    // Get unique sections in order
+                    const sectionOrder = ['cover-intro', 'statistics', 'chart', 'management', 'anexos']
                     const pdf = new jsPDF('p', 'mm', 'a4')
                     const pageWidth = 210
-                    const pageHeight = 297
-                    const imgWidth = pageWidth
-                    const imgHeight = (canvas.height * imgWidth) / canvas.width
-                    let heightLeft = imgHeight
-                    let position = 0
+                    let firstPage = true
 
-                    pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight)
-                    heightLeft -= pageHeight
+                    for (const sectionName of sectionOrder) {
+                        const sectionEls = iframe.contentDocument.querySelectorAll(`[data-pdf-section="${sectionName}"]`)
+                        if (!sectionEls.length) continue
 
-                    while (heightLeft > 0) {
-                        position -= pageHeight
-                        pdf.addPage()
-                        pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight)
-                        heightLeft -= pageHeight
+                        // For grouped sections (like cover-intro), wrap them in a container
+                        const wrapper = iframe.contentDocument.createElement('div')
+                        wrapper.style.cssText = 'width:794px;background:white;'
+                        sectionEls.forEach(el => wrapper.appendChild(el.cloneNode(true)))
+                        iframe.contentDocument.body.appendChild(wrapper)
+
+                        const canvas = await html2canvas(wrapper, {
+                            scale: 2, useCORS: true, allowTaint: true, backgroundColor: '#ffffff', logging: false, width: 794, windowWidth: 794,
+                        })
+                        iframe.contentDocument.body.removeChild(wrapper)
+
+                        if (!firstPage) pdf.addPage()
+                        firstPage = false
+
+                        const imgData = canvas.toDataURL('image/png')
+                        const imgHeight = (canvas.height * pageWidth) / canvas.width
+                        pdf.addImage(imgData, 'PNG', 0, 0, pageWidth, imgHeight)
                     }
+
+                    // Add footer to each page
+                    const totalPages = pdf.getNumberOfPages()
+                    for (let p = 1; p <= totalPages; p++) {
+                        pdf.setPage(p)
+                        pdf.setFillColor(249, 250, 251)
+                        pdf.rect(0, 287, 210, 10, 'F')
+                        pdf.setDrawColor(229, 231, 235)
+                        pdf.line(0, 287, 210, 287)
+                        pdf.setFontSize(7)
+                        pdf.setTextColor(107, 114, 128)
+                        pdf.text(`© ${new Date().getFullYear()} RE/MAX Exclusive`, 10, 293)
+                        pdf.text(footerAgentName, 10, 296)
+                    }
+
+                    document.body.removeChild(iframe)
 
                     const pdfBase64 = pdf.output('datauristring').split(',')[1]
                     emailAttachments.unshift({
@@ -539,7 +581,7 @@ export default function ManagementReportPage() {
             const token = sessionData?.session?.access_token
             if (!token) throw new Error('No se encontró una sesión activa.')
 
-            const emailSubject = `Informe de Gestión #${report.report_number} — ${propertyAddress}`
+            const emailSubject = `Informe de Gestion #${report.report_number} - ${propertyAddress}`
 
             const { data: sendResult, error: sendError } = await supabase.functions.invoke('gmail-send', {
                 headers: { Authorization: `Bearer ${token}` },
@@ -570,6 +612,166 @@ export default function ManagementReportPage() {
         } catch (err) {
             console.error('Error sending report:', err)
             toast.error('Error al enviar el informe: ' + (err.message || ''))
+        } finally {
+            setSending(false)
+        }
+    }
+
+    const handleResend = async () => {
+        // Check if agent has connected Gmail
+        const { data: gmailAccount, error: gmailError } = await supabase
+            .from('gmail_accounts')
+            .select('id')
+            .eq('agent_id', profile?.id || report.agent_id)
+            .single()
+
+        if (gmailError || !gmailAccount) {
+            toast.error('Debes conectar tu cuenta de correo en la sección "Casilla" antes de enviar informes.', { duration: 6000 })
+            return
+        }
+
+        const ownerEmail = report.owner?.email
+        if (!ownerEmail) {
+            toast.error('El propietario no tiene un correo electrónico registrado.')
+            return
+        }
+
+        setSending(true)
+        try {
+            const agentName = `${report.agent?.first_name || profile?.first_name || ''} ${report.agent?.last_name || profile?.last_name || ''}`.trim()
+            const agentEmail = report.agent?.email || profile?.email || ''
+            const ownerName = `${report.owner?.first_name || ''}`.trim()
+            const propertyAddr = report.properties?.address || ''
+            const propCommune = report.properties?.commune || ''
+
+            const bodyHtml = `
+                <div style="font-family: 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #1a1a1a;">
+                    <p style="font-size: 15px; line-height: 1.7; margin: 0 0 20px 0;">
+                        Estimado/a <strong style="color: #003DA5;">${ownerName || 'Propietario/a'}</strong>,
+                    </p>
+                    <p style="font-size: 15px; line-height: 1.7; color: #4a4a4a; margin: 0 0 20px 0;">
+                        Junto con saludar, adjunto el informe de gestión correspondiente a su propiedad ubicada en:
+                    </p>
+                    <div style="background: #f8f9fa; border-left: 4px solid #003DA5; padding: 16px 20px; margin: 0 0 24px 0; border-radius: 0 6px 6px 0;">
+                        <div style="color: #003DA5; font-weight: 700; font-size: 15px;">${propertyAddr}</div>
+                        ${propCommune ? `<div style="color: #6b7280; font-size: 13px; margin-top: 4px;">${propCommune}</div>` : ''}
+                    </div>
+                    <p style="font-size: 15px; line-height: 1.7; color: #4a4a4a; margin: 0 0 24px 0;">
+                        En el archivo adjunto encontrará el detalle completo de las actividades realizadas, estadísticas de visualizaciones en portales y las conclusiones del período.
+                    </p>
+                    <p style="font-size: 15px; line-height: 1.7; color: #4a4a4a; margin: 0 0 8px 0;">
+                        Quedo atento/a a cualquier comentario o consulta.
+                    </p>
+                    <p style="font-size: 15px; line-height: 1.7; color: #4a4a4a; margin: 0;">
+                        Saludos cordiales,
+                    </p>
+                    <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #e5e7eb;">
+                        <div style="color: #1a1a1a; font-weight: 700; font-size: 15px;">${agentName}</div>
+                        <div style="color: #003DA5; font-size: 13px; font-weight: 600; margin-top: 2px;">Agente RE/MAX Exclusive</div>
+                        ${agentEmail ? `<div style="color: #6b7280; font-size: 13px; margin-top: 4px;">${agentEmail}</div>` : ''}
+                    </div>
+                    <div style="margin-top: 32px; padding: 16px 0; border-top: 1px solid #e5e7eb; text-align: center;">
+                        <span style="color: #9ca3af; font-size: 11px;">© ${new Date().getFullYear()} RE/MAX Exclusive · Santiago, Chile</span>
+                    </div>
+                </div>
+            `
+
+            // Fetch document anexos
+            const documentAnexos = formData.anexos.filter(a => !a.isImage)
+            const emailAttachments = []
+            for (const anexo of documentAnexos) {
+                try {
+                    const response = await fetch(anexo.url)
+                    if (!response.ok) continue
+                    const blob = await response.blob()
+                    const base64 = await new Promise((resolve, reject) => {
+                        const reader = new FileReader()
+                        reader.onload = () => resolve(reader.result.split(',')[1])
+                        reader.onerror = reject
+                        reader.readAsDataURL(blob)
+                    })
+                    const mimeMap = { pdf: 'application/pdf', xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', xls: 'application/vnd.ms-excel', doc: 'application/msword', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }
+                    emailAttachments.push({ filename: anexo.name || `anexo.${anexo.type}`, mimeType: mimeMap[anexo.type] || 'application/octet-stream', data: base64 })
+                } catch (err) { console.warn('Could not fetch anexo:', anexo.name, err) }
+            }
+
+            // Generate PDF section-by-section
+            toast.loading('Generando PDF del informe...', { id: 'pdf-gen' })
+            try {
+                const reportEl = document.getElementById('pdf-offscreen-content')
+                if (reportEl) {
+                    const footerAgentName2 = `${report?.agent?.first_name || profile?.first_name || ''} ${report?.agent?.last_name || profile?.last_name || ''}`.trim()
+                    const styles = Array.from(document.querySelectorAll('link[rel="stylesheet"], style')).map(el => el.outerHTML).join('\n')
+                    let reportHtml = reportEl.innerHTML
+                    reportHtml = reportHtml.replace(/src="\/([^"]+)"/g, `src="${window.location.origin}/$1"`)
+                    const fullHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Reporte</title>${styles}
+                        <style>body{margin:0;padding:0;width:794px;background:white;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}section{border-bottom:none!important;}</style></head><body>${reportHtml}</body></html>`
+
+                    const iframe = document.createElement('iframe')
+                    iframe.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;height:10000px;border:none;'
+                    document.body.appendChild(iframe)
+                    iframe.contentDocument.open()
+                    iframe.contentDocument.write(fullHtml)
+                    iframe.contentDocument.close()
+                    await new Promise(resolve => { iframe.onload = resolve; setTimeout(resolve, 2000) })
+                    await new Promise(resolve => setTimeout(resolve, 1500))
+
+                    const sectionOrder = ['cover-intro', 'statistics', 'chart', 'management', 'anexos']
+                    const pdf = new jsPDF('p', 'mm', 'a4')
+                    const pageWidth = 210
+                    let firstPage = true
+                    for (const sectionName of sectionOrder) {
+                        const sectionEls = iframe.contentDocument.querySelectorAll(`[data-pdf-section="${sectionName}"]`)
+                        if (!sectionEls.length) continue
+                        const wrapper = iframe.contentDocument.createElement('div')
+                        wrapper.style.cssText = 'width:794px;background:white;'
+                        sectionEls.forEach(el => wrapper.appendChild(el.cloneNode(true)))
+                        iframe.contentDocument.body.appendChild(wrapper)
+                        const canvas = await html2canvas(wrapper, { scale: 2, useCORS: true, allowTaint: true, backgroundColor: '#ffffff', logging: false, width: 794, windowWidth: 794 })
+                        iframe.contentDocument.body.removeChild(wrapper)
+                        if (!firstPage) pdf.addPage()
+                        firstPage = false
+                        const imgData = canvas.toDataURL('image/png')
+                        const imgHeight = (canvas.height * pageWidth) / canvas.width
+                        pdf.addImage(imgData, 'PNG', 0, 0, pageWidth, imgHeight)
+                    }
+                    const totalPages = pdf.getNumberOfPages()
+                    for (let p = 1; p <= totalPages; p++) {
+                        pdf.setPage(p)
+                        pdf.setFillColor(249, 250, 251)
+                        pdf.rect(0, 287, 210, 10, 'F')
+                        pdf.setDrawColor(229, 231, 235)
+                        pdf.line(0, 287, 210, 287)
+                        pdf.setFontSize(7)
+                        pdf.setTextColor(107, 114, 128)
+                        pdf.text(`© ${new Date().getFullYear()} RE/MAX Exclusive`, 10, 293)
+                        pdf.text(footerAgentName2, 10, 296)
+                    }
+                    document.body.removeChild(iframe)
+                    const pdfBase64 = pdf.output('datauristring').split(',')[1]
+                    emailAttachments.unshift({ filename: `Informe_Gestion_${report.report_number}_${propertyAddr.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`, mimeType: 'application/pdf', data: pdfBase64 })
+                }
+            } catch (pdfErr) { console.warn('Could not generate PDF attachment:', pdfErr) }
+            toast.dismiss('pdf-gen')
+
+            // Send via agent's Gmail
+            const { data: sessionData } = await supabase.auth.getSession()
+            const token = sessionData?.session?.access_token
+            if (!token) throw new Error('No se encontró una sesión activa.')
+
+            const { error: sendError } = await supabase.functions.invoke('gmail-send', {
+                headers: { Authorization: `Bearer ${token}` },
+                body: { to: ownerEmail, subject: `Informe de Gestion #${report.report_number} - ${propertyAddr}`, bodyHtml, attachments: emailAttachments }
+            })
+            if (sendError) throw new Error(sendError.message || 'Error al enviar el correo')
+
+            // Update sent_at timestamp
+            await supabase.from('management_reports').update({ sent_at: new Date().toISOString() }).eq('id', reportId)
+
+            toast.success('¡Informe re-enviado al propietario!')
+        } catch (err) {
+            console.error('Error re-sending report:', err)
+            toast.error('Error al re-enviar el informe: ' + (err.message || ''))
         } finally {
             setSending(false)
         }
@@ -837,7 +1039,7 @@ export default function ManagementReportPage() {
             <div className={cn("bg-white text-black", isPreview ? "w-[210mm] pdf-print-area" : "max-w-4xl mx-auto")} style={{ fontFamily: "'Public Sans', 'Inter', sans-serif" }}>
 
                 {/* === SECTION 1: COVER PAGE === */}
-                <section className="relative w-full min-h-[450px] overflow-hidden group">
+                <section data-pdf-section="cover-intro" className="relative w-full min-h-[450px] overflow-hidden group">
                     {propertyImages.exterior ? (
                         <img src={propertyImages.exterior} alt="Exterior" className="absolute inset-0 w-full h-full object-cover" />
                     ) : (
@@ -883,7 +1085,7 @@ export default function ManagementReportPage() {
                 </section>
 
                 {/* === SECTION 2: INTRODUCTION === */}
-                <section className="px-12 py-12 bg-gray-50 border-b border-gray-100">
+                <section data-pdf-section="cover-intro" className="px-12 py-12 bg-gray-50 border-b border-gray-100">
                     <div className="flex gap-12 items-center">
                         {/* Interior image with offset red border */}
                         <div className="w-2/5 flex-shrink-0">
@@ -943,7 +1145,7 @@ export default function ManagementReportPage() {
                 </section>
 
                 {/* === SECTION 3: PORTAL STATISTICS === */}
-                <section className="px-12 py-12 border-b border-gray-100" style={{ pageBreakBefore: isPreview ? 'always' : 'auto' }}>
+                <section data-pdf-section="statistics" className="px-12 py-12 border-b border-gray-100" style={{ pageBreakBefore: isPreview ? 'always' : 'auto' }}>
                     <div className="mb-8 flex justify-between items-end">
                         <div>
                             <span className="text-[#E11B22] font-bold uppercase tracking-[0.3em] text-xs mb-2 block">Estadísticas</span>
@@ -1050,7 +1252,7 @@ export default function ManagementReportPage() {
                 </section>
 
                 {/* === SECTION 4: CHART === */}
-                <section className="px-12 py-12 border-b border-gray-100 bg-white" style={{ pageBreakBefore: isPreview ? 'always' : 'auto' }}>
+                <section data-pdf-section="chart" className="px-12 py-12 border-b border-gray-100 bg-white" style={{ pageBreakBefore: isPreview ? 'always' : 'auto' }}>
                     <h3 className="text-center text-sm font-bold text-[#003DA5] uppercase tracking-wider mb-2">Visualizaciones vs. Contactos</h3>
                     <p className="text-center text-xs text-gray-400 mb-8">Comparativa por portal de publicación</p>
                     <div className="relative max-w-3xl mx-auto min-h-[280px] overflow-hidden group flex items-center justify-center">
@@ -1077,7 +1279,7 @@ export default function ManagementReportPage() {
                 </section>
 
                 {/* === SECTION 5: MANAGEMENT SUMMARY === */}
-                <section className="px-12 py-12 border-b border-gray-100 allow-break" style={{ pageBreakBefore: isPreview ? 'always' : 'auto' }}>
+                <section data-pdf-section="management" className="px-12 py-12 border-b border-gray-100 allow-break" style={{ pageBreakBefore: isPreview ? 'always' : 'auto' }}>
                     <div className="mb-10">
                         <span className="text-[#E11B22] font-bold uppercase tracking-[0.3em] text-xs mb-2 block">Gestión</span>
                         <h2 className="text-3xl font-bold text-[#003DA5] uppercase">Resumen Operativo</h2>
@@ -1182,7 +1384,7 @@ export default function ManagementReportPage() {
                 {/* === SECTION 6: ANEXOS === */}
                 {/* Hide entire section in preview/sent mode if no anexos */}
                 {(formData.anexos.length > 0 || !isSentOrPreview) && (
-                    <section className="px-12 py-12 border-b border-gray-100" style={{ pageBreakBefore: isPreview ? 'always' : 'auto' }}>
+                    <section data-pdf-section="anexos" className="px-12 py-12 border-b border-gray-100" style={{ pageBreakBefore: isPreview ? 'always' : 'auto' }}>
                         <div className="mb-6">
                             <span className="text-[#E11B22] font-bold uppercase tracking-[0.3em] text-xs mb-2 block">Documentación</span>
                             <h2 className="text-2xl font-bold text-[#003DA5] uppercase">Anexos</h2>
@@ -1430,8 +1632,14 @@ export default function ManagementReportPage() {
                         </>
                     )}
                     {isSent && (
-                        <div className="flex items-center gap-2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg px-3 py-1.5 text-sm font-medium">
-                            ✅ Enviado el {new Date(report.sent_at).toLocaleDateString('es-CL')}
+                        <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg px-3 py-1.5 text-sm font-medium">
+                                ✅ Enviado el {new Date(report.sent_at).toLocaleDateString('es-CL')}
+                            </div>
+                            <Button variant="outline" size="sm" onClick={handleResend} disabled={sending} className="gap-2">
+                                {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                                Re-enviar
+                            </Button>
                         </div>
                     )}
                 </div>
@@ -1456,6 +1664,18 @@ export default function ManagementReportPage() {
                     <Button onClick={handleSend} disabled={sending} className="gap-2 px-6 bg-blue-600 hover:bg-blue-700 text-white">
                         {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                         Enviar al Propietario
+                    </Button>
+                </div>
+            )}
+            {isSent && (
+                <div className="max-w-4xl mx-auto flex justify-end gap-3 pb-8">
+                    <Button variant="outline" onClick={handleDownloadPdf} className="gap-2">
+                        <Download className="w-4 h-4" />
+                        Descargar PDF
+                    </Button>
+                    <Button variant="outline" onClick={handleResend} disabled={sending} className="gap-2 px-6">
+                        {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                        Re-enviar al Propietario
                     </Button>
                 </div>
             )}
