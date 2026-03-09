@@ -5,6 +5,7 @@ import { triggerEvaluacionComercialWebhook } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
 import { logActivity } from '../services/activityService';
+import { auditLog } from '../services/auditLogService';
 import {
     Card, CardContent, Button, Input, Label,
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -128,13 +129,13 @@ export default function EvaluacionComercialForm() {
             setPropRol(prop.tax_id || prop.role || '');
         }
 
-        // Fetch contact with role "Propietario"
+        // Fetch contact with owner-type role (propietario, vendedor, arrendador)
         try {
             const { data: contactRoles, error: rolesError } = await supabase
                 .from('property_contacts')
                 .select('contact_id, role')
                 .eq('property_id', propId)
-                .ilike('role', '%propietario%');
+                .in('role', ['propietario', 'vendedor', 'arrendador']);
 
             if (rolesError) throw rolesError;
 
@@ -303,14 +304,16 @@ export default function EvaluacionComercialForm() {
                 updated_at: new Date().toISOString()
             };
 
+            let requestId = id;
             if (id) {
                 // Update existing request
                 const { error: dbError } = await supabase.from('requests').update(dbPayload).eq('id', id);
                 if (dbError) throw dbError;
             } else {
                 // Insert new request
-                const { error: dbError } = await supabase.from('requests').insert(dbPayload);
+                const { data: newReq, error: dbError } = await supabase.from('requests').insert(dbPayload).select('id').single();
                 if (dbError) throw dbError;
+                requestId = newReq?.id;
             }
 
             const webhookPayload = {
@@ -322,11 +325,12 @@ export default function EvaluacionComercialForm() {
 
             toast.success('Solicitud enviada exitosamente');
 
-            // Log to timeline
+            // Log to timeline — use property ID if selected, otherwise use the request ID
+            const activityEntityId = selectedPropertyId !== 'none' ? selectedPropertyId : requestId;
             logActivity({
                 action: 'Solicitud',
                 entity_type: selectedPropertyId !== 'none' ? 'Propiedad' : 'Contacto',
-                entity_id: selectedPropertyId !== 'none' ? selectedPropertyId : null,
+                entity_id: activityEntityId,
                 description: `Evaluación Comercial enviada: ${propDireccion}`,
                 property_id: selectedPropertyId !== 'none' ? selectedPropertyId : null,
                 details: { request_type: 'evaluacion_comercial', address: propDireccion }
@@ -335,6 +339,17 @@ export default function EvaluacionComercialForm() {
             navigate('/dashboard');
         } catch (error) {
             console.error('Error submitting evaluacion comercial:', error);
+            auditLog.error('crm', 'evaluacion_comercial.submit_failed', `Error al enviar evaluación comercial: ${error.message}`, {
+                module: 'EvaluacionComercialForm.submitRequest',
+                error_code: error.code || undefined,
+                details: {
+                    error: error.message,
+                    address: propDireccion,
+                    owner: propNombre,
+                    selectedPropertyId,
+                    isEdit: !!id
+                }
+            });
             toast.error('Ocurrió un error al enviar la solicitud.');
             setIsSubmitting(false);
         }

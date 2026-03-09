@@ -1,4 +1,4 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle, Badge } from '@/components/ui'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, Badge, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui'
 import { useEffect, useState } from 'react'
 import { supabase, getCustomPublicUrl } from '@/services/supabase'
 import { triggerEvaluacionComercialCompletionWebhook } from '@/services/api'
@@ -688,15 +688,15 @@ export function RequestDetailModal({ request, isOpen, onClose }) {
                                             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                                                 Estado de Observaciones <span className="text-red-500">*</span>
                                             </label>
-                                            <select
-                                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                                                value={hasObservaciones}
-                                                onChange={(e) => setHasObservaciones(e.target.value)}
-                                            >
-                                                <option value="none" disabled>Seleccione una opción</option>
-                                                <option value="true">Con Observaciones</option>
-                                                <option value="false">Sin Observaciones</option>
-                                            </select>
+                                            <Select value={hasObservaciones} onValueChange={v => setHasObservaciones(v)}>
+                                                <SelectTrigger className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+                                                    <SelectValue placeholder="Seleccione una opción" />
+                                                </SelectTrigger>
+                                                <SelectContent className="z-[300]">
+                                                    <SelectItem value="true">Con Observaciones</SelectItem>
+                                                    <SelectItem value="false">Sin Observaciones</SelectItem>
+                                                </SelectContent>
+                                            </Select>
                                         </div>
                                     )}
 

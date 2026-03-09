@@ -57,6 +57,34 @@ export default function ManagementReportList() {
                 enriched = enriched.map(r => ({ ...r, agent: agentMap[r.agent_id] || null }))
             }
 
+            // Dynamically resolve current owners from property_contacts
+            const propertyIds = [...new Set(enriched.map(r => r.property_id).filter(Boolean))]
+            if (propertyIds.length > 0) {
+                const { data: ownerLinks } = await supabase
+                    .from('property_contacts')
+                    .select('property_id, contact_id, contacts:contact_id(id, first_name, last_name, email)')
+                    .in('property_id', propertyIds)
+                    .eq('role', 'propietario')
+
+                if (ownerLinks && ownerLinks.length > 0) {
+                    const ownerMap = Object.fromEntries(ownerLinks.map(l => [l.property_id, l]))
+                    enriched = enriched.map(r => {
+                        const link = ownerMap[r.property_id]
+                        if (link?.contacts) {
+                            // Update stale owner_contact_id in background
+                            if (link.contact_id !== r.owner_contact_id) {
+                                supabase.from('management_reports')
+                                    .update({ owner_contact_id: link.contact_id })
+                                    .eq('id', r.id)
+                                    .then(() => { })
+                            }
+                            return { ...r, owner: link.contacts }
+                        }
+                        return r
+                    })
+                }
+            }
+
             setReports(enriched)
         } catch (err) {
             console.error('Error fetching reports:', err)

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { Button, Input, Textarea, Select, Label, Switch, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem, Badge } from '@/components/ui'
+import { Button, Input, Textarea, Select, SelectTrigger, SelectContent, SelectItem, SelectValue, Label, Switch, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem, Badge } from '@/components/ui'
 import { X, Save, Home, Plus, Trash2 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '../../services/supabase'
@@ -375,38 +375,37 @@ const ContactForm = ({ contact, isOpen, onClose, isSimplified = false, initialEm
                                                         <p className="text-[10px] text-orange-500 mt-1">La fuente no se puede modificar para leads de guardia.</p>
                                                     </div>
                                                 ) : (
-                                                    <select
-                                                        name="source"
-                                                        value={formData.source}
-                                                        onChange={handleChange}
-                                                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                                    >
-                                                        <option value="">Seleccionar...</option>
-                                                        <option value="Referido">Referido</option>
-                                                        <option value="Portal">Portal Inmobiliario</option>
-                                                        <option value="Redes Sociales">Redes Sociales</option>
-                                                        <option value="Web">Web</option>
-                                                        <option value="Llamado">Llamado Directo</option>
-                                                        <option value="Guardia">Guardia</option>
-                                                        <option value="Turno">Turno</option>
-                                                        <option value="Otro">Otro</option>
-                                                    </select>
+                                                    <Select value={formData.source || undefined} onValueChange={(val) => setFormData(prev => ({ ...prev, source: val }))}>
+                                                        <SelectTrigger className="w-full">
+                                                            <SelectValue placeholder="Seleccionar..." />
+                                                        </SelectTrigger>
+                                                        <SelectContent className="z-[300]">
+                                                            <SelectItem value="Referido">Referido</SelectItem>
+                                                            <SelectItem value="Portal">Portal Inmobiliario</SelectItem>
+                                                            <SelectItem value="Redes Sociales">Redes Sociales</SelectItem>
+                                                            <SelectItem value="Web">Web</SelectItem>
+                                                            <SelectItem value="Llamado">Llamado Directo</SelectItem>
+                                                            <SelectItem value="Guardia">Guardia</SelectItem>
+                                                            <SelectItem value="Turno">Turno</SelectItem>
+                                                            <SelectItem value="Otro">Otro</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
                                                 )}
                                             </div>
                                             <div className="space-y-2">
                                                 <Label>Estado</Label>
-                                                <select
-                                                    name="status"
-                                                    value={formData.status}
-                                                    onChange={handleChange}
-                                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                                >
-                                                    <option value="Activo">Activo</option>
-                                                    <option value="Inactivo">Inactivo</option>
-                                                    <option value="Archivado">Archivado</option>
-                                                    <option value="En Seguimiento">En Seguimiento</option>
-                                                    <option value="Cliente">Cliente (Cerrado)</option>
-                                                </select>
+                                                <Select value={formData.status} onValueChange={(val) => setFormData(prev => ({ ...prev, status: val }))}>
+                                                    <SelectTrigger className="w-full">
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent className="z-[300]">
+                                                        <SelectItem value="Activo">Activo</SelectItem>
+                                                        <SelectItem value="Inactivo">Inactivo</SelectItem>
+                                                        <SelectItem value="Archivado">Archivado</SelectItem>
+                                                        <SelectItem value="En Seguimiento">En Seguimiento</SelectItem>
+                                                        <SelectItem value="Cliente">Cliente (Cerrado)</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
                                             </div>
                                             <div className="space-y-2 col-span-2">
                                                 <Label>Necesidad</Label>
@@ -564,15 +563,16 @@ const ContactForm = ({ contact, isOpen, onClose, isSimplified = false, initialEm
                                                 </div>
                                                 <div className="w-36">
                                                     <Label className="text-xs mb-1 block">Rol</Label>
-                                                    <select
-                                                        value={newLinkRole}
-                                                        onChange={(e) => setNewLinkRole(e.target.value)}
-                                                        className="flex h-9 w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
-                                                    >
-                                                        {ROLES.map(r => (
-                                                            <option key={r.value} value={r.value}>{r.label}</option>
-                                                        ))}
-                                                    </select>
+                                                    <Select value={newLinkRole} onValueChange={setNewLinkRole}>
+                                                        <SelectTrigger className="w-full h-9 text-sm">
+                                                            <SelectValue />
+                                                        </SelectTrigger>
+                                                        <SelectContent className="z-[300]">
+                                                            {ROLES.map(r => (
+                                                                <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
                                                 </div>
                                                 <Button
                                                     type="button"
@@ -602,17 +602,16 @@ const ContactForm = ({ contact, isOpen, onClose, isSimplified = false, initialEm
                                             </div>
                                             <div className="space-y-2">
                                                 <Label>Sexo</Label>
-                                                <select
-                                                    name="sex"
-                                                    value={formData.sex}
-                                                    onChange={handleChange}
-                                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                                >
-                                                    <option value="">Seleccionar...</option>
-                                                    <option value="Masculino">Masculino</option>
-                                                    <option value="Femenino">Femenino</option>
-                                                    <option value="Otro">Otro</option>
-                                                </select>
+                                                <Select value={formData.sex || undefined} onValueChange={(val) => setFormData(prev => ({ ...prev, sex: val }))}>
+                                                    <SelectTrigger className="w-full">
+                                                        <SelectValue placeholder="Seleccionar..." />
+                                                    </SelectTrigger>
+                                                    <SelectContent className="z-[300]">
+                                                        <SelectItem value="Masculino">Masculino</SelectItem>
+                                                        <SelectItem value="Femenino">Femenino</SelectItem>
+                                                        <SelectItem value="Otro">Otro</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
                                             </div>
                                         </Section>
 
@@ -620,32 +619,30 @@ const ContactForm = ({ contact, isOpen, onClose, isSimplified = false, initialEm
                                         <Section title="Clasificación">
                                             <div className="space-y-2">
                                                 <Label>Rating (Calidad)</Label>
-                                                <select
-                                                    name="rating"
-                                                    value={formData.rating}
-                                                    onChange={handleChange}
-                                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                                >
-                                                    <option value="">Seleccionar...</option>
-                                                    <option value="A+">A+ (Listo para comprar/vender)</option>
-                                                    <option value="A">A (30-60 días)</option>
-                                                    <option value="B">B (60-90 días)</option>
-                                                    <option value="C">C (Largo plazo)</option>
-                                                    <option value="D">D (Descartado/Frío)</option>
-                                                </select>
+                                                <Select value={formData.rating || undefined} onValueChange={(val) => setFormData(prev => ({ ...prev, rating: val }))}>
+                                                    <SelectTrigger className="w-full">
+                                                        <SelectValue placeholder="Seleccionar..." />
+                                                    </SelectTrigger>
+                                                    <SelectContent className="z-[300]">
+                                                        <SelectItem value="A+">A+ (Listo para comprar/vender)</SelectItem>
+                                                        <SelectItem value="A">A (30-60 días)</SelectItem>
+                                                        <SelectItem value="B">B (60-90 días)</SelectItem>
+                                                        <SelectItem value="C">C (Largo plazo)</SelectItem>
+                                                        <SelectItem value="D">D (Descartado/Frío)</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
                                             </div>
                                             <div className="space-y-2">
                                                 <Label>Pareto (80/20)</Label>
-                                                <select
-                                                    name="rating_80_20"
-                                                    value={formData.rating_80_20}
-                                                    onChange={handleChange}
-                                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                                >
-                                                    <option value="">Seleccionar...</option>
-                                                    <option value="20%">20% (Mejores Clientes)</option>
-                                                    <option value="80%">80% (Resto)</option>
-                                                </select>
+                                                <Select value={formData.rating_80_20 || undefined} onValueChange={(val) => setFormData(prev => ({ ...prev, rating_80_20: val }))}>
+                                                    <SelectTrigger className="w-full">
+                                                        <SelectValue placeholder="Seleccionar..." />
+                                                    </SelectTrigger>
+                                                    <SelectContent className="z-[300]">
+                                                        <SelectItem value="20%">20% (Mejores Clientes)</SelectItem>
+                                                        <SelectItem value="80%">80% (Resto)</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
                                             </div>
                                             <div className="space-y-2">
                                                 <Label>Último Contacto</Label>
@@ -665,33 +662,32 @@ const ContactForm = ({ contact, isOpen, onClose, isSimplified = false, initialEm
                                         <Section title="Datos Bancarios">
                                             <div className="space-y-2">
                                                 <Label>Banco</Label>
-                                                <select
-                                                    name="bank_name"
-                                                    value={formData.bank_name}
-                                                    onChange={handleChange}
-                                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                                >
-                                                    <option value="">Seleccionar banco...</option>
-                                                    <option value="Banco de Chile">Banco de Chile</option>
-                                                    <option value="Banco Estado">Banco Estado</option>
-                                                    <option value="Banco Santander">Banco Santander</option>
-                                                    <option value="Banco BCI">Banco BCI</option>
-                                                    <option value="Banco Scotiabank">Banco Scotiabank</option>
-                                                    <option value="Banco Itaú">Banco Itaú</option>
-                                                    <option value="Banco Falabella">Banco Falabella</option>
-                                                    <option value="Banco Ripley">Banco Ripley</option>
-                                                    <option value="Banco Security">Banco Security</option>
-                                                    <option value="Banco BICE">Banco BICE</option>
-                                                    <option value="Banco Internacional">Banco Internacional</option>
-                                                    <option value="Banco Consorcio">Banco Consorcio</option>
-                                                    <option value="HSBC Bank">HSBC Bank</option>
-                                                    <option value="Banco BTG Pactual">Banco BTG Pactual</option>
-                                                    <option value="Coopeuch">Coopeuch</option>
-                                                    <option value="Tenpo">Tenpo</option>
-                                                    <option value="Mercado Pago">Mercado Pago</option>
-                                                    <option value="MACH">MACH</option>
-                                                    <option value="Otro">Otro</option>
-                                                </select>
+                                                <Select value={formData.bank_name || undefined} onValueChange={(val) => setFormData(prev => ({ ...prev, bank_name: val }))}>
+                                                    <SelectTrigger className="w-full">
+                                                        <SelectValue placeholder="Seleccionar banco..." />
+                                                    </SelectTrigger>
+                                                    <SelectContent className="z-[300]">
+                                                        <SelectItem value="Banco de Chile">Banco de Chile</SelectItem>
+                                                        <SelectItem value="Banco Estado">Banco Estado</SelectItem>
+                                                        <SelectItem value="Banco Santander">Banco Santander</SelectItem>
+                                                        <SelectItem value="Banco BCI">Banco BCI</SelectItem>
+                                                        <SelectItem value="Banco Scotiabank">Banco Scotiabank</SelectItem>
+                                                        <SelectItem value="Banco Itaú">Banco Itaú</SelectItem>
+                                                        <SelectItem value="Banco Falabella">Banco Falabella</SelectItem>
+                                                        <SelectItem value="Banco Ripley">Banco Ripley</SelectItem>
+                                                        <SelectItem value="Banco Security">Banco Security</SelectItem>
+                                                        <SelectItem value="Banco BICE">Banco BICE</SelectItem>
+                                                        <SelectItem value="Banco Internacional">Banco Internacional</SelectItem>
+                                                        <SelectItem value="Banco Consorcio">Banco Consorcio</SelectItem>
+                                                        <SelectItem value="HSBC Bank">HSBC Bank</SelectItem>
+                                                        <SelectItem value="Banco BTG Pactual">Banco BTG Pactual</SelectItem>
+                                                        <SelectItem value="Coopeuch">Coopeuch</SelectItem>
+                                                        <SelectItem value="Tenpo">Tenpo</SelectItem>
+                                                        <SelectItem value="Mercado Pago">Mercado Pago</SelectItem>
+                                                        <SelectItem value="MACH">MACH</SelectItem>
+                                                        <SelectItem value="Otro">Otro</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
                                                 {formData.bank_name === 'Otro' && (
                                                     <div className="mt-2 animate-in fade-in slide-in-from-top-1 duration-300">
                                                         <Input
@@ -705,18 +701,17 @@ const ContactForm = ({ contact, isOpen, onClose, isSimplified = false, initialEm
                                             </div>
                                             <div className="space-y-2">
                                                 <Label>Tipo de Cuenta</Label>
-                                                <select
-                                                    name="bank_account_type"
-                                                    value={formData.bank_account_type}
-                                                    onChange={handleChange}
-                                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                                >
-                                                    <option value="">Seleccionar...</option>
-                                                    <option value="Cuenta Corriente">Cuenta Corriente</option>
-                                                    <option value="Cuenta Vista">Cuenta Vista</option>
-                                                    <option value="Cuenta de Ahorro">Cuenta de Ahorro</option>
-                                                    <option value="Cuenta RUT">Cuenta RUT</option>
-                                                </select>
+                                                <Select value={formData.bank_account_type || undefined} onValueChange={(val) => setFormData(prev => ({ ...prev, bank_account_type: val }))}>
+                                                    <SelectTrigger className="w-full">
+                                                        <SelectValue placeholder="Seleccionar..." />
+                                                    </SelectTrigger>
+                                                    <SelectContent className="z-[300]">
+                                                        <SelectItem value="Cuenta Corriente">Cuenta Corriente</SelectItem>
+                                                        <SelectItem value="Cuenta Vista">Cuenta Vista</SelectItem>
+                                                        <SelectItem value="Cuenta de Ahorro">Cuenta de Ahorro</SelectItem>
+                                                        <SelectItem value="Cuenta RUT">Cuenta RUT</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
                                             </div>
                                             <div className="space-y-2">
                                                 <Label>Número de Cuenta</Label>

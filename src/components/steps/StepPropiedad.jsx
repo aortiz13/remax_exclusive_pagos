@@ -1,5 +1,5 @@
 import React from 'react'
-import { Card, CardContent, Button, Input, Label } from '@/components/ui'
+import { Card, CardContent, Button, Input, Label, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui'
 import { Building2, MapPin } from 'lucide-react'
 import PropertyPickerInline from '@/components/ui/PropertyPickerInline'
 
@@ -37,19 +37,19 @@ export default function StepPropiedad({ data, onUpdate, onNext, onBack }) {
                 <form onSubmit={handleSubmit} className="space-y-5">
                     <div className="space-y-2">
                         <Label>Tipo de Propiedad <span className="text-red-500">*</span></Label>
-                        <select
-                            value={data.tipoPropiedad}
-                            onChange={e => onUpdate('tipoPropiedad', e.target.value)}
-                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                            <option value="">Seleccionar...</option>
-                            <option value="Departamento">Departamento</option>
-                            <option value="Casa">Casa</option>
-                            <option value="Oficina">Oficina</option>
-                            <option value="Local Comercial">Local Comercial</option>
-                            <option value="Estacionamiento">Estacionamiento</option>
-                            <option value="Bodega">Bodega</option>
-                        </select>
+                        <Select value={data.tipoPropiedad || undefined} onValueChange={v => onUpdate('tipoPropiedad', v)}>
+                            <SelectTrigger className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+                                <SelectValue placeholder="Seleccionar..." />
+                            </SelectTrigger>
+                            <SelectContent className="z-[300]">
+                                <SelectItem value="Departamento">Departamento</SelectItem>
+                                <SelectItem value="Casa">Casa</SelectItem>
+                                <SelectItem value="Oficina">Oficina</SelectItem>
+                                <SelectItem value="Local Comercial">Local Comercial</SelectItem>
+                                <SelectItem value="Estacionamiento">Estacionamiento</SelectItem>
+                                <SelectItem value="Bodega">Bodega</SelectItem>
+                            </SelectContent>
+                        </Select>
                     </div>
 
                     <div className="space-y-2">

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
-import { Card, CardContent, Button, Input, Label, Separator } from '@/components/ui'
+import { Card, CardContent, Button, Input, Label, Separator, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui'
 import { User, CreditCard, Building, Wallet, MapPin, Search } from 'lucide-react'
 import ContactPickerInline from '@/components/ui/ContactPickerInline'
 import SyncFieldIndicator from '@/components/ui/SyncFieldIndicator'
@@ -327,27 +327,27 @@ export default function StepDueñoBanco({ data, onUpdate, onNext, onBack }) {
                             <SyncLabel formField="bancoNombre">
                                 <Label>Banco <span className="text-red-500">*</span></Label>
                             </SyncLabel>
-                            <select
-                                value={data.bancoNombre}
-                                onChange={e => onUpdate('bancoNombre', e.target.value)}
-                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                            >
-                                <option value="">Seleccionar...</option>
-                                {BANKS.map(b => <option key={b} value={b}>{b}</option>)}
-                            </select>
+                            <Select value={data.bancoNombre || undefined} onValueChange={v => onUpdate('bancoNombre', v)}>
+                                <SelectTrigger className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+                                    <SelectValue placeholder="Seleccionar..." />
+                                </SelectTrigger>
+                                <SelectContent className="z-[300]">
+                                    {BANKS.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
                         </div>
                         <div className="space-y-2">
                             <SyncLabel formField="bancoTipoCuenta">
                                 <Label>Tipo de Cuenta <span className="text-red-500">*</span></Label>
                             </SyncLabel>
-                            <select
-                                value={data.bancoTipoCuenta}
-                                onChange={e => onUpdate('bancoTipoCuenta', e.target.value)}
-                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                            >
-                                <option value="">Seleccionar...</option>
-                                {ACCOUNT_TYPES.map(a => <option key={a} value={a}>{a}</option>)}
-                            </select>
+                            <Select value={data.bancoTipoCuenta || undefined} onValueChange={v => onUpdate('bancoTipoCuenta', v)}>
+                                <SelectTrigger className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+                                    <SelectValue placeholder="Seleccionar..." />
+                                </SelectTrigger>
+                                <SelectContent className="z-[300]">
+                                    {ACCOUNT_TYPES.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
                         </div>
                         <div className="space-y-2">
                             <SyncLabel formField="bancoNroCuenta">

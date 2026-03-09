@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { Button, Label } from '@/components/ui'
+import { Button, Label, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui'
 import { X, Plus, Check, ChevronsUpDown, Home, UserPlus } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { supabase } from '../../services/supabase'
@@ -9,21 +9,27 @@ import { toast } from 'sonner'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui"
 import { logActivity } from '../../services/activityService'
-import ContactForm from './ContactForm'
+import ContactPickerInline from '../ui/ContactPickerInline'
 import PropertyForm from './PropertyForm'
 
 const ROLES = [
     { value: 'propietario', label: 'Propietario' },
-    { value: 'arrendatario', label: 'Arrendatario' },
-    { value: 'comprador', label: 'Comprador' },
+    { value: 'arrendatario_residente', label: 'Arrendatario / Residente' },
+    { value: 'lead_arrendatario', label: 'Lead Arrendatario' },
+    { value: 'lead_comprador', label: 'Lead Comprador' },
     { value: 'vendedor', label: 'Vendedor' },
+    { value: 'arrendador', label: 'Arrendador' },
+    { value: 'comprador', label: 'Comprador' },
 ]
 
 const ROLE_COLORS = {
     propietario: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200',
-    arrendatario: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200',
-    comprador: 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-200',
+    arrendatario_residente: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200',
+    lead_arrendatario: 'bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-200',
+    lead_comprador: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-200',
     vendedor: 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-200',
+    arrendador: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200',
+    comprador: 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-200',
 }
 
 /**
@@ -33,40 +39,28 @@ const ROLE_COLORS = {
  */
 const AddParticipantModal = ({ isOpen, onClose, propertyId, contactId, mode = 'from-property' }) => {
     const [loading, setLoading] = useState(false)
-    const [contacts, setContacts] = useState([])
     const [properties, setProperties] = useState([])
     const [selectedContactId, setSelectedContactId] = useState(null)
+    const [selectedContactName, setSelectedContactName] = useState('')
     const [selectedPropertyId, setSelectedPropertyId] = useState(null)
     const [role, setRole] = useState('propietario')
     const [openCombobox, setOpenCombobox] = useState(false)
 
     // Inline creation
-    const [isCreatingContact, setIsCreatingContact] = useState(false)
     const [isCreatingProperty, setIsCreatingProperty] = useState(false)
 
     useEffect(() => {
         if (isOpen) {
             setRole('propietario')
             setSelectedContactId(contactId || null)
+            setSelectedContactName('')
             setSelectedPropertyId(propertyId || null)
 
-            if (mode === 'from-property') {
-                fetchContacts()
-            } else {
+            if (mode === 'from-contact') {
                 fetchProperties()
             }
         }
     }, [isOpen])
-
-    const fetchContacts = async () => {
-        const { data } = await supabase
-            .from('contacts')
-            .select('id, first_name, last_name, email')
-            .order('first_name')
-            .limit(200)
-
-        if (data) setContacts(data)
-    }
 
     const fetchProperties = async () => {
         const { data } = await supabase
@@ -115,8 +109,8 @@ const AddParticipantModal = ({ isOpen, onClose, propertyId, contactId, mode = 'f
                 throw error
             }
 
-            // Sync with property owner_id if role is propietario
-            if (role === 'propietario') {
+            // Sync with property owner_id if role is propietario/vendedor/arrendador
+            if (['propietario', 'vendedor', 'arrendador'].includes(role)) {
                 await supabase
                     .from('properties')
                     .update({ owner_id: finalContactId })
@@ -128,8 +122,7 @@ const AddParticipantModal = ({ isOpen, onClose, propertyId, contactId, mode = 'f
             let propertyAddress = ''
 
             if (mode === 'from-property') {
-                const c = contacts.find(c => c.id === finalContactId)
-                contactName = c ? `${c.first_name} ${c.last_name}` : ''
+                contactName = selectedContactName || ''
                 propertyAddress = 'esta propiedad'
             } else {
                 const p = properties.find(p => p.id === finalPropertyId)
@@ -156,13 +149,6 @@ const AddParticipantModal = ({ isOpen, onClose, propertyId, contactId, mode = 'f
         }
     }
 
-    const handleContactCreated = (shouldRefresh) => {
-        setIsCreatingContact(false)
-        if (shouldRefresh) {
-            fetchContacts()
-        }
-    }
-
     const handlePropertyCreated = (shouldRefresh) => {
         setIsCreatingProperty(false)
         if (shouldRefresh) {
@@ -179,7 +165,7 @@ const AddParticipantModal = ({ isOpen, onClose, propertyId, contactId, mode = 'f
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.95 }}
-                className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col relative z-50 border border-gray-200 dark:border-gray-800"
+                className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-md overflow-visible flex flex-col relative z-50 border border-gray-200 dark:border-gray-800"
             >
                 <div className="p-4 border-b flex justify-between items-center bg-gray-50 dark:bg-gray-800/50">
                     <h2 className="text-lg font-bold flex items-center gap-2">
@@ -194,82 +180,39 @@ const AddParticipantModal = ({ isOpen, onClose, propertyId, contactId, mode = 'f
                     </Button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto custom-scrollbar" onWheel={(e) => e.stopPropagation()}>
+                <div className="flex-1 custom-scrollbar" onWheel={(e) => e.stopPropagation()}>
                     <form onSubmit={handleSubmit} className="p-6 space-y-4">
                         {/* Role Selector — always first */}
                         <div className="space-y-2">
                             <Label>Rol</Label>
-                            <select
-                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                                value={role}
-                                onChange={(e) => setRole(e.target.value)}
-                            >
-                                {ROLES.map(r => (
-                                    <option key={r.value} value={r.value}>{r.label}</option>
-                                ))}
-                            </select>
+                            <Select value={role} onValueChange={setRole}>
+                                <SelectTrigger className="w-full">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="z-[300]">
+                                    {ROLES.map(r => (
+                                        <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                         </div>
 
                         {/* Entity Selector */}
                         {mode === 'from-property' ? (
-                            /* Contact combobox (when adding from property) */
-                            <div className="space-y-2">
-                                <Label>Contacto</Label>
-                                <Popover open={openCombobox} onOpenChange={setOpenCombobox}>
-                                    <PopoverTrigger asChild>
-                                        <Button
-                                            variant="outline"
-                                            role="combobox"
-                                            aria-expanded={openCombobox}
-                                            className="w-full justify-between"
-                                        >
-                                            {selectedContactId
-                                                ? (() => {
-                                                    const c = contacts.find(c => c.id === selectedContactId)
-                                                    return c ? `${c.first_name} ${c.last_name}` : 'Seleccionar...'
-                                                })()
-                                                : "Seleccionar contacto..."}
-                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                        </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-[350px] p-0 z-[200]">
-                                        <Command>
-                                            <CommandInput placeholder="Buscar contacto..." />
-                                            <CommandList>
-                                                <CommandEmpty>No encontrado.</CommandEmpty>
-                                                <CommandGroup>
-                                                    {contacts.map((contact) => (
-                                                        <CommandItem
-                                                            key={contact.id}
-                                                            value={contact.first_name + " " + contact.last_name}
-                                                            onSelect={() => {
-                                                                setSelectedContactId(contact.id)
-                                                                setOpenCombobox(false)
-                                                            }}
-                                                        >
-                                                            <Check className={`mr-2 h-4 w-4 ${selectedContactId === contact.id ? "opacity-100" : "opacity-0"}`} />
-                                                            {contact.first_name} {contact.last_name}
-                                                            {contact.email && <span className="ml-2 text-xs text-muted-foreground truncate">({contact.email})</span>}
-                                                        </CommandItem>
-                                                    ))}
-                                                </CommandGroup>
-                                                <CommandGroup>
-                                                    <CommandItem
-                                                        onSelect={() => {
-                                                            setOpenCombobox(false)
-                                                            setIsCreatingContact(true)
-                                                        }}
-                                                        className="text-primary font-medium"
-                                                    >
-                                                        <Plus className="mr-2 h-4 w-4" />
-                                                        Crear nuevo contacto
-                                                    </CommandItem>
-                                                </CommandGroup>
-                                            </CommandList>
-                                        </Command>
-                                    </PopoverContent>
-                                </Popover>
-                            </div>
+                            /* Contact picker (when adding from property) */
+                            <ContactPickerInline
+                                label="Contacto"
+                                value={selectedContactId}
+                                onSelectContact={(contact) => {
+                                    if (contact) {
+                                        setSelectedContactId(contact.id)
+                                        setSelectedContactName(`${contact.first_name} ${contact.last_name}`)
+                                    } else {
+                                        setSelectedContactId(null)
+                                        setSelectedContactName('')
+                                    }
+                                }}
+                            />
                         ) : (
                             /* Property combobox (when adding from contact) */
                             <div className="space-y-2">
@@ -344,13 +287,6 @@ const AddParticipantModal = ({ isOpen, onClose, propertyId, contactId, mode = 'f
                     </form>
                 </div>
             </motion.div>
-
-            {/* Inline Contact Creation */}
-            <ContactForm
-                isOpen={isCreatingContact}
-                onClose={handleContactCreated}
-                isSimplified={true}
-            />
 
             {/* Inline Property Creation */}
             <PropertyForm

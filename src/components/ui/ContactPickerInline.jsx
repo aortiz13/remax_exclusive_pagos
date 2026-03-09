@@ -89,7 +89,7 @@ export default function ContactPickerInline({ onSelectContact, label = 'Pre-llen
                 </div>
 
                 {isOpen && (
-                    <div className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-lg shadow-lg max-h-64 overflow-hidden animate-in fade-in-0 zoom-in-95 slide-in-from-top-2 duration-200">
+                    <div className="absolute z-[300] w-full mt-1 bg-popover border border-border rounded-lg shadow-lg max-h-64 overflow-hidden animate-in fade-in-0 zoom-in-95 slide-in-from-top-2 duration-200">
                         <div className="p-2 border-b border-border flex flex-col gap-1">
                             <div className="flex items-center gap-2 px-2 bg-muted/50 rounded-md">
                                 <Search className="w-3.5 h-3.5 text-muted-foreground" />
@@ -162,7 +162,7 @@ export default function ContactPickerInline({ onSelectContact, label = 'Pre-llen
 
             {/* Backdrop to close */}
             {isOpen && (
-                <div className="fixed inset-0 z-40" onClick={() => { setIsOpen(false); setSearchTerm('') }} />
+                <div className="fixed inset-0 z-[250]" onClick={() => { setIsOpen(false); setSearchTerm('') }} />
             )}
 
             {isAddingNew && (

@@ -7,7 +7,7 @@ import { logActivity } from './activityService'
  * 
  * @param {string} contactId - UUID of the contact
  * @param {string} propertyId - UUID of the property
- * @param {string} role - Role like 'propietario', 'arrendatario', 'vendedor', 'comprador'
+ * @param {string} role - Role: 'propietario', 'arrendatario_residente', 'lead_arrendatario', 'lead_comprador', 'vendedor', 'arrendador', 'comprador'
  * @param {string} agentId - UUID of the agent creating the link
  */
 export async function autoLinkContactProperty(contactId, propertyId, role, agentId) {
@@ -32,8 +32,8 @@ export async function autoLinkContactProperty(contactId, propertyId, role, agent
                 agent_id: agentId
             })
 
-            // If the role is propietario, also update the property's owner_id
-            if (role === 'propietario') {
+            // If the role is propietario/vendedor/arrendador, also update the property's owner_id
+            if (['propietario', 'vendedor', 'arrendador'].includes(role)) {
                 await supabase.from('properties')
                     .update({ owner_id: contactId })
                     .eq('id', propertyId)

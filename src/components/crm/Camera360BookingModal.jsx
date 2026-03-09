@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../services/supabase'
-import { Button, Card, CardContent, Label } from '@/components/ui'
+import { Button, Card, CardContent, Label, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui'
 import { toast } from 'sonner'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
@@ -498,10 +498,14 @@ export default function Camera360BookingModal({ open, onClose, propertyAddress, 
                                                 <div className="grid grid-cols-2 gap-4">
                                                     <div className="space-y-2">
                                                         <Label className="text-xs font-bold text-slate-600">Hora Retiro <span className="text-red-500">*</span></Label>
-                                                        <select className="w-full h-10 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 text-sm focus:ring-2 focus:ring-blue-500"
-                                                            value={form.start_time} onChange={(e) => setForm(p => ({ ...p, start_time: e.target.value }))}>
-                                                            {TIME_SLOTS.map(t => <option key={t} value={t}>{t}</option>)}
-                                                        </select>
+                                                        <Select value={form.start_time} onValueChange={(val) => setForm(p => ({ ...p, start_time: val }))}>
+                                                            <SelectTrigger className="w-full h-10">
+                                                                <SelectValue />
+                                                            </SelectTrigger>
+                                                            <SelectContent className="z-[300] max-h-60">
+                                                                {TIME_SLOTS.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                                                            </SelectContent>
+                                                        </Select>
                                                     </div>
                                                     <div className="space-y-2">
                                                         <Label className="text-xs font-bold text-slate-600">Fecha Devolución</Label>
@@ -515,10 +519,14 @@ export default function Camera360BookingModal({ open, onClose, propertyAddress, 
                                                     <div />
                                                     <div className="space-y-2">
                                                         <Label className="text-xs font-bold text-slate-600">Hora Devolución <span className="text-red-500">*</span></Label>
-                                                        <select className="w-full h-10 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 text-sm focus:ring-2 focus:ring-blue-500"
-                                                            value={form.end_time} onChange={(e) => setForm(p => ({ ...p, end_time: e.target.value }))}>
-                                                            {TIME_SLOTS.map(t => <option key={t} value={t}>{t}</option>)}
-                                                        </select>
+                                                        <Select value={form.end_time} onValueChange={(val) => setForm(p => ({ ...p, end_time: val }))}>
+                                                            <SelectTrigger className="w-full h-10">
+                                                                <SelectValue />
+                                                            </SelectTrigger>
+                                                            <SelectContent className="z-[300] max-h-60">
+                                                                {TIME_SLOTS.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                                                            </SelectContent>
+                                                        </Select>
                                                     </div>
                                                 </div>
 

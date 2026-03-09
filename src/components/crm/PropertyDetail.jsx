@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Button, Badge, Separator, AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui'
-import { ArrowLeft, User, MapPin, Building, Ruler, BedDouble, Bath, Link as LinkIcon, FileText, Briefcase, Plus, Filter, Trash2, History, Star } from 'lucide-react'
-import { supabase } from '../../services/supabase'
+import { ArrowLeft, User, MapPin, Building, Ruler, BedDouble, Bath, Link as LinkIcon, FileText, Briefcase, Plus, Filter, Trash2, History, Star, ChevronLeft, ChevronRight, Upload, X, Camera, Image as ImageIcon } from 'lucide-react'
+import { supabase, getCustomPublicUrl } from '../../services/supabase'
 import { useAuth } from '../../context/AuthContext'
 import PropertyForm from './PropertyForm'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -42,10 +42,20 @@ const PropertyDetail = () => {
     // Action Modal State
     const [isActionModalOpen, setIsActionModalOpen] = useState(false)
 
+    // Photo Gallery State
+    const [photos, setPhotos] = useState([])
+    const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0)
+    const [photoUploading, setPhotoUploading] = useState(false)
+    const [photoToDelete, setPhotoToDelete] = useState(null)
+    const [isDeletePhotoOpen, setIsDeletePhotoOpen] = useState(false)
+    const [isDeletingPhoto, setIsDeletingPhoto] = useState(false)
+    const photoInputRef = useRef(null)
+
     useEffect(() => {
         fetchProperty()
         fetchTasks()
         fetchParticipants()
+        fetchPhotos()
     }, [id])
 
     const handleDeleteProperty = async () => {
@@ -128,6 +138,81 @@ const PropertyDetail = () => {
             .eq('property_id', id)
 
         if (data) setParticipants(data)
+    }
+
+    const fetchPhotos = async () => {
+        const { data } = await supabase
+            .from('property_photos')
+            .select('*')
+            .eq('property_id', id)
+            .order('position', { ascending: true })
+            .order('created_at', { ascending: true })
+
+        if (data) setPhotos(data)
+    }
+
+    const handlePhotoUpload = async (files) => {
+        if (!files || files.length === 0) return
+        setPhotoUploading(true)
+        try {
+            for (const file of files) {
+                if (file.size > 5 * 1024 * 1024) {
+                    toast.error(`${file.name} supera 5MB, omitido`)
+                    continue
+                }
+                const ext = file.name.split('.').pop()
+                const filePath = `property-photos/${id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+                const { error: uploadError } = await supabase.storage
+                    .from('mandates')
+                    .upload(filePath, file, { cacheControl: '3600', upsert: true })
+
+                if (uploadError) {
+                    console.error('Upload error:', uploadError)
+                    toast.error(`Error subiendo ${file.name}`)
+                    continue
+                }
+
+                const publicUrl = getCustomPublicUrl('mandates', filePath)
+                await supabase.from('property_photos').insert({
+                    property_id: id,
+                    agent_id: user.id,
+                    url: publicUrl,
+                    caption: file.name.replace(/\.[^.]+$/, ''),
+                    position: photos.length
+                })
+            }
+            toast.success('Fotos subidas correctamente')
+            fetchPhotos()
+        } catch (err) {
+            console.error('Photo upload error:', err)
+            toast.error('Error al subir fotos')
+        } finally {
+            setPhotoUploading(false)
+            if (photoInputRef.current) photoInputRef.current.value = ''
+        }
+    }
+
+    const handleDeletePhoto = async () => {
+        if (!photoToDelete) return
+        setIsDeletingPhoto(true)
+        try {
+            const { error } = await supabase
+                .from('property_photos')
+                .delete()
+                .eq('id', photoToDelete.id)
+            if (error) throw error
+            toast.success('Foto eliminada')
+            fetchPhotos()
+            // Adjust slideshow index if needed
+            setCurrentPhotoIndex(prev => Math.max(0, prev - 1))
+        } catch (err) {
+            console.error('Error deleting photo:', err)
+            toast.error('Error al eliminar foto')
+        } finally {
+            setIsDeletingPhoto(false)
+            setIsDeletePhotoOpen(false)
+            setPhotoToDelete(null)
+        }
     }
 
 
@@ -294,16 +379,59 @@ const PropertyDetail = () => {
                 </div>
             </div>
 
-            {/* Image Banner */}
-            {property.image_url && (
-                <div className="w-full h-48 md:h-80 rounded-xl overflow-hidden bg-gray-100 border relative shadow-sm">
-                    <img
-                        src={property.image_url}
-                        alt={property.address}
-                        className="w-full h-full object-cover"
-                    />
-                </div>
-            )}
+            {/* Photo Slideshow */}
+            {(() => {
+                const allSlides = []
+                if (property.image_url) allSlides.push({ url: property.image_url, caption: 'Foto principal', isMain: true })
+                photos.forEach(p => allSlides.push({ url: p.url, caption: p.caption, id: p.id }))
+                if (allSlides.length === 0) return null
+                const safeIndex = Math.min(currentPhotoIndex, allSlides.length - 1)
+                return (
+                    <div className="w-full h-48 md:h-80 rounded-xl overflow-hidden bg-gray-100 border relative shadow-sm group">
+                        <img
+                            src={allSlides[safeIndex]?.url}
+                            alt={allSlides[safeIndex]?.caption || property.address}
+                            className="w-full h-full object-cover transition-opacity duration-300"
+                        />
+                        {/* Navigation arrows */}
+                        {allSlides.length > 1 && (
+                            <>
+                                <button
+                                    onClick={() => setCurrentPhotoIndex(prev => prev <= 0 ? allSlides.length - 1 : prev - 1)}
+                                    className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-2 opacity-0 group-hover:opacity-100 transition-all"
+                                    aria-label="Anterior"
+                                >
+                                    <ChevronLeft className="w-5 h-5" />
+                                </button>
+                                <button
+                                    onClick={() => setCurrentPhotoIndex(prev => prev >= allSlides.length - 1 ? 0 : prev + 1)}
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-2 opacity-0 group-hover:opacity-100 transition-all"
+                                    aria-label="Siguiente"
+                                >
+                                    <ChevronRight className="w-5 h-5" />
+                                </button>
+                            </>
+                        )}
+                        {/* Dot indicators */}
+                        {allSlides.length > 1 && (
+                            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+                                {allSlides.map((_, i) => (
+                                    <button
+                                        key={i}
+                                        onClick={() => setCurrentPhotoIndex(i)}
+                                        className={`w-2.5 h-2.5 rounded-full transition-all ${i === safeIndex ? 'bg-white scale-110 shadow-md' : 'bg-white/50 hover:bg-white/75'}`}
+                                    />
+                                ))}
+                            </div>
+                        )}
+                        {/* Photo counter badge */}
+                        <div className="absolute top-3 right-3 bg-black/60 text-white text-xs px-2.5 py-1 rounded-full flex items-center gap-1.5">
+                            <Camera className="w-3 h-3" />
+                            {safeIndex + 1} / {allSlides.length}
+                        </div>
+                    </div>
+                )
+            })()}
 
             {/* Main Layout */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -362,6 +490,9 @@ const PropertyDetail = () => {
                                     <History className="w-3.5 h-3.5 mr-1.5" /> RE/MAX Timeline
                                 </TabsTrigger>
                             )}
+                            <TabsTrigger value="photos" className="rounded-none border-b-2 border-transparent data-[state=active]:border-emerald-500 data-[state=active]:bg-transparent px-4 py-2">
+                                <Camera className="w-3.5 h-3.5 mr-1.5" /> Fotos {photos.length > 0 && <Badge className="ml-1.5 bg-emerald-100 text-emerald-700 text-[10px] px-1.5">{photos.length}</Badge>}
+                            </TabsTrigger>
                             <TabsTrigger value="details" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2">Detalles</TabsTrigger>
                             <TabsTrigger value="notes" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2">Notas</TabsTrigger>
                             <TabsTrigger value="links" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2">Enlaces</TabsTrigger>
@@ -392,6 +523,76 @@ const PropertyDetail = () => {
                                 <PropertyTimeline propertyId={id} property={property} />
                             </TabsContent>
                         )}
+
+                        <TabsContent value="photos" className="py-4 space-y-4">
+                            {/* Upload area */}
+                            {isOwner && (
+                                <div className="flex items-center gap-3">
+                                    <Button
+                                        onClick={() => photoInputRef.current?.click()}
+                                        disabled={photoUploading}
+                                        className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
+                                    >
+                                        {photoUploading ? (
+                                            <><span className="animate-spin">⏳</span> Subiendo...</>
+                                        ) : (
+                                            <><Upload className="w-4 h-4" /> Subir Fotos</>
+                                        )}
+                                    </Button>
+                                    <span className="text-xs text-muted-foreground">JPG, PNG, WebP · Máx 5MB por foto</span>
+                                    <input
+                                        ref={photoInputRef}
+                                        type="file"
+                                        accept="image/*"
+                                        multiple
+                                        className="hidden"
+                                        onChange={(e) => handlePhotoUpload(Array.from(e.target.files))}
+                                    />
+                                </div>
+                            )}
+
+                            {/* Photo Grid */}
+                            {photos.length === 0 ? (
+                                <div className="text-center py-12 text-muted-foreground">
+                                    <ImageIcon className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                                    <p className="text-sm">No hay fotos cargadas para esta propiedad.</p>
+                                    {isOwner && <p className="text-xs mt-1">Haz clic en "Subir Fotos" para agregar.</p>}
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                    {photos.map((photo, idx) => (
+                                        <div
+                                            key={photo.id}
+                                            className="relative group rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 aspect-[4/3] cursor-pointer hover:ring-2 hover:ring-emerald-400 transition-all"
+                                            onClick={() => {
+                                                const offset = property.image_url ? idx + 1 : idx
+                                                setCurrentPhotoIndex(offset)
+                                                window.scrollTo({ top: 0, behavior: 'smooth' })
+                                            }}
+                                        >
+                                            <img src={photo.url} alt={photo.caption || 'Foto'} className="w-full h-full object-cover" />
+                                            {photo.caption && (
+                                                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent px-2 py-1.5">
+                                                    <p className="text-white text-xs truncate">{photo.caption}</p>
+                                                </div>
+                                            )}
+                                            {isOwner && (
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation()
+                                                        setPhotoToDelete(photo)
+                                                        setIsDeletePhotoOpen(true)
+                                                    }}
+                                                    className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-all shadow-lg"
+                                                >
+                                                    <Trash2 className="w-3 h-3" />
+                                                </button>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </TabsContent>
 
                         <TabsContent value="details" className="py-4 space-y-4">
                             <div className="bg-white dark:bg-gray-900 rounded-xl border p-4">
@@ -659,6 +860,28 @@ const PropertyDetail = () => {
                             className="bg-destructive hover:bg-destructive/90 text-destructive-foreground focus:ring-destructive"
                         >
                             {isDeletingParticipant ? 'Eliminando...' : 'Eliminar'}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            {/* Delete Photo Confirmation */}
+            <AlertDialog open={isDeletePhotoOpen} onOpenChange={setIsDeletePhotoOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>¿Eliminar esta foto?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            La foto "{photoToDelete?.caption || 'Sin título'}" será eliminada permanentemente.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={handleDeletePhoto}
+                            disabled={isDeletingPhoto}
+                            className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                        >
+                            {isDeletingPhoto ? 'Eliminando...' : 'Eliminar'}
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>

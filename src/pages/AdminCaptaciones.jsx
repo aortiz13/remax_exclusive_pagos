@@ -9,6 +9,7 @@ import {
     ChevronDown, ChevronUp, Search, Filter, X, RotateCcw
 } from 'lucide-react'
 import { sendCaptacionVistaNotification } from '../services/captacionNotifications'
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui'
 
 const COLUMNS = [
     { id: 'recibido', title: 'Recibido', icon: Inbox, color: 'blue' },
@@ -276,38 +277,41 @@ export default function AdminCaptaciones() {
                     </div>
 
                     {/* Agent Filter */}
-                    <select
-                        value={filterAgent}
-                        onChange={e => setFilterAgent(e.target.value)}
-                        className="appearance-none px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none cursor-pointer max-w-[180px]"
-                    >
-                        <option value="all">Todos los agentes</option>
-                        {uniqueAgents.map(a => (
-                            <option key={a.id} value={a.id}>{a.name}</option>
-                        ))}
-                    </select>
+                    <Select value={filterAgent} onValueChange={v => setFilterAgent(v)}>
+                        <SelectTrigger className="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none cursor-pointer max-w-[180px]">
+                            <SelectValue placeholder="Todos los agentes" />
+                        </SelectTrigger>
+                        <SelectContent className="z-[300]">
+                            <SelectItem value="all">Todos los agentes</SelectItem>
+                            {uniqueAgents.map(a => (
+                                <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
 
                     {/* Operation Type */}
-                    <select
-                        value={filterOperation}
-                        onChange={e => setFilterOperation(e.target.value)}
-                        className="appearance-none px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none cursor-pointer"
-                    >
-                        <option value="all">Venta / Arriendo</option>
-                        <option value="Venta">Venta</option>
-                        <option value="Arriendo">Arriendo</option>
-                    </select>
+                    <Select value={filterOperation} onValueChange={v => setFilterOperation(v)}>
+                        <SelectTrigger className="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none cursor-pointer">
+                            <SelectValue placeholder="Venta / Arriendo" />
+                        </SelectTrigger>
+                        <SelectContent className="z-[300]">
+                            <SelectItem value="all">Venta / Arriendo</SelectItem>
+                            <SelectItem value="Venta">Venta</SelectItem>
+                            <SelectItem value="Arriendo">Arriendo</SelectItem>
+                        </SelectContent>
+                    </Select>
 
                     {/* Capture Type */}
-                    <select
-                        value={filterType}
-                        onChange={e => setFilterType(e.target.value)}
-                        className="appearance-none px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none cursor-pointer"
-                    >
-                        <option value="all">Exclusiva / Abierta</option>
-                        <option value="Exclusiva">Exclusiva</option>
-                        <option value="Abierta">Abierta</option>
-                    </select>
+                    <Select value={filterType} onValueChange={v => setFilterType(v)}>
+                        <SelectTrigger className="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none cursor-pointer">
+                            <SelectValue placeholder="Exclusiva / Abierta" />
+                        </SelectTrigger>
+                        <SelectContent className="z-[300]">
+                            <SelectItem value="all">Exclusiva / Abierta</SelectItem>
+                            <SelectItem value="Exclusiva">Exclusiva</SelectItem>
+                            <SelectItem value="Abierta">Abierta</SelectItem>
+                        </SelectContent>
+                    </Select>
 
                     {/* Clear Filters */}
                     {hasActiveFilters && (

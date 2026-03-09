@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../services/supabase'
-import { Button, Input, Label, Card, CardHeader, CardTitle, CardContent } from '@/components/ui'
+import { Button, Input, Label, Card, CardHeader, CardTitle, CardContent, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui'
 import {
     Zap,
     UploadCloud,
@@ -543,23 +543,24 @@ const NewMandate = () => {
                                     placeholder="Monto"
                                     className="flex-1"
                                 />
-                                <select
-                                    className="w-24 h-10 rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                                    value={formData.currency}
-                                    onChange={(e) => setFormData(prev => ({ ...prev, currency: e.target.value }))}
-                                >
-                                    {formData.operation_type === 'Arriendo' ? (
-                                        <>
-                                            <option value="CLP">CLP</option>
-                                            <option value="UF">UF</option>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <option value="UF">UF</option>
-                                            <option value="CLP">CLP</option>
-                                        </>
-                                    )}
-                                </select>
+                                <Select value={formData.currency} onValueChange={v => setFormData(prev => ({ ...prev, currency: v }))}>
+                                    <SelectTrigger className="w-24 h-10 rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent className="z-[300]">
+                                        {formData.operation_type === 'Arriendo' ? (
+                                            <>
+                                                <SelectItem value="CLP">CLP</SelectItem>
+                                                <SelectItem value="UF">UF</SelectItem>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <SelectItem value="UF">UF</SelectItem>
+                                                <SelectItem value="CLP">CLP</SelectItem>
+                                            </>
+                                        )}
+                                    </SelectContent>
+                                </Select>
                             </div>
                             {formData.price && formData.currency === 'CLP' && ufValue > 0 && (
                                 <p className="text-[10px] text-slate-500 italic mt-1">
@@ -575,14 +576,15 @@ const NewMandate = () => {
 
                         <div className="space-y-2">
                             <Label>Tipo de Captación</Label>
-                            <select
-                                className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                                value={formData.capture_type}
-                                onChange={(e) => setFormData(prev => ({ ...prev, capture_type: e.target.value }))}
-                            >
-                                <option value="Exclusiva">Captación Exclusiva (Premium)</option>
-                                <option value="Abierta">Captación Abierta</option>
-                            </select>
+                            <Select value={formData.capture_type} onValueChange={v => setFormData(prev => ({ ...prev, capture_type: v }))}>
+                                <SelectTrigger className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="z-[300]">
+                                    <SelectItem value="Exclusiva">Captación Exclusiva (Premium)</SelectItem>
+                                    <SelectItem value="Abierta">Captación Abierta</SelectItem>
+                                </SelectContent>
+                            </Select>
                         </div>
 
                         <div className="space-y-2">
@@ -597,17 +599,18 @@ const NewMandate = () => {
 
                         <div className="space-y-2">
                             <Label>Tiempo de Captación <span className="text-red-500">*</span></Label>
-                            <select
-                                className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                                value={formData.capture_duration}
-                                onChange={(e) => setFormData(prev => ({ ...prev, capture_duration: e.target.value }))}
-                            >
-                                <option value="30">30 días</option>
-                                <option value="60">60 días</option>
-                                <option value="90">90 días</option>
-                                <option value="120">120 días</option>
-                                <option value="365">1 año</option>
-                            </select>
+                            <Select value={formData.capture_duration} onValueChange={v => setFormData(prev => ({ ...prev, capture_duration: v }))}>
+                                <SelectTrigger className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="z-[300]">
+                                    <SelectItem value="30">30 días</SelectItem>
+                                    <SelectItem value="60">60 días</SelectItem>
+                                    <SelectItem value="90">90 días</SelectItem>
+                                    <SelectItem value="120">120 días</SelectItem>
+                                    <SelectItem value="365">1 año</SelectItem>
+                                </SelectContent>
+                            </Select>
                         </div>
 
                         <div className="space-y-2 md:col-span-2">

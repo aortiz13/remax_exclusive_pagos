@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '../../services/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { toast } from 'sonner'
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui'
 import {
     Target, TrendingUp, Lightbulb, Rocket, PieChart as PieChartIcon, Plus, Trash2, Save,
     ChevronDown, ChevronUp, Building2, Car, Crown, ArrowRight, Clock, Calendar,
@@ -532,9 +533,14 @@ export default function BusinessPlan() {
                     <div>
                         <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Plan de Negocio</h1>
                         <div className="flex items-center gap-2 mt-0.5">
-                            <select value={year} onChange={e => setYear(Number(e.target.value))} className="text-xs font-bold text-blue-600 bg-transparent border-none p-0 focus:ring-0 cursor-pointer">
-                                {[2024, 2025, 2026, 2027].map(y => <option key={y} value={y}>{y}</option>)}
-                            </select>
+                            <Select value={String(year)} onValueChange={v => setYear(Number(v))}>
+                                <SelectTrigger className="text-xs font-bold text-blue-600 bg-transparent border-none p-0 focus:ring-0 cursor-pointer w-auto h-auto">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="z-[300]">
+                                    {[2024, 2025, 2026, 2027].map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
                             <span className="text-gray-300">•</span>
                             <span className="text-[0.65rem] font-semibold text-gray-400 flex items-center gap-1"><Crown className="w-3 h-3" />{planInfo.label} ({planInfo.pct}%)</span>
                         </div>

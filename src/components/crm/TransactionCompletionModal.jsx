@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { Button, Label } from '@/components/ui'
-import { X, Send, Star, MessageSquare, Mail, Loader2 } from 'lucide-react'
+import { X, Send, Star, MessageSquare, Mail, Loader2, Trash2 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '../../services/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import ContactPickerInline from '../../components/ui/ContactPickerInline'
+import { logActivity } from '../../services/activityService'
 
 /**
  * TransactionCompletionModal
@@ -24,6 +25,10 @@ const TransactionCompletionModal = ({ isOpen, property, agentProfile, existingLi
     const [buyerContactId, setBuyerContactId] = useState(null)
     const [buyerContact, setBuyerContact] = useState(null)
     const [sellerContact, setSellerContact] = useState(null)
+    const [savingSellerLink, setSavingSellerLink] = useState(false)
+    const [savingBuyerLink, setSavingBuyerLink] = useState(false)
+    const [sellerLinkedFromModal, setSellerLinkedFromModal] = useState(false)
+    const [buyerLinkedFromModal, setBuyerLinkedFromModal] = useState(false)
 
     // Determine transaction type from property status
     const transactionType = (property?.status || []).includes('Arrendada') ? 'arriendo' : 'venta'
@@ -37,19 +42,35 @@ const TransactionCompletionModal = ({ isOpen, property, agentProfile, existingLi
         }
     }, [existingLinks, pendingLinks])
 
-    // Fetch buyer contact details when selected
-    useEffect(() => {
-        if (!buyerContactId) { setBuyerContact(null); return }
-        const fetchBuyer = async () => {
-            const { data } = await supabase
-                .from('contacts')
-                .select('id, first_name, last_name, email, phone')
-                .eq('id', buyerContactId)
-                .single()
-            if (data) setBuyerContact(data)
+    // Helper: clear seller and remove DB link
+    const handleClearSeller = async () => {
+        if (sellerContact?.id) {
+            await supabase.from('property_contacts')
+                .delete()
+                .eq('property_id', property.id)
+                .eq('contact_id', sellerContact.id)
+                .eq('role', 'propietario')
+            await supabase.from('properties')
+                .update({ owner_id: null })
+                .eq('id', property.id)
         }
-        fetchBuyer()
-    }, [buyerContactId])
+        setSellerContact(null)
+        setSellerLinkedFromModal(false)
+    }
+
+    // Helper: clear buyer and remove DB link
+    const handleClearBuyer = async () => {
+        if (buyerContact?.id) {
+            await supabase.from('property_contacts')
+                .delete()
+                .eq('property_id', property.id)
+                .eq('contact_id', buyerContact.id)
+                .eq('role', 'comprador')
+        }
+        setBuyerContact(null)
+        setBuyerContactId(null)
+        setBuyerLinkedFromModal(false)
+    }
 
     const handleSend = async () => {
         if (!buyerContact) {
@@ -173,15 +194,71 @@ const TransactionCompletionModal = ({ isOpen, property, agentProfile, existingLi
                                         <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-bold">
                                             {(sellerContact.first_name || '?')[0]}
                                         </div>
-                                        <div>
+                                        <div className="flex-1 min-w-0">
                                             <p className="font-medium text-sm">{sellerContact.first_name} {sellerContact.last_name}</p>
                                             <p className="text-xs text-slate-500">{sellerContact.email}</p>
                                         </div>
+                                        <button
+                                            type="button"
+                                            onClick={handleClearSeller}
+                                            className="p-1.5 rounded-full hover:bg-red-100 dark:hover:bg-red-900/30 text-red-400 hover:text-red-600 transition-colors"
+                                            title="Cambiar vendedor"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
                                     </div>
                                 ) : (
-                                    <p className="text-sm text-amber-600 bg-amber-50 p-3 rounded-lg border border-amber-200">
-                                        ⚠️ No se encontró un propietario vinculado. El email de agradecimiento no se enviará al vendedor.
-                                    </p>
+                                    <div className="space-y-2">
+                                        <p className="text-sm text-amber-600 bg-amber-50 p-3 rounded-lg border border-amber-200">
+                                            ⚠️ No se encontró un propietario vinculado. Selecciona uno a continuación:
+                                        </p>
+                                        <ContactPickerInline
+                                            label={isArriendo ? 'Seleccionar arrendador' : 'Seleccionar vendedor'}
+                                            disabled={savingSellerLink}
+                                            onSelectContact={async (contact) => {
+                                                if (!contact) return
+                                                setSavingSellerLink(true)
+                                                try {
+                                                    await supabase.from('property_contacts').insert({
+                                                        property_id: property.id,
+                                                        contact_id: contact.id,
+                                                        role: 'propietario',
+                                                        agent_id: user?.id
+                                                    })
+                                                    await supabase.from('properties')
+                                                        .update({ owner_id: contact.id })
+                                                        .eq('id', property.id)
+                                                    await logActivity({
+                                                        action: 'Vinculó',
+                                                        entity_type: 'Contacto',
+                                                        entity_id: contact.id,
+                                                        description: `Vinculado como propietario de la propiedad (desde modal de cierre)`,
+                                                        contact_id: contact.id,
+                                                        property_id: property.id
+                                                    })
+                                                    const { data: fullContact } = await supabase
+                                                        .from('contacts')
+                                                        .select('id, first_name, last_name, email, phone')
+                                                        .eq('id', contact.id)
+                                                        .single()
+                                                    setSellerContact(fullContact || contact)
+                                                    setSellerLinkedFromModal(true)
+                                                    toast.success('Vendedor vinculado correctamente')
+                                                } catch (err) {
+                                                    console.error('Error linking seller:', err)
+                                                    toast.error('Error al vincular vendedor')
+                                                } finally {
+                                                    setSavingSellerLink(false)
+                                                }
+                                            }}
+                                        />
+                                        {savingSellerLink && (
+                                            <div className="flex items-center gap-2 text-sm text-slate-500">
+                                                <Loader2 className="w-3 h-3 animate-spin" />
+                                                Vinculando vendedor...
+                                            </div>
+                                        )}
+                                    </div>
                                 )}
                             </div>
 
@@ -190,20 +267,70 @@ const TransactionCompletionModal = ({ isOpen, property, agentProfile, existingLi
                                 <Label className="text-sm font-semibold mb-2 block">
                                     {isArriendo ? 'Arrendatario *' : 'Comprador *'}
                                 </Label>
-                                <ContactPickerInline
-                                    label=""
-                                    value={buyerContactId}
-                                    onSelectContact={(contact) => setBuyerContactId(contact?.id || null)}
-                                />
-                                {buyerContact && (
-                                    <div className="mt-2 flex items-center gap-3 p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-200">
+                                {buyerContact ? (
+                                    <div className="flex items-center gap-3 p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-200">
                                         <div className="w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center text-white text-sm font-bold">
                                             {(buyerContact.first_name || '?')[0]}
                                         </div>
-                                        <div>
+                                        <div className="flex-1 min-w-0">
                                             <p className="font-medium text-sm">{buyerContact.first_name} {buyerContact.last_name}</p>
                                             <p className="text-xs text-slate-500">{buyerContact.email} · {buyerContact.phone}</p>
                                         </div>
+                                        <button
+                                            type="button"
+                                            onClick={handleClearBuyer}
+                                            className="p-1.5 rounded-full hover:bg-red-100 dark:hover:bg-red-900/30 text-red-400 hover:text-red-600 transition-colors"
+                                            title="Cambiar comprador"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-2">
+                                        <ContactPickerInline
+                                            label={isArriendo ? 'Seleccionar arrendatario' : 'Seleccionar comprador'}
+                                            disabled={savingBuyerLink}
+                                            onSelectContact={async (contact) => {
+                                                if (!contact) return
+                                                setSavingBuyerLink(true)
+                                                try {
+                                                    await supabase.from('property_contacts').insert({
+                                                        property_id: property.id,
+                                                        contact_id: contact.id,
+                                                        role: 'comprador',
+                                                        agent_id: user?.id
+                                                    })
+                                                    await logActivity({
+                                                        action: 'Vinculó',
+                                                        entity_type: 'Contacto',
+                                                        entity_id: contact.id,
+                                                        description: `Vinculado como ${isArriendo ? 'arrendatario' : 'comprador'} de la propiedad (desde modal de cierre)`,
+                                                        contact_id: contact.id,
+                                                        property_id: property.id
+                                                    })
+                                                    const { data: fullContact } = await supabase
+                                                        .from('contacts')
+                                                        .select('id, first_name, last_name, email, phone')
+                                                        .eq('id', contact.id)
+                                                        .single()
+                                                    setBuyerContact(fullContact || contact)
+                                                    setBuyerContactId(contact.id)
+                                                    setBuyerLinkedFromModal(true)
+                                                    toast.success(`${isArriendo ? 'Arrendatario' : 'Comprador'} vinculado correctamente`)
+                                                } catch (err) {
+                                                    console.error('Error linking buyer:', err)
+                                                    toast.error('Error al vincular comprador')
+                                                } finally {
+                                                    setSavingBuyerLink(false)
+                                                }
+                                            }}
+                                        />
+                                        {savingBuyerLink && (
+                                            <div className="flex items-center gap-2 text-sm text-slate-500">
+                                                <Loader2 className="w-3 h-3 animate-spin" />
+                                                Vinculando comprador...
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                             </div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import {
     Dialog,
@@ -28,7 +28,7 @@ import {
 } from "@/components/ui";
 import { supabase } from '../../services/supabase';
 import { toast } from 'sonner';
-import { Check, ChevronsUpDown, X, Plus, Trash2, Clock, Mail, MapPin, ArrowLeftRight } from "lucide-react";
+import { Check, ChevronsUpDown, X, Plus, Trash2, Clock, Mail, MapPin, ArrowLeftRight, Search } from "lucide-react";
 import { cn, toISOLocal } from "@/lib/utils";
 import { useNavigate } from 'react-router-dom';
 import {
@@ -252,7 +252,7 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
         setLoadingData(true);
         try {
             const [propsRes, contactsRes] = await Promise.all([
-                supabase.from('properties').select('id, address').order('created_at', { ascending: false }),
+                supabase.from('properties').select('id, address, commune, property_type, unit_number').order('created_at', { ascending: false }),
                 supabase.from('contacts').select('id, first_name, last_name, email').order('first_name', { ascending: true })
             ]);
 
@@ -635,6 +635,101 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
         }
     };
 
+    // ── Property combobox helpers ──
+    const PROP_TYPES = [
+        { key: 'all', label: 'Todos' },
+        { key: 'Departamento', label: 'Depto' },
+        { key: 'Casa', label: 'Casa' },
+        { key: 'Comercial', label: 'Comercial' },
+        { key: 'Oficina', label: 'Oficina' },
+        { key: 'Terreno', label: 'Terreno' },
+    ];
+    const MAX_PROP_VISIBLE = 20;
+    const [propSearch, setPropSearch] = useState('');
+    const [propTypeFilter, setPropTypeFilter] = useState('all');
+    const [propDropdownOpen, setPropDropdownOpen] = useState(false);
+    const [propHighlight, setPropHighlight] = useState(-1);
+    const propInputRef = useRef(null);
+    const propItemRefs = useRef({});
+
+    const propSearchWords = useMemo(() =>
+        propSearch.trim().toLowerCase().split(/\s+/).filter(Boolean),
+        [propSearch]
+    );
+
+    const filteredProperties = useMemo(() => {
+        let list = properties;
+        if (propTypeFilter !== 'all') list = list.filter(p => p.property_type === propTypeFilter);
+        if (propSearchWords.length > 0) {
+            list = list.filter(p => {
+                const text = `${p.address || ''} ${p.commune || ''} ${p.property_type || ''} ${p.unit_number || ''}`.toLowerCase();
+                return propSearchWords.every(w => text.includes(w));
+            });
+        }
+        return list;
+    }, [properties, propTypeFilter, propSearchWords]);
+
+    const visibleProperties = useMemo(() => filteredProperties.slice(0, MAX_PROP_VISIBLE), [filteredProperties]);
+
+    const propTypeCounts = useMemo(() => {
+        const c = { all: properties.length };
+        properties.forEach(p => { c[p.property_type] = (c[p.property_type] || 0) + 1; });
+        return c;
+    }, [properties]);
+
+    useEffect(() => { setPropHighlight(-1); }, [propSearch, propTypeFilter]);
+    useEffect(() => {
+        if (propHighlight >= 0 && propItemRefs.current[propHighlight]) {
+            propItemRefs.current[propHighlight].scrollIntoView({ block: 'nearest' });
+        }
+    }, [propHighlight]);
+
+    /** Extract street + number only */
+    const formatPropertyAddress = (p) => {
+        const raw = p.address || '';
+        const parts = raw.split(',').map(s => s.trim()).filter(Boolean);
+        const noiseSet = new Set(
+            parts.filter(part =>
+                /^\d{5,}$/.test(part) ||
+                /^chile$/i.test(part) ||
+                /^(provincia|regi[oó]n)\s/i.test(part) ||
+                (p.commune && part.toLowerCase() === p.commune.toLowerCase())
+            ).map(n => n.toLowerCase())
+        );
+        const clean = parts.filter(part => !noiseSet.has(part.toLowerCase()));
+        let addr = clean.slice(0, 2).join(' ') || raw;
+        if (p.unit_number) addr += `, ${p.unit_number}`;
+        return addr;
+    };
+
+    /** Highlight matching text */
+    const PropHighlightText = ({ text, words }) => {
+        if (!text || !words.length) return <>{text}</>;
+        const escaped = words.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+        const regex = new RegExp(`(${escaped.join('|')})`, 'gi');
+        const pts = text.split(regex);
+        return <>{pts.map((part, i) =>
+            regex.test(part)
+                ? <mark key={i} className="bg-primary/20 text-primary rounded-sm px-0.5 font-semibold">{part}</mark>
+                : <span key={i}>{part}</span>
+        )}</>;
+    };
+
+    const handlePropKeyDown = useCallback((e) => {
+        const total = 2 + visibleProperties.length; // new + none + items
+        if (e.key === 'ArrowDown') { e.preventDefault(); setPropHighlight(prev => (prev + 1) % total); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); setPropHighlight(prev => prev <= 0 ? total - 1 : prev - 1); }
+        else if (e.key === 'Enter' && propHighlight >= 0) {
+            e.preventDefault();
+            if (propHighlight === 0) { setIsCreatePropertyOpen(true); setPropDropdownOpen(false); }
+            else if (propHighlight === 1) { setSelectedPropertyId('none'); setPropDropdownOpen(false); setPropSearch(''); setPropTypeFilter('all'); }
+            else {
+                const item = visibleProperties[propHighlight - 2];
+                if (item) { setSelectedPropertyId(item.id); setPropDropdownOpen(false); setPropSearch(''); setPropTypeFilter('all'); }
+            }
+        } else if (e.key === 'Escape') { e.preventDefault(); setPropDropdownOpen(false); setPropSearch(''); setPropTypeFilter('all'); }
+    }, [visibleProperties, propHighlight]);
+
     // Helper: render text with clickable links
     const renderTextWithLinks = (text) => {
         if (!text) return null;
@@ -913,32 +1008,110 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
                                         : <span className="text-muted-foreground text-xs ml-1">(Opcional)</span>
                                     }
                                 </Label>
-                                <Select
-                                    disabled={viewOnly}
-                                    value={selectedPropertyId}
-                                    onValueChange={(val) => {
-                                        if (val === 'new') {
-                                            setIsCreatePropertyOpen(true);
-                                            setSelectedPropertyId('none');
-                                        } else {
-                                            setSelectedPropertyId(val);
-                                        }
-                                    }}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Seleccione propiedad" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="new" className="text-primary font-medium">
-                                            + Crear nueva propiedad
-                                        </SelectItem>
-                                        <div className="h-px bg-muted my-1" />
-                                        <SelectItem value="none">Ninguna</SelectItem>
-                                        {properties.map(p => (
-                                            <SelectItem key={p.id} value={p.id}>{p.address}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <div className="relative">
+                                    <div
+                                        onClick={() => !viewOnly && setPropDropdownOpen(!propDropdownOpen)}
+                                        className={`flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background transition-all ${viewOnly ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-accent/50 hover:border-accent'}`}
+                                    >
+                                        <span className={`truncate flex-1 min-w-0 ${selectedPropertyId && selectedPropertyId !== 'none'
+                                            ? 'text-foreground'
+                                            : 'text-muted-foreground'
+                                            }`}>
+                                            {(() => {
+                                                if (selectedPropertyId && selectedPropertyId !== 'none') {
+                                                    const sp = properties.find(p => p.id === selectedPropertyId);
+                                                    return sp
+                                                        ? `${formatPropertyAddress(sp)}${sp.commune ? `, ${sp.commune}` : ''}`
+                                                        : 'Seleccione propiedad';
+                                                }
+                                                return 'Seleccione propiedad';
+                                            })()}
+                                        </span>
+                                        <ChevronsUpDown className={`h-4 w-4 opacity-50 shrink-0`} />
+                                    </div>
+
+                                    {propDropdownOpen && (
+                                        <div className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-lg shadow-lg overflow-hidden animate-in fade-in-0 zoom-in-95 slide-in-from-top-2 duration-200" onKeyDown={handlePropKeyDown}>
+                                            {/* Search */}
+                                            <div className="p-2 border-b border-border">
+                                                <div className="flex items-center gap-2 px-2 bg-muted/50 rounded-md">
+                                                    <Search className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                                                    <input
+                                                        ref={propInputRef}
+                                                        type="text"
+                                                        value={propSearch}
+                                                        onChange={e => setPropSearch(e.target.value)}
+                                                        onKeyDown={handlePropKeyDown}
+                                                        placeholder="Buscar dirección, comuna, tipo..."
+                                                        className="w-full h-8 text-sm bg-transparent border-0 outline-none placeholder:text-muted-foreground"
+                                                        autoFocus
+                                                    />
+                                                </div>
+                                            </div>
+                                            {/* Filter chips */}
+                                            <div className="px-2 py-1.5 border-b border-border flex gap-1 flex-wrap">
+                                                {PROP_TYPES.map(type => {
+                                                    const count = propTypeCounts[type.key] || 0;
+                                                    if (type.key !== 'all' && count === 0) return null;
+                                                    const isActive = propTypeFilter === type.key;
+                                                    return (
+                                                        <button key={type.key} type="button" onClick={() => setPropTypeFilter(type.key)}
+                                                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium transition-all ${isActive ? 'bg-primary text-primary-foreground shadow-sm' : 'bg-muted/70 text-muted-foreground hover:bg-muted hover:text-foreground'
+                                                                }`}>
+                                                            {type.label}
+                                                            <span className={`text-[10px] ${isActive ? 'opacity-80' : 'opacity-60'}`}>{count}</span>
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                            {/* Items */}
+                                            <div className="max-h-52 overflow-y-auto">
+                                                <button ref={el => propItemRefs.current[0] = el} type="button"
+                                                    onClick={() => { setIsCreatePropertyOpen(true); setPropDropdownOpen(false); }}
+                                                    className={`w-full text-left px-3 py-2.5 text-sm text-primary font-medium hover:bg-primary/5 transition-colors flex items-center gap-2 border-b border-border/50 sticky top-0 bg-popover z-10 ${propHighlight === 0 ? 'bg-accent' : ''}`}>
+                                                    <Plus className="w-4 h-4" /> Crear nueva propiedad
+                                                </button>
+                                                <button ref={el => propItemRefs.current[1] = el} type="button"
+                                                    onClick={() => { setSelectedPropertyId('none'); setPropDropdownOpen(false); setPropSearch(''); setPropTypeFilter('all'); }}
+                                                    className={`w-full text-left px-3 py-2 text-sm text-muted-foreground hover:bg-accent transition-colors ${propHighlight === 1 ? 'bg-accent' : ''}`}>
+                                                    — Ninguna —
+                                                </button>
+                                                {filteredProperties.length === 0 ? (
+                                                    <div className="px-3 py-4 text-sm text-muted-foreground text-center">No se encontraron propiedades</div>
+                                                ) : (
+                                                    <>
+                                                        {visibleProperties.map((p, idx) => {
+                                                            const itemIdx = idx + 2;
+                                                            return (
+                                                                <button key={p.id} ref={el => propItemRefs.current[itemIdx] = el} type="button"
+                                                                    onClick={() => { setSelectedPropertyId(p.id); setPropDropdownOpen(false); setPropSearch(''); setPropTypeFilter('all'); }}
+                                                                    className={`w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors flex items-center justify-between gap-2 ${selectedPropertyId === p.id ? 'bg-accent/70 font-medium' : ''
+                                                                        } ${propHighlight === itemIdx ? 'bg-accent' : ''}`}>
+                                                                    <div className="min-w-0 flex-1">
+                                                                        <div className="font-medium truncate">
+                                                                            <PropHighlightText text={formatPropertyAddress(p)} words={propSearchWords} />
+                                                                        </div>
+                                                                        <div className="text-xs text-muted-foreground truncate">
+                                                                            <PropHighlightText text={[p.property_type, p.commune].filter(Boolean).join(' · ')} words={propSearchWords} />
+                                                                        </div>
+                                                                    </div>
+                                                                </button>
+                                                            );
+                                                        })}
+                                                        {filteredProperties.length > MAX_PROP_VISIBLE && (
+                                                            <div className="px-3 py-2 text-xs text-muted-foreground text-center border-t border-border/50 bg-muted/30">
+                                                                Mostrando {MAX_PROP_VISIBLE} de {filteredProperties.length} — escribe para filtrar más
+                                                            </div>
+                                                        )}
+                                                    </>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+                                    {propDropdownOpen && (
+                                        <div className="fixed inset-0 z-40" onClick={() => { setPropDropdownOpen(false); setPropSearch(''); setPropTypeFilter('all'); }} />
+                                    )}
+                                </div>
                             </div>
                         )}
 

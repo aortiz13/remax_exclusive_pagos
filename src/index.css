@@ -139,3 +139,85 @@
     @apply bg-clip-text text-transparent bg-gradient-to-r from-primary to-blue-600 dark:from-blue-400 dark:to-blue-200;
   }
 }
+
+/* ===== A4 PDF Print Styles ===== */
+@media print {
+  @page {
+    size: A4;
+    margin: 0;
+  }
+
+  /* Ensure backgrounds and colors print */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Reset the fixed preview modal to flow naturally */
+  .pdf-preview-modal {
+    position: static !important;
+    overflow: visible !important;
+    background: transparent !important;
+  }
+
+  /* Hide the preview toolbar */
+  .pdf-preview-toolbar {
+    display: none !important;
+  }
+
+  /* Reset the centering wrapper */
+  .pdf-preview-body {
+    display: block !important;
+    padding: 0 !important;
+  }
+
+  /* Reset the shadow wrapper */
+  .pdf-preview-wrapper {
+    box-shadow: none !important;
+  }
+
+  /* Make the report fill the page */
+  .pdf-print-area {
+    width: 100% !important;
+    max-width: none !important;
+  }
+
+  /* Section page break control */
+  .pdf-print-area section {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  /* Allow long sections to break across pages */
+  .pdf-print-area .allow-break {
+    page-break-inside: auto;
+    break-inside: auto;
+  }
+
+  /* Don't orphan headings */
+  .pdf-print-area h2,
+  .pdf-print-area h3,
+  .pdf-print-area h4 {
+    page-break-after: avoid;
+    break-after: avoid;
+  }
+
+  /* Keep bullet items together */
+  .pdf-print-area li {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  /* Keep image blocks together */
+  .pdf-print-area .anexo-block {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  /* Ensure images render properly */
+  .pdf-print-area img {
+    max-width: 100% !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+}
