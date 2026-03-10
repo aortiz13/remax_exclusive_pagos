@@ -289,7 +289,11 @@ export default function AdminInvites() {
                 body: { action: 'delete', userId }
             })
 
-            if (error) throw error
+            if (error) {
+                // Extract actual error message from Edge Function response
+                const errorMsg = data?.error || error.message || 'Error desconocido'
+                throw new Error(errorMsg)
+            }
 
             setUsers(users.filter(u => u.id !== userId))
             toast.success('Usuario eliminado correctamente')
@@ -300,7 +304,7 @@ export default function AdminInvites() {
 
         } catch (error) {
             console.error('Error deleting user:', error)
-            toast.error('Error al eliminar usuario')
+            toast.error(`Error al eliminar usuario: ${error.message}`)
             auditLog.error('admin', 'user.delete.failed', `Error eliminando a ${userToDelete.email}: ${error.message}`, {
                 module: 'AdminInvites',
                 details: { userId, email: userToDelete.email, name: `${userToDelete.first_name} ${userToDelete.last_name}`, error: error.message }

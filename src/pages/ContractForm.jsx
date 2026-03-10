@@ -12,6 +12,7 @@ import { autoLinkContactProperty } from '../services/autoLink'
 import { logActivity } from '../services/activityService'
 import { triggerLegalWebhook } from '../services/api'
 import { Button, Card, CardContent, CardHeader, CardTitle, CardDescription, Input, Label, Textarea, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui'
+import SyncFieldIndicator from '../components/ui/SyncFieldIndicator'
 import { ArrowLeft, Building2, Key, Save, UploadCloud, FilePlus } from 'lucide-react'
 
 // --- HELPER COMPONENTS ---
@@ -179,18 +180,95 @@ function PartyForm({ typeLabel, index, prefix, initialData = {}, onRemove, isRem
         }
     }, [])
 
+    const [formData, setFormData] = useState(() => {
+        const data = {}
+        const fields = [
+            'nombres', 'apellidos', 'rut', 'email', 'telefono', 'direccion',
+            'nacionalidad', 'ocupacion', 'civil', 'nacimiento',
+            'juridica_razon', 'juridica_rut', 'juridica_direccion', 'juridica_telefono',
+            'juridica_rep_nombres', 'juridica_rep_apellidos', 'juridica_rep_rut',
+            'juridica_rep_nacionalidad', 'juridica_rep_civil', 'juridica_rep_email',
+            'juridica_rep_nacimiento', 'juridica_rep_direccion',
+            'empleador', 'empleador_rut', 'telefono_lab', 'direccion_lab',
+            'banco', 'tipo_cuenta', 'nro_cuenta'
+        ]
+        fields.forEach(f => {
+            data[f] = initialData[`${prefix}${f}`] || ''
+        })
+        return data
+    })
+
+    const handleInputChange = (e) => {
+        const { name, value } = e.target
+        const fieldName = name.replace(prefix, '')
+        setFormData(prev => ({ ...prev, [fieldName]: value }))
+    }
+
+    const handleSelectChange = (fieldName, value) => {
+        setFormData(prev => ({ ...prev, [fieldName]: value }))
+    }
+
     const handleContactSelect = (contact) => {
+        const updates = {
+            contact_id: contact.id
+        }
+
+        if (personType === 'natural') {
+            updates.nombres = contact.first_name || ''
+            updates.apellidos = contact.last_name || ''
+            updates.rut = contact.rut || ''
+            updates.email = contact.email || ''
+            updates.telefono = contact.phone || ''
+            updates.direccion = contact.address || ''
+            updates.nacionalidad = contact.nacionalidad || ''
+            updates.ocupacion = contact.occupation || ''
+            updates.civil = contact.civil_status || ''
+
+            if (prefix.startsWith('arrendador')) {
+                updates.banco = contact.bank_name || ''
+                updates.tipo_cuenta = contact.bank_account_type || ''
+                updates.nro_cuenta = contact.bank_account_number || ''
+            }
+        }
+
+        setFormData(prev => ({ ...prev, ...updates }))
+
+        setPrefilledData({
+            contact_id: contact.id,
+            empty_fields: [
+                !contact.first_name && 'nombres',
+                !contact.last_name && 'apellidos',
+                !contact.rut && 'rut',
+                !contact.email && 'email',
+                !contact.phone && 'telefono',
+                !contact.address && 'direccion',
+                !contact.bank_name && 'banco',
+                !contact.bank_account_type && 'tipo_cuenta',
+                !contact.bank_account_number && 'nro_cuenta'
+            ].filter(Boolean),
+            exclude_sync: []
+        })
+    }
+
+    const handleExclude = (field) => {
         setPrefilledData(prev => ({
             ...prev,
-            [`${prefix} _nombres`]: contact.first_name || '',
-            [`${prefix} _apellidos`]: contact.last_name || '',
-            [`${prefix} _rut`]: contact.rut || '',
-            [`${prefix} _email`]: contact.email || '',
-            [`${prefix} _telefono`]: contact.phone || '',
-            [`${prefix} _direccion`]: contact.address || '',
-            [`${prefix} _contact_id`]: contact.id
+            exclude_sync: [...prev.exclude_sync, field]
         }))
     }
+
+    const SyncLabel = ({ field, children }) => (
+        <SyncFieldIndicator
+            contactId={prefilledData.contact_id}
+            fieldName={field}
+            emptyFields={prefilledData.empty_fields}
+            excludedFields={prefilledData.exclude_sync}
+            onExclude={handleExclude}
+            currentValue={formData[field]}
+        >
+            {children}
+        </SyncFieldIndicator>
+    )
 
     return (
         <div className="bg-slate-50/50 p-6 rounded-lg border space-y-4 relative animate-in fade-in slide-in-from-top-2">
@@ -224,8 +302,8 @@ function PartyForm({ typeLabel, index, prefix, initialData = {}, onRemove, isRem
                 </div>
             </div>
 
-            <input type="hidden" name={`${prefix} _tipo_persona`} value={personType} />
-            <input type="hidden" name={`${prefix} _contact_id`} value={prefilledData[`${prefix} _contact_id`] || ''} />
+            <input type="hidden" name={`${prefix}tipo_persona`} value={personType} />
+            <input type="hidden" name={`${prefix}contact_id`} value={prefilledData.contact_id || formData.contact_id || ''} />
 
             {personType === 'natural' && (
                 <ContactPickerInline
@@ -236,48 +314,145 @@ function PartyForm({ typeLabel, index, prefix, initialData = {}, onRemove, isRem
 
             {personType === 'natural' ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <Field label="Nombres" name={`${prefix} _nombres`} defaultValue={getEffectiveValue('nombres')} required />
-                    <Field label="Apellidos" name={`${prefix} _apellidos`} defaultValue={getEffectiveValue('apellidos')} required />
-                    <Field label="RUT / Pasaporte" name={`${prefix} _rut`} defaultValue={getEffectiveValue('rut')} required />
-                    <Field label="Nacionalidad" name={`${prefix} _nacionalidad`} defaultValue={getEffectiveValue('nacionalidad')} />
+                    <div className="space-y-2">
+                        <SyncLabel field="nombres">
+                            <Label htmlFor={`${prefix}nombres`} className="text-xs font-semibold uppercase text-slate-500">Nombres <span className="text-red-500">*</span></Label>
+                        </SyncLabel>
+                        <Input id={`${prefix}nombres`} name={`${prefix}nombres`} value={formData.nombres} onChange={handleInputChange} required />
+                    </div>
+                    <div className="space-y-2">
+                        <SyncLabel field="apellidos">
+                            <Label htmlFor={`${prefix}apellidos`} className="text-xs font-semibold uppercase text-slate-500">Apellidos <span className="text-red-500">*</span></Label>
+                        </SyncLabel>
+                        <Input id={`${prefix}apellidos`} name={`${prefix}apellidos`} value={formData.apellidos} onChange={handleInputChange} required />
+                    </div>
+                    <div className="space-y-2">
+                        <SyncLabel field="rut">
+                            <Label htmlFor={`${prefix}rut`} className="text-xs font-semibold uppercase text-slate-500">RUT / Pasaporte <span className="text-red-500">*</span></Label>
+                        </SyncLabel>
+                        <Input id={`${prefix}rut`} name={`${prefix}rut`} value={formData.rut} onChange={handleInputChange} required />
+                    </div>
+                    <div className="space-y-2">
+                        <Label className="text-xs font-semibold uppercase text-slate-500">Nacionalidad</Label>
+                        <Input name={`${prefix}nacionalidad`} value={formData.nacionalidad} onChange={handleInputChange} />
+                    </div>
 
-                    {['Vendedor', 'Comprador'].includes(typeLabel) ? (
+                    {['Vendedor', 'Comprador'].includes(typeLabel) && (
                         <div className="space-y-2">
-                            <Label htmlFor={`${prefix} _civil`} className="text-xs font-semibold uppercase text-slate-500">Estado Civil</Label>
-                            <SelectUncontrolled
-                                name={`${prefix} _civil`}
-                                defaultValue={getValue('civil')}
-                                placeholder="Seleccione..."
-                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                                options={[
-                                    { value: 'Soltero', label: 'Soltero' },
-                                    { value: 'Casado Bajo comunidad Conyugal', label: 'Casado Bajo comunidad Conyugal' },
-                                    { value: 'Casado con Separación de Bienes', label: 'Casado con Separación de Bienes' },
-                                    { value: 'Viudo', label: 'Viudo' },
-                                    { value: 'Divorciado', label: 'Divorciado' },
-                                    { value: 'Conviviente civil con Separación de Bienes', label: 'Conviviente Civil con Separación de Bienes' },
-                                    { value: 'Conviviente Civil con Comunidad de Bienes', label: 'Conviviente Civil con Comunidad de Bienes' },
-                                ]}
-                            />
+                            <Label htmlFor={`${prefix}civil`} className="text-xs font-semibold uppercase text-slate-500">Estado Civil</Label>
+                            <Select value={formData.civil || undefined} onValueChange={(v) => handleSelectChange('civil', v)}>
+                                <SelectTrigger className="h-10">
+                                    <SelectValue placeholder="Seleccione..." />
+                                </SelectTrigger>
+                                <SelectContent className="z-[300]">
+                                    <SelectItem value="Soltero">Soltero</SelectItem>
+                                    <SelectItem value="Casado Bajo comunidad Conyugal">Casado Bajo comunidad Conyugal</SelectItem>
+                                    <SelectItem value="Casado con Separación de Bienes">Casado con Separación de Bienes</SelectItem>
+                                    <SelectItem value="Viudo">Viudo</SelectItem>
+                                    <SelectItem value="Divorciado">Divorciado</SelectItem>
+                                    <SelectItem value="Conviviente civil con Separación de Bienes">Conviviente Civil con Separación de Bienes</SelectItem>
+                                    <SelectItem value="Conviviente Civil con Comunidad de Bienes">Conviviente Civil con Comunidad de Bienes</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <input type="hidden" name={`${prefix}civil`} value={formData.civil} />
                         </div>
-                    ) : (
-                        <Field label="Estado Civil" name={`${prefix} _civil`} defaultValue={getEffectiveValue('civil')} />
                     )}
 
-                    <DateField label="Fecha Nacimiento" name={`${prefix} _nacimiento`} defaultValue={getEffectiveValue('nacimiento')} />
-                    <Field label="Correo" name={`${prefix} _email`} type="email" defaultValue={getEffectiveValue('email')} required />
-                    <Field label="Teléfono" name={`${prefix} _telefono`} defaultValue={getEffectiveValue('telefono')} required />
-                    <Field label="Profesión" name={`${prefix} _ocupacion`} defaultValue={getEffectiveValue('ocupacion')} />
-                    <Field label="Domicilio Particular" name={`${prefix} _direccion`} className="md:col-span-3" defaultValue={getEffectiveValue('direccion')} />
+                    <div className="space-y-2">
+                        <Label className="text-xs font-semibold uppercase text-slate-500">Fecha Nacimiento</Label>
+                        {/* Assuming DateField can take value and onChange, or using a simple date input */}
+                        <Input type="date" name={`${prefix}nacimiento`} value={formData.nacimiento} onChange={handleInputChange} />
+                    </div>
+
+                    <div className="space-y-2">
+                        <SyncLabel field="email">
+                            <Label htmlFor={`${prefix}email`} className="text-xs font-semibold uppercase text-slate-500">Correo <span className="text-red-500">*</span></Label>
+                        </SyncLabel>
+                        <Input id={`${prefix}email`} name={`${prefix}email`} type="email" value={formData.email} onChange={handleInputChange} required />
+                    </div>
+                    <div className="space-y-2">
+                        <SyncLabel field="telefono">
+                            <Label htmlFor={`${prefix}telefono`} className="text-xs font-semibold uppercase text-slate-500">Teléfono <span className="text-red-500">*</span></Label>
+                        </SyncLabel>
+                        <Input id={`${prefix}telefono`} name={`${prefix}telefono`} value={formData.telefono} onChange={handleInputChange} required />
+                    </div>
+                    <div className="space-y-2">
+                        <Label className="text-xs font-semibold uppercase text-slate-500">Profesión</Label>
+                        <Input name={`${prefix}ocupacion`} value={formData.ocupacion} onChange={handleInputChange} />
+                    </div>
+                    <div className="md:col-span-3 space-y-2">
+                        <SyncLabel field="direccion">
+                            <Label htmlFor={`${prefix}direccion`} className="text-xs font-semibold uppercase text-slate-500">Domicilio Particular</Label>
+                        </SyncLabel>
+                        <Input id={`${prefix}direccion`} name={`${prefix}direccion`} value={formData.direccion} onChange={handleInputChange} />
+                    </div>
+
+                    {prefix.startsWith('arrendador') && (
+                        <div className="md:col-span-3 bg-amber-50/50 p-4 rounded border border-amber-100 mt-2">
+                            <Label className="uppercase text-xs font-bold text-amber-600 mb-4 block">Datos Bancarios para Transferencia (Obligatorio)</Label>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div className="space-y-2">
+                                    <SyncLabel field="banco">
+                                        <Label className="text-xs font-semibold uppercase text-slate-500">Banco <span className="text-red-500">*</span></Label>
+                                    </SyncLabel>
+                                    <Select value={formData.banco || undefined} onValueChange={(v) => handleSelectChange('banco', v)}>
+                                        <SelectTrigger className="h-10">
+                                            <SelectValue placeholder="Seleccionar..." />
+                                        </SelectTrigger>
+                                        <SelectContent className="z-[300]">
+                                            {['Banco de Chile', 'Banco Santander', 'Banco Estado', 'BCI', 'Scotiabank', 'Itaú', 'Banco Bice', 'Banco Security', 'Banco Falabella', 'Banco Ripley', 'Banco Consorcio', 'Banco Internacional', 'Coopeuch'].map(b => (
+                                                <SelectItem key={b} value={b}>{b}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <input type="hidden" name={`${prefix}banco`} value={formData.banco} />
+                                </div>
+                                <div className="space-y-2">
+                                    <SyncLabel field="tipo_cuenta">
+                                        <Label className="text-xs font-semibold uppercase text-slate-500">Tipo de Cuenta <span className="text-red-500">*</span></Label>
+                                    </SyncLabel>
+                                    <Select value={formData.tipo_cuenta || undefined} onValueChange={(v) => handleSelectChange('tipo_cuenta', v)}>
+                                        <SelectTrigger className="h-10">
+                                            <SelectValue placeholder="Seleccionar..." />
+                                        </SelectTrigger>
+                                        <SelectContent className="z-[300]">
+                                            {['Cuenta Corriente', 'Cuenta Vista', 'Cuenta RUT', 'Cuenta de Ahorro'].map(t => (
+                                                <SelectItem key={t} value={t}>{t}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <input type="hidden" name={`${prefix}tipo_cuenta`} value={formData.tipo_cuenta} />
+                                </div>
+                                <div className="space-y-2">
+                                    <SyncLabel field="nro_cuenta">
+                                        <Label htmlFor={`${prefix}nro_cuenta`} className="text-xs font-semibold uppercase text-slate-500">N° de Cuenta <span className="text-red-500">*</span></Label>
+                                    </SyncLabel>
+                                    <Input id={`${prefix}nro_cuenta`} name={`${prefix}nro_cuenta`} value={formData.nro_cuenta} onChange={handleInputChange} required />
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     {!hideLaborData && (
                         <div className="md:col-span-3 bg-white p-4 rounded border mt-2">
                             <Label className="uppercase text-xs font-bold text-slate-400 mb-4 block">Datos Laborales</Label>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <Field label="Empleador" name={`${prefix} _empleador`} defaultValue={getValue('empleador')} />
-                                <Field label="RUT Empleador" name={`${prefix} _empleador_rut`} defaultValue={getValue('empleador_rut')} />
-                                <Field label="Teléfono Laboral" name={`${prefix} _telefono_lab`} defaultValue={getValue('telefono_lab')} />
-                                <Field label="Dirección Laboral" name={`${prefix} _direccion_lab`} className="md:col-span-2" defaultValue={getValue('direccion_lab')} />
+                                <div className="space-y-2">
+                                    <Label className="text-xs font-semibold uppercase text-slate-500">Empleador</Label>
+                                    <Input name={`${prefix}empleador`} value={formData.empleador} onChange={handleInputChange} />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label className="text-xs font-semibold uppercase text-slate-500">RUT Empleador</Label>
+                                    <Input name={`${prefix}empleador_rut`} value={formData.empleador_rut} onChange={handleInputChange} />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label className="text-xs font-semibold uppercase text-slate-500">Teléfono Laboral</Label>
+                                    <Input name={`${prefix}telefono_lab`} value={formData.telefono_lab} onChange={handleInputChange} />
+                                </div>
+                                <div className="md:col-span-2 space-y-2">
+                                    <Label className="text-xs font-semibold uppercase text-slate-500">Dirección Laboral</Label>
+                                    <Input name={`${prefix}direccion_lab`} value={formData.direccion_lab} onChange={handleInputChange} />
+                                </div>
                             </div>
                         </div>
                     )}
@@ -285,22 +460,58 @@ function PartyForm({ typeLabel, index, prefix, initialData = {}, onRemove, isRem
             ) : (
                 <div className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <Field label="Razón Social" name={`${prefix} _juridica_razon`} className="md:col-span-2" defaultValue={getValue('juridica_razon')} required />
-                        <Field label="RUT Empresa" name={`${prefix} _juridica_rut`} defaultValue={getValue('juridica_rut')} required />
-                        <Field label="Domicilio Comercial" name={`${prefix} _juridica_direccion`} className="md:col-span-2" defaultValue={getValue('juridica_direccion')} />
-                        <Field label="Teléfono" name={`${prefix} _juridica_telefono`} defaultValue={getValue('juridica_telefono')} />
+                        <div className="md:col-span-2 space-y-2">
+                            <Label className="text-xs font-semibold uppercase text-slate-500">Razón Social <span className="text-red-500">*</span></Label>
+                            <Input name={`${prefix}juridica_razon`} value={formData.juridica_razon} onChange={handleInputChange} required />
+                        </div>
+                        <div className="space-y-2">
+                            <Label className="text-xs font-semibold uppercase text-slate-500">RUT Empresa <span className="text-red-500">*</span></Label>
+                            <Input name={`${prefix}juridica_rut`} value={formData.juridica_rut} onChange={handleInputChange} required />
+                        </div>
+                        <div className="md:col-span-2 space-y-2">
+                            <Label className="text-xs font-semibold uppercase text-slate-500">Domicilio Comercial</Label>
+                            <Input name={`${prefix}juridica_direccion`} value={formData.juridica_direccion} onChange={handleInputChange} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label className="text-xs font-semibold uppercase text-slate-500">Teléfono</Label>
+                            <Input name={`${prefix}juridica_telefono`} value={formData.juridica_telefono} onChange={handleInputChange} />
+                        </div>
                     </div>
                     <div className="bg-white p-4 rounded-lg border space-y-4">
                         <h4 className="text-xs font-bold uppercase text-slate-500">Representante Legal (Obligatorio)</h4>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <Field label="Nombres" name={`${prefix} _juridica_rep_nombres`} defaultValue={getValue('juridica_rep_nombres')} required />
-                            <Field label="Apellidos" name={`${prefix} _juridica_rep_apellidos`} defaultValue={getValue('juridica_rep_apellidos')} required />
-                            <Field label="RUT Rep. Legal" name={`${prefix} _juridica_rep_rut`} defaultValue={getValue('juridica_rep_rut')} required />
-                            <Field label="Nacionalidad" name={`${prefix} _juridica_rep_nacionalidad`} defaultValue={getValue('juridica_rep_nacionalidad')} />
-                            <Field label="Estado Civil" name={`${prefix} _juridica_rep_civil`} defaultValue={getValue('juridica_rep_civil')} />
-                            <Field label="Correo" name={`${prefix} _juridica_rep_email`} type="email" defaultValue={getValue('juridica_rep_email')} required />
-                            <DateField label="Fecha Nacimiento" name={`${prefix} _juridica_rep_nacimiento`} defaultValue={getValue('juridica_rep_nacimiento')} />
-                            <Field label="Domicilio Particular" name={`${prefix} _juridica_rep_direccion`} className="md:col-span-2" defaultValue={getValue('juridica_rep_direccion')} />
+                            <div className="space-y-2">
+                                <Label className="text-xs font-semibold uppercase text-slate-500">Nombres <span className="text-red-500">*</span></Label>
+                                <Input name={`${prefix}juridica_rep_nombres`} value={formData.juridica_rep_nombres} onChange={handleInputChange} required />
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="text-xs font-semibold uppercase text-slate-500">Apellidos <span className="text-red-500">*</span></Label>
+                                <Input name={`${prefix}juridica_rep_apellidos`} value={formData.juridica_rep_apellidos} onChange={handleInputChange} required />
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="text-xs font-semibold uppercase text-slate-500">RUT Rep. Legal <span className="text-red-500">*</span></Label>
+                                <Input name={`${prefix}juridica_rep_rut`} value={formData.juridica_rep_rut} onChange={handleInputChange} required />
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="text-xs font-semibold uppercase text-slate-500">Nacionalidad</Label>
+                                <Input name={`${prefix}juridica_rep_nacionalidad`} value={formData.juridica_rep_nacionalidad} onChange={handleInputChange} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="text-xs font-semibold uppercase text-slate-500">Estado Civil</Label>
+                                <Input name={`${prefix}juridica_rep_civil`} value={formData.juridica_rep_civil} onChange={handleInputChange} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="text-xs font-semibold uppercase text-slate-500">Correo <span className="text-red-500">*</span></Label>
+                                <Input name={`${prefix}juridica_rep_email`} type="email" value={formData.juridica_rep_email} onChange={handleInputChange} required />
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="text-xs font-semibold uppercase text-slate-500">Fecha Nacimiento</Label>
+                                <Input type="date" name={`${prefix}juridica_rep_nacimiento`} value={formData.juridica_rep_nacimiento} onChange={handleInputChange} />
+                            </div>
+                            <div className="md:col-span-2 space-y-2">
+                                <Label className="text-xs font-semibold uppercase text-slate-500">Domicilio Particular</Label>
+                                <Input name={`${prefix}juridica_rep_direccion`} value={formData.juridica_rep_direccion} onChange={handleInputChange} />
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -318,7 +529,7 @@ function PartyArraySection({ title, typeLabel, prefixRoot, initialData = {}, hid
         // Check up to 4
         for (let i = 2; i <= 4; i++) {
             // Check a discriminatory field, e.g., name or rut
-            if (initialData[`${prefixRoot}_${i} _nombres`] || initialData[`${prefixRoot}_${i} _juridica_razon`]) {
+            if (initialData[`${prefixRoot}_${i}_nombres`] || initialData[`${prefixRoot}_${i}_juridica_razon`]) {
                 count = i
             }
         }
@@ -345,10 +556,10 @@ function PartyArraySection({ title, typeLabel, prefixRoot, initialData = {}, hid
             <div className="space-y-6">
                 {ids.map((id, index) => (
                     <PartyForm
-                        key={id}
+                        key={index}
                         typeLabel={typeLabel}
                         index={index} // Display index 0..N -> 1..N+1
-                        prefix={`${prefixRoot}_${index + 1} `} // Store as prefix_1, prefix_2...
+                        prefix={`${prefixRoot}_${index + 1}_`} // Store as prefix_1_, prefix_2_...
                         initialData={initialData}
                         onRemove={() => removeParty(id)}
                         isRemovable={ids.length > 1}
@@ -670,14 +881,14 @@ function BuySellFormLogic({ user, profile, navigate, initialData = {}, requestId
                 const partyCount = (prefix) => {
                     let count = 0;
                     for (let i = 1; i <= 4; i++) {
-                        if (formData.get(`${prefix}_${i} _contact_id`)) count++;
+                        if (formData.get(`${prefix}_${i}_contact_id`)) count++;
                     }
                     return count || 1; // At least one if they filled it manually but no CRM ID, but loop below will safely ignore empty ones anyway.
                 }
 
                 // Vendedores
                 for (let i = 1; i <= 4; i++) {
-                    const contactId = formData.get(`vendedor_${i} _contact_id`);
+                    const contactId = formData.get(`vendedor_${i}_contact_id`);
                     if (contactId) {
                         await autoLinkContactProperty(contactId, propId, 'vendedor', agentId);
                     }
@@ -685,7 +896,7 @@ function BuySellFormLogic({ user, profile, navigate, initialData = {}, requestId
 
                 // Compradores
                 for (let i = 1; i <= 4; i++) {
-                    const contactId = formData.get(`comprador_${i} _contact_id`);
+                    const contactId = formData.get(`comprador_${i}_contact_id`);
                     if (contactId) {
                         await autoLinkContactProperty(contactId, propId, 'comprador', agentId);
                     }
@@ -1019,6 +1230,22 @@ function LeaseFormLogic({ user, profile, navigate, initialData = {}, requestId =
             if (!formData.get('admin_contacto_email')) return toast.error('Email Contacto Administración es obligatorio')
         }
 
+        // Arrendador 1 bank details validation
+        const arrendador_1_nombres = formData.get('arrendador_1_nombres');
+        const arrendador_1_apellidos = formData.get('arrendador_1_apellidos');
+        const arrendador_1_rut = formData.get('arrendador_1_rut');
+
+        // New bank fields
+        const arrendador_1_banco = formData.get('arrendador_1_banco');
+        const arrendador_1_tipo_cuenta = formData.get('arrendador_1_tipo_cuenta');
+        const arrendador_1_nro_cuenta = formData.get('arrendador_1_nro_cuenta');
+
+        if (!arrendador_1_nombres || !arrendador_1_apellidos || !arrendador_1_rut || !arrendador_1_banco || !arrendador_1_tipo_cuenta || !arrendador_1_nro_cuenta) {
+            toast.error('Nombre, RUT y Datos Bancarios del Arrendador 1 son obligatorios');
+            setIsSubmitting(false);
+            return;
+        }
+
         setIsSubmitting(true)
 
         try {
@@ -1261,7 +1488,6 @@ function LeaseFormLogic({ user, profile, navigate, initialData = {}, requestId =
 
 
                         <Field label="Documenta con Cheque (SI/NO)" name="documenta_cheque" placeholder="SI/NO" defaultValue={initialData.documenta_cheque} />
-                        <Field label="Cuenta para Transferencia" name="cuenta_transferencia" className="md:col-span-2" placeholder="Banco, Tipo Cta, Número, RUT" defaultValue={initialData.cuenta_transferencia} />
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../services/supabase'
@@ -241,10 +241,28 @@ export default function CalendarPage() {
                 });
             }
         };
-
         window.addEventListener('focus', handleFocus);
         return () => window.removeEventListener('focus', handleFocus);
     }, [user, profile?.google_refresh_token]);
+
+    // Auto-push unsynced CRM tasks to Google Calendar (once per task)
+    const pushedTaskIdsRef = useRef(new Set());
+    useEffect(() => {
+        if (!user || !profile?.google_refresh_token || loading) return;
+
+        const unsyncedEvents = events.filter(e => !e.isGoogleEvent && !pushedTaskIdsRef.current.has(e.id));
+        if (unsyncedEvents.length === 0) return;
+
+        // Mark as pushed immediately to prevent duplicates
+        unsyncedEvents.forEach(evt => pushedTaskIdsRef.current.add(evt.id));
+
+        // Push each unsynced task (fire and forget, silently)
+        unsyncedEvents.forEach(evt => {
+            supabase.functions.invoke('google-calendar-sync', {
+                body: { agentId: user.id, action: 'push_to_google', taskId: evt.id }
+            }).catch(() => { })
+        });
+    }, [events, loading, user, profile?.google_refresh_token]);
 
     const fetchContacts = async () => {
         try {
