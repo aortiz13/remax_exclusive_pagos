@@ -29,6 +29,7 @@ const DAY_NAMES = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie']
 const DAY_FULL = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes']
 
 const CONDITIONS = [
+    'Estar al día con el pago de la cuota mensual de la oficina.',
     'Haber captado al menos 2 propiedades en exclusiva.',
     'Haber hecho al menos un cierre de negocio de compraventa o de arriendo.',
     'Participar activamente en las actividades presenciales (reuniones de ventas, talleres, seguimiento de indicadores).',
@@ -104,7 +105,7 @@ export default function ShiftBookingPage() {
                 .select('*, agent:profiles!shift_bookings_agent_id_fkey(id, first_name, last_name, email, phone)')
                 .gte('booking_date', weekDates[0])
                 .lte('booking_date', weekDates[4])
-                .not('status', 'eq', 'cancelado'),
+                .in('status', ['pendiente', 'aprobado']),
             supabase
                 .from('shift_available_slots')
                 .select('*')
@@ -247,6 +248,14 @@ export default function ShiftBookingPage() {
                     </div>
                 )}
             </motion.div>
+
+            {/* Payment Requirement Banner - Always Visible */}
+            <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border-2 border-amber-400 dark:border-amber-600">
+                <span className="text-lg">⚠️</span>
+                <p className="text-sm font-bold text-amber-800 dark:text-amber-200">
+                    Requisito obligatorio: Estar al día con el pago de la cuota mensual de la oficina.
+                </p>
+            </div>
 
             {/* Conditions Panel */}
             <AnimatePresence>

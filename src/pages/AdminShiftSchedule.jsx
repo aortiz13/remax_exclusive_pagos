@@ -99,7 +99,7 @@ export default function AdminShiftSchedule() {
     }
 
     function getBookingForSlot(date, shift) {
-        return bookings.find(b => b.booking_date === date && b.shift === shift && b.status !== 'cancelado')
+        return bookings.find(b => b.booking_date === date && b.shift === shift && (b.status === 'pendiente' || b.status === 'aprobado'))
     }
 
     function isSlotAvailable(date, shift) {
