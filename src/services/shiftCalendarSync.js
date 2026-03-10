@@ -1,9 +1,9 @@
 /**
  * Shift/Guard Calendar Sync Helper
  * Creates/deletes crm_tasks entries for approved guard shifts
- * and syncs them to Google Calendar via the google-calendar-sync edge function.
+ * and syncs them to Google Calendar for BOTH agent and comercial users.
  *
- * Follows the same pattern as cameraCalendarSync.js.
+ * Follows the same dual-task pattern as cameraCalendarSync.js.
  *
  * IMPORTANT: Guard shift events in Google Calendar are read-only references.
  * Shift management must be done exclusively from the CRM platform.
@@ -17,12 +17,13 @@ const SHIFT_CONFIG = {
     2: { label: 'Turno 2', time: '13:00 – 18:00', startTime: '13:00:00', endTime: '18:00:00' },
 }
 
-const SHIFT_EVENT_DESCRIPTION = (booking) => {
+const SHIFT_EVENT_DESCRIPTION = (booking, agentName = '') => {
     const cfg = SHIFT_CONFIG[booking.shift] || SHIFT_CONFIG[1]
     return (
         `🛡️ Turno de Guardia — ${cfg.label}\n` +
         `📅 ${booking.booking_date}\n` +
         `🕐 ${cfg.time}\n` +
+        (agentName ? `👤 ${agentName}\n` : '') +
         (booking.agent_notes ? `💬 ${booking.agent_notes}\n` : '') +
         `\n📋 Responsabilidades:\n` +
         `• Atender leads asignados durante el turno\n` +
@@ -34,110 +35,154 @@ const SHIFT_EVENT_DESCRIPTION = (booking) => {
 }
 
 /**
- * Create a CRM task for the agent when a shift is approved, then push to Google Calendar.
+ * Create CRM tasks for both agent and comercial when a shift is approved,
+ * then push both to Google Calendar.
  * @param {object} booking - The shift_bookings row (must include id, booking_date, shift, agent_notes)
  * @param {string} agentId - The agent's profile ID
- * @returns {string|null} The created crm_task ID, or null on failure
+ * @param {string} comercialId - The comercial's profile ID (Marinela)
+ * @param {string} [agentName] - Agent display name for the event description
+ * @returns {{ agentTaskId: string|null, comercialTaskId: string|null }}
  */
-export async function createShiftCalendarEvent(booking, agentId) {
+export async function createShiftCalendarEvent(booking, agentId, comercialId, agentName = '') {
     const cfg = SHIFT_CONFIG[booking.shift] || SHIFT_CONFIG[1]
     const startDT = `${booking.booking_date}T${cfg.startTime}`
     const endDT = `${booking.booking_date}T${cfg.endTime}`
-    const description = SHIFT_EVENT_DESCRIPTION(booking)
+    const description = SHIFT_EVENT_DESCRIPTION(booking, agentName)
 
-    const taskPayload = {
-        agent_id: agentId,
-        action: `🛡️ Turno de Guardia — ${cfg.label} (${cfg.time})`,
+    const taskPayload = (ownerId) => ({
+        agent_id: ownerId,
+        action: `🛡️ Turno de Guardia — ${cfg.label} (${cfg.time})${agentName ? ` · ${agentName}` : ''}`,
         execution_date: startDT,
         end_date: endDT,
         description,
         completed: false,
         task_type: 'event',
-    }
+    })
 
     try {
         // Create CRM task for the agent
-        const { data: task, error: taskErr } = await supabase
+        const { data: agentTask, error: agentErr } = await supabase
             .from('crm_tasks')
-            .insert(taskPayload)
+            .insert(taskPayload(agentId))
             .select('id')
             .single()
 
-        if (taskErr) {
-            console.error('Error creating shift calendar task:', taskErr)
-            auditLog.error('system', 'shift.task.create.failed', `Error creando tarea de turno`, {
-                module: 'shiftCalendarSync', error_code: taskErr.code,
-                details: { bookingId: booking.id, agentId, error: taskErr.message }
+        if (agentErr) {
+            console.error('Error creating agent shift task:', agentErr)
+            auditLog.error('system', 'shift.task.create.agent.failed', `Error creando tarea de turno para agente`, {
+                module: 'shiftCalendarSync', error_code: agentErr.code,
+                details: { bookingId: booking.id, agentId, error: agentErr.message }
             })
-            return null
         }
 
-        const taskId = task?.id
-        if (!taskId) return null
+        // Create CRM task for the comercial
+        const { data: comercialTask, error: comercialErr } = await supabase
+            .from('crm_tasks')
+            .insert(taskPayload(comercialId))
+            .select('id')
+            .single()
 
-        // Link task ID back to the shift booking
-        await supabase
-            .from('shift_bookings')
-            .update({ crm_task_id: taskId })
-            .eq('id', booking.id)
+        if (comercialErr) {
+            console.error('Error creating comercial shift task:', comercialErr)
+            auditLog.error('system', 'shift.task.create.comercial.failed', `Error creando tarea de turno para comercial`, {
+                module: 'shiftCalendarSync', error_code: comercialErr.code,
+                details: { bookingId: booking.id, comercialId, error: comercialErr.message }
+            })
+        }
+
+        // Save task IDs in booking
+        const agentTaskId = agentTask?.id || null
+        const comercialTaskId = comercialTask?.id || null
+        if (agentTaskId || comercialTaskId) {
+            await supabase.from('shift_bookings').update({
+                crm_task_id: agentTaskId,
+                crm_task_id_comercial: comercialTaskId,
+            }).eq('id', booking.id)
+        }
 
         // Push to Google Calendar (fire and forget)
-        supabase.functions.invoke('google-calendar-sync', {
-            body: { agentId, action: 'push_to_google', taskId }
-        }).catch(e => {
-            console.error('Google sync shift error:', e)
-            auditLog.error('calendar', 'google.sync.shift.failed', `Error sincronizando turno con Google Calendar`, {
-                module: 'shiftCalendarSync', details: { taskId, error: e.message }
+        if (agentTaskId) {
+            supabase.functions.invoke('google-calendar-sync', {
+                body: { agentId, action: 'push_to_google', taskId: agentTaskId }
+            }).catch(e => {
+                console.error('Google sync agent shift error:', e)
+                auditLog.error('calendar', 'google.sync.shift.agent.failed', `Error sincronizando turno con Google Calendar (agente)`, {
+                    module: 'shiftCalendarSync', details: { taskId: agentTaskId, error: e.message }
+                })
             })
+        }
+        if (comercialTaskId) {
+            supabase.functions.invoke('google-calendar-sync', {
+                body: { agentId: comercialId, action: 'push_to_google', taskId: comercialTaskId }
+            }).catch(e => {
+                console.error('Google sync comercial shift error:', e)
+                auditLog.error('calendar', 'google.sync.shift.comercial.failed', `Error sincronizando turno con Google Calendar (comercial)`, {
+                    module: 'shiftCalendarSync', details: { taskId: comercialTaskId, error: e.message }
+                })
+            })
+        }
+
+        auditLog.info('system', 'shift.task.created', `Tareas de turno creadas para booking ${booking.id}`, {
+            module: 'shiftCalendarSync', details: { bookingId: booking.id, agentTaskId, comercialTaskId, agentId, comercialId }
         })
 
-        auditLog.info('system', 'shift.task.created', `Tarea de turno creada para booking ${booking.id}`, {
-            module: 'shiftCalendarSync', details: { bookingId: booking.id, taskId, agentId }
-        })
-
-        return taskId
+        return { agentTaskId, comercialTaskId }
     } catch (err) {
         console.error('Error in createShiftCalendarEvent:', err)
         auditLog.error('system', 'shift.create.exception', err.message, {
             module: 'shiftCalendarSync', details: { bookingId: booking.id, error: err.message }
         })
-        return null
+        return { agentTaskId: null, comercialTaskId: null }
     }
 }
 
 /**
- * Delete the CRM task and Google Calendar event when a shift is rejected or cancelled.
- * @param {object} booking - The shift_bookings row (must include id, crm_task_id)
+ * Delete the CRM tasks and Google Calendar events for both agent and comercial
+ * when a shift is rejected or cancelled.
+ * @param {object} booking - The shift_bookings row (must include id, crm_task_id, crm_task_id_comercial)
  * @param {string} agentId - The agent's profile ID
+ * @param {string} comercialId - The comercial's profile ID (Marinela)
  */
-export async function deleteShiftCalendarEvent(booking, agentId) {
-    if (!booking.crm_task_id) return
-
+export async function deleteShiftCalendarEvent(booking, agentId, comercialId) {
     try {
-        // Read google_event_id from the task before deleting
-        const { data: task } = await supabase
-            .from('crm_tasks')
-            .select('google_event_id')
-            .eq('id', booking.crm_task_id)
-            .single()
+        // Delete agent task + Google event
+        if (booking.crm_task_id) {
+            const { data: task } = await supabase
+                .from('crm_tasks')
+                .select('google_event_id')
+                .eq('id', booking.crm_task_id)
+                .single()
 
-        // Delete from Google Calendar if it was synced
-        if (task?.google_event_id) {
-            supabase.functions.invoke('google-calendar-sync', {
-                body: { agentId, action: 'delete_from_google', googleEventId: task.google_event_id }
-            }).catch(e => console.error('Google delete shift error:', e))
+            if (task?.google_event_id) {
+                supabase.functions.invoke('google-calendar-sync', {
+                    body: { agentId, action: 'delete_from_google', googleEventId: task.google_event_id }
+                }).catch(e => console.error('Google delete agent shift error:', e))
+            }
+
+            await supabase.from('crm_tasks').delete().eq('id', booking.crm_task_id)
         }
 
-        // Delete the CRM task
-        await supabase
-            .from('crm_tasks')
-            .delete()
-            .eq('id', booking.crm_task_id)
+        // Delete comercial task + Google event
+        if (booking.crm_task_id_comercial) {
+            const { data: task } = await supabase
+                .from('crm_tasks')
+                .select('google_event_id')
+                .eq('id', booking.crm_task_id_comercial)
+                .single()
 
-        // Clear the reference from shift_bookings
+            if (task?.google_event_id) {
+                supabase.functions.invoke('google-calendar-sync', {
+                    body: { agentId: comercialId, action: 'delete_from_google', googleEventId: task.google_event_id }
+                }).catch(e => console.error('Google delete comercial shift error:', e))
+            }
+
+            await supabase.from('crm_tasks').delete().eq('id', booking.crm_task_id_comercial)
+        }
+
+        // Clear references from shift_bookings
         await supabase
             .from('shift_bookings')
-            .update({ crm_task_id: null })
+            .update({ crm_task_id: null, crm_task_id_comercial: null })
             .eq('id', booking.id)
     } catch (err) {
         console.error('Error in deleteShiftCalendarEvent:', err)

@@ -47,10 +47,17 @@ export default function ShiftBookingPage() {
     const [submitting, setSubmitting] = useState(false)
     const [agents, setAgents] = useState({})
     const [showConditions, setShowConditions] = useState(false)
+    const [comercialId, setComercialId] = useState(null)
 
     // Cancel dialog state
     const [showCancelDialog, setShowCancelDialog] = useState(false)
     const [cancelBooking, setCancelBooking] = useState(null)
+
+    // Fetch comercial user (Marinela) on mount
+    useEffect(() => {
+        supabase.from('profiles').select('id').eq('role', 'comercial').limit(1).single()
+            .then(({ data }) => { if (data) setComercialId(data.id) })
+    }, [])
 
     // Compute week dates (Mon–Fri)
     const weekDates = useMemo(() => {
@@ -195,8 +202,8 @@ export default function ShiftBookingPage() {
         }
         sendShiftNotification(SHIFT_EVENTS.SHIFT_CANCELLED, booking, profile)
 
-        // Remove calendar event + delete from Google Calendar
-        deleteShiftCalendarEvent(booking, profile.id)
+        // Remove calendar events for agent + comercial, delete from Google Calendar
+        deleteShiftCalendarEvent(booking, profile.id, comercialId)
 
         toast.success('Turno cancelado.')
         await fetchBookings()
