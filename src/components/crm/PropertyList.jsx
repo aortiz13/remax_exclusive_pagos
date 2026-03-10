@@ -280,22 +280,21 @@ const PropertyList = () => {
 
             if (tasksError) throw tasksError
 
-            // 2. Delete the property (Contacts/Logs will CASCADE)
+            // 2. Log property deletion BEFORE deleting (to avoid FK violation on activity_logs.property_id)
+            logActivity({
+                action: 'Eliminó',
+                entity_type: 'Propiedad',
+                entity_id: propertyToDelete.id,
+                description: `Propiedad eliminada: ${propertyToDelete.address || 'Sin dirección'}`,
+            }).catch(() => { })
+
+            // 3. Delete the property (Contacts/Logs will CASCADE)
             const { error: propertyError } = await supabase
                 .from('properties')
                 .delete()
                 .eq('id', propertyToDelete.id)
 
             if (propertyError) throw propertyError
-
-            // Log property deletion to timeline
-            logActivity({
-                action: 'Eliminó',
-                entity_type: 'Propiedad',
-                entity_id: propertyToDelete.id,
-                description: `Propiedad eliminada: ${propertyToDelete.address || 'Sin dirección'}`,
-                property_id: propertyToDelete.id
-            }).catch(() => { })
 
             toast.success('Propiedad eliminada correctamente')
 

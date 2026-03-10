@@ -166,6 +166,9 @@ export const auditLog = {
 export function initGlobalErrorCapture() {
     // Unhandled JS errors
     window.addEventListener('error', (event) => {
+        // Ignore benign browser warnings that are not real errors
+        if (event.message?.includes('ResizeObserver loop')) return
+
         auditLog.error('system', 'js.unhandled_error', event.message || 'Unhandled error', {
             details: serializeError(event.error),
             module: event.filename ? `${event.filename}:${event.lineno}:${event.colno}` : undefined,

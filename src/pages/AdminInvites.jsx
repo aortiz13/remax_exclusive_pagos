@@ -301,6 +301,10 @@ export default function AdminInvites() {
         } catch (error) {
             console.error('Error deleting user:', error)
             toast.error('Error al eliminar usuario')
+            auditLog.error('admin', 'user.delete.failed', `Error eliminando a ${userToDelete.email}: ${error.message}`, {
+                module: 'AdminInvites',
+                details: { userId, email: userToDelete.email, name: `${userToDelete.first_name} ${userToDelete.last_name}`, error: error.message }
+            })
         } finally {
             setDeleteLoading(null)
             setUserToDelete(null)

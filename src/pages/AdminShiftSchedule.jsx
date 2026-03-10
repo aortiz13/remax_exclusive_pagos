@@ -34,6 +34,7 @@ export default function AdminShiftSchedule() {
     const [loading, setLoading] = useState(true)
     const [publishing, setPublishing] = useState(false)
     const [tab, setTab] = useState('calendario')
+    const [comercialId, setComercialId] = useState(null)
 
     // Slots selected for publishing (editing mode)
     const [editingAvailability, setEditingAvailability] = useState(false)
@@ -44,6 +45,12 @@ export default function AdminShiftSchedule() {
     const [showRejectDialog, setShowRejectDialog] = useState(false)
     const [rejectBooking, setRejectBooking] = useState(null)
     const [rejectNotes, setRejectNotes] = useState('')
+
+    // Fetch comercial user (Marinela) on mount
+    useEffect(() => {
+        supabase.from('profiles').select('id').eq('role', 'comercial').limit(1).single()
+            .then(({ data }) => { if (data) setComercialId(data.id) })
+    }, [])
 
     const weekDates = useMemo(() => {
         const today = new Date()
@@ -149,6 +156,7 @@ export default function AdminShiftSchedule() {
             .from('profiles')
             .select('id, first_name, last_name, email, phone')
             .eq('role', 'agent')
+            .eq('shift_eligible', true)
 
         // Build slots summary for notification
         const slotsSummary = Array.from(selectedSlots).sort().map(key => {
@@ -186,8 +194,9 @@ export default function AdminShiftSchedule() {
         if (error) { toast.error('Error: ' + error.message); return }
         sendShiftNotification(SHIFT_EVENTS.SHIFT_APPROVED, { ...booking, status: 'aprobado' }, booking.agent || {})
 
-        // Create calendar event + sync to Google Calendar
-        createShiftCalendarEvent(booking, booking.agent_id)
+        // Create calendar events for agent + comercial, sync to Google Calendar
+        const agentName = booking.agent ? `${booking.agent.first_name || ''} ${booking.agent.last_name || ''}`.trim() : ''
+        createShiftCalendarEvent(booking, booking.agent_id, comercialId, agentName)
 
         toast.success('Turno aprobado.')
         fetchAll()
@@ -210,8 +219,8 @@ export default function AdminShiftSchedule() {
         if (error) { toast.error('Error: ' + error.message); return }
         sendShiftNotification(SHIFT_EVENTS.SHIFT_REJECTED, { ...booking, status: 'rechazado' }, booking.agent || {}, notes || '')
 
-        // Remove calendar event + delete from Google Calendar
-        deleteShiftCalendarEvent(booking, booking.agent_id)
+        // Remove calendar events for agent + comercial, delete from Google Calendar
+        deleteShiftCalendarEvent(booking, booking.agent_id, comercialId)
 
         toast.success('Turno rechazado.')
         fetchAll()
@@ -463,7 +472,7 @@ export default function AdminShiftSchedule() {
                         <AlertDialogDescription className="text-left">
                             ¿Publicar <strong>{selectedSlots.size}</strong> turnos disponibles para la semana <strong>{weekRangeLabel}</strong>?
                             <br /><br />
-                            Se notificará a todos los agentes elegibles por correo electrónico y se enviará un mensaje de auditoría al grupo comercial de WhatsApp.
+                            Se notificará a los agentes habilitados para guardia por correo electrónico y se enviará un mensaje de auditoría al grupo comercial de WhatsApp.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
