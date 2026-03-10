@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { supabase, getCustomPublicUrl } from '../services/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Button, Input, Textarea, Label } from '@/components/ui'
-import { FileText, Send, ArrowLeft, ArrowRight, Loader2, Save, Download, Upload, Image as ImageIcon, BarChart3, X, Plus, File, Trash2, Camera, Check, RefreshCw } from 'lucide-react'
+import { FileText, Send, ArrowLeft, ArrowRight, Loader2, Save, Download, Upload, Image as ImageIcon, BarChart3, X, Plus, File, Trash2, Camera, Check, RefreshCw, Lock, Eye } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import html2canvas from 'html2canvas'
@@ -1027,6 +1027,9 @@ export default function ManagementReportPage() {
     if (!report) return null
 
     const isSent = report.status === 'sent'
+    const isAdminRole = ['superadministrador', 'comercial', 'legal', 'tecnico'].includes(profile?.role)
+    const isOwnerAgent = user?.id === report.agent_id
+    const isReadOnly = isAdminRole && !isOwnerAgent
     const agentName = `${report.agent?.first_name || profile?.first_name || ''} ${report.agent?.last_name || profile?.last_name || ''}`.trim()
     const ownerFirstName = report.owner?.first_name || ''
     const propertyAddress = report.properties?.address || 'Dirección de la propiedad'
@@ -1034,7 +1037,7 @@ export default function ManagementReportPage() {
 
     // -- PDF-style Report Component --
     const ReportContent = ({ isPreview = false }) => {
-        const isSentOrPreview = isSent || isPreview
+        const isSentOrPreview = isSent || isPreview || isReadOnly
         return (
             <div className={cn("bg-white text-black", isPreview ? "w-[210mm] pdf-print-area" : "max-w-4xl mx-auto")} style={{ fontFamily: "'Public Sans', 'Inter', sans-serif" }}>
 
@@ -1602,6 +1605,19 @@ export default function ManagementReportPage() {
 
     return (
         <div className="space-y-6">
+            {/* Read-only banner for admin roles */}
+            {isReadOnly && (
+                <div className="max-w-4xl mx-auto rounded-xl p-4 flex items-center gap-3 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 shadow-sm">
+                    <div className="p-2 bg-blue-100 rounded-lg">
+                        <Eye className="w-5 h-5 text-blue-600" />
+                    </div>
+                    <div>
+                        <p className="font-semibold text-sm text-slate-900">Vista de solo lectura</p>
+                        <p className="text-xs text-slate-500">Solo el agente responsable puede editar y enviar este informe.</p>
+                    </div>
+                </div>
+            )}
+
             {/* Top Bar */}
             <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
@@ -1619,7 +1635,7 @@ export default function ManagementReportPage() {
                         <Download className="w-4 h-4" />
                         Descargar PDF
                     </Button>
-                    {!isSent && (
+                    {!isReadOnly && !isSent && (
                         <>
                             <Button variant="outline" size="sm" onClick={handleSave} disabled={saving} className="gap-2">
                                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
@@ -1631,7 +1647,7 @@ export default function ManagementReportPage() {
                             </Button>
                         </>
                     )}
-                    {isSent && (
+                    {!isReadOnly && isSent && (
                         <div className="flex items-center gap-2">
                             <div className="flex items-center gap-2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg px-3 py-1.5 text-sm font-medium">
                                 ✅ Enviado el {new Date(report.sent_at).toLocaleDateString('es-CL')}
@@ -1642,16 +1658,28 @@ export default function ManagementReportPage() {
                             </Button>
                         </div>
                     )}
+                    {isReadOnly && isSent && (
+                        <div className="flex items-center gap-2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg px-3 py-1.5 text-sm font-medium">
+                            ✅ Enviado el {new Date(report.sent_at).toLocaleDateString('es-CL')}
+                        </div>
+                    )}
                 </div>
             </div>
 
-            {/* Report Content (editable) */}
+            {/* Report Content */}
             <div className="shadow-xl rounded-2xl overflow-hidden border border-gray-200">
                 {ReportContent({})}
             </div>
 
             {/* Bottom Action Bar */}
-            {!isSent && (
+            {isReadOnly ? (
+                <div className="max-w-4xl mx-auto flex justify-end gap-3 pb-8">
+                    <Button variant="outline" onClick={handleDownloadPdf} className="gap-2">
+                        <Download className="w-4 h-4" />
+                        Descargar PDF
+                    </Button>
+                </div>
+            ) : !isSent ? (
                 <div className="max-w-4xl mx-auto flex justify-end gap-3 pb-8">
                     <Button variant="outline" onClick={handleDownloadPdf} className="gap-2">
                         <Download className="w-4 h-4" />
@@ -1666,8 +1694,7 @@ export default function ManagementReportPage() {
                         Enviar al Propietario
                     </Button>
                 </div>
-            )}
-            {isSent && (
+            ) : (
                 <div className="max-w-4xl mx-auto flex justify-end gap-3 pb-8">
                     <Button variant="outline" onClick={handleDownloadPdf} className="gap-2">
                         <Download className="w-4 h-4" />

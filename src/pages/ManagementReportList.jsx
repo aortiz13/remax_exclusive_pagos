@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../services/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Button, Badge } from '@/components/ui'
-import { FileText, Clock, CheckCircle, AlertTriangle, Loader2, ChevronRight, Plus, Construction } from 'lucide-react'
+import { FileText, Clock, CheckCircle, AlertTriangle, Loader2, ChevronRight, Plus, Construction, Eye, User, Home, Lock } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 
@@ -12,9 +12,10 @@ export default function ManagementReportList() {
     const navigate = useNavigate()
     const [reports, setReports] = useState([])
     const [loading, setLoading] = useState(true)
-    const [filter, setFilter] = useState('all')
 
     const isAdmin = ['superadministrador', 'comercial', 'legal', 'tecnico'].includes(profile?.role)
+    // Admin default filter: sent; Agent default filter: all
+    const [filter, setFilter] = useState(isAdmin ? 'sent' : 'all')
 
     useEffect(() => {
         fetchReports()
@@ -38,8 +39,17 @@ export default function ManagementReportList() {
                 query = query.eq('agent_id', user.id)
             }
 
-            if (filter !== 'all') {
-                query = query.eq('status', filter)
+            // Admin: only fetch sent and overdue reports
+            if (isAdmin) {
+                if (filter === 'sent') {
+                    query = query.eq('status', 'sent')
+                } else if (filter === 'overdue') {
+                    query = query.eq('status', 'overdue')
+                }
+            } else {
+                if (filter !== 'all') {
+                    query = query.eq('status', filter)
+                }
             }
 
             const { data, error } = await query
@@ -85,6 +95,61 @@ export default function ManagementReportList() {
                 }
             }
 
+            // For admin overdue filter: also include pending reports that are past due
+            if (isAdmin && filter === 'overdue') {
+                // Fetch pending reports that are overdue by date
+                const { data: pendingData } = await supabase
+                    .from('management_reports')
+                    .select(`
+                        *,
+                        properties:property_id(address, commune),
+                        owner:owner_contact_id(first_name, last_name, email)
+                    `)
+                    .eq('status', 'pending')
+                    .order('due_date', { ascending: true })
+
+                if (pendingData && pendingData.length > 0) {
+                    const today = new Date()
+                    today.setHours(0, 0, 0, 0)
+                    const overduePending = pendingData.filter(r => {
+                        const dueDate = new Date(r.due_date + 'T12:00:00')
+                        return dueDate < today
+                    })
+
+                    if (overduePending.length > 0) {
+                        // Enrich with agent names
+                        const agentIds = [...new Set(overduePending.map(r => r.agent_id).filter(Boolean))]
+                        if (agentIds.length > 0) {
+                            const { data: agentProfiles } = await supabase
+                                .from('profiles')
+                                .select('id, first_name, last_name')
+                                .in('id', agentIds)
+                            const agentMap = Object.fromEntries((agentProfiles || []).map(a => [a.id, a]))
+                            overduePending.forEach(r => { r.agent = agentMap[r.agent_id] || null })
+                        }
+
+                        // Resolve owners
+                        const opPropertyIds = [...new Set(overduePending.map(r => r.property_id).filter(Boolean))]
+                        if (opPropertyIds.length > 0) {
+                            const { data: ownerLinks2 } = await supabase
+                                .from('property_contacts')
+                                .select('property_id, contact_id, contacts:contact_id(id, first_name, last_name, email)')
+                                .in('property_id', opPropertyIds)
+                                .eq('role', 'propietario')
+                            if (ownerLinks2 && ownerLinks2.length > 0) {
+                                const ownerMap2 = Object.fromEntries(ownerLinks2.map(l => [l.property_id, l]))
+                                overduePending.forEach(r => {
+                                    const link = ownerMap2[r.property_id]
+                                    if (link?.contacts) r.owner = link.contacts
+                                })
+                            }
+                        }
+
+                        enriched = [...enriched, ...overduePending]
+                    }
+                }
+            }
+
             setReports(enriched)
         } catch (err) {
             console.error('Error fetching reports:', err)
@@ -99,9 +164,34 @@ export default function ManagementReportList() {
         sent: { label: 'Enviado', color: 'bg-emerald-100 text-emerald-800 border-emerald-200', icon: CheckCircle }
     }
 
-    const overdue = reports.filter(r => r.status === 'overdue').length
+    const overdue = reports.filter(r => {
+        if (r.status === 'overdue') return true
+        if (r.status === 'pending') {
+            const dueDate = new Date(r.due_date + 'T12:00:00')
+            const today = new Date()
+            today.setHours(0, 0, 0, 0)
+            return dueDate < today
+        }
+        return false
+    }).length
     const pending = reports.filter(r => r.status === 'pending').length
     const sent = reports.filter(r => r.status === 'sent').length
+
+    // Admin tabs
+    const adminTabs = [
+        { key: 'sent', label: 'Enviados' },
+        { key: 'overdue', label: 'Atrasados' }
+    ]
+
+    // Agent tabs
+    const agentTabs = [
+        { key: 'all', label: 'Todos' },
+        { key: 'overdue', label: 'Atrasados' },
+        { key: 'pending', label: 'Pendientes' },
+        { key: 'sent', label: 'Enviados' }
+    ]
+
+    const tabs = isAdmin ? adminTabs : agentTabs
 
     return (
         <div className="max-w-5xl mx-auto space-y-6">
@@ -126,18 +216,27 @@ export default function ManagementReportList() {
                         Informes de Gestión
                     </h1>
                     <p className="text-sm text-slate-500 mt-1">
-                        Informes periódicos de gestión para propietarios
+                        {isAdmin
+                            ? 'Seguimiento de informes periódicos de gestión'
+                            : 'Informes periódicos de gestión para propietarios'
+                        }
                     </p>
                 </div>
             </div>
 
             {/* Stats Cards */}
-            <div className="grid grid-cols-3 gap-4">
-                {[
-                    { label: 'Atrasados', count: overdue, color: 'from-red-500 to-red-600', bg: 'bg-red-50' },
-                    { label: 'Pendientes', count: pending, color: 'from-amber-500 to-amber-600', bg: 'bg-amber-50' },
-                    { label: 'Enviados', count: sent, color: 'from-emerald-500 to-emerald-600', bg: 'bg-emerald-50' }
-                ].map((stat, i) => (
+            <div className={cn("grid gap-4", isAdmin ? "grid-cols-2" : "grid-cols-3")}>
+                {(isAdmin
+                    ? [
+                        { label: 'Atrasados', count: overdue, color: 'from-red-500 to-red-600', bg: 'bg-red-50' },
+                        { label: 'Enviados', count: sent, color: 'from-emerald-500 to-emerald-600', bg: 'bg-emerald-50' }
+                    ]
+                    : [
+                        { label: 'Atrasados', count: overdue, color: 'from-red-500 to-red-600', bg: 'bg-red-50' },
+                        { label: 'Pendientes', count: pending, color: 'from-amber-500 to-amber-600', bg: 'bg-amber-50' },
+                        { label: 'Enviados', count: sent, color: 'from-emerald-500 to-emerald-600', bg: 'bg-emerald-50' }
+                    ]
+                ).map((stat, i) => (
                     <motion.div
                         key={stat.label}
                         initial={{ opacity: 0, y: 20 }}
@@ -155,12 +254,7 @@ export default function ManagementReportList() {
 
             {/* Filter Tabs */}
             <div className="flex gap-2 bg-slate-100 dark:bg-slate-800 rounded-xl p-1">
-                {[
-                    { key: 'all', label: 'Todos' },
-                    { key: 'overdue', label: 'Atrasados' },
-                    { key: 'pending', label: 'Pendientes' },
-                    { key: 'sent', label: 'Enviados' }
-                ].map(tab => (
+                {tabs.map(tab => (
                     <button
                         key={tab.key}
                         onClick={() => setFilter(tab.key)}
@@ -184,10 +278,75 @@ export default function ManagementReportList() {
             ) : reports.length === 0 ? (
                 <div className="text-center py-16 text-slate-400">
                     <FileText className="w-12 h-12 mx-auto mb-3 opacity-40" />
-                    <p className="font-medium">No hay informes de gestión</p>
-                    <p className="text-sm">Los informes se crean automáticamente al registrar un mandato</p>
+                    <p className="font-medium">
+                        {isAdmin && filter === 'overdue'
+                            ? 'No hay informes atrasados'
+                            : isAdmin && filter === 'sent'
+                                ? 'No hay informes enviados'
+                                : 'No hay informes de gestión'
+                        }
+                    </p>
+                    <p className="text-sm">
+                        {isAdmin
+                            ? 'Los informes aparecerán aquí cuando los agentes los gestionen'
+                            : 'Los informes se crean automáticamente al registrar un mandato'
+                        }
+                    </p>
+                </div>
+            ) : isAdmin && filter === 'overdue' ? (
+                /* Admin: Simplified overdue table — read-only, no navigation */
+                <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+                    <div className="px-4 py-3 bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-800 flex items-center gap-2">
+                        <AlertTriangle className="w-4 h-4 text-red-500" />
+                        <span className="text-sm font-semibold text-red-700 dark:text-red-400">Informes Atrasados</span>
+                        <span className="text-xs text-red-500 ml-auto">{reports.length} informe{reports.length !== 1 ? 's' : ''}</span>
+                    </div>
+
+                    {/* Table header */}
+                    <div className="grid grid-cols-3 gap-4 px-4 py-2.5 bg-slate-50 dark:bg-slate-800/50 border-b text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                        <div className="flex items-center gap-1.5">
+                            <Home className="w-3.5 h-3.5" />
+                            Propiedad
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                            <User className="w-3.5 h-3.5" />
+                            Propietario
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                            <User className="w-3.5 h-3.5" />
+                            Agente Responsable
+                        </div>
+                    </div>
+
+                    {/* Table rows */}
+                    {reports.map((report, i) => (
+                        <motion.div
+                            key={report.id}
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ delay: i * 0.03 }}
+                            className="grid grid-cols-3 gap-4 px-4 py-3 border-b border-slate-100 dark:border-slate-800 last:border-b-0 hover:bg-slate-50/50 dark:hover:bg-slate-800/30"
+                        >
+                            <div className="text-sm text-slate-700 dark:text-slate-300 truncate">
+                                {report.properties?.address || 'Sin dirección'}
+                                {report.properties?.commune && (
+                                    <span className="text-xs text-slate-400 block truncate">{report.properties.commune}</span>
+                                )}
+                            </div>
+                            <div className="text-sm text-slate-700 dark:text-slate-300 truncate">
+                                {report.owner?.first_name} {report.owner?.last_name}
+                                {report.owner?.email && (
+                                    <span className="text-xs text-slate-400 block truncate">{report.owner.email}</span>
+                                )}
+                            </div>
+                            <div className="text-sm text-slate-700 dark:text-slate-300 truncate">
+                                {report.agent?.first_name} {report.agent?.last_name}
+                            </div>
+                        </motion.div>
+                    ))}
                 </div>
             ) : (
+                /* Normal report list (agent: all views; admin: sent reports) */
                 <div className="space-y-3">
                     {reports.map((report, i) => {
                         const cfg = statusConfig[report.status] || statusConfig.pending
@@ -240,7 +399,11 @@ export default function ManagementReportList() {
                                                 Enviar: {dueDate.toLocaleDateString('es-CL')}
                                             </p>
                                         </div>
-                                        <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-blue-500 transition-colors" />
+                                        {isAdmin ? (
+                                            <Eye className="w-5 h-5 text-slate-300 group-hover:text-blue-500 transition-colors" />
+                                        ) : (
+                                            <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-blue-500 transition-colors" />
+                                        )}
                                     </div>
                                 </div>
                             </motion.div>
