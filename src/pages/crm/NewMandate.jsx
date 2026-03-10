@@ -725,6 +725,11 @@ const NewMandate = () => {
                                     <br /><br />
                                     Adicionalmente, el agente deberá coordinar el acceso a la propiedad y asumir, a su costo, los gastos de traslado del fotógrafo.
                                 </p>
+                                <div className="mt-3 p-3 bg-amber-100 dark:bg-amber-900/40 border-2 border-amber-400 dark:border-amber-600 rounded-lg">
+                                    <p className="text-sm font-bold text-amber-800 dark:text-amber-200 flex items-center gap-2">
+                                        ⚠️ Requisito obligatorio: Estar al día con el pago de la cuota mensual de la oficina.
+                                    </p>
+                                </div>
                             </div>
                         </CardContent>
                     </Card>

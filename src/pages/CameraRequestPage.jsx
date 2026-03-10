@@ -82,6 +82,11 @@ export default function CameraRequestPage() {
                             La Cámara 360° es un beneficio exclusivo otorgado por RE/MAX Exclusive para potenciar las captaciones.
                             Para acceder a este beneficio, la propiedad debe estar captada en <strong>exclusividad</strong>.
                         </p>
+                        <div className="mt-3 p-3 bg-amber-100 dark:bg-amber-900/40 border-2 border-amber-400 dark:border-amber-600 rounded-lg">
+                            <p className="text-sm font-bold text-amber-800 dark:text-amber-200 flex items-center gap-2">
+                                ⚠️ Requisito obligatorio: Estar al día con el pago de la cuota mensual de la oficina.
+                            </p>
+                        </div>
                     </div>
                 </CardContent>
             </Card>
