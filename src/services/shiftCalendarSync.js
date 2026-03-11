@@ -45,8 +45,17 @@ const SHIFT_EVENT_DESCRIPTION = (booking, agentName = '') => {
  */
 export async function createShiftCalendarEvent(booking, agentId, comercialId, agentName = '') {
     const cfg = SHIFT_CONFIG[booking.shift] || SHIFT_CONFIG[1]
-    const startDT = `${booking.booking_date}T${cfg.startTime}`
-    const endDT = `${booking.booking_date}T${cfg.endTime}`
+    // Build timezone-aware datetimes so 09:00 means 09:00 local, not UTC
+    const tzOffset = (() => {
+        const d = new Date(`${booking.booking_date}T${cfg.startTime}`)
+        const off = -d.getTimezoneOffset()
+        const sign = off >= 0 ? '+' : '-'
+        const h = String(Math.floor(Math.abs(off) / 60)).padStart(2, '0')
+        const m = String(Math.abs(off) % 60).padStart(2, '0')
+        return `${sign}${h}:${m}`
+    })()
+    const startDT = `${booking.booking_date}T${cfg.startTime}${tzOffset}`
+    const endDT = `${booking.booking_date}T${cfg.endTime}${tzOffset}`
     const description = SHIFT_EVENT_DESCRIPTION(booking, agentName)
 
     const taskPayload = (ownerId) => ({

@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { supabase, getCustomPublicUrl } from '../services/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Button, Input, Textarea, Label } from '@/components/ui'
-import { FileText, Send, ArrowLeft, ArrowRight, Loader2, Save, Download, Upload, Image as ImageIcon, BarChart3, X, Plus, File, Trash2, Camera, Check, RefreshCw, Lock, Eye } from 'lucide-react'
+import { FileText, Send, ArrowLeft, ArrowRight, Loader2, Save, Download, Upload, Image as ImageIcon, BarChart3, X, Plus, File, Trash2, Camera, Check, RefreshCw, Lock, Eye, Paperclip, Mail } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import html2canvas from 'html2canvas'
@@ -29,6 +29,7 @@ export default function ManagementReportPage() {
     const [propertyImages, setPropertyImages] = useState({ exterior: null, interior: null })
     const [chartImage, setChartImage] = useState(null)
     const [previewChartImage, setPreviewChartImage] = useState(null)
+    const [logoBase64, setLogoBase64] = useState(null)
 
     const chartCanvasRef = useRef(null)
     const chartInputRef = useRef(null)
@@ -37,6 +38,10 @@ export default function ManagementReportPage() {
     const anexoInputRef = useRef(null)
     const [propertyPhotos, setPropertyPhotos] = useState([])
     const [showPhotoPicker, setShowPhotoPicker] = useState(null) // null | 'exterior' | 'interior'
+    const [showSendPreview, setShowSendPreview] = useState(false)
+    const [sendPreviewHtml, setSendPreviewHtml] = useState('')
+    const [isResendMode, setIsResendMode] = useState(false)
+    const [emailDraft, setEmailDraft] = useState({ to: '', subject: '', body: '' })
 
     const [formData, setFormData] = useState({
         portales: {
@@ -61,6 +66,23 @@ export default function ManagementReportPage() {
     useEffect(() => {
         fetchReport()
     }, [reportId])
+
+    // Preload logo as base64 for PDF rendering (avoids cross-origin issues in iframe)
+    useEffect(() => {
+        const img = new Image()
+        img.crossOrigin = 'anonymous'
+        img.onload = () => {
+            try {
+                const canvas = document.createElement('canvas')
+                canvas.width = img.naturalWidth
+                canvas.height = img.naturalHeight
+                const ctx = canvas.getContext('2d')
+                ctx.drawImage(img, 0, 0)
+                setLogoBase64(canvas.toDataURL('image/png'))
+            } catch (e) { console.warn('Could not convert logo to base64:', e) }
+        }
+        img.src = '/primerolog.png'
+    }, [])
 
     // Fetch property photos when report is loaded
     useEffect(() => {
@@ -392,21 +414,23 @@ export default function ManagementReportPage() {
         }
     }
 
-    const handleSend = async () => {
-        const hasActividades = formData.actividades.some(a => a.trim())
-        const hasConclusiones = formData.conclusiones_recomendaciones.some(a => a.trim())
-        if (!hasActividades && !hasConclusiones) {
-            toast.error('Completa al menos las actividades y conclusiones')
-            return
+    // --- Open Send Preview Modal ---
+    const openSendPreview = async (resend = false) => {
+        if (!resend) {
+            const hasActividades = formData.actividades.some(a => a.trim())
+            const hasConclusiones = formData.conclusiones_recomendaciones.some(a => a.trim())
+            if (!hasActividades && !hasConclusiones) {
+                toast.error('Completa al menos las actividades y conclusiones')
+                return
+            }
         }
 
-        // Check if agent has connected Gmail
+        // Check Gmail
         const { data: gmailAccount, error: gmailError } = await supabase
             .from('gmail_accounts')
             .select('id')
             .eq('agent_id', profile?.id || report.agent_id)
             .single()
-
         if (gmailError || !gmailAccount) {
             toast.error('Debes conectar tu cuenta de correo en la sección "Casilla" antes de enviar informes.', { duration: 6000 })
             return
@@ -418,253 +442,84 @@ export default function ManagementReportPage() {
             return
         }
 
-        setSending(true)
-        try {
-            const fullData = getFullFormData()
-            await supabase
-                .from('management_reports')
-                .update({ report_data: fullData, status: 'sent', sent_at: new Date().toISOString(), updated_at: new Date().toISOString() })
-                .eq('id', reportId)
-
-            const agentName = `${report.agent?.first_name || profile?.first_name || ''} ${report.agent?.last_name || profile?.last_name || ''}`.trim()
-            const agentEmail = report.agent?.email || profile?.email || ''
-            const ownerName = `${report.owner?.first_name || ''}`.trim()
-            const propertyAddress = report.properties?.address || ''
-            const propertyCommune = report.properties?.commune || ''
-
-            // Build HTML email body (no header, clean personalized style)
-            const bodyHtml = `
-                <div style="font-family: 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #1a1a1a;">
-                    <p style="font-size: 15px; line-height: 1.7; margin: 0 0 20px 0;">
-                        Estimado/a <strong style="color: #003DA5;">${ownerName || 'Propietario/a'}</strong>,
-                    </p>
-                    <p style="font-size: 15px; line-height: 1.7; color: #4a4a4a; margin: 0 0 20px 0;">
-                        Junto con saludar, adjunto el informe de gestión correspondiente a su propiedad ubicada en:
-                    </p>
-                    <div style="background: #f8f9fa; border-left: 4px solid #003DA5; padding: 16px 20px; margin: 0 0 24px 0; border-radius: 0 6px 6px 0;">
-                        <div style="color: #003DA5; font-weight: 700; font-size: 15px;">${propertyAddress}</div>
-                        ${propertyCommune ? `<div style="color: #6b7280; font-size: 13px; margin-top: 4px;">${propertyCommune}</div>` : ''}
-                    </div>
-                    <p style="font-size: 15px; line-height: 1.7; color: #4a4a4a; margin: 0 0 24px 0;">
-                        En el archivo adjunto encontrará el detalle completo de las actividades realizadas, estadísticas de visualizaciones en portales y las conclusiones del período.
-                    </p>
-                    <p style="font-size: 15px; line-height: 1.7; color: #4a4a4a; margin: 0 0 8px 0;">
-                        Quedo atento/a a cualquier comentario o consulta.
-                    </p>
-                    <p style="font-size: 15px; line-height: 1.7; color: #4a4a4a; margin: 0;">
-                        Saludos cordiales,
-                    </p>
-                    <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #e5e7eb;">
-                        <div style="color: #1a1a1a; font-weight: 700; font-size: 15px;">${agentName}</div>
-                        <div style="color: #003DA5; font-size: 13px; font-weight: 600; margin-top: 2px;">Agente RE/MAX Exclusive</div>
-                        ${agentEmail ? `<div style="color: #6b7280; font-size: 13px; margin-top: 4px;">${agentEmail}</div>` : ''}
-                    </div>
-                    <div style="margin-top: 32px; padding: 16px 0; border-top: 1px solid #e5e7eb; text-align: center;">
-                        <span style="color: #9ca3af; font-size: 11px;">© ${new Date().getFullYear()} RE/MAX Exclusive · Santiago, Chile</span>
-                    </div>
-                </div>
-            `
-
-            // Fetch all document anexos as base64 attachments
-            const documentAnexos = formData.anexos.filter(a => !a.isImage)
-            const emailAttachments = []
-
-            for (const anexo of documentAnexos) {
-                try {
-                    const response = await fetch(anexo.url)
-                    if (!response.ok) continue
-                    const blob = await response.blob()
-                    const base64 = await new Promise((resolve, reject) => {
-                        const reader = new FileReader()
-                        reader.onload = () => resolve(reader.result.split(',')[1])
-                        reader.onerror = reject
-                        reader.readAsDataURL(blob)
-                    })
-                    const mimeMap = { pdf: 'application/pdf', xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', xls: 'application/vnd.ms-excel', doc: 'application/msword', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }
-                    emailAttachments.push({
-                        filename: anexo.name || `anexo.${anexo.type}`,
-                        mimeType: mimeMap[anexo.type] || 'application/octet-stream',
-                        data: base64,
-                    })
-                } catch (err) {
-                    console.warn('Could not fetch anexo for attachment:', anexo.name, err)
-                }
-            }
-
-            // Generate PDF section-by-section to match Descargar PDF page structure
-            toast.loading('Generando PDF del informe...', { id: 'pdf-gen' })
-            try {
-                const reportEl = document.getElementById('pdf-offscreen-content')
-                if (reportEl) {
-                    const footerAgentName = `${report?.agent?.first_name || profile?.first_name || ''} ${report?.agent?.last_name || profile?.last_name || ''}`.trim()
-                    const styles = Array.from(document.querySelectorAll('link[rel="stylesheet"], style')).map(el => el.outerHTML).join('\n')
-
-                    // Fix relative image paths to absolute so they render in the iframe
-                    let reportHtml = reportEl.innerHTML
-                    reportHtml = reportHtml.replace(/src="\/([^"]+)"/g, `src="${window.location.origin}/$1"`)
-
-                    const fullHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Reporte</title>${styles}
-                        <style>
-                            body { margin: 0; padding: 0; width: 794px; background: white; }
-                            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-                            section { border-bottom: none !important; }
-                        </style></head><body>${reportHtml}</body></html>`
-
-                    const iframe = document.createElement('iframe')
-                    iframe.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;height:10000px;border:none;'
-                    document.body.appendChild(iframe)
-                    iframe.contentDocument.open()
-                    iframe.contentDocument.write(fullHtml)
-                    iframe.contentDocument.close()
-                    await new Promise(resolve => { iframe.onload = resolve; setTimeout(resolve, 2000) })
-                    await new Promise(resolve => setTimeout(resolve, 1500))
-
-                    // Get unique sections in order
-                    const sectionOrder = ['cover-intro', 'statistics', 'chart', 'management', 'anexos']
-                    const pdf = new jsPDF('p', 'mm', 'a4')
-                    const pageWidth = 210
-                    let firstPage = true
-
-                    for (const sectionName of sectionOrder) {
-                        const sectionEls = iframe.contentDocument.querySelectorAll(`[data-pdf-section="${sectionName}"]`)
-                        if (!sectionEls.length) continue
-
-                        // For grouped sections (like cover-intro), wrap them in a container
-                        const wrapper = iframe.contentDocument.createElement('div')
-                        wrapper.style.cssText = 'width:794px;background:white;'
-                        sectionEls.forEach(el => wrapper.appendChild(el.cloneNode(true)))
-                        iframe.contentDocument.body.appendChild(wrapper)
-
-                        const canvas = await html2canvas(wrapper, {
-                            scale: 2, useCORS: true, allowTaint: true, backgroundColor: '#ffffff', logging: false, width: 794, windowWidth: 794,
-                        })
-                        iframe.contentDocument.body.removeChild(wrapper)
-
-                        if (!firstPage) pdf.addPage()
-                        firstPage = false
-
-                        const imgData = canvas.toDataURL('image/png')
-                        const imgHeight = (canvas.height * pageWidth) / canvas.width
-                        pdf.addImage(imgData, 'PNG', 0, 0, pageWidth, imgHeight)
-                    }
-
-                    // Add footer to each page
-                    const totalPages = pdf.getNumberOfPages()
-                    for (let p = 1; p <= totalPages; p++) {
-                        pdf.setPage(p)
-                        pdf.setFillColor(249, 250, 251)
-                        pdf.rect(0, 287, 210, 10, 'F')
-                        pdf.setDrawColor(229, 231, 235)
-                        pdf.line(0, 287, 210, 287)
-                        pdf.setFontSize(7)
-                        pdf.setTextColor(107, 114, 128)
-                        pdf.text(`© ${new Date().getFullYear()} RE/MAX Exclusive`, 10, 293)
-                        pdf.text(footerAgentName, 10, 296)
-                    }
-
-                    document.body.removeChild(iframe)
-
-                    const pdfBase64 = pdf.output('datauristring').split(',')[1]
-                    emailAttachments.unshift({
-                        filename: `Informe_Gestion_${report.report_number}_${propertyAddress.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`,
-                        mimeType: 'application/pdf',
-                        data: pdfBase64,
-                    })
-                }
-            } catch (pdfErr) {
-                console.warn('Could not generate PDF attachment:', pdfErr)
-            }
-            toast.dismiss('pdf-gen')
-
-            // Send via agent's Gmail
-            const { data: sessionData } = await supabase.auth.getSession()
-            const token = sessionData?.session?.access_token
-            if (!token) throw new Error('No se encontró una sesión activa.')
-
-            const emailSubject = `Informe de Gestion #${report.report_number} - ${propertyAddress}`
-
-            const { data: sendResult, error: sendError } = await supabase.functions.invoke('gmail-send', {
-                headers: { Authorization: `Bearer ${token}` },
-                body: {
-                    to: ownerEmail,
-                    subject: emailSubject,
-                    bodyHtml,
-                    attachments: emailAttachments,
-                }
-            })
-
-            if (sendError) throw new Error(sendError.message || 'Error al enviar el correo')
-
-            const nextDueDate = new Date()
-            nextDueDate.setDate(nextDueDate.getDate() + 15)
-            await supabase.from('management_reports').insert({
-                property_id: report.property_id,
-                mandate_id: report.mandate_id,
-                agent_id: report.agent_id,
-                owner_contact_id: report.owner_contact_id,
-                report_number: report.report_number + 1,
-                due_date: nextDueDate.toISOString().split('T')[0],
-                status: 'pending'
-            })
-
-            toast.success('¡Informe enviado al propietario!')
-            navigate('/informes-gestion')
-        } catch (err) {
-            console.error('Error sending report:', err)
-            toast.error('Error al enviar el informe: ' + (err.message || ''))
-        } finally {
-            setSending(false)
+        // Capture chart
+        if (!chartImage && chartCanvasRef.current) {
+            try { setPreviewChartImage(chartCanvasRef.current.toDataURL('image/png')) } catch (e) { }
         }
+        await new Promise(resolve => setTimeout(resolve, 200))
+
+        // Build PDF preview HTML (same as handleDownloadPdf)
+        const reportEl = document.getElementById('pdf-offscreen-content')
+        if (reportEl) {
+            const footerName = `${report?.agent?.first_name || profile?.first_name || ''} ${report?.agent?.last_name || profile?.last_name || ''}`.trim()
+            const styles = Array.from(document.querySelectorAll('link[rel="stylesheet"], style')).map(el => el.outerHTML).join('\n')
+            let reportHtml = reportEl.innerHTML
+            reportHtml = reportHtml.replace(/src="\/([^"]+)"/g, `src="${window.location.origin}/$1"`)
+            const previewHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Reporte</title>${styles}
+                <style>
+                    @page { size: A4; margin: 0; }
+                    body { margin: 0; padding: 0; padding-bottom: 50px; background: white; }
+                    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+                    footer { display: none !important; }
+                    section { border-bottom: none !important; }
+                    .print-footer {
+                        position: fixed; bottom: 0; left: 0; right: 0; height: 50px;
+                        display: flex; align-items: center; justify-content: space-between;
+                        padding: 0 32px; border-top: 1px solid #e5e7eb; background: #f9fafb;
+                        font-family: 'Public Sans', 'Inter', sans-serif; z-index: 9999;
+                    }
+                    .print-footer .footer-text { font-size: 10px; color: #6b7280; }
+                    .print-footer .footer-text p { margin: 0; }
+                    .print-footer img { height: 64px; object-fit: contain; }
+                </style></head><body>
+                <div class="print-footer">
+                    <div class="footer-text">
+                        <p>© ${new Date().getFullYear()} RE/MAX Exclusive</p>
+                        <p>${footerName}</p>
+                    </div>
+                    <img src="${logoBase64 || (window.location.origin + '/primerolog.png')}" alt="RE/MAX" />
+                </div>
+                ${reportHtml}</body></html>`
+            setSendPreviewHtml(previewHtml)
+        }
+
+        // Pre-fill email draft
+        const ownerName = `${report.owner?.first_name || ''}`.trim()
+        const propertyAddr = report.properties?.address || ''
+        const propCommune = report.properties?.commune || ''
+        const defaultBody = `Estimado/a ${ownerName || 'Propietario/a'},\n\nJunto con saludar, adjunto el informe de gestión correspondiente a su propiedad ubicada en ${propertyAddr}${propCommune ? `, ${propCommune}` : ''}.\n\nEn el archivo adjunto encontrará el detalle completo de las actividades realizadas, estadísticas de visualizaciones en portales y las conclusiones del período.\n\nQuedo atento/a a cualquier comentario o consulta.\n\nSaludos cordiales,`
+
+        setEmailDraft({
+            to: ownerEmail,
+            subject: `Informe de Gestion #${report.report_number} - ${propertyAddr}`,
+            body: defaultBody,
+        })
+        setIsResendMode(resend)
+        setShowSendPreview(true)
     }
 
-    const handleResend = async () => {
-        // Check if agent has connected Gmail
-        const { data: gmailAccount, error: gmailError } = await supabase
-            .from('gmail_accounts')
-            .select('id')
-            .eq('agent_id', profile?.id || report.agent_id)
-            .single()
-
-        if (gmailError || !gmailAccount) {
-            toast.error('Debes conectar tu cuenta de correo en la sección "Casilla" antes de enviar informes.', { duration: 6000 })
-            return
-        }
-
-        const ownerEmail = report.owner?.email
-        if (!ownerEmail) {
-            toast.error('El propietario no tiene un correo electrónico registrado.')
-            return
-        }
-
+    // --- Confirm Send from Preview Modal ---
+    const confirmSend = async () => {
         setSending(true)
         try {
+            // Save report data on first send
+            if (!isResendMode) {
+                const fullData = getFullFormData()
+                await supabase
+                    .from('management_reports')
+                    .update({ report_data: fullData, status: 'sent', sent_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+                    .eq('id', reportId)
+            }
+
             const agentName = `${report.agent?.first_name || profile?.first_name || ''} ${report.agent?.last_name || profile?.last_name || ''}`.trim()
             const agentEmail = report.agent?.email || profile?.email || ''
-            const ownerName = `${report.owner?.first_name || ''}`.trim()
             const propertyAddr = report.properties?.address || ''
-            const propCommune = report.properties?.commune || ''
 
+            // Build HTML email from the editable draft body
+            const bodyLines = emailDraft.body.split('\n').filter(l => l.trim())
             const bodyHtml = `
                 <div style="font-family: 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #1a1a1a;">
-                    <p style="font-size: 15px; line-height: 1.7; margin: 0 0 20px 0;">
-                        Estimado/a <strong style="color: #003DA5;">${ownerName || 'Propietario/a'}</strong>,
-                    </p>
-                    <p style="font-size: 15px; line-height: 1.7; color: #4a4a4a; margin: 0 0 20px 0;">
-                        Junto con saludar, adjunto el informe de gestión correspondiente a su propiedad ubicada en:
-                    </p>
-                    <div style="background: #f8f9fa; border-left: 4px solid #003DA5; padding: 16px 20px; margin: 0 0 24px 0; border-radius: 0 6px 6px 0;">
-                        <div style="color: #003DA5; font-weight: 700; font-size: 15px;">${propertyAddr}</div>
-                        ${propCommune ? `<div style="color: #6b7280; font-size: 13px; margin-top: 4px;">${propCommune}</div>` : ''}
-                    </div>
-                    <p style="font-size: 15px; line-height: 1.7; color: #4a4a4a; margin: 0 0 24px 0;">
-                        En el archivo adjunto encontrará el detalle completo de las actividades realizadas, estadísticas de visualizaciones en portales y las conclusiones del período.
-                    </p>
-                    <p style="font-size: 15px; line-height: 1.7; color: #4a4a4a; margin: 0 0 8px 0;">
-                        Quedo atento/a a cualquier comentario o consulta.
-                    </p>
-                    <p style="font-size: 15px; line-height: 1.7; color: #4a4a4a; margin: 0;">
-                        Saludos cordiales,
-                    </p>
+                    ${bodyLines.map(line => `<p style="font-size: 15px; line-height: 1.7; color: #4a4a4a; margin: 0 0 16px 0;">${line}</p>`).join('\n')}
                     <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #e5e7eb;">
                         <div style="color: #1a1a1a; font-weight: 700; font-size: 15px;">${agentName}</div>
                         <div style="color: #003DA5; font-size: 13px; font-weight: 600; margin-top: 2px;">Agente RE/MAX Exclusive</div>
@@ -676,7 +531,7 @@ export default function ManagementReportPage() {
                 </div>
             `
 
-            // Fetch document anexos
+            // Fetch document anexos as base64
             const documentAnexos = formData.anexos.filter(a => !a.isImage)
             const emailAttachments = []
             for (const anexo of documentAnexos) {
@@ -695,12 +550,12 @@ export default function ManagementReportPage() {
                 } catch (err) { console.warn('Could not fetch anexo:', anexo.name, err) }
             }
 
-            // Generate PDF section-by-section
+            // Generate PDF attachment
             toast.loading('Generando PDF del informe...', { id: 'pdf-gen' })
             try {
                 const reportEl = document.getElementById('pdf-offscreen-content')
                 if (reportEl) {
-                    const footerAgentName2 = `${report?.agent?.first_name || profile?.first_name || ''} ${report?.agent?.last_name || profile?.last_name || ''}`.trim()
+                    const footerAgentName = `${report?.agent?.first_name || profile?.first_name || ''} ${report?.agent?.last_name || profile?.last_name || ''}`.trim()
                     const styles = Array.from(document.querySelectorAll('link[rel="stylesheet"], style')).map(el => el.outerHTML).join('\n')
                     let reportHtml = reportEl.innerHTML
                     reportHtml = reportHtml.replace(/src="\/([^"]+)"/g, `src="${window.location.origin}/$1"`)
@@ -727,25 +582,28 @@ export default function ManagementReportPage() {
                         wrapper.style.cssText = 'width:794px;background:white;'
                         sectionEls.forEach(el => wrapper.appendChild(el.cloneNode(true)))
                         iframe.contentDocument.body.appendChild(wrapper)
-                        const canvas = await html2canvas(wrapper, { scale: 2, useCORS: true, allowTaint: true, backgroundColor: '#ffffff', logging: false, width: 794, windowWidth: 794 })
+                        const canvas = await html2canvas(wrapper, { scale: 1.5, useCORS: true, allowTaint: true, backgroundColor: '#ffffff', logging: false, width: 794, windowWidth: 794 })
                         iframe.contentDocument.body.removeChild(wrapper)
                         if (!firstPage) pdf.addPage()
                         firstPage = false
-                        const imgData = canvas.toDataURL('image/png')
+                        const imgData = canvas.toDataURL('image/jpeg', 0.75)
                         const imgHeight = (canvas.height * pageWidth) / canvas.width
-                        pdf.addImage(imgData, 'PNG', 0, 0, pageWidth, imgHeight)
+                        pdf.addImage(imgData, 'JPEG', 0, 0, pageWidth, imgHeight)
                     }
                     const totalPages = pdf.getNumberOfPages()
                     for (let p = 1; p <= totalPages; p++) {
                         pdf.setPage(p)
                         pdf.setFillColor(249, 250, 251)
-                        pdf.rect(0, 287, 210, 10, 'F')
+                        pdf.rect(0, 284, 210, 13, 'F')
                         pdf.setDrawColor(229, 231, 235)
-                        pdf.line(0, 287, 210, 287)
+                        pdf.line(0, 284, 210, 284)
                         pdf.setFontSize(7)
                         pdf.setTextColor(107, 114, 128)
-                        pdf.text(`© ${new Date().getFullYear()} RE/MAX Exclusive`, 10, 293)
-                        pdf.text(footerAgentName2, 10, 296)
+                        pdf.text(`© ${new Date().getFullYear()} RE/MAX Exclusive`, 10, 290)
+                        pdf.text(footerAgentName, 10, 293)
+                        if (logoBase64) {
+                            try { pdf.addImage(logoBase64, 'PNG', 180, 285, 22, 10) } catch (e) { }
+                        }
                     }
                     document.body.removeChild(iframe)
                     const pdfBase64 = pdf.output('datauristring').split(',')[1]
@@ -754,24 +612,41 @@ export default function ManagementReportPage() {
             } catch (pdfErr) { console.warn('Could not generate PDF attachment:', pdfErr) }
             toast.dismiss('pdf-gen')
 
-            // Send via agent's Gmail
+            // Send via Gmail
             const { data: sessionData } = await supabase.auth.getSession()
             const token = sessionData?.session?.access_token
             if (!token) throw new Error('No se encontró una sesión activa.')
 
             const { error: sendError } = await supabase.functions.invoke('gmail-send', {
                 headers: { Authorization: `Bearer ${token}` },
-                body: { to: ownerEmail, subject: `Informe de Gestion #${report.report_number} - ${propertyAddr}`, bodyHtml, attachments: emailAttachments }
+                body: { to: emailDraft.to, subject: emailDraft.subject, bodyHtml, attachments: emailAttachments }
             })
             if (sendError) throw new Error(sendError.message || 'Error al enviar el correo')
 
-            // Update sent_at timestamp
-            await supabase.from('management_reports').update({ sent_at: new Date().toISOString() }).eq('id', reportId)
-
-            toast.success('¡Informe re-enviado al propietario!')
+            if (!isResendMode) {
+                // Create next report
+                const nextDueDate = new Date()
+                nextDueDate.setDate(nextDueDate.getDate() + 15)
+                await supabase.from('management_reports').insert({
+                    property_id: report.property_id,
+                    mandate_id: report.mandate_id,
+                    agent_id: report.agent_id,
+                    owner_contact_id: report.owner_contact_id,
+                    report_number: report.report_number + 1,
+                    due_date: nextDueDate.toISOString().split('T')[0],
+                    status: 'pending'
+                })
+                toast.success('¡Informe enviado al propietario!')
+                setShowSendPreview(false)
+                navigate('/informes-gestion')
+            } else {
+                await supabase.from('management_reports').update({ sent_at: new Date().toISOString() }).eq('id', reportId)
+                toast.success('¡Informe re-enviado al propietario!')
+                setShowSendPreview(false)
+            }
         } catch (err) {
-            console.error('Error re-sending report:', err)
-            toast.error('Error al re-enviar el informe: ' + (err.message || ''))
+            console.error('Error sending report:', err)
+            toast.error('Error al enviar el informe: ' + (err.message || ''))
         } finally {
             setSending(false)
         }
@@ -1053,12 +928,12 @@ export default function ManagementReportPage() {
                     <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,61,165,0.85), transparent 70%)' }} />
                     <div className="absolute bottom-8 left-12 right-12 text-white">
                         <div className="bg-white p-5 inline-block mb-5 shadow-xl">
-                            <img src="/primerolog.png" alt="RE/MAX Exclusive" className="h-[84px] object-contain" />
+                            <img src={logoBase64 || '/primerolog.png'} alt="RE/MAX Exclusive" className="h-[84px] object-contain" />
                         </div>
                         <h1 className="text-5xl font-extrabold uppercase tracking-tight leading-none mb-2">
                             Reporte de<br />Actividades
                         </h1>
-                        <div className="w-24 h-1.5 bg-[#E11B22] mt-3 mb-5" />
+                        <div className="w-24 h-1.5 bg-[#E11B22] mt-5 mb-5" />
                         {isSentOrPreview ? (
                             <p className="text-2xl font-light opacity-90">{formData.cover_address || `${propertyAddress}${propertyCommune ? `, ${propertyCommune}` : ''}`}</p>
                         ) : (
@@ -1481,7 +1356,7 @@ export default function ManagementReportPage() {
                         <p>© {new Date().getFullYear()} RE/MAX Exclusive</p>
                         <p className="mt-0.5">{agentName}</p>
                     </div>
-                    <img src="/primerolog.png" alt="RE/MAX" className="h-10 object-contain" />
+                    <img src={logoBase64 || '/primerolog.png'} alt="RE/MAX" className="h-10 object-contain" />
                 </footer>
             </div>
         )
@@ -1596,7 +1471,7 @@ export default function ManagementReportPage() {
                     <p>© ${new Date().getFullYear()} RE/MAX Exclusive</p>
                     <p>${footerAgentName}</p>
                 </div>
-                <img src="/primerolog.png" alt="RE/MAX" />
+                <img src="${logoBase64 || (window.location.origin + '/primerolog.png')}" alt="RE/MAX" />
             </div>
             ${reportEl.innerHTML}</body></html>`)
         printWindow.document.close()
@@ -1641,7 +1516,7 @@ export default function ManagementReportPage() {
                                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                                 Guardar
                             </Button>
-                            <Button size="sm" onClick={handleSend} disabled={sending} className="gap-2 bg-blue-600 hover:bg-blue-700 text-white">
+                            <Button size="sm" onClick={() => openSendPreview(false)} disabled={sending} className="gap-2 bg-blue-600 hover:bg-blue-700 text-white">
                                 {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                                 Enviar al Propietario
                             </Button>
@@ -1652,7 +1527,7 @@ export default function ManagementReportPage() {
                             <div className="flex items-center gap-2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg px-3 py-1.5 text-sm font-medium">
                                 ✅ Enviado el {new Date(report.sent_at).toLocaleDateString('es-CL')}
                             </div>
-                            <Button variant="outline" size="sm" onClick={handleResend} disabled={sending} className="gap-2">
+                            <Button variant="outline" size="sm" onClick={() => openSendPreview(true)} disabled={sending} className="gap-2">
                                 {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
                                 Re-enviar
                             </Button>
@@ -1689,7 +1564,7 @@ export default function ManagementReportPage() {
                         {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                         Guardar Borrador
                     </Button>
-                    <Button onClick={handleSend} disabled={sending} className="gap-2 px-6 bg-blue-600 hover:bg-blue-700 text-white">
+                    <Button onClick={() => openSendPreview(false)} disabled={sending} className="gap-2 px-6 bg-blue-600 hover:bg-blue-700 text-white">
                         {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                         Enviar al Propietario
                     </Button>
@@ -1700,13 +1575,123 @@ export default function ManagementReportPage() {
                         <Download className="w-4 h-4" />
                         Descargar PDF
                     </Button>
-                    <Button variant="outline" onClick={handleResend} disabled={sending} className="gap-2 px-6">
+                    <Button variant="outline" onClick={() => openSendPreview(true)} disabled={sending} className="gap-2 px-6">
                         {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
                         Re-enviar al Propietario
                     </Button>
                 </div>
             )}
             <PhotoPickerModal />
+            {/* Send Preview Modal */}
+            {showSendPreview && (
+                <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex" onClick={() => !sending && setShowSendPreview(false)}>
+                    <div className="flex w-full h-full" onClick={(e) => e.stopPropagation()}>
+                        {/* Left: PDF Preview */}
+                        <div className="flex-1 bg-gray-100 flex flex-col min-w-0">
+                            <div className="flex items-center gap-3 px-6 py-3 bg-white border-b border-gray-200 shadow-sm">
+                                <FileText className="w-5 h-5 text-[#003DA5]" />
+                                <h3 className="font-bold text-gray-900">Vista previa del PDF</h3>
+                            </div>
+                            <div className="flex-1 overflow-auto p-4">
+                                <iframe
+                                    srcDoc={sendPreviewHtml}
+                                    className="w-full h-full bg-white shadow-xl border border-gray-200 rounded-lg"
+                                    style={{ minHeight: '100%' }}
+                                    title="PDF Preview"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Right: Email Composer */}
+                        <div className="w-[420px] flex-shrink-0 bg-white border-l border-gray-200 flex flex-col shadow-2xl">
+                            <div className="flex items-center justify-between px-6 py-3 border-b border-gray-200 bg-gradient-to-r from-[#003DA5] to-[#002d7a]">
+                                <div className="flex items-center gap-3">
+                                    <Mail className="w-5 h-5 text-white" />
+                                    <h3 className="font-bold text-white">{isResendMode ? 'Re-enviar Informe' : 'Enviar Informe'}</h3>
+                                </div>
+                                <button onClick={() => !sending && setShowSendPreview(false)} className="text-white/70 hover:text-white p-1 rounded-full hover:bg-white/10 transition-colors">
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+
+                            <div className="flex-1 overflow-y-auto p-6 space-y-5">
+                                {/* To */}
+                                <div>
+                                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5 block">Para</label>
+                                    <div className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2.5 border border-gray-200">
+                                        <Mail className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                                        <span className="text-sm text-gray-700 font-medium">{emailDraft.to}</span>
+                                    </div>
+                                </div>
+
+                                {/* Subject */}
+                                <div>
+                                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5 block">Asunto</label>
+                                    <Input
+                                        value={emailDraft.subject}
+                                        onChange={(e) => setEmailDraft(prev => ({ ...prev, subject: e.target.value }))}
+                                        className="text-sm font-medium"
+                                    />
+                                </div>
+
+                                {/* Body */}
+                                <div>
+                                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5 block">Cuerpo del correo</label>
+                                    <Textarea
+                                        value={emailDraft.body}
+                                        onChange={(e) => setEmailDraft(prev => ({ ...prev, body: e.target.value }))}
+                                        rows={10}
+                                        className="text-sm leading-relaxed resize-none"
+                                    />
+                                    <p className="text-[11px] text-gray-400 mt-1.5">La firma del agente se agrega automáticamente</p>
+                                </div>
+
+                                {/* Attachments */}
+                                <div>
+                                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5 block">Archivos adjuntos</label>
+                                    <div className="space-y-2">
+                                        <div className="flex items-center gap-3 bg-red-50 rounded-lg px-3 py-2.5 border border-red-100">
+                                            <File className="w-4 h-4 text-red-500 flex-shrink-0" />
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-medium text-gray-800 truncate">Informe_Gestion_{report.report_number}.pdf</p>
+                                                <p className="text-[11px] text-gray-400">PDF del informe (generado automáticamente)</p>
+                                            </div>
+                                            <Paperclip className="w-3.5 h-3.5 text-gray-300 flex-shrink-0" />
+                                        </div>
+                                        {formData.anexos.filter(a => !a.isImage).map((anexo, idx) => (
+                                            <div key={idx} className="flex items-center gap-3 bg-gray-50 rounded-lg px-3 py-2.5 border border-gray-100">
+                                                <File className="w-4 h-4 text-[#003DA5] flex-shrink-0" />
+                                                <p className="text-sm text-gray-700 truncate flex-1">{anexo.name}</p>
+                                                <span className="text-[10px] text-gray-400 uppercase font-semibold flex-shrink-0">{anexo.type}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Footer buttons */}
+                            <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex gap-3">
+                                <Button
+                                    variant="outline"
+                                    onClick={() => setShowSendPreview(false)}
+                                    disabled={sending}
+                                    className="flex-1"
+                                >
+                                    Cancelar
+                                </Button>
+                                <Button
+                                    onClick={confirmSend}
+                                    disabled={sending}
+                                    className="flex-1 gap-2 bg-[#003DA5] hover:bg-[#002d7a] text-white"
+                                >
+                                    {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                                    {sending ? 'Enviando...' : (isResendMode ? 'Re-enviar' : 'Enviar')}
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
             {/* Hidden offscreen container for PDF rendering */}
             <div id="pdf-offscreen-content" style={{ position: 'fixed', left: '-9999px', top: 0, width: '210mm' }}>
                 {ReportContent({ isPreview: true })}
