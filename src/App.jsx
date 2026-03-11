@@ -88,6 +88,32 @@ const Layout = ({ children }) => {
       {user && <Sidebar />}
 
       <div className="flex-1 flex flex-col h-full relative z-10 w-full min-w-0 max-w-[1920px] mx-auto">
+        {/* Gmail Outage Banner */}
+        <div style={{
+          background: 'linear-gradient(90deg, #f59e0b, #d97706)',
+          color: '#fff',
+          padding: '10px 16px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '8px',
+          fontSize: '14px',
+          fontWeight: 600,
+          letterSpacing: '0.01em',
+          zIndex: 50,
+          flexShrink: 0,
+        }}>
+          <span style={{
+            display: 'inline-block',
+            width: '8px',
+            height: '8px',
+            borderRadius: '50%',
+            backgroundColor: '#fff',
+            animation: 'pulse 1.5s ease-in-out infinite',
+          }} />
+          ⚠️ Estamos experimentando problemas con Gmail, nuestro equipo está activamente resolviéndolo. 08:36am
+        </div>
+        <style>{`@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }`}</style>
         <Header />
         <main className="flex-1 overflow-y-auto overflow-x-hidden scroll-smooth p-4 md:p-8 w-full max-w-7xl mx-auto">
           {children}
