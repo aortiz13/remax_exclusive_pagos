@@ -143,7 +143,7 @@ const PropertyDetail = () => {
     const fetchPhotos = async () => {
         const { data } = await supabase
             .from('property_photos')
-            .select('*')
+            .select('*, source')
             .eq('property_id', id)
             .order('position', { ascending: true })
             .order('created_at', { ascending: true })
@@ -382,8 +382,12 @@ const PropertyDetail = () => {
             {/* Photo Slideshow */}
             {(() => {
                 const allSlides = []
-                if (property.image_url) allSlides.push({ url: property.image_url, caption: 'Foto principal', isMain: true })
-                photos.forEach(p => allSlides.push({ url: p.url, caption: p.caption, id: p.id }))
+                // Check if property.image_url is already covered by property_photos (RE/MAX import)
+                const mainUrlInPhotos = property.image_url && photos.some(p => p.url === property.image_url)
+                if (property.image_url && !mainUrlInPhotos) {
+                    allSlides.push({ url: property.image_url, caption: 'Foto principal', isMain: true })
+                }
+                photos.forEach(p => allSlides.push({ url: p.url, caption: p.caption, id: p.id, source: p.source }))
                 if (allSlides.length === 0) return null
                 const safeIndex = Math.min(currentPhotoIndex, allSlides.length - 1)
                 return (
@@ -412,16 +416,20 @@ const PropertyDetail = () => {
                                 </button>
                             </>
                         )}
-                        {/* Dot indicators */}
+                        {/* Dot indicators — scrollable for many photos */}
                         {allSlides.length > 1 && (
-                            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
-                                {allSlides.map((_, i) => (
+                            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 max-w-[80%] overflow-x-auto scrollbar-hide">
+                                {allSlides.length <= 20 ? allSlides.map((_, i) => (
                                     <button
                                         key={i}
                                         onClick={() => setCurrentPhotoIndex(i)}
-                                        className={`w-2.5 h-2.5 rounded-full transition-all ${i === safeIndex ? 'bg-white scale-110 shadow-md' : 'bg-white/50 hover:bg-white/75'}`}
+                                        className={`w-2 h-2 rounded-full transition-all flex-shrink-0 ${i === safeIndex ? 'bg-white scale-125 shadow-md' : 'bg-white/50 hover:bg-white/75'}`}
                                     />
-                                ))}
+                                )) : (
+                                    <span className="text-white text-xs font-medium drop-shadow-lg">
+                                        {safeIndex + 1} / {allSlides.length}
+                                    </span>
+                                )}
                             </div>
                         )}
                         {/* Photo counter badge */}
@@ -560,36 +568,45 @@ const PropertyDetail = () => {
                                 </div>
                             ) : (
                                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                                    {photos.map((photo, idx) => (
-                                        <div
-                                            key={photo.id}
-                                            className="relative group rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 aspect-[4/3] cursor-pointer hover:ring-2 hover:ring-emerald-400 transition-all"
-                                            onClick={() => {
-                                                const offset = property.image_url ? idx + 1 : idx
-                                                setCurrentPhotoIndex(offset)
-                                                window.scrollTo({ top: 0, behavior: 'smooth' })
-                                            }}
-                                        >
-                                            <img src={photo.url} alt={photo.caption || 'Foto'} className="w-full h-full object-cover" />
-                                            {photo.caption && (
-                                                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent px-2 py-1.5">
-                                                    <p className="text-white text-xs truncate">{photo.caption}</p>
-                                                </div>
-                                            )}
-                                            {isOwner && (
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation()
-                                                        setPhotoToDelete(photo)
-                                                        setIsDeletePhotoOpen(true)
-                                                    }}
-                                                    className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-all shadow-lg"
-                                                >
-                                                    <Trash2 className="w-3 h-3" />
-                                                </button>
-                                            )}
-                                        </div>
-                                    ))}
+                                    {photos.map((photo, idx) => {
+                                        // Calculate correct slide index accounting for deduplication
+                                        const mainUrlInPhotos = property.image_url && photos.some(p => p.url === property.image_url)
+                                        const offset = (property.image_url && !mainUrlInPhotos) ? idx + 1 : idx
+                                        return (
+                                            <div
+                                                key={photo.id}
+                                                className="relative group rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 aspect-[4/3] cursor-pointer hover:ring-2 hover:ring-emerald-400 transition-all"
+                                                onClick={() => {
+                                                    setCurrentPhotoIndex(offset)
+                                                    window.scrollTo({ top: 0, behavior: 'smooth' })
+                                                }}
+                                            >
+                                                <img src={photo.url} alt={photo.caption || 'Foto'} className="w-full h-full object-cover" />
+                                                {photo.source === 'remax' && (
+                                                    <div className="absolute top-2 left-2 bg-blue-600/90 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wide">
+                                                        RE/MAX
+                                                    </div>
+                                                )}
+                                                {photo.caption && (
+                                                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent px-2 py-1.5">
+                                                        <p className="text-white text-xs truncate">{photo.caption}</p>
+                                                    </div>
+                                                )}
+                                                {isOwner && photo.source !== 'remax' && (
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation()
+                                                            setPhotoToDelete(photo)
+                                                            setIsDeletePhotoOpen(true)
+                                                        }}
+                                                        className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-all shadow-lg"
+                                                    >
+                                                        <Trash2 className="w-3 h-3" />
+                                                    </button>
+                                                )}
+                                            </div>
+                                        )
+                                    })}
                                 </div>
                             )}
                         </TabsContent>

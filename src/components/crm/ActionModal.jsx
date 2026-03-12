@@ -64,7 +64,7 @@ const ACTION_TYPES = [
     "Llamada vendedor/arrendador (I.C)",
     "Llamada comprador/arrendatario (I.C)",
     "Llamada a base relacional (I.C)",
-    "Vista a conserjes (I.C)",
+    "Visita a Conserjes (IC)",
     "Otra (I.C)"
 ];
 

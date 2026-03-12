@@ -325,6 +325,27 @@ const AdminPropertyImport = () => {
                         } else {
                             matchedCount++
 
+                            // Sync ALL images to property_photos
+                            if (incoming.image_urls && incoming.image_urls.length > 0) {
+                                // Delete existing RE/MAX photos first (clean re-sync)
+                                await supabase
+                                    .from('property_photos')
+                                    .delete()
+                                    .eq('property_id', existing.id)
+                                    .eq('source', 'remax')
+
+                                const photoRecords = incoming.image_urls.map(img => ({
+                                    property_id: existing.id,
+                                    agent_id: agentProfile.id,
+                                    url: img.url,
+                                    caption: img.caption || `Foto ${img.position + 1}`,
+                                    position: img.position,
+                                    source: 'remax',
+                                }))
+
+                                await supabase.from('property_photos').insert(photoRecords)
+                            }
+
                             // Insert history for this matched property (timeline)
                             if (incoming.history && incoming.history.length > 0) {
                                 for (const h of incoming.history) {
@@ -415,9 +436,10 @@ const AdminPropertyImport = () => {
 
                         if (insertError) throw insertError
 
-                        // Insert history for new properties
+                        // Insert history & photos for new properties
                         if (insertedProps) {
                             const historyRecords = []
+                            const allPhotoRecords = []
                             for (const inserted of insertedProps) {
                                 const original = toInsert.find(p => p.listing_reference === inserted.listing_reference)
                                 if (original?.history && original.history.length > 0) {
@@ -436,6 +458,20 @@ const AdminPropertyImport = () => {
                                         })
                                     }
                                 }
+
+                                // Collect all images for this property
+                                if (original?.image_urls && original.image_urls.length > 0) {
+                                    for (const img of original.image_urls) {
+                                        allPhotoRecords.push({
+                                            property_id: inserted.id,
+                                            agent_id: inserted.agent_id,
+                                            url: img.url,
+                                            caption: img.caption || `Foto ${img.position + 1}`,
+                                            position: img.position,
+                                            source: 'remax',
+                                        })
+                                    }
+                                }
                             }
 
                             if (historyRecords.length > 0) {
@@ -443,6 +479,13 @@ const AdminPropertyImport = () => {
                                     .from('property_listing_history')
                                     .insert(historyRecords)
                                 if (histErr) console.error(`Error history ${remaxAgentId}:`, histErr)
+                            }
+
+                            if (allPhotoRecords.length > 0) {
+                                const { error: photoErr } = await supabase
+                                    .from('property_photos')
+                                    .insert(allPhotoRecords)
+                                if (photoErr) console.error(`Error photos ${remaxAgentId}:`, photoErr)
                             }
                         }
 

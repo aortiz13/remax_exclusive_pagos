@@ -1,13 +1,14 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase, getCustomPublicUrl } from '../services/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Button, Input, Textarea, Label } from '@/components/ui'
-import { FileText, Send, ArrowLeft, ArrowRight, Loader2, Save, Download, Upload, Image as ImageIcon, BarChart3, X, Plus, File, Trash2, Camera, Check, RefreshCw, Lock, Eye, Paperclip, Mail } from 'lucide-react'
+import { FileText, Send, ArrowLeft, ArrowRight, Loader2, Save, Download, Upload, Image as ImageIcon, BarChart3, X, Plus, File, Trash2, Camera, Check, RefreshCw, Lock, Eye, Paperclip, Mail, Clock } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
-import html2canvas from 'html2canvas'
-import { jsPDF } from 'jspdf'
+// Gotenberg URL - uses Vite proxy in dev to bypass CORS
+const GOTENBERG_URL = '/api/gotenberg'
 
 // Fixed portals list
 const FIXED_PORTALS = [
@@ -42,6 +43,7 @@ export default function ManagementReportPage() {
     const [sendPreviewHtml, setSendPreviewHtml] = useState('')
     const [isResendMode, setIsResendMode] = useState(false)
     const [emailDraft, setEmailDraft] = useState({ to: '', subject: '', body: '' })
+    const [preGeneratedPdf, setPreGeneratedPdf] = useState({ blobUrl: null, base64: null, filename: '', generating: false })
 
     const [formData, setFormData] = useState({
         portales: {
@@ -496,6 +498,23 @@ export default function ManagementReportPage() {
         })
         setIsResendMode(resend)
         setShowSendPreview(true)
+
+        // Generate PDF in background using the shared builder (same as Download PDF)
+        const pdfFilename = `Informe_Gestion_${report.report_number}_${(report.properties?.address || '').replace(/[^a-zA-Z0-9]/g, '_')}.pdf`
+        setPreGeneratedPdf({ blobUrl: null, base64: null, filename: pdfFilename, generating: true })
+        setTimeout(async () => {
+            try {
+                const result = await buildPdfFromReport()
+                if (result) {
+                    setPreGeneratedPdf({ blobUrl: result.blobUrl, base64: result.base64, filename: pdfFilename, generating: false })
+                } else {
+                    setPreGeneratedPdf(prev => ({ ...prev, generating: false }))
+                }
+            } catch (err) {
+                console.error('Error pre-generating PDF:', err)
+                setPreGeneratedPdf(prev => ({ ...prev, generating: false }))
+            }
+        }, 100)
     }
 
     // --- Confirm Send from Preview Modal ---
@@ -550,67 +569,20 @@ export default function ManagementReportPage() {
                 } catch (err) { console.warn('Could not fetch anexo:', anexo.name, err) }
             }
 
-            // Generate PDF attachment
-            toast.loading('Generando PDF del informe...', { id: 'pdf-gen' })
-            try {
-                const reportEl = document.getElementById('pdf-offscreen-content')
-                if (reportEl) {
-                    const footerAgentName = `${report?.agent?.first_name || profile?.first_name || ''} ${report?.agent?.last_name || profile?.last_name || ''}`.trim()
-                    const styles = Array.from(document.querySelectorAll('link[rel="stylesheet"], style')).map(el => el.outerHTML).join('\n')
-                    let reportHtml = reportEl.innerHTML
-                    reportHtml = reportHtml.replace(/src="\/([^"]+)"/g, `src="${window.location.origin}/$1"`)
-                    const fullHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Reporte</title>${styles}
-                        <style>body{margin:0;padding:0;width:794px;background:white;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}section{border-bottom:none!important;}</style></head><body>${reportHtml}</body></html>`
-
-                    const iframe = document.createElement('iframe')
-                    iframe.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;height:10000px;border:none;'
-                    document.body.appendChild(iframe)
-                    iframe.contentDocument.open()
-                    iframe.contentDocument.write(fullHtml)
-                    iframe.contentDocument.close()
-                    await new Promise(resolve => { iframe.onload = resolve; setTimeout(resolve, 2000) })
-                    await new Promise(resolve => setTimeout(resolve, 1500))
-
-                    const sectionOrder = ['cover-intro', 'statistics', 'chart', 'management', 'anexos']
-                    const pdf = new jsPDF('p', 'mm', 'a4')
-                    const pageWidth = 210
-                    let firstPage = true
-                    for (const sectionName of sectionOrder) {
-                        const sectionEls = iframe.contentDocument.querySelectorAll(`[data-pdf-section="${sectionName}"]`)
-                        if (!sectionEls.length) continue
-                        const wrapper = iframe.contentDocument.createElement('div')
-                        wrapper.style.cssText = 'width:794px;background:white;'
-                        sectionEls.forEach(el => wrapper.appendChild(el.cloneNode(true)))
-                        iframe.contentDocument.body.appendChild(wrapper)
-                        const canvas = await html2canvas(wrapper, { scale: 1.5, useCORS: true, allowTaint: true, backgroundColor: '#ffffff', logging: false, width: 794, windowWidth: 794 })
-                        iframe.contentDocument.body.removeChild(wrapper)
-                        if (!firstPage) pdf.addPage()
-                        firstPage = false
-                        const imgData = canvas.toDataURL('image/jpeg', 0.75)
-                        const imgHeight = (canvas.height * pageWidth) / canvas.width
-                        pdf.addImage(imgData, 'JPEG', 0, 0, pageWidth, imgHeight)
+            // Use pre-generated PDF if available, otherwise generate via shared builder
+            if (preGeneratedPdf.base64) {
+                emailAttachments.unshift({ filename: preGeneratedPdf.filename, mimeType: 'application/pdf', data: preGeneratedPdf.base64 })
+            } else {
+                toast.loading('Generando PDF del informe...', { id: 'pdf-gen' })
+                try {
+                    const result = await buildPdfFromReport()
+                    if (result) {
+                        const propertyAddr = report.properties?.address || ''
+                        emailAttachments.unshift({ filename: `Informe_Gestion_${report.report_number}_${propertyAddr.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`, mimeType: 'application/pdf', data: result.base64 })
                     }
-                    const totalPages = pdf.getNumberOfPages()
-                    for (let p = 1; p <= totalPages; p++) {
-                        pdf.setPage(p)
-                        pdf.setFillColor(249, 250, 251)
-                        pdf.rect(0, 284, 210, 13, 'F')
-                        pdf.setDrawColor(229, 231, 235)
-                        pdf.line(0, 284, 210, 284)
-                        pdf.setFontSize(7)
-                        pdf.setTextColor(107, 114, 128)
-                        pdf.text(`© ${new Date().getFullYear()} RE/MAX Exclusive`, 10, 290)
-                        pdf.text(footerAgentName, 10, 293)
-                        if (logoBase64) {
-                            try { pdf.addImage(logoBase64, 'PNG', 180, 285, 22, 10) } catch (e) { }
-                        }
-                    }
-                    document.body.removeChild(iframe)
-                    const pdfBase64 = pdf.output('datauristring').split(',')[1]
-                    emailAttachments.unshift({ filename: `Informe_Gestion_${report.report_number}_${propertyAddr.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`, mimeType: 'application/pdf', data: pdfBase64 })
-                }
-            } catch (pdfErr) { console.warn('Could not generate PDF attachment:', pdfErr) }
-            toast.dismiss('pdf-gen')
+                } catch (pdfErr) { console.warn('Could not generate PDF attachment:', pdfErr) }
+                toast.dismiss('pdf-gen')
+            }
 
             // Send via Gmail
             const { data: sessionData } = await supabase.auth.getSession()
@@ -624,17 +596,27 @@ export default function ManagementReportPage() {
             if (sendError) throw new Error(sendError.message || 'Error al enviar el correo')
 
             if (!isResendMode) {
-                // Create next report
+                // Create next report — check if property is published to decide status
                 const nextDueDate = new Date()
                 nextDueDate.setDate(nextDueDate.getDate() + 15)
+
+                // Check current property publication status
+                const { data: propData } = await supabase
+                    .from('properties')
+                    .select('status')
+                    .eq('id', report.property_id)
+                    .single()
+
+                const isPublished = propData?.status?.includes('Publicada')
+
                 await supabase.from('management_reports').insert({
                     property_id: report.property_id,
                     mandate_id: report.mandate_id,
                     agent_id: report.agent_id,
                     owner_contact_id: report.owner_contact_id,
                     report_number: report.report_number + 1,
-                    due_date: nextDueDate.toISOString().split('T')[0],
-                    status: 'pending'
+                    due_date: isPublished ? nextDueDate.toISOString().split('T')[0] : '2099-12-31',
+                    status: isPublished ? 'pending' : 'waiting_publication'
                 })
                 toast.success('¡Informe enviado al propietario!')
                 setShowSendPreview(false)
@@ -731,7 +713,7 @@ export default function ManagementReportPage() {
         const barW = Math.min(Math.max(groupW * 0.28, 16), 42)
         const gap = Math.min(barW * 0.15, 5)
 
-        // Y-axis labels
+        // Y-axis labels + horizontal grid lines
         const steps = 5
         ctx.fillStyle = '#64748b'
         ctx.font = '12px Inter, sans-serif'
@@ -740,7 +722,22 @@ export default function ManagementReportPage() {
             const y = pad.top + chartH - (chartH * i / steps)
             const val = Math.round(maxVal * i / steps)
             ctx.fillText(val.toLocaleString(), pad.left - 10, y + 4)
+            // Horizontal grid line
+            ctx.beginPath()
+            ctx.strokeStyle = i === 0 ? '#94a3b8' : '#e2e8f0'
+            ctx.lineWidth = i === 0 ? 1 : 0.5
+            ctx.moveTo(pad.left, y)
+            ctx.lineTo(W - pad.right, y)
+            ctx.stroke()
         }
+
+        // Y-axis line (left vertical)
+        ctx.beginPath()
+        ctx.strokeStyle = '#94a3b8'
+        ctx.lineWidth = 1
+        ctx.moveTo(pad.left, pad.top)
+        ctx.lineTo(pad.left, pad.top + chartH)
+        ctx.stroke()
 
         // Bars
         data.forEach((d, i) => {
@@ -902,6 +899,7 @@ export default function ManagementReportPage() {
     if (!report) return null
 
     const isSent = report.status === 'sent'
+    const isWaiting = report.status === 'waiting_publication'
     const isAdminRole = ['superadministrador', 'comercial', 'legal', 'tecnico'].includes(profile?.role)
     const isOwnerAgent = user?.id === report.agent_id
     const isReadOnly = isAdminRole && !isOwnerAgent
@@ -1424,35 +1422,79 @@ export default function ManagementReportPage() {
         )
     }
 
-    // -- Direct PDF Download --
-    const handleDownloadPdf = () => {
+    // ─── Shared PDF Builder (used by both Download and Send) ──────────────────
+    // Uses Gotenberg (Chromium-based) for vectorial PDFs with real text (~3-8 MB)
+    const buildPdfFromReport = async () => {
         // Capture chart image if not already set
         if (!chartImage && chartCanvasRef.current) {
             try { setPreviewChartImage(chartCanvasRef.current.toDataURL('image/png')) } catch (e) { }
         }
-        const footerAgentName = `${report?.agent?.first_name || profile?.first_name || ''} ${report?.agent?.last_name || profile?.last_name || ''}`.trim()
+        await new Promise(resolve => setTimeout(resolve, 200))
 
-        // Grab from hidden offscreen report
         const reportEl = document.getElementById('pdf-offscreen-content')
-        if (!reportEl) return
+        if (!reportEl) return null
 
-        const printWindow = window.open('', '_blank')
-        if (!printWindow) { toast.error('Permite las ventanas emergentes para descargar el PDF'); return }
-        const styles = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'))
-            .map(el => el.outerHTML).join('\n')
-        printWindow.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Reporte</title>${styles}
+        const footerAgentName = `${report?.agent?.first_name || profile?.first_name || ''} ${report?.agent?.last_name || profile?.last_name || ''}`.trim()
+        const styles = Array.from(document.querySelectorAll('link[rel="stylesheet"], style')).map(el => el.outerHTML).join('\n')
+        let reportHtml = reportEl.innerHTML
+        // Convert relative paths to absolute
+        reportHtml = reportHtml.replace(/src="\/([^"]+)"/g, `src="${window.location.origin}/$1"`)
+
+        // Convert all external images to inline base64 for Gotenberg
+        const imgRegex = /src="(https?:\/\/[^"]+)"/g
+        const imageUrls = [...new Set([...reportHtml.matchAll(imgRegex)].map(m => m[1]))]
+        for (const url of imageUrls) {
+            try {
+                const resp = await fetch(url)
+                if (!resp.ok) continue
+                const blob = await resp.blob()
+                const b64 = await new Promise((resolve, reject) => {
+                    const reader = new FileReader()
+                    reader.onload = () => resolve(reader.result)
+                    reader.onerror = reject
+                    reader.readAsDataURL(blob)
+                })
+                reportHtml = reportHtml.split(url).join(b64)
+            } catch (e) {
+                console.warn('Could not inline image:', url, e)
+            }
+        }
+
+        // If we have a preloaded logo base64, replace any remaining logo references
+        if (logoBase64) {
+            reportHtml = reportHtml.replace(/src="[^"]*primerolog\.png[^"]*"/g, `src="${logoBase64}"`)
+        }
+
+        const fullHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Reporte</title>${styles}
             <style>
-                @page { size: A4; margin: 0; }
-                body { margin: 0; padding: 0; padding-bottom: 50px; }
-                * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+                @page {
+                    size: A4;
+                    margin: 0;
+                }
+                body {
+                    margin: 0;
+                    padding: 0;
+                    width: 794px;
+                    background: white;
+                    font-family: 'Public Sans', 'Inter', ui-sans-serif, system-ui, sans-serif;
+                }
+                * {
+                    -webkit-print-color-adjust: exact !important;
+                    print-color-adjust: exact !important;
+                }
                 footer { display: none !important; }
                 section { border-bottom: none !important; }
-                .print-footer {
+                /* Cover page: pull up past Gotenberg top margin for full-bleed */
+                section[data-pdf-section="cover-intro"] {
+                    margin-top: -0.35in;
+                }
+                /* Fixed footer on every printed page */
+                .pdf-page-footer {
                     position: fixed;
                     bottom: 0;
                     left: 0;
                     right: 0;
-                    height: 50px;
+                    height: 42px;
                     display: flex;
                     align-items: center;
                     justify-content: space-between;
@@ -1462,20 +1504,91 @@ export default function ManagementReportPage() {
                     font-family: 'Public Sans', 'Inter', sans-serif;
                     z-index: 9999;
                 }
-                .print-footer .footer-text { font-size: 10px; color: #6b7280; }
-                .print-footer .footer-text p { margin: 0; }
-                .print-footer img { height: 64px; object-fit: contain; }
+                .pdf-page-footer .footer-text {
+                    font-size: 9px;
+                    color: #6b7280;
+                }
+                .pdf-page-footer .footer-text p {
+                    margin: 0;
+                }
+                .pdf-page-footer img {
+                    height: 36px;
+                    object-fit: contain;
+                }
             </style></head><body>
-            <div class="print-footer">
+            <div class="pdf-page-footer">
                 <div class="footer-text">
                     <p>© ${new Date().getFullYear()} RE/MAX Exclusive</p>
                     <p>${footerAgentName}</p>
                 </div>
                 <img src="${logoBase64 || (window.location.origin + '/primerolog.png')}" alt="RE/MAX" />
             </div>
-            ${reportEl.innerHTML}</body></html>`)
-        printWindow.document.close()
-        printWindow.onload = () => { setTimeout(() => { printWindow.print() }, 500) }
+            ${reportHtml}
+        </body></html>`
+
+        // Send HTML to Gotenberg for PDF generation
+        const formData = new FormData()
+        const htmlBlob = new Blob([fullHtml], { type: 'text/html' })
+        formData.append('files', htmlBlob, 'index.html')
+        // Gotenberg Chromium options
+        formData.append('paperWidth', '8.27')   // A4 width in inches
+        formData.append('paperHeight', '11.7')   // A4 height in inches
+        formData.append('marginTop', '0.35')     // ~9mm top margin for breathing room
+        formData.append('marginBottom', '0.45')  // Space for the fixed footer (42px ≈ 0.44in)
+        formData.append('marginLeft', '0')
+        formData.append('marginRight', '0')
+        formData.append('printBackground', 'true')
+        formData.append('preferCssPageSize', 'false')
+        formData.append('waitDelay', '2s')  // Wait for images/fonts to load
+
+        const response = await fetch(`${GOTENBERG_URL}/forms/chromium/convert/html`, {
+            method: 'POST',
+            body: formData,
+        })
+
+        if (!response.ok) {
+            const errText = await response.text()
+            throw new Error(`Gotenberg PDF generation failed: ${response.status} ${errText}`)
+        }
+
+        const pdfBlob = await response.blob()
+        console.log(`PDF generated via Gotenberg: ${(pdfBlob.size / 1024 / 1024).toFixed(2)} MB`)
+
+        // Convert to base64 for email attachment
+        const pdfBase64 = await new Promise((resolve, reject) => {
+            const reader = new FileReader()
+            reader.onload = () => resolve(reader.result.split(',')[1])
+            reader.onerror = reject
+            reader.readAsDataURL(pdfBlob)
+        })
+
+        const blobUrl = URL.createObjectURL(pdfBlob)
+        return { base64: pdfBase64, blobUrl }
+    }
+
+    // -- Direct PDF Download (uses shared builder) --
+    const handleDownloadPdf = async () => {
+        toast.loading('Generando PDF...', { id: 'pdf-download' })
+        try {
+            const result = await buildPdfFromReport()
+            if (!result) {
+                toast.error('No se pudo generar el PDF', { id: 'pdf-download' })
+                return
+            }
+            const propertyAddr = report.properties?.address || ''
+            const filename = `Informe_Gestion_${report.report_number}_${propertyAddr.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`
+            // Download via blob URL
+            const a = document.createElement('a')
+            a.href = result.blobUrl
+            a.download = filename
+            document.body.appendChild(a)
+            a.click()
+            document.body.removeChild(a)
+            toast.success('PDF descargado', { id: 'pdf-download' })
+        } catch (err) {
+            console.error('Error generating PDF:', err)
+            toast.error('Error al generar el PDF', { id: 'pdf-download' })
+        }
     }
 
     return (
@@ -1489,6 +1602,19 @@ export default function ManagementReportPage() {
                     <div>
                         <p className="font-semibold text-sm text-slate-900">Vista de solo lectura</p>
                         <p className="text-xs text-slate-500">Solo el agente responsable puede editar y enviar este informe.</p>
+                    </div>
+                </div>
+            )}
+
+            {/* Waiting for publication banner */}
+            {isWaiting && !isReadOnly && (
+                <div className="max-w-4xl mx-auto rounded-xl p-4 flex items-center gap-3 bg-gradient-to-r from-slate-50 to-gray-50 border border-slate-200 shadow-sm">
+                    <div className="p-2 bg-slate-100 rounded-lg">
+                        <Clock className="w-5 h-5 text-slate-500" />
+                    </div>
+                    <div>
+                        <p className="font-semibold text-sm text-slate-900">⏳ Esperando Publicación</p>
+                        <p className="text-xs text-slate-500">Este informe se activará automáticamente cuando la propiedad cambie a estado "Publicada". El plazo de 15 días comenzará a contar desde ese momento.</p>
                     </div>
                 </div>
             )}
@@ -1510,7 +1636,7 @@ export default function ManagementReportPage() {
                         <Download className="w-4 h-4" />
                         Descargar PDF
                     </Button>
-                    {!isReadOnly && !isSent && (
+                    {!isReadOnly && !isSent && !isWaiting && (
                         <>
                             <Button variant="outline" size="sm" onClick={handleSave} disabled={saving} className="gap-2">
                                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
@@ -1521,6 +1647,11 @@ export default function ManagementReportPage() {
                                 Enviar al Propietario
                             </Button>
                         </>
+                    )}
+                    {!isReadOnly && isWaiting && (
+                        <div className="flex items-center gap-2 bg-slate-50 text-slate-600 border border-slate-200 rounded-lg px-3 py-1.5 text-sm font-medium">
+                            ⏳ Esperando publicación
+                        </div>
                     )}
                     {!isReadOnly && isSent && (
                         <div className="flex items-center gap-2">
@@ -1554,6 +1685,16 @@ export default function ManagementReportPage() {
                         Descargar PDF
                     </Button>
                 </div>
+            ) : isWaiting ? (
+                <div className="max-w-4xl mx-auto flex justify-end gap-3 pb-8">
+                    <Button variant="outline" onClick={handleDownloadPdf} className="gap-2">
+                        <Download className="w-4 h-4" />
+                        Descargar PDF
+                    </Button>
+                    <div className="flex items-center gap-2 bg-slate-50 text-slate-600 border border-slate-200 rounded-lg px-3 py-1.5 text-sm font-medium">
+                        ⏳ Esperando publicación para habilitar envío
+                    </div>
+                </div>
             ) : !isSent ? (
                 <div className="max-w-4xl mx-auto flex justify-end gap-3 pb-8">
                     <Button variant="outline" onClick={handleDownloadPdf} className="gap-2">
@@ -1583,8 +1724,8 @@ export default function ManagementReportPage() {
             )}
             <PhotoPickerModal />
             {/* Send Preview Modal */}
-            {showSendPreview && (
-                <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex" onClick={() => !sending && setShowSendPreview(false)}>
+            {showSendPreview && createPortal(
+                <div className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-sm flex" onClick={() => !sending && setShowSendPreview(false)}>
                     <div className="flex w-full h-full" onClick={(e) => e.stopPropagation()}>
                         {/* Left: PDF Preview */}
                         <div className="flex-1 bg-gray-100 flex flex-col min-w-0">
@@ -1650,13 +1791,50 @@ export default function ManagementReportPage() {
                                 <div>
                                     <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5 block">Archivos adjuntos</label>
                                     <div className="space-y-2">
-                                        <div className="flex items-center gap-3 bg-red-50 rounded-lg px-3 py-2.5 border border-red-100">
-                                            <File className="w-4 h-4 text-red-500 flex-shrink-0" />
+                                        <div
+                                            className={`flex items-center gap-3 rounded-lg px-3 py-2.5 border transition-colors cursor-pointer ${preGeneratedPdf.generating ? 'bg-orange-50 border-orange-100' : 'bg-red-50 border-red-100 hover:bg-red-100'}`}
+                                            onClick={async () => {
+                                                if (preGeneratedPdf.generating) return
+                                                if (preGeneratedPdf.blobUrl) {
+                                                    window.open(preGeneratedPdf.blobUrl, '_blank')
+                                                } else {
+                                                    // Generate PDF on-demand and open in new tab
+                                                    try {
+                                                        setPreGeneratedPdf(prev => ({ ...prev, generating: true }))
+                                                        const result = await buildPdfFromReport()
+                                                        if (result) {
+                                                            const pdfFilename = preGeneratedPdf.filename || `Informe_Gestion_${report.report_number}.pdf`
+                                                            setPreGeneratedPdf({ blobUrl: result.blobUrl, base64: result.base64, filename: pdfFilename, generating: false })
+                                                            window.open(result.blobUrl, '_blank')
+                                                        } else {
+                                                            setPreGeneratedPdf(prev => ({ ...prev, generating: false }))
+                                                            toast.error('No se pudo generar el PDF')
+                                                        }
+                                                    } catch (err) {
+                                                        console.error('Error generating PDF on click:', err)
+                                                        setPreGeneratedPdf(prev => ({ ...prev, generating: false }))
+                                                        toast.error('Error al generar el PDF')
+                                                    }
+                                                }
+                                            }}
+                                            title={preGeneratedPdf.generating ? 'Generando PDF...' : 'Click para abrir el PDF en otra pestaña'}
+                                        >
+                                            {preGeneratedPdf.generating ? (
+                                                <Loader2 className="w-4 h-4 text-orange-500 animate-spin flex-shrink-0" />
+                                            ) : (
+                                                <File className="w-4 h-4 text-red-500 flex-shrink-0" />
+                                            )}
                                             <div className="flex-1 min-w-0">
-                                                <p className="text-sm font-medium text-gray-800 truncate">Informe_Gestion_{report.report_number}.pdf</p>
-                                                <p className="text-[11px] text-gray-400">PDF del informe (generado automáticamente)</p>
+                                                <p className="text-sm font-medium text-gray-800 truncate">{preGeneratedPdf.filename || `Informe_Gestion_${report.report_number}.pdf`}</p>
+                                                <p className="text-[11px] text-gray-400">
+                                                    {preGeneratedPdf.generating ? 'Generando PDF...' : 'Click para abrir el PDF'}
+                                                </p>
                                             </div>
-                                            <Paperclip className="w-3.5 h-3.5 text-gray-300 flex-shrink-0" />
+                                            {preGeneratedPdf.generating ? (
+                                                <Paperclip className="w-3.5 h-3.5 text-gray-300 flex-shrink-0" />
+                                            ) : (
+                                                <Eye className="w-4 h-4 text-red-400 flex-shrink-0" />
+                                            )}
                                         </div>
                                         {formData.anexos.filter(a => !a.isImage).map((anexo, idx) => (
                                             <div key={idx} className="flex items-center gap-3 bg-gray-50 rounded-lg px-3 py-2.5 border border-gray-100">
@@ -1681,17 +1859,17 @@ export default function ManagementReportPage() {
                                 </Button>
                                 <Button
                                     onClick={confirmSend}
-                                    disabled={sending}
+                                    disabled={sending || preGeneratedPdf.generating}
                                     className="flex-1 gap-2 bg-[#003DA5] hover:bg-[#002d7a] text-white"
                                 >
-                                    {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                                    {sending ? 'Enviando...' : (isResendMode ? 'Re-enviar' : 'Enviar')}
+                                    {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : preGeneratedPdf.generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                                    {sending ? 'Enviando...' : preGeneratedPdf.generating ? 'Preparando PDF...' : (isResendMode ? 'Re-enviar' : 'Enviar')}
                                 </Button>
                             </div>
                         </div>
                     </div>
                 </div>
-            )}
+                , document.body)}
             {/* Hidden offscreen container for PDF rendering */}
             <div id="pdf-offscreen-content" style={{ position: 'fixed', left: '-9999px', top: 0, width: '210mm' }}>
                 {ReportContent({ isPreview: true })}

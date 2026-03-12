@@ -4,7 +4,7 @@ import {
     X, Zap, CheckCircle2, Circle, Mail, FileSignature, ClipboardCheck,
     ScrollText, Activity, Home, User, Calendar, MapPin, DollarSign,
     Briefcase, MessageSquare, FileText, ExternalLink, Clock,
-    ArrowUpRight, Tag, Phone, StickyNote
+    ArrowUpRight, Tag, Phone, StickyNote, Eye
 } from 'lucide-react'
 import { Button } from '@/components/ui'
 import { format } from 'date-fns'
@@ -19,6 +19,7 @@ const TYPE_HEADERS = {
     evaluacion: { icon: ClipboardCheck, label: 'Detalle de Evaluación', gradient: 'from-slate-500 to-slate-600' },
     nota: { icon: StickyNote, label: 'Detalle de Nota', gradient: 'from-amber-500 to-amber-600' },
     log: { icon: ScrollText, label: 'Detalle del Registro', gradient: 'from-slate-500 to-slate-600' },
+    inspeccion: { icon: ClipboardCheck, label: 'Detalle de Inspección', gradient: 'from-teal-500 to-teal-600' },
 }
 
 function formatDate(iso) {
@@ -237,6 +238,38 @@ const TimelineEventModal = ({ event, isOpen, onClose }) => {
                             </>
                         )}
 
+                        {/* Inspection specifics */}
+                        {event.type === 'inspeccion' && (
+                            <>
+                                <DetailRow icon={Tag} label="Estado" value={meta.statusLabel} />
+                                {meta.inspectionDate && <DetailRow icon={Calendar} label="Fecha Inspección" value={formatShortDate(meta.inspectionDate)} />}
+                                {meta.ownerName && <DetailRow icon={User} label="Propietario" value={meta.ownerName} />}
+                                {meta.tenantName && <DetailRow icon={User} label="Arrendatario" value={meta.tenantName} />}
+                                {meta.agentName && <DetailRow icon={Briefcase} label="Agente" value={meta.agentName} />}
+                                {meta.observations && <DetailRow icon={MessageSquare} label="Observaciones" value={meta.observations} />}
+                                {meta.recommendations && <DetailRow icon={MessageSquare} label="Recomendaciones" value={meta.recommendations} />}
+                                {meta.sentAt && <DetailRow icon={Mail} label="Enviado el" value={formatDate(meta.sentAt)} />}
+                                {meta.pdfUrl && (
+                                    <div className="py-3 border-b border-gray-100 dark:border-gray-800">
+                                        <p className="text-[11px] uppercase tracking-wider text-gray-400 dark:text-gray-500 font-medium mb-2.5 flex items-center gap-2">
+                                            <FileText className="w-3.5 h-3.5" />
+                                            PDF del Informe
+                                        </p>
+                                        <a
+                                            href={meta.pdfUrl}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-flex items-center gap-2 px-3 py-2 bg-teal-50 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 rounded-lg text-xs font-medium hover:bg-teal-100 dark:hover:bg-teal-900/50 transition-all hover:shadow-sm border border-teal-100 dark:border-teal-800"
+                                        >
+                                            <Eye className="w-4 h-4" />
+                                            Ver PDF
+                                            <ExternalLink className="w-3 h-3" />
+                                        </a>
+                                    </div>
+                                )}
+                            </>
+                        )}
+
                         {/* Activity log details */}
                         {event.type === 'log' && meta.details && Object.keys(meta.details).length > 0 && (
                             <div className="py-3 border-b border-gray-100 dark:border-gray-800">
@@ -311,6 +344,16 @@ const TimelineEventModal = ({ event, isOpen, onClose }) => {
                             >
                                 <User className="w-3.5 h-3.5 mr-1.5" />
                                 Ver Contacto
+                            </Button>
+                        )}
+                        {event.type === 'inspeccion' && meta.inspectionId && (
+                            <Button
+                                size="sm"
+                                className="bg-teal-500 hover:bg-teal-600 text-white"
+                                onClick={() => handleNavigate(`/inspecciones/${meta.inspectionId}`)}
+                            >
+                                <ClipboardCheck className="w-3.5 h-3.5 mr-1.5" />
+                                Ver Inspección
                             </Button>
                         )}
                     </div>

@@ -32,7 +32,8 @@ import {
     Activity,
     Video,
     ClipboardCheck,
-    ScrollText
+    ScrollText,
+    FileSpreadsheet
 } from 'lucide-react'
 import { useState, useEffect, useCallback } from 'react'
 import { cn } from '@/lib/utils'
@@ -112,6 +113,7 @@ export default function Sidebar() {
             { title: 'Acciones', icon: Activity, path: '/crm/actions' },
             { title: 'Pipeline Ventas', icon: Kanban, path: '/crm/pipeline' },
             { title: 'Informes de Gestión', icon: ClipboardCheck, path: '/informes-gestion' },
+            { title: 'Inspecciones', icon: ClipboardList, path: '/inspecciones' },
             ...(!isPostulante ? [{ title: 'Mapa Propiedades', icon: MapPin, path: '/crm/map' }] : []),
         ]
     }
@@ -146,6 +148,7 @@ export default function Sidebar() {
                         { title: 'Solicitudes', icon: FileText, path: '/admin/requests' },
                         { title: 'Captaciones', icon: ClipboardList, path: '/admin/captaciones' },
                         { title: 'Importar Propiedades', icon: Download, path: '/admin/import' },
+                        { title: 'Importar Administradas', icon: FileSpreadsheet, path: '/admin/import-administradas' },
                     ]
                 },
                 {
@@ -180,6 +183,7 @@ export default function Sidebar() {
                         { title: 'Solicitudes', icon: FileText, path: '/admin/requests' },
                         { title: 'Captaciones', icon: ClipboardList, path: '/admin/captaciones' },
                         { title: 'Importar Propiedades', icon: Download, path: '/admin/import' },
+                        { title: 'Importar Administradas', icon: FileSpreadsheet, path: '/admin/import-administradas' },
                     ]
                 },
                 {
@@ -220,6 +224,7 @@ export default function Sidebar() {
                         { title: 'Solicitudes', icon: FileText, path: '/admin/requests' },
                         { title: 'Captaciones', icon: ClipboardList, path: '/admin/captaciones' },
                         { title: 'Importar Propiedades', icon: Download, path: '/admin/import' },
+                        { title: 'Importar Administradas', icon: FileSpreadsheet, path: '/admin/import-administradas' },
                     ]
                 },
                 {
@@ -248,6 +253,7 @@ export default function Sidebar() {
                 { title: 'Administración', icon: Users, path: '/admin/invites' },
                 { title: 'Solicitudes', icon: FileText, path: '/admin/requests' },
                 { title: 'Captaciones', icon: ClipboardList, path: '/admin/captaciones' },
+                { title: 'Importar Administradas', icon: FileSpreadsheet, path: '/admin/import-administradas' },
                 { title: 'Agenda Cámara 360°', icon: Camera, path: '/admin/camera-schedule' },
                 { title: 'Agenda Turnos', icon: Shield, path: '/admin/shift-schedule' },
                 { title: 'Leads Asignados', icon: FileText, path: '/guard-leads' },
@@ -257,6 +263,7 @@ export default function Sidebar() {
             title: 'ADMIN',
             items: [
                 { title: 'Solicitudes', icon: FileText, path: '/admin/requests' },
+                { title: 'Importar Administradas', icon: FileSpreadsheet, path: '/admin/import-administradas' },
                 { title: 'Agenda Turnos', icon: Shield, path: '/admin/shift-schedule' },
                 { title: 'Leads Asignados', icon: FileText, path: '/guard-leads' },
             ]

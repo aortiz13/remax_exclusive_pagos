@@ -344,19 +344,19 @@ const NewMandate = () => {
                 property_id: formData.property_id || null
             })
 
-            // 6. Create first management report (due in 15 days)
+            // 6. Create first management report (dormant until property is published)
+            // The DB trigger trg_property_published_report_due will activate it
+            // and set due_date = today + 15 when property status changes to 'Publicada'
             if (mandate?.id && formData.contact_id) {
                 try {
-                    const dueDate = new Date()
-                    dueDate.setDate(dueDate.getDate() + 15)
                     const { error: reportErr } = await supabase.from('management_reports').insert({
                         property_id: formData.property_id || null,
                         mandate_id: mandate.id,
                         agent_id: user.id,
                         owner_contact_id: formData.contact_id,
                         report_number: 1,
-                        due_date: dueDate.toISOString().split('T')[0],
-                        status: 'pending'
+                        due_date: '2099-12-31',
+                        status: 'waiting_publication'
                     })
                     if (reportErr) console.error('Management report creation error:', reportErr)
                 } catch (err) {

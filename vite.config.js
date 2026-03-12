@@ -14,4 +14,13 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  server: {
+    proxy: {
+      '/api/gotenberg': {
+        target: 'https://remax-exclusive-gotenberg.jzuuqr.easypanel.host',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/gotenberg/, ''),
+      },
+    },
+  },
 })
