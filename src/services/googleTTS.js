@@ -20,7 +20,7 @@ export async function generateSpeechWithTimestamps(text, voiceConfig = {}) {
     if (!session) throw new Error('Debes estar autenticado para generar audio')
 
     const response = await fetch(
-        `https://wdyfeolbuogoyngrvxkc.supabase.co/functions/v1/generate-tts`,
+        `https://remax-crm-remax-app.jzuuqr.easypanel.host/api/tts/generate`,
         {
             method: 'POST',
             headers: {
@@ -86,7 +86,7 @@ export async function listSpanishVoices() {
         if (!session) return []
 
         const response = await fetch(
-            `https://wdyfeolbuogoyngrvxkc.supabase.co/functions/v1/generate-tts`,
+            `https://remax-crm-remax-app.jzuuqr.easypanel.host/api/tts/generate`,
             {
                 method: 'POST',
                 headers: {
