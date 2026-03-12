@@ -91,6 +91,15 @@ const TYPE_CONFIG = {
         chipBg: 'bg-slate-100 dark:bg-slate-800/60 text-slate-500 dark:text-slate-500 border-slate-200 dark:border-slate-700',
         dot: 'bg-slate-400',
     },
+    inspeccion: {
+        icon: ClipboardCheck,
+        accent: 'border-l-teal-500',
+        bg: 'bg-white dark:bg-slate-900/60',
+        border: 'border-slate-200 dark:border-slate-800',
+        text: 'text-teal-600 dark:text-teal-400',
+        chipBg: 'bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-400 border-teal-100 dark:border-teal-900',
+        dot: 'bg-teal-500',
+    },
 }
 
 // ── Helpers ────────────────────────────────────────────────────
@@ -438,6 +447,14 @@ const UnifiedTimeline = ({ contactId, propertyId }) => {
                                                 {event.type === 'evaluacion' && event.meta?.status && (
                                                     <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400">
                                                         {event.meta.status}
+                                                    </span>
+                                                )}
+                                                {event.type === 'inspeccion' && event.meta?.statusLabel && (
+                                                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${event.meta.status === 'sent' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                                                            : event.meta.status === 'completed' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                                                                : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
+                                                        }`}>
+                                                        {event.meta.statusLabel}
                                                     </span>
                                                 )}
                                             </div>

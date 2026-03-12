@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../services/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Button, Badge } from '@/components/ui'
-import { FileText, Clock, CheckCircle, AlertTriangle, Loader2, ChevronRight, Plus, Construction, Eye, User, Home, Lock } from 'lucide-react'
+import { FileText, Clock, CheckCircle, AlertTriangle, Loader2, ChevronRight, Plus, Construction, Eye, User, Home, Lock, PauseCircle } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 
@@ -161,7 +161,8 @@ export default function ManagementReportList() {
     const statusConfig = {
         pending: { label: 'Pendiente', color: 'bg-amber-100 text-amber-800 border-amber-200', icon: Clock },
         overdue: { label: 'Atrasado', color: 'bg-red-100 text-red-800 border-red-200', icon: AlertTriangle },
-        sent: { label: 'Enviado', color: 'bg-emerald-100 text-emerald-800 border-emerald-200', icon: CheckCircle }
+        sent: { label: 'Enviado', color: 'bg-emerald-100 text-emerald-800 border-emerald-200', icon: CheckCircle },
+        waiting_publication: { label: 'Esperando Publicación', color: 'bg-slate-100 text-slate-600 border-slate-200', icon: PauseCircle }
     }
 
     const overdue = reports.filter(r => {
@@ -176,6 +177,7 @@ export default function ManagementReportList() {
     }).length
     const pending = reports.filter(r => r.status === 'pending').length
     const sent = reports.filter(r => r.status === 'sent').length
+    const waiting = reports.filter(r => r.status === 'waiting_publication').length
 
     // Admin tabs
     const adminTabs = [
@@ -188,6 +190,7 @@ export default function ManagementReportList() {
         { key: 'all', label: 'Todos' },
         { key: 'overdue', label: 'Atrasados' },
         { key: 'pending', label: 'Pendientes' },
+        { key: 'waiting_publication', label: 'Esperando' },
         { key: 'sent', label: 'Enviados' }
     ]
 
@@ -218,14 +221,14 @@ export default function ManagementReportList() {
                     <p className="text-sm text-slate-500 mt-1">
                         {isAdmin
                             ? 'Seguimiento de informes periódicos de gestión'
-                            : 'Informes periódicos de gestión para propietarios'
+                            : 'Informes periódicos de gestión para propietarios deben ser enviados cada 15 días.'
                         }
                     </p>
                 </div>
             </div>
 
             {/* Stats Cards */}
-            <div className={cn("grid gap-4", isAdmin ? "grid-cols-2" : "grid-cols-3")}>
+            <div className={cn("grid gap-4", isAdmin ? "grid-cols-2" : "grid-cols-4")}>
                 {(isAdmin
                     ? [
                         { label: 'Atrasados', count: overdue, color: 'from-red-500 to-red-600', bg: 'bg-red-50' },
@@ -234,6 +237,7 @@ export default function ManagementReportList() {
                     : [
                         { label: 'Atrasados', count: overdue, color: 'from-red-500 to-red-600', bg: 'bg-red-50' },
                         { label: 'Pendientes', count: pending, color: 'from-amber-500 to-amber-600', bg: 'bg-amber-50' },
+                        { label: 'Esperando', count: waiting, color: 'from-slate-400 to-slate-500', bg: 'bg-slate-50' },
                         { label: 'Enviados', count: sent, color: 'from-emerald-500 to-emerald-600', bg: 'bg-emerald-50' }
                     ]
                 ).map((stat, i) => (
@@ -351,13 +355,14 @@ export default function ManagementReportList() {
                     {reports.map((report, i) => {
                         const cfg = statusConfig[report.status] || statusConfig.pending
                         const StatusIcon = cfg.icon
-                        const dueDate = new Date(report.due_date + 'T12:00:00')
+                        const isWaiting = report.status === 'waiting_publication'
+                        const dueDate = isWaiting ? null : new Date(report.due_date + 'T12:00:00')
                         const today = new Date()
                         today.setHours(0, 0, 0, 0)
-                        const isOverdue = report.status === 'pending' && dueDate < today
+                        const isOverdue = report.status === 'pending' && dueDate && dueDate < today
 
                         // Auto-mark as overdue visually
-                        const displayCfg = isOverdue ? statusConfig.overdue : cfg
+                        const displayCfg = isWaiting ? statusConfig.waiting_publication : (isOverdue ? statusConfig.overdue : cfg)
 
                         return (
                             <motion.div
@@ -396,7 +401,7 @@ export default function ManagementReportList() {
                                                 {displayCfg.label}
                                             </span>
                                             <p className="text-xs text-slate-400 mt-1">
-                                                Enviar: {dueDate.toLocaleDateString('es-CL')}
+                                                {isWaiting ? 'Esperando publicación' : `Enviar: ${dueDate.toLocaleDateString('es-CL')}`}
                                             </p>
                                         </div>
                                         {isAdmin ? (

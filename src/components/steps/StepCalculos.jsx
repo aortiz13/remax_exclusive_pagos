@@ -141,6 +141,9 @@ export default function StepCalculos({ data, onUpdate, onNext, onBack }) {
             ? data.contractType === 'commercial'
             : ['Oficina', 'Local Comercial', 'Bodega', 'Industrial'].includes(tipoPropiedad)
 
+        // Link de pago arriendo (tipoSolicitud === 'arriendo') requires 6UF minimum even for commercial
+        const isLinkPagoArriendo = data.tipoSolicitud === 'arriendo'
+
         const calculateSideFee = (manualFlag, manualAmount) => {
             let netFee = 0
             let isMinApplied = false
@@ -148,7 +151,10 @@ export default function StepCalculos({ data, onUpdate, onNext, onBack }) {
 
             if (manualFlag) {
                 netFee = Number(manualAmount) || 0
-                if (!isCommercial && mesesContrato <= 24 && ufVal > 0) {
+                // Apply 6UF alert for residential ≤24m AND for commercial arriendo ≤60m
+                const shouldCheckMin = (!isCommercial && mesesContrato <= 24)
+                    || (isCommercial && isLinkPagoArriendo && mesesContrato <= 60)
+                if (shouldCheckMin && ufVal > 0) {
                     const minLegalNeto = Math.round(6 * ufVal)
                     if (netFee < minLegalNeto) alert = true
                 }
@@ -167,7 +173,14 @@ export default function StepCalculos({ data, onUpdate, onNext, onBack }) {
                     }
                 } else {
                     if (mesesContrato <= 60) {
-                        netFee = Math.round(canon * 0.5)
+                        const halfRent = Math.round(canon * 0.5)
+                        let finalNet = halfRent
+                        // Apply 6UF minimum for commercial link de pago arriendo
+                        if (isLinkPagoArriendo && ufVal > 0) {
+                            const minNet = Math.round(6 * ufVal)
+                            if (halfRent < minNet) { finalNet = minNet; isMinApplied = true }
+                        }
+                        netFee = finalNet
                     } else {
                         netFee = Math.round(canon * mesesContrato * 0.02)
                     }
@@ -576,8 +589,8 @@ export default function StepCalculos({ data, onUpdate, onNext, onBack }) {
                                                     type="button"
                                                     onClick={() => onUpdate('seguroPagadoPor', 'arrendatario')}
                                                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${(data.seguroPagadoPor || 'arrendatario') === 'arrendatario'
-                                                            ? 'bg-white text-primary shadow-sm'
-                                                            : 'text-slate-500 hover:text-slate-700'
+                                                        ? 'bg-white text-primary shadow-sm'
+                                                        : 'text-slate-500 hover:text-slate-700'
                                                         }`}
                                                 >
                                                     Arrendatario
@@ -586,8 +599,8 @@ export default function StepCalculos({ data, onUpdate, onNext, onBack }) {
                                                     type="button"
                                                     onClick={() => onUpdate('seguroPagadoPor', 'arrendador')}
                                                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${data.seguroPagadoPor === 'arrendador'
-                                                            ? 'bg-white text-primary shadow-sm'
-                                                            : 'text-slate-500 hover:text-slate-700'
+                                                        ? 'bg-white text-primary shadow-sm'
+                                                        : 'text-slate-500 hover:text-slate-700'
                                                         }`}
                                                 >
                                                     Arrendador

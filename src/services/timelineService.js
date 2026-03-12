@@ -295,6 +295,64 @@ async function fetchActivityLogs(contactId, propertyId) {
     })
 }
 
+async function fetchInspections(contactId, propertyId) {
+    let query = supabase
+        .from('property_inspections')
+        .select(`
+            id, created_at, inspection_date, status, address,
+            owner_name, tenant_name, observations, recommendations,
+            pdf_url, sent_at, property_id, agent_id,
+            properties:property_id ( address, commune ),
+            profiles:agent_id ( full_name )
+        `)
+        .order('created_at', { ascending: false })
+
+    if (propertyId) {
+        query = query.eq('property_id', propertyId)
+    } else if (contactId) {
+        // Inspections don't have contact_id — resolve via property_contacts
+        const { data: links } = await supabase
+            .from('property_contacts')
+            .select('property_id')
+            .eq('contact_id', contactId)
+        const propIds = links?.map(l => l.property_id) || []
+        if (propIds.length === 0) return []
+        query = query.in('property_id', propIds)
+    }
+
+    const { data, error } = await query
+    if (error) { console.error('Timeline: inspections error', error); return [] }
+
+    return (data || []).map(i => {
+        const statusMap = { draft: 'Borrador', completed: 'Completada', sent: 'Enviada' }
+        const statusLabel = statusMap[i.status] || i.status || '-'
+        return {
+            id: `inspeccion-${i.id}`,
+            type: 'inspeccion',
+            typeLabel: 'Inspección',
+            date: i.sent_at || i.created_at,
+            title: `Inspección — ${i.address || i.properties?.address || 'Sin dirección'}`,
+            description: `Estado: ${statusLabel}${i.observations ? ` — ${i.observations.substring(0, 100)}` : ''}`,
+            color: 'teal',
+            meta: {
+                status: i.status,
+                statusLabel,
+                inspectionDate: i.inspection_date,
+                ownerName: i.owner_name,
+                tenantName: i.tenant_name,
+                observations: i.observations,
+                recommendations: i.recommendations,
+                pdfUrl: i.pdf_url,
+                sentAt: i.sent_at,
+                agentName: i.profiles?.full_name,
+                propertyAddress: i.properties?.address || i.address,
+                propertyId: i.property_id,
+                inspectionId: i.id,
+            }
+        }
+    })
+}
+
 // ── Main aggregator ────────────────────────────────────────────
 
 export async function fetchUnifiedTimeline({ contactId, propertyId }) {
@@ -305,6 +363,7 @@ export async function fetchUnifiedTimeline({ contactId, propertyId }) {
         fetchEmails(contactId, propertyId),
         fetchMandates(contactId, propertyId),
         fetchEvaluaciones(contactId, propertyId),
+        fetchInspections(contactId, propertyId),
         fetchActivityLogs(contactId, propertyId),
     ])
 
@@ -326,5 +385,6 @@ export const EVENT_TYPES = [
     { key: 'correo', label: 'Correos', color: 'slate' },
     { key: 'mandato', label: 'Mandatos', color: 'blue' },
     { key: 'evaluacion', label: 'Evaluaciones', color: 'slate' },
+    { key: 'inspeccion', label: 'Inspecciones', color: 'teal' },
     { key: 'log', label: 'Registros', color: 'slate' },
 ]

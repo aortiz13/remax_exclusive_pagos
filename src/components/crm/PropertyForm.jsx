@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { Button, Input, Textarea, Select, SelectTrigger, SelectContent, SelectItem, SelectValue, Label, Switch, Checkbox, Badge } from '@/components/ui'
-import { X, Save, Search, Plus, Check, ChevronsUpDown, Trash2, UserPlus, Info } from 'lucide-react'
+import { X, Save, Search, Plus, Check, ChevronsUpDown, Trash2, UserPlus, Info, CalendarDays } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '../../services/supabase'
 import { useAuth } from '../../context/AuthContext'
@@ -14,6 +14,7 @@ import TransactionCompletionModal from './TransactionCompletionModal'
 import { cn } from "@/lib/utils"
 import { logActivity } from '../../services/activityService'
 import { auditLog } from '../../services/auditLogService'
+import { generateInspectionSchedule } from '../../services/inspectionService'
 import { ROLES, ROLE_COLORS } from './AddParticipantModal'
 
 
@@ -60,7 +61,9 @@ const PropertyForm = ({ property, isOpen, onClose, isSimplified = false }) => {
         documentation_link: '',
         image_url: '',
         latitude: null,
-        longitude: null
+        longitude: null,
+        contract_start_date: '',
+        contract_end_date: ''
     })
 
     const PROPERTY_TYPES = ['Departamento', 'Casa', 'Oficina', 'Terreno', 'Bodega', 'Estacionamiento', 'Comercial', 'Otro']
@@ -78,7 +81,9 @@ const PropertyForm = ({ property, isOpen, onClose, isSimplified = false }) => {
                 m2_built: property.m2_built || '',
                 bedrooms: property.bedrooms || '',
                 bathrooms: property.bathrooms || '',
-                status: property.status || []
+                status: property.status || [],
+                contract_start_date: property.contract_start_date || '',
+                contract_end_date: property.contract_end_date || ''
             })
             if (property.id) {
                 fetchExistingLinks(property.id)
@@ -164,7 +169,13 @@ const PropertyForm = ({ property, isOpen, onClose, isSimplified = false }) => {
     const handleSubmit = async (e) => {
         e.preventDefault()
 
-        // ROL is optional — no validation needed
+        // Validate contract dates when Administrada is selected
+        if (formData.status?.includes('Administrada')) {
+            if (!formData.contract_start_date || !formData.contract_end_date) {
+                toast.error('Debes ingresar las fechas de inicio y término del contrato para propiedades administradas')
+                return
+            }
+        }
 
         setLoading(true)
 
@@ -179,6 +190,8 @@ const PropertyForm = ({ property, isOpen, onClose, isSimplified = false }) => {
                 m2_built: formData.m2_built || null,
                 bedrooms: formData.bedrooms || null,
                 bathrooms: formData.bathrooms || null,
+                contract_start_date: formData.contract_start_date || null,
+                contract_end_date: formData.contract_end_date || null,
                 updated_at: new Date().toISOString()
             }
 
@@ -264,6 +277,19 @@ const PropertyForm = ({ property, isOpen, onClose, isSimplified = false }) => {
             }
 
             toast.success(property ? 'Propiedad actualizada' : 'Propiedad creada')
+
+            // Auto-generate inspection schedule for Administrada properties with contract dates
+            if (savedProperty?.status?.includes('Administrada') && savedProperty?.contract_start_date) {
+                try {
+                    const schedResult = await generateInspectionSchedule(savedProperty.id)
+                    if (schedResult.created > 0) {
+                        toast.success(`Se programaron ${schedResult.created} inspecciones automáticas`)
+                    }
+                } catch (schedErr) {
+                    console.error('Error generating inspection schedule:', schedErr)
+                }
+            }
+
             auditLog.info('crm', property?.id ? 'property.updated' : 'property.created',
                 `${property?.id ? 'Propiedad actualizada' : 'Propiedad creada'}: ${formData.address}`, {
                 module: 'PropertyForm',
@@ -625,6 +651,44 @@ const PropertyForm = ({ property, isOpen, onClose, isSimplified = false }) => {
                                             ))}
                                         </div>
                                     </div>
+
+                                    {/* Contract dates — visible only when Administrada is selected */}
+                                    <AnimatePresence>
+                                        {formData.status?.includes('Administrada') && (
+                                            <motion.div
+                                                initial={{ opacity: 0, height: 0 }}
+                                                animate={{ opacity: 1, height: 'auto' }}
+                                                exit={{ opacity: 0, height: 0 }}
+                                                transition={{ duration: 0.25 }}
+                                                className="col-span-2 overflow-hidden"
+                                            >
+                                                <div className="flex items-center gap-2 mb-3 mt-1">
+                                                    <CalendarDays className="w-4 h-4 text-primary" />
+                                                    <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Fechas del Contrato de Administración</span>
+                                                </div>
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <div className="space-y-2">
+                                                        <label className="text-sm font-medium">Fecha Inicio Contrato <span className="text-red-500">*</span></label>
+                                                        <Input
+                                                            type="date"
+                                                            name="contract_start_date"
+                                                            value={formData.contract_start_date}
+                                                            onChange={handleChange}
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <label className="text-sm font-medium">Fecha Término Contrato <span className="text-red-500">*</span></label>
+                                                        <Input
+                                                            type="date"
+                                                            name="contract_end_date"
+                                                            value={formData.contract_end_date}
+                                                            onChange={handleChange}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
                                 </Section>
 
                                 <Section title="Información Secundaria & Metrajes">

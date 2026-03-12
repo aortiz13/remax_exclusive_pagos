@@ -4,11 +4,12 @@ import { supabase } from '../../services/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { toast } from 'sonner'
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
     Target, TrendingUp, Lightbulb, Rocket, PieChart as PieChartIcon, Plus, Trash2, Save,
     ChevronDown, ChevronUp, Building2, Car, Crown, ArrowRight, Clock, Calendar,
     Users, DollarSign, Search, Megaphone, Eye, Heart, Activity, Zap,
-    Calculator, Briefcase, Award
+    Calculator, Briefcase, Award, BarChart3
 } from 'lucide-react'
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
 import {
@@ -18,7 +19,7 @@ import {
 
 const COLORS = ['#f59e0b', '#3b82f6', '#8b5cf6', '#10b981']
 const CHANNEL_ICONS = { Prospección: Search, Marketing: Megaphone, Seguimiento: Eye, Fidelización: Heart }
-const TAB_ITEMS = [
+const CONFIG_TABS = [
     { key: 'investment', label: 'Inversión', icon: DollarSign },
     { key: 'operative', label: 'Operativo', icon: Calculator },
     { key: 'channels', label: 'Canales', icon: Calendar },
@@ -30,7 +31,8 @@ export default function BusinessPlan() {
     const [loading, setLoading] = useState(false)
     const [saving, setSaving] = useState(false)
     const [year, setYear] = useState(new Date().getFullYear())
-    const [activeTab, setActiveTab] = useState('investment')
+    const [mode, setMode] = useState('kpis')
+    const [configTab, setConfigTab] = useState('investment')
 
     const [plan, setPlan] = useState({
         mission: '', vision: '', mantra_text: '', monthly_goal: 0,
@@ -47,6 +49,7 @@ export default function BusinessPlan() {
     const [activities, setActivities] = useState([])
     const [agentPlan, setAgentPlan] = useState('EJECUTIVO')
     const [kpiData, setKpiData] = useState({ billing: 0 })
+    const [ticketData, setTicketData] = useState({ avgSaleReal: 0, avgRentalReal: 0, saleCount: 0, rentalCount: 0 })
     const [investExpanded, setInvestExpanded] = useState({})
     const toggleInvest = (cat) => setInvestExpanded(p => ({ ...p, [cat]: !p[cat] }))
 
@@ -114,6 +117,28 @@ export default function BusinessPlan() {
                 target_agent_id: user.id, start_date: `${year}-01-01`, end_date: `${year}-12-31`
             })
             if (kpi) setKpiData({ billing: kpi.billing_primary || 0 })
+
+            // Fetch real ticket data from properties (infer operation from status when operation_type is null)
+            const { data: allProps } = await supabase.from('properties').select('price, operation_type, status').eq('agent_id', user.id).not('price', 'is', null).gt('price', 0)
+            const salePrices = [], rentalPrices = []
+            for (const p of (allProps || [])) {
+                const price = Number(p.price)
+                if (price <= 0) continue
+                let opType = p.operation_type
+                if (!opType && Array.isArray(p.status)) {
+                    const s = p.status.map(t => t.toLowerCase())
+                    if (s.some(t => t.includes('venta') || t.includes('vendida'))) opType = 'venta'
+                    else if (s.some(t => t.includes('arriendo') || t.includes('arrendada'))) opType = 'arriendo'
+                }
+                if (opType === 'venta') salePrices.push(price)
+                else if (opType === 'arriendo') rentalPrices.push(price)
+            }
+            setTicketData({
+                avgSaleReal: salePrices.length > 0 ? salePrices.reduce((a, b) => a + b, 0) / salePrices.length : 0,
+                avgRentalReal: rentalPrices.length > 0 ? rentalPrices.reduce((a, b) => a + b, 0) / rentalPrices.length : 0,
+                saleCount: salePrices.length,
+                rentalCount: rentalPrices.length,
+            })
         } catch (e) { console.error(e); toast.error('Error al cargar plan') }
         finally { setLoading(false) }
     }
@@ -181,6 +206,256 @@ export default function BusinessPlan() {
     )
 
     // ===== RENDER FUNCTIONS FOR EACH TAB =====
+
+    // Helper for progress ring SVG
+    const ProgressRing = ({ pct, size = 80, stroke = 6, color = '#3b82f6' }) => {
+        const r = (size - stroke) / 2, circ = 2 * Math.PI * r
+        return (
+            <svg width={size} height={size} className="-rotate-90">
+                <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="currentColor" strokeWidth={stroke} className="text-white/10" />
+                <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={stroke}
+                    strokeDasharray={circ} strokeDashoffset={circ - (circ * Math.min(pct, 100) / 100)}
+                    strokeLinecap="round" className="transition-all duration-1000" />
+            </svg>
+        )
+    }
+
+    const renderSummary = () => {
+        const projected = { sale: Number(plan.avg_sale_value) || 0, rental: Number(plan.avg_rental_value) || 0 }
+        const real = { sale: ticketData.avgSaleReal, rental: ticketData.avgRentalReal }
+        const salePct = projected.sale > 0 ? (real.sale / projected.sale) * 100 : 0
+        const rentalPct = projected.rental > 0 ? (real.rental / projected.rental) * 100 : 0
+        const saleDelta = real.sale - projected.sale
+        const rentalDelta = real.rental - projected.rental
+        const saleDeltaPct = projected.sale > 0 ? Math.abs(saleDelta / projected.sale * 100) : 0
+        const rentalDeltaPct = projected.rental > 0 ? Math.abs(rentalDelta / projected.rental * 100) : 0
+        const getColor = (pct) => Math.abs(100 - pct) <= 20 ? 'emerald' : Math.abs(100 - pct) <= 40 ? 'amber' : 'red'
+
+        return (
+            <div className="p-4 md:p-5 space-y-5 overflow-y-auto h-full">
+
+                {/* SECTION 1: Financial Overview — Dark Scoreboard */}
+                <div className="rounded-2xl bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 p-5 text-white">
+                    <div className="flex items-center gap-6">
+                        {/* Progress Ring */}
+                        <div className="relative shrink-0">
+                            <ProgressRing pct={billingProg} size={90} stroke={7} color={billingProg >= 80 ? '#10b981' : billingProg >= 40 ? '#f59e0b' : '#ef4444'} />
+                            <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                <span className="text-xl font-bold">{billingProg.toFixed(0)}%</span>
+                                <span className="text-[0.5rem] text-slate-400 font-medium">PROGRESO</span>
+                            </div>
+                        </div>
+                        {/* Metrics */}
+                        <div className="flex-1 grid grid-cols-3 gap-4">
+                            <div>
+                                <p className="text-[0.6rem] font-bold text-blue-300 uppercase tracking-wider">Fact. Bruta Mín.</p>
+                                <p className="text-lg font-bold font-mono mt-0.5">{fmtCLP(minBilling)}</p>
+                                <p className="text-[0.55rem] text-slate-400">Actual: {fmtCLP(kpiData.billing)}</p>
+                            </div>
+                            <div>
+                                <p className="text-[0.6rem] font-bold text-emerald-300 uppercase tracking-wider">Meta Anual Utilidades</p>
+                                <p className="text-lg font-bold font-mono mt-0.5">{fmtCLP(annualGoal)}</p>
+                                <p className="text-[0.55rem] text-slate-400">Mensual: {fmtCLP(plan.monthly_goal)}</p>
+                            </div>
+                            <div>
+                                <p className="text-[0.6rem] font-bold text-amber-300 uppercase tracking-wider">Inversión Anual</p>
+                                <p className="text-lg font-bold font-mono mt-0.5">{fmtCLP(totalInvestment)}</p>
+                                <p className="text-[0.55rem] text-slate-400">{planInfo.label} ({planInfo.pct}%)</p>
+                            </div>
+                        </div>
+                    </div>
+                    {/* Full-width progress bar */}
+                    <div className="mt-4 pt-3 border-t border-white/10">
+                        <div className="w-full bg-white/10 h-2 rounded-full overflow-hidden">
+                            <div className={`h-full rounded-full transition-all duration-1000 ${billingProg >= 80 ? 'bg-emerald-400' : billingProg >= 40 ? 'bg-amber-400' : 'bg-red-400'}`}
+                                style={{ width: `${Math.min(billingProg, 100)}%` }} />
+                        </div>
+                        <div className="flex justify-between mt-1">
+                            <span className="text-[0.55rem] text-slate-500">Facturación {year}</span>
+                            <span className="text-[0.55rem] text-slate-400">{fmtCLP(kpiData.billing)} / {fmtCLP(minBilling)}</span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* SECTION 2: Ticket Promedio */}
+                <div>
+                    <h4 className="text-[0.65rem] font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                        <BarChart3 className="w-3.5 h-3.5" /> Ticket Promedio — Proyectado vs Real
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {/* Venta Card */}
+                        {(() => {
+                            const clr = getColor(salePct)
+                            return (
+                                <div className="rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50/40 to-white p-4 space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <h5 className="text-xs font-bold text-emerald-700 uppercase flex items-center gap-1.5">
+                                            <TrendingUp className="w-3.5 h-3.5" /> Venta
+                                        </h5>
+                                        {real.sale > 0 && <span className={`text-[0.6rem] font-bold px-2 py-0.5 rounded-full bg-${clr}-100 text-${clr}-700`}>{salePct.toFixed(0)}%</span>}
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <div className="p-2.5 rounded-lg bg-white border border-emerald-100 shadow-sm">
+                                            <label className="text-[0.5rem] font-bold text-gray-400 uppercase block mb-1">Proyectado</label>
+                                            <p className="text-sm font-bold text-gray-800 font-mono">{fmtCLP(projected.sale)}</p>
+                                        </div>
+                                        <div className={`p-2.5 rounded-lg border shadow-sm ${real.sale > 0 ? `bg-${clr}-50 border-${clr}-200` : 'bg-gray-50 border-gray-200'}`}>
+                                            <label className="text-[0.5rem] font-bold text-gray-400 uppercase block mb-1">Real</label>
+                                            <p className={`text-sm font-bold font-mono ${real.sale > 0 ? `text-${clr}-700` : 'text-gray-400'}`}>
+                                                {real.sale > 0 ? fmtCLP(real.sale) : 'Sin datos'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
+                                            <div className={`h-full rounded-full transition-all duration-700 bg-${clr}-500`}
+                                                style={{ width: `${Math.min(salePct, 100)}%` }} />
+                                        </div>
+                                        <div className="flex justify-between mt-1">
+                                            <span className="text-[0.55rem] text-gray-400">{ticketData.saleCount} propiedad{ticketData.saleCount !== 1 ? 'es' : ''}</span>
+                                            {real.sale > 0 && <span className={`text-[0.55rem] font-bold text-${clr}-600`}>
+                                                Δ {saleDelta >= 0 ? '+' : ''}{fmtCLP(saleDelta)} ({saleDeltaPct.toFixed(0)}%)
+                                            </span>}
+                                        </div>
+                                    </div>
+                                </div>
+                            )
+                        })()}
+
+                        {/* Arriendo Card */}
+                        {(() => {
+                            const clr = getColor(rentalPct)
+                            return (
+                                <div className="rounded-xl border border-amber-200 bg-gradient-to-br from-amber-50/40 to-white p-4 space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <h5 className="text-xs font-bold text-amber-700 uppercase flex items-center gap-1.5">
+                                            <Building2 className="w-3.5 h-3.5" /> Arriendo
+                                        </h5>
+                                        {real.rental > 0 && <span className={`text-[0.6rem] font-bold px-2 py-0.5 rounded-full bg-${clr}-100 text-${clr}-700`}>{rentalPct.toFixed(0)}%</span>}
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <div className="p-2.5 rounded-lg bg-white border border-amber-100 shadow-sm">
+                                            <label className="text-[0.5rem] font-bold text-gray-400 uppercase block mb-1">Proyectado</label>
+                                            <p className="text-sm font-bold text-gray-800 font-mono">{fmtCLP(projected.rental)}</p>
+                                        </div>
+                                        <div className={`p-2.5 rounded-lg border shadow-sm ${real.rental > 0 ? `bg-${clr}-50 border-${clr}-200` : 'bg-gray-50 border-gray-200'}`}>
+                                            <label className="text-[0.5rem] font-bold text-gray-400 uppercase block mb-1">Real</label>
+                                            <p className={`text-sm font-bold font-mono ${real.rental > 0 ? `text-${clr}-700` : 'text-gray-400'}`}>
+                                                {real.rental > 0 ? fmtCLP(real.rental) : 'Sin datos'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
+                                            <div className={`h-full rounded-full transition-all duration-700 bg-${clr}-500`}
+                                                style={{ width: `${Math.min(rentalPct, 100)}%` }} />
+                                        </div>
+                                        <div className="flex justify-between mt-1">
+                                            <span className="text-[0.55rem] text-gray-400">{ticketData.rentalCount} propiedad{ticketData.rentalCount !== 1 ? 'es' : ''}</span>
+                                            {real.rental > 0 && <span className={`text-[0.55rem] font-bold text-${clr}-600`}>
+                                                Δ {rentalDelta >= 0 ? '+' : ''}{fmtCLP(rentalDelta)} ({rentalDeltaPct.toFixed(0)}%)
+                                            </span>}
+                                        </div>
+                                    </div>
+                                </div>
+                            )
+                        })()}
+                    </div>
+                </div>
+
+                {/* SECTION 3: Transacciones Mínimas */}
+                <div>
+                    <h4 className="text-[0.65rem] font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                        <Award className="w-3.5 h-3.5" /> Transacciones Mínimas al Año
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div className="flex items-center gap-4 p-4 rounded-xl border border-emerald-200 bg-emerald-50/30">
+                            <div className="relative shrink-0">
+                                <ProgressRing pct={0} size={64} stroke={5} color="#10b981" />
+                                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                    <span className="text-sm font-bold text-emerald-700">0</span>
+                                    <span className="text-[0.45rem] text-emerald-500">/{minTransSale}</span>
+                                </div>
+                            </div>
+                            <div>
+                                <p className="text-xs font-bold text-emerald-700 uppercase">Venta</p>
+                                <p className="text-[0.6rem] text-gray-500 mt-0.5">{minTransSale} transacciones mínimas</p>
+                                <p className="text-[0.55rem] text-gray-400">Valor prom: {fmtCLP(projected.sale)} · Com: {plan.sale_commission}%</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-4 p-4 rounded-xl border border-amber-200 bg-amber-50/30">
+                            <div className="relative shrink-0">
+                                <ProgressRing pct={0} size={64} stroke={5} color="#f59e0b" />
+                                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                    <span className="text-sm font-bold text-amber-700">0</span>
+                                    <span className="text-[0.45rem] text-amber-500">/{minTransRental}</span>
+                                </div>
+                            </div>
+                            <div>
+                                <p className="text-xs font-bold text-amber-700 uppercase">Arriendo</p>
+                                <p className="text-[0.6rem] text-gray-500 mt-0.5">{minTransRental} transacciones mínimas</p>
+                                <p className="text-[0.55rem] text-gray-400">Valor prom: {fmtCLP(projected.rental)} · Com: {plan.rental_commission}%</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* SECTION 4: Activity Objectives */}
+                <div>
+                    <h4 className="text-[0.65rem] font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                        <Activity className="w-3.5 h-3.5" /> Objetivos de Actividad
+                    </h4>
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+                        {[
+                            { label: 'Conversaciones/día', target: plan.daily_conversations, icon: Users, color: 'blue' },
+                            { label: 'Reuniones vend./sem', target: plan.weekly_seller_meetings, icon: Briefcase, color: 'emerald' },
+                            { label: 'Reuniones comp./sem', target: plan.weekly_buyer_meetings, icon: Users, color: 'purple' },
+                            { label: 'Captaciones/mes', target: plan.monthly_captures, icon: Target, color: 'amber' },
+                            { label: 'Negocios proc./mes', target: plan.monthly_deals_in_process, icon: Activity, color: 'red' },
+                        ].map((o, i) => (
+                            <div key={i} className={`p-3 rounded-xl border border-${o.color}-100 bg-${o.color}-50/20`}>
+                                <div className="flex items-center gap-1.5 mb-2">
+                                    <o.icon className={`w-3 h-3 text-${o.color}-500`} />
+                                    <label className="text-[0.5rem] font-bold text-gray-500 uppercase leading-tight">{o.label}</label>
+                                </div>
+                                <p className={`text-xl font-bold text-${o.color}-700 font-mono`}>{o.target}</p>
+                                <p className="text-[0.5rem] text-gray-400 mt-0.5">Meta establecida</p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* SECTION 5: Hours Strip */}
+                <div className="p-4 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-5">
+                            <div className="flex items-center gap-1.5">
+                                <Clock className="w-3.5 h-3.5 text-blue-500" />
+                                <span className="text-[0.6rem] font-bold text-blue-600 uppercase">Canales</span>
+                                <span className="text-sm font-bold text-blue-700">{totalChH}h</span>
+                            </div>
+                            <ArrowRight className="w-3 h-3 text-blue-300" />
+                            <div>
+                                <span className="text-[0.6rem] font-bold text-indigo-600 uppercase">Otras </span>
+                                <span className="text-sm font-bold text-indigo-700">{totalActH}h</span>
+                            </div>
+                            <ArrowRight className="w-3 h-3 text-blue-300" />
+                            <div>
+                                <span className="text-[0.6rem] font-bold text-purple-600 uppercase">Total </span>
+                                <span className="text-sm font-bold text-purple-700">{totalWeekH}h/sem</span>
+                            </div>
+                        </div>
+                        <div className="bg-white px-3 py-1.5 rounded-lg shadow-sm border border-blue-100 text-center">
+                            <p className="text-[0.5rem] font-bold text-gray-400 uppercase">Mín/día</p>
+                            <p className="text-lg font-bold text-gray-900">{minDailyH}<span className="text-xs text-gray-400 ml-0.5">h</span></p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        )
+    }
+
     const renderInvestment = () => (
         <div className="flex flex-col md:flex-row h-full">
             <div className="flex-1 p-4 space-y-2 overflow-y-auto">
@@ -416,6 +691,120 @@ export default function BusinessPlan() {
                 </div>
             </div>
 
+            {/* 4b. Ticket Promedio — Proyectado vs Real */}
+            <div>
+                <h4 className="text-[0.6rem] font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <BarChart3 className="w-3 h-3" /> Ticket Promedio — Proyectado vs Real
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {/* Venta */}
+                    {(() => {
+                        const projected = Number(plan.avg_sale_value) || 0
+                        const real = ticketData.avgSaleReal
+                        const pct = projected > 0 ? Math.min((real / projected) * 100, 150) : 0
+                        const delta = real - projected
+                        const deltaPct = projected > 0 ? Math.abs(((real - projected) / projected) * 100) : 0
+                        const barColor = deltaPct <= 20 ? 'emerald' : deltaPct <= 40 ? 'amber' : 'red'
+                        return (
+                            <div className="rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50/50 to-white p-4 space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <h5 className="text-xs font-bold text-emerald-700 uppercase flex items-center gap-1.5">
+                                        <TrendingUp className="w-3.5 h-3.5" /> Venta
+                                    </h5>
+                                    <span className={`text-[0.6rem] font-bold px-2 py-0.5 rounded-full bg-${barColor}-100 text-${barColor}-700`}>
+                                        {pct.toFixed(0)}% del objetivo
+                                    </span>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div className="p-2.5 rounded-lg bg-white border border-emerald-100 shadow-sm">
+                                        <label className="text-[0.5rem] font-bold text-gray-400 uppercase block mb-1">Proyectado</label>
+                                        <p className="text-sm font-bold text-gray-800 font-mono">{fmtCLP(projected)}</p>
+                                    </div>
+                                    <div className={`p-2.5 rounded-lg border shadow-sm ${real > 0 ? `bg-${barColor}-50 border-${barColor}-200` : 'bg-gray-50 border-gray-200'}`}>
+                                        <label className="text-[0.5rem] font-bold text-gray-400 uppercase block mb-1">Real</label>
+                                        <p className={`text-sm font-bold font-mono ${real > 0 ? `text-${barColor}-700` : 'text-gray-400'}`}>
+                                            {real > 0 ? fmtCLP(real) : 'Sin datos'}
+                                        </p>
+                                    </div>
+                                </div>
+                                {/* Progress bar */}
+                                <div>
+                                    <div className="w-full bg-gray-100 h-2.5 rounded-full overflow-hidden">
+                                        <div className={`h-full rounded-full transition-all duration-700 bg-${barColor}-500`}
+                                            style={{ width: `${Math.min(pct, 100)}%` }} />
+                                    </div>
+                                    <div className="flex justify-between mt-1.5">
+                                        <span className="text-[0.55rem] text-gray-400">
+                                            {ticketData.saleCount > 0
+                                                ? `Basado en ${ticketData.saleCount} propiedad${ticketData.saleCount > 1 ? 'es' : ''}`
+                                                : 'Sin propiedades captadas'}
+                                        </span>
+                                        {real > 0 && (
+                                            <span className={`text-[0.55rem] font-bold text-${barColor}-600`}>
+                                                Δ {delta >= 0 ? '+' : ''}{fmtCLP(delta)} ({deltaPct.toFixed(0)}%)
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        )
+                    })()}
+
+                    {/* Arriendo */}
+                    {(() => {
+                        const projected = Number(plan.avg_rental_value) || 0
+                        const real = ticketData.avgRentalReal
+                        const pct = projected > 0 ? Math.min((real / projected) * 100, 150) : 0
+                        const delta = real - projected
+                        const deltaPct = projected > 0 ? Math.abs(((real - projected) / projected) * 100) : 0
+                        const barColor = deltaPct <= 20 ? 'emerald' : deltaPct <= 40 ? 'amber' : 'red'
+                        return (
+                            <div className="rounded-xl border border-amber-200 bg-gradient-to-br from-amber-50/50 to-white p-4 space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <h5 className="text-xs font-bold text-amber-700 uppercase flex items-center gap-1.5">
+                                        <Building2 className="w-3.5 h-3.5" /> Arriendo
+                                    </h5>
+                                    <span className={`text-[0.6rem] font-bold px-2 py-0.5 rounded-full bg-${barColor}-100 text-${barColor}-700`}>
+                                        {pct.toFixed(0)}% del objetivo
+                                    </span>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div className="p-2.5 rounded-lg bg-white border border-amber-100 shadow-sm">
+                                        <label className="text-[0.5rem] font-bold text-gray-400 uppercase block mb-1">Proyectado</label>
+                                        <p className="text-sm font-bold text-gray-800 font-mono">{fmtCLP(projected)}</p>
+                                    </div>
+                                    <div className={`p-2.5 rounded-lg border shadow-sm ${real > 0 ? `bg-${barColor}-50 border-${barColor}-200` : 'bg-gray-50 border-gray-200'}`}>
+                                        <label className="text-[0.5rem] font-bold text-gray-400 uppercase block mb-1">Real</label>
+                                        <p className={`text-sm font-bold font-mono ${real > 0 ? `text-${barColor}-700` : 'text-gray-400'}`}>
+                                            {real > 0 ? fmtCLP(real) : 'Sin datos'}
+                                        </p>
+                                    </div>
+                                </div>
+                                {/* Progress bar */}
+                                <div>
+                                    <div className="w-full bg-gray-100 h-2.5 rounded-full overflow-hidden">
+                                        <div className={`h-full rounded-full transition-all duration-700 bg-${barColor}-500`}
+                                            style={{ width: `${Math.min(pct, 100)}%` }} />
+                                    </div>
+                                    <div className="flex justify-between mt-1.5">
+                                        <span className="text-[0.55rem] text-gray-400">
+                                            {ticketData.rentalCount > 0
+                                                ? `Basado en ${ticketData.rentalCount} propiedad${ticketData.rentalCount > 1 ? 'es' : ''}`
+                                                : 'Sin propiedades captadas'}
+                                        </span>
+                                        {real > 0 && (
+                                            <span className={`text-[0.55rem] font-bold text-${barColor}-600`}>
+                                                Δ {delta >= 0 ? '+' : ''}{fmtCLP(delta)} ({deltaPct.toFixed(0)}%)
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        )
+                    })()}
+                </div>
+            </div>
+
             {/* 5. Parámetros operativos adicionales */}
             <div className="grid grid-cols-2 gap-2.5">
                 <div className="p-2.5 rounded-lg border border-gray-200">
@@ -523,140 +912,156 @@ export default function BusinessPlan() {
 
     // ===== MAIN RENDER =====
     return (
-        <div className="max-w-7xl mx-auto p-4 md:p-6 h-[calc(100vh-80px)] overflow-hidden flex flex-col">
-            {/* Header */}
-            <div className="flex justify-between items-center mb-4 shrink-0">
-                <div className="flex items-center gap-3">
-                    <div className="p-2.5 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/25">
-                        <Target className="w-5 h-5 text-white" />
-                    </div>
-                    <div>
-                        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Plan de Negocio</h1>
-                        <div className="flex items-center gap-2 mt-0.5">
-                            <Select value={String(year)} onValueChange={v => setYear(Number(v))}>
-                                <SelectTrigger className="text-xs font-bold text-blue-600 bg-transparent border-none p-0 focus:ring-0 cursor-pointer w-auto h-auto">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent className="z-[300]">
-                                    {[2024, 2025, 2026, 2027].map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                            <span className="text-gray-300">•</span>
-                            <span className="text-[0.65rem] font-semibold text-gray-400 flex items-center gap-1"><Crown className="w-3 h-3" />{planInfo.label} ({planInfo.pct}%)</span>
+        <Tabs value={mode} onValueChange={setMode} className="max-w-7xl mx-auto p-4 md:p-6 h-[calc(100vh-80px)] overflow-hidden flex flex-col">
+            {/* Header + Segmented Control */}
+            <div className="flex flex-col gap-3 mb-4 shrink-0">
+                <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2.5 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/25">
+                            <Target className="w-5 h-5 text-white" />
+                        </div>
+                        <div>
+                            <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Plan de Negocio</h1>
+                            <div className="flex items-center gap-2 mt-0.5">
+                                <Select value={String(year)} onValueChange={v => setYear(Number(v))}>
+                                    <SelectTrigger className="text-xs font-bold text-blue-600 bg-transparent border-none p-0 focus:ring-0 cursor-pointer w-auto h-auto">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent className="z-[300]">
+                                        {[2024, 2025, 2026, 2027].map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                                <span className="text-gray-300">•</span>
+                                <span className="text-[0.65rem] font-semibold text-gray-400 flex items-center gap-1"><Crown className="w-3 h-3" />{planInfo.label} ({planInfo.pct}%)</span>
+                            </div>
                         </div>
                     </div>
-                </div>
-                <button onClick={savePlan} disabled={saving}
-                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 disabled:opacity-50 transition-all text-sm font-semibold">
-                    <Save className="w-4 h-4" />{saving ? 'Guardando...' : 'Guardar'}
-                </button>
-            </div>
-
-
-
-            {/* PERSISTENT RESULTS STRIP — always visible */}
-            <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 rounded-xl px-6 py-5 text-white shrink-0">
-                <div className="flex items-center gap-6">
-                    {/* Billing targets */}
-                    <div className="flex items-center gap-5 flex-1">
-                        <div className="pr-5 border-r border-white/10">
-                            <p className="text-xs text-blue-300 font-bold uppercase">Fact. Bruta Mín.</p>
-                            <p className="text-xl font-bold">{fmtCLP(minBilling)}</p>
-                        </div>
-                        <div className="pr-5 border-r border-white/10">
-                            <p className="text-xs text-emerald-300 font-bold uppercase">Vendedores ({(sellerPct * 100).toFixed(0)}%)</p>
-                            <p className="text-base font-bold">{fmtCLP(billingVend)} <span className="text-xs text-slate-400">· {minTransSale} trans.</span></p>
-                        </div>
-                        <div className="pr-5 border-r border-white/10">
-                            <p className="text-xs text-amber-300 font-bold uppercase">Arrendadores ({(landlordPct * 100).toFixed(0)}%)</p>
-                            <p className="text-base font-bold">{fmtCLP(billingArr)} <span className="text-xs text-slate-400">· {minTransRental} trans.</span></p>
-                        </div>
-                        <div className="pr-5 border-r border-white/10">
-                            <p className="text-xs text-purple-300 font-bold uppercase">Horas/Día</p>
-                            <p className="text-base font-bold">{minDailyH}h <span className="text-xs text-slate-400">· {totalWeekH}h/sem</span></p>
-                        </div>
-                    </div>
-                    {/* Progress bar */}
-                    <div className="w-64 shrink-0">
-                        <div className="flex justify-between items-center mb-1.5">
-                            <span className="text-xs text-slate-300">Progreso</span>
-                            <span className="text-xs font-bold text-blue-300">{billingProg.toFixed(1)}%</span>
-                        </div>
-                        <div className="w-full bg-white/10 h-3 rounded-full overflow-hidden">
-                            <div className={`h-full rounded-full transition-all duration-1000 ${billingProg >= 80 ? 'bg-emerald-400' : billingProg >= 40 ? 'bg-amber-400' : 'bg-red-400'}`} style={{ width: `${billingProg}%` }} />
-                        </div>
-                        <div className="flex justify-between mt-1"><span className="text-xs text-slate-500">Actual: {fmtCLP(kpiData.billing)}</span><span className="text-xs text-slate-500">Meta: {fmtCLP(minBilling)}</span></div>
+                    <div className="flex items-center gap-3">
+                        {/* Segmented Control using shadcn Tabs style */}
+                        <TabsList className="grid grid-cols-2 w-[240px]">
+                            <TabsTrigger value="kpis" className="flex items-center gap-1.5">
+                                <BarChart3 className="w-3.5 h-3.5" /> KPIs
+                            </TabsTrigger>
+                            <TabsTrigger value="config" className="flex items-center gap-1.5">
+                                <Briefcase className="w-3.5 h-3.5" /> Configurar
+                            </TabsTrigger>
+                        </TabsList>
+                        {mode === 'config' && (
+                            <button onClick={savePlan} disabled={saving}
+                                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 disabled:opacity-50 transition-all text-sm font-semibold">
+                                <Save className="w-4 h-4" />{saving ? 'Guardando...' : 'Guardar'}
+                            </button>
+                        )}
                     </div>
                 </div>
             </div>
 
-            {/* Main Grid: Sidebar + Tabs */}
-            <div className="flex-1 grid grid-cols-1 md:grid-cols-[280px_1fr] gap-4 overflow-hidden">
-                {/* LEFT SIDEBAR */}
-                <div className="flex flex-col gap-3 overflow-y-auto pr-1 pb-4">
-                    {/* Mission */}
-                    {[
-                        { name: 'mission', label: 'Misión', placeholder: '¿Cuál es tu propósito hoy?', icon: Target, color: 'blue' },
-                        { name: 'vision', label: 'Visión', placeholder: '¿Dónde quieres estar?', icon: Lightbulb, color: 'purple' },
-                    ].map(f => (
-                        <div key={f.name} className={`p-3 rounded-xl border border-${f.color}-100 bg-${f.color}-50/30`}>
-                            <label className={`text-[0.6rem] font-bold text-${f.color}-500 uppercase tracking-wider flex items-center gap-1 mb-1.5`}>
-                                <f.icon className="w-3 h-3" /> {f.label}
+            <TabsContent value="kpis" className="flex-1 overflow-y-auto rounded-2xl mt-0">
+                {renderSummary()}
+            </TabsContent>
+
+            <TabsContent value="config" className="flex-1 flex flex-col overflow-hidden mt-0">
+                {/* PERSISTENT RESULTS STRIP */}
+                <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 rounded-xl px-6 py-5 text-white shrink-0 mb-4">
+                    <div className="flex items-center gap-6">
+                        <div className="flex items-center gap-5 flex-1">
+                            <div className="pr-5 border-r border-white/10">
+                                <p className="text-xs text-blue-300 font-bold uppercase">Fact. Bruta Mín.</p>
+                                <p className="text-xl font-bold">{fmtCLP(minBilling)}</p>
+                            </div>
+                            <div className="pr-5 border-r border-white/10">
+                                <p className="text-xs text-emerald-300 font-bold uppercase">Vendedores ({(sellerPct * 100).toFixed(0)}%)</p>
+                                <p className="text-base font-bold">{fmtCLP(billingVend)} <span className="text-xs text-slate-400">· {minTransSale} trans.</span></p>
+                            </div>
+                            <div className="pr-5 border-r border-white/10">
+                                <p className="text-xs text-amber-300 font-bold uppercase">Arrendadores ({(landlordPct * 100).toFixed(0)}%)</p>
+                                <p className="text-base font-bold">{fmtCLP(billingArr)} <span className="text-xs text-slate-400">· {minTransRental} trans.</span></p>
+                            </div>
+                            <div className="pr-5 border-r border-white/10">
+                                <p className="text-xs text-purple-300 font-bold uppercase">Horas/Día</p>
+                                <p className="text-base font-bold">{minDailyH}h <span className="text-xs text-slate-400">· {totalWeekH}h/sem</span></p>
+                            </div>
+                        </div>
+                        <div className="w-64 shrink-0">
+                            <div className="flex justify-between items-center mb-1.5">
+                                <span className="text-xs text-slate-300">Progreso</span>
+                                <span className="text-xs font-bold text-blue-300">{billingProg.toFixed(1)}%</span>
+                            </div>
+                            <div className="w-full bg-white/10 h-3 rounded-full overflow-hidden">
+                                <div className={`h-full rounded-full transition-all duration-1000 ${billingProg >= 80 ? 'bg-emerald-400' : billingProg >= 40 ? 'bg-amber-400' : 'bg-red-400'}`} style={{ width: `${billingProg}%` }} />
+                            </div>
+                            <div className="flex justify-between mt-1"><span className="text-xs text-slate-500">Actual: {fmtCLP(kpiData.billing)}</span><span className="text-xs text-slate-500">Meta: {fmtCLP(minBilling)}</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Config: Sidebar + Tabs */}
+                <div className="flex-1 grid grid-cols-1 md:grid-cols-[280px_1fr] gap-4 overflow-hidden">
+                    {/* LEFT SIDEBAR */}
+                    <div className="flex flex-col gap-3 overflow-y-auto pr-1 pb-4">
+                        {[{ name: 'mission', label: 'Misión', placeholder: '¿Cuál es tu propósito hoy?', icon: Target, color: 'blue' },
+                        { name: 'vision', label: 'Visión', placeholder: '¿Dónde quieres estar?', icon: Lightbulb, color: 'purple' }].map(f => (
+                            <div key={f.name} className={`p-3 rounded-xl border border-${f.color}-100 bg-${f.color}-50/30`}>
+                                <label className={`text-[0.6rem] font-bold text-${f.color}-500 uppercase tracking-wider flex items-center gap-1 mb-1.5`}>
+                                    <f.icon className="w-3 h-3" /> {f.label}
+                                </label>
+                                <textarea name={f.name} value={plan[f.name] || ''} onChange={hp} placeholder={f.placeholder} rows={2}
+                                    className="w-full text-xs text-gray-700 font-medium resize-none border-none p-0 focus:ring-0 placeholder:text-gray-300 bg-transparent leading-relaxed" />
+                            </div>
+                        ))}
+                        <div className="p-4 rounded-2xl border-2 border-amber-200 bg-gradient-to-br from-amber-50/60 to-yellow-50/40">
+                            <label className="text-xs font-bold text-amber-600 uppercase tracking-wider flex items-center gap-1.5 mb-3">
+                                <Zap className="w-4 h-4" /> Mantra del emprendedor
                             </label>
-                            <textarea name={f.name} value={plan[f.name] || ''} onChange={hp} placeholder={f.placeholder} rows={2}
-                                className="w-full text-xs text-gray-700 font-medium resize-none border-none p-0 focus:ring-0 placeholder:text-gray-300 bg-transparent leading-relaxed" />
-                        </div>
-                    ))}
-
-                    {/* Mantra del emprendedor */}
-                    <div className="p-4 rounded-2xl border-2 border-amber-200 bg-gradient-to-br from-amber-50/60 to-yellow-50/40">
-                        <label className="text-xs font-bold text-amber-600 uppercase tracking-wider flex items-center gap-1.5 mb-3">
-                            <Zap className="w-4 h-4" /> Mantra del emprendedor
-                        </label>
-                        <p className="text-sm font-semibold text-gray-800 mb-4">El objetivo para mi negocio es ganar más de:</p>
-                        <div className="space-y-2.5">
-                            <div className="p-3 rounded-xl bg-gradient-to-br from-slate-900 to-slate-800 text-white">
-                                <label className="text-[0.6rem] font-bold text-blue-300 uppercase block mb-1.5">Meta Mensual</label>
-                                <div className="flex items-center gap-1">
-                                    <span className="text-slate-400 text-sm">$</span>
-                                    <input type="number" name="monthly_goal" value={plan.monthly_goal || ''} onChange={hp}
-                                        className="flex-1 text-lg font-bold text-white border-none p-0 focus:ring-0 bg-transparent" placeholder="0" />
+                            <p className="text-sm font-semibold text-gray-800 mb-4">El objetivo para mi negocio es ganar más de:</p>
+                            <div className="space-y-2.5">
+                                <div className="p-3 rounded-xl bg-gradient-to-br from-slate-900 to-slate-800 text-white">
+                                    <label className="text-[0.6rem] font-bold text-blue-300 uppercase block mb-1.5">Meta Mensual</label>
+                                    <div className="flex items-center gap-1">
+                                        <span className="text-slate-400 text-sm">$</span>
+                                        <input type="number" name="monthly_goal" value={plan.monthly_goal || ''} onChange={hp}
+                                            className="flex-1 text-lg font-bold text-white border-none p-0 focus:ring-0 bg-transparent" placeholder="0" />
+                                    </div>
+                                </div>
+                                <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200">
+                                    <label className="text-[0.6rem] font-bold text-emerald-500 uppercase block mb-1.5">Meta Anual (×12)</label>
+                                    <p className="text-lg font-bold text-emerald-700">{fmtCLP(annualGoal)}</p>
                                 </div>
                             </div>
-                            <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200">
-                                <label className="text-[0.6rem] font-bold text-emerald-500 uppercase block mb-1.5">Meta Anual (×12)</label>
-                                <p className="text-lg font-bold text-emerald-700">{fmtCLP(annualGoal)}</p>
-                            </div>
                         </div>
                     </div>
 
-
+                    {/* RIGHT PANEL with Config Sub-Tabs */}
+                    <Tabs defaultValue="investment" className="flex flex-col h-full bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                        <TabsList className="grid w-full grid-cols-4 shrink-0">
+                            <TabsTrigger value="investment" className="flex items-center gap-1.5">
+                                <DollarSign className="w-3.5 h-3.5" /> Inversión
+                            </TabsTrigger>
+                            <TabsTrigger value="operative" className="flex items-center gap-1.5">
+                                <Calculator className="w-3.5 h-3.5" /> Operativo
+                            </TabsTrigger>
+                            <TabsTrigger value="channels" className="flex items-center gap-1.5">
+                                <Calendar className="w-3.5 h-3.5" /> Canales
+                            </TabsTrigger>
+                            <TabsTrigger value="hours" className="flex items-center gap-1.5">
+                                <Clock className="w-3.5 h-3.5" /> Horas
+                            </TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="investment" className="flex-1 overflow-hidden mt-0">
+                            {renderInvestment()}
+                        </TabsContent>
+                        <TabsContent value="operative" className="flex-1 overflow-hidden mt-0">
+                            {renderOperative()}
+                        </TabsContent>
+                        <TabsContent value="channels" className="flex-1 overflow-hidden mt-0">
+                            {renderChannels()}
+                        </TabsContent>
+                        <TabsContent value="hours" className="flex-1 overflow-hidden mt-0">
+                            {renderHours()}
+                        </TabsContent>
+                    </Tabs>
                 </div>
-
-                {/* RIGHT PANEL with Tabs */}
-                <div className="flex flex-col h-full bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-                    {/* Tab bar */}
-                    <div className="flex border-b border-gray-100 shrink-0 bg-gray-50/50">
-                        {TAB_ITEMS.map(tab => (
-                            <button key={tab.key} onClick={() => setActiveTab(tab.key)}
-                                className={`flex items-center gap-1.5 px-4 py-3 text-xs font-semibold transition-all border-b-2 ${activeTab === tab.key
-                                    ? 'text-blue-600 border-blue-600 bg-white'
-                                    : 'text-gray-400 border-transparent hover:text-gray-600'
-                                    }`}>
-                                <tab.icon className="w-3.5 h-3.5" />
-                                {tab.label}
-                            </button>
-                        ))}
-                    </div>
-                    {/* Tab content */}
-                    <div className="flex-1 overflow-hidden">
-                        {activeTab === 'investment' && renderInvestment()}
-                        {activeTab === 'operative' && renderOperative()}
-                        {activeTab === 'channels' && renderChannels()}
-                        {activeTab === 'hours' && renderHours()}
-                    </div>
-                </div>
-            </div>
-        </div>
+            </TabsContent>
+        </Tabs>
     )
 }
