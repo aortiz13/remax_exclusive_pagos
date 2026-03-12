@@ -92,7 +92,7 @@ const Layout = ({ children }) => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'linear-gradient(135deg, #001a4d 0%, #003DA5 40%, #0052cc 100%)',
+        background: '#ffffff',
         fontFamily: "'Inter', 'Segoe UI', sans-serif",
         padding: '24px',
         position: 'relative',
@@ -105,12 +105,12 @@ const Layout = ({ children }) => {
           @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
         `}</style>
         {/* Decorative circles */}
-        <div style={{ position: 'absolute', top: '-10%', left: '-5%', width: '300px', height: '300px', borderRadius: '50%', background: 'rgba(255,255,255,0.03)' }} />
-        <div style={{ position: 'absolute', bottom: '-15%', right: '-8%', width: '400px', height: '400px', borderRadius: '50%', background: 'rgba(220,20,49,0.08)' }} />
+        <div style={{ position: 'absolute', top: '-10%', left: '-5%', width: '300px', height: '300px', borderRadius: '50%', background: 'rgba(0,61,165,0.04)' }} />
+        <div style={{ position: 'absolute', bottom: '-15%', right: '-8%', width: '400px', height: '400px', borderRadius: '50%', background: 'rgba(220,20,49,0.04)' }} />
 
         <div style={{
           textAlign: 'center',
-          color: '#fff',
+          color: '#1e293b',
           maxWidth: '520px',
           animation: 'fadeIn 0.8s ease-out',
           position: 'relative',
@@ -135,7 +135,7 @@ const Layout = ({ children }) => {
             fontSize: '30px',
             fontWeight: 700,
             marginBottom: '16px',
-            color: '#ffffff',
+            color: '#003DA5',
             letterSpacing: '0.5px',
           }}>
             Sistema en Mantenimiento
@@ -154,17 +154,17 @@ const Layout = ({ children }) => {
           <p style={{
             fontSize: '18px',
             lineHeight: 1.7,
-            color: 'rgba(255,255,255,0.85)',
+            color: '#64748b',
             marginBottom: '36px',
           }}>
-            El sistema se encuentra en mantenimiento, todo volverá a operar con normalidad a las <strong style={{ color: '#fff', fontWeight: 700 }}>13hs</strong>.
+            El sistema se encuentra en mantenimiento, todo volverá a operar con normalidad a las <strong style={{ color: '#003DA5', fontWeight: 700 }}>13hs</strong>.
           </p>
 
           {/* Loading bar */}
           <div style={{
             width: '220px',
             height: '4px',
-            background: 'rgba(255,255,255,0.15)',
+            background: 'rgba(0,61,165,0.1)',
             borderRadius: '4px',
             margin: '0 auto',
             overflow: 'hidden',
@@ -180,7 +180,7 @@ const Layout = ({ children }) => {
 
           <p style={{
             fontSize: '14px',
-            color: 'rgba(255,255,255,0.45)',
+            color: '#94a3b8',
             marginTop: '28px',
             letterSpacing: '0.3px',
           }}>
