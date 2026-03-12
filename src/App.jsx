@@ -78,8 +78,95 @@ const ProtectedRoute = ({ children }) => {
 }
 
 // Layout Wrapper
+const MAINTENANCE_MODE = true // ← Set to false to disable maintenance screen
+
 const Layout = ({ children }) => {
   const { user } = useAuth()
+
+  if (MAINTENANCE_MODE) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        width: '100%',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)',
+        fontFamily: "'Inter', 'Segoe UI', sans-serif",
+        padding: '24px',
+      }}>
+        <style>{`
+          @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+          @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+          @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        `}</style>
+        <div style={{
+          textAlign: 'center',
+          color: '#fff',
+          maxWidth: '520px',
+          animation: 'fadeIn 0.8s ease-out',
+        }}>
+          {/* Animated icon */}
+          <div style={{
+            fontSize: '64px',
+            marginBottom: '24px',
+            animation: 'pulse 2s ease-in-out infinite',
+          }}>
+            🔧
+          </div>
+
+          {/* Title */}
+          <h1 style={{
+            fontSize: '28px',
+            fontWeight: 700,
+            marginBottom: '16px',
+            background: 'linear-gradient(90deg, #f59e0b, #fbbf24)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+          }}>
+            Sistema en Mantenimiento
+          </h1>
+
+          {/* Message */}
+          <p style={{
+            fontSize: '18px',
+            lineHeight: 1.6,
+            color: '#94a3b8',
+            marginBottom: '32px',
+          }}>
+            El sistema se encuentra en mantenimiento, todo volverá a operar con normalidad a las <strong style={{ color: '#fbbf24' }}>13hs</strong>.
+          </p>
+
+          {/* Loading bar */}
+          <div style={{
+            width: '200px',
+            height: '4px',
+            background: '#1e293b',
+            borderRadius: '4px',
+            margin: '0 auto',
+            overflow: 'hidden',
+          }}>
+            <div style={{
+              width: '40%',
+              height: '100%',
+              background: 'linear-gradient(90deg, #f59e0b, #fbbf24)',
+              borderRadius: '4px',
+              animation: 'loading 1.5s ease-in-out infinite alternate',
+            }} />
+          </div>
+          <style>{`@keyframes loading { from { margin-left: 0; } to { margin-left: 60%; } }`}</style>
+
+          <p style={{
+            fontSize: '13px',
+            color: '#475569',
+            marginTop: '24px',
+          }}>
+            Gracias por su paciencia · RE/MAX Exclusive
+          </p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="h-screen w-full bg-[#f8f9fc] dark:bg-[#030712] flex overflow-hidden relative isolate selection:bg-primary/20 selection:text-primary">
@@ -92,32 +179,6 @@ const Layout = ({ children }) => {
       {user && <Sidebar />}
 
       <div className="flex-1 flex flex-col h-full relative z-10 w-full min-w-0 max-w-[1920px] mx-auto">
-        {/* Gmail Outage Banner */}
-        <div style={{
-          background: 'linear-gradient(90deg, #f59e0b, #d97706)',
-          color: '#fff',
-          padding: '10px 16px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: '8px',
-          fontSize: '14px',
-          fontWeight: 600,
-          letterSpacing: '0.01em',
-          zIndex: 50,
-          flexShrink: 0,
-        }}>
-          <span style={{
-            display: 'inline-block',
-            width: '8px',
-            height: '8px',
-            borderRadius: '50%',
-            backgroundColor: '#fff',
-            animation: 'pulse 1.5s ease-in-out infinite',
-          }} />
-          ⚠️ Gmail se encuentra experimentando problemas. Por favor no lo utilice hasta que nuestro equipo le indique lo contrario. Muchas gracias.
-        </div>
-        <style>{`@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }`}</style>
         <Header />
         <main className="flex-1 overflow-y-auto overflow-x-hidden scroll-smooth p-4 md:p-8 w-full max-w-7xl mx-auto">
           {children}
