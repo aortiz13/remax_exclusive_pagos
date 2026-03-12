@@ -43,11 +43,8 @@ export default function InspectionDashboard() {
 
     const isAdmin = ['superadministrador', 'tecnico', 'legal', 'comercial', 'administracion'].includes(profile?.role)
 
-    useEffect(() => {
-        loadData()
-    }, [user])
-
     const loadData = async () => {
+        if (!isAdmin) return
         try {
             setLoading(true)
             const [inspData, schedData, adminProps] = await Promise.all([
@@ -64,6 +61,54 @@ export default function InspectionDashboard() {
         } finally {
             setLoading(false)
         }
+    }
+
+    useEffect(() => {
+        loadData()
+    }, [user])
+
+    // ─── Agent role: show "under construction" placeholder ──────────────
+    if (!isAdmin) {
+        return (
+            <div className="flex items-center justify-center min-h-[70vh]">
+                <div className="text-center max-w-md mx-auto px-6">
+                    {/* Animated icon */}
+                    <div className="relative mx-auto w-24 h-24 mb-8">
+                        <div className="absolute inset-0 bg-gradient-to-br from-[#003DA5]/20 to-[#DC2626]/10 rounded-2xl animate-pulse" style={{ animationDuration: '3s' }} />
+                        <div className="absolute inset-2 bg-white rounded-xl shadow-lg flex items-center justify-center">
+                            <ClipboardCheck className="w-10 h-10 text-[#003DA5]/40" />
+                        </div>
+                        {/* Construction accent */}
+                        <div className="absolute -top-2 -right-2 w-8 h-8 bg-amber-400 rounded-lg flex items-center justify-center shadow-md rotate-12">
+                            <span className="text-sm">🔨</span>
+                        </div>
+                    </div>
+
+                    <h2 className="text-2xl font-bold text-slate-800 mb-3">
+                        Sección en Construcción
+                    </h2>
+                    <p className="text-slate-500 text-sm leading-relaxed mb-6">
+                        Estamos trabajando en el módulo de Inspecciones para agentes. Pronto estará disponible con todas las funcionalidades.
+                    </p>
+
+                    {/* RE/MAX branded divider */}
+                    <div className="flex items-center gap-3 justify-center mb-6">
+                        <div className="h-px w-12 bg-gradient-to-r from-transparent to-[#003DA5]/30" />
+                        <div className="w-2 h-2 rounded-full bg-[#003DA5]/30" />
+                        <div className="w-2 h-2 rounded-full bg-[#DC2626]/30" />
+                        <div className="w-2 h-2 rounded-full bg-[#003DA5]/30" />
+                        <div className="h-px w-12 bg-gradient-to-l from-transparent to-[#003DA5]/30" />
+                    </div>
+
+                    <button
+                        onClick={() => navigate('/dashboard')}
+                        className="px-6 py-2.5 bg-[#003DA5] text-white rounded-xl text-sm font-semibold hover:bg-[#002d7a] transition-colors shadow-lg shadow-blue-500/20"
+                    >
+                        Volver al Dashboard
+                    </button>
+                </div>
+            </div>
+        )
     }
 
     const handleSync = async () => {
