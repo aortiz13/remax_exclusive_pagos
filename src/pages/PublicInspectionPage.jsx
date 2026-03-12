@@ -10,6 +10,10 @@ import {
 
 const LOGO_SRC = '/primerolog.png'
 
+const DECLARACION_TEXT = `Este informe corresponde a una inspección visual y presencial realizada por el agente en la fecha indicada. Su alcance se limita a las condiciones observables en ese momento y a la información que fue posible recabar durante la visita.
+
+El presente documento no constituye una inspección técnica especializada, ni reemplaza evaluaciones de carácter estructural, eléctrico, sanitario u otras revisiones profesionales. Las observaciones, conclusiones y recomendaciones aquí contenidas reflejan únicamente lo constatado en la fecha de la inspección y pueden variar con el uso posterior de la propiedad. El registro fotográfico incluido es referencial y no sustituye una revisión técnica ni exhaustiva de los elementos de la propiedad. Este informe es de carácter informativo y no implica la validación, liberación o levantamiento de obligaciones o garantías más allá de lo estipulado en el contrato de arrendamiento vigente. Finalmente, el informe está destinado al uso exclusivo del propietario y no debe ser distribuido ni compartido con terceros sin autorización expresa del agente responsable.`
+
 const ESTADO_OPTIONS = [
     { value: '', label: 'Seleccionar' },
     { value: 'Bueno', label: 'Bueno' },
@@ -675,6 +679,12 @@ export default function PublicInspectionPage() {
                             </div>
                         </section>
 
+                        {/* ═══ DECLARACIÓN ═══ */}
+                        <section className="bg-gray-50 rounded-xl p-6 border border-gray-200">
+                            <h3 className="text-base font-bold text-[#003DA5] mb-3 uppercase tracking-wider">Declaración</h3>
+                            <p className="text-xs text-gray-600 leading-relaxed whitespace-pre-line">{DECLARACION_TEXT}</p>
+                        </section>
+
                         {/* ═══ REGISTRO FOTOGRÁFICO ═══ */}
                         <section>
                             <div className="flex items-center justify-between mb-6">
@@ -720,6 +730,15 @@ export default function PublicInspectionPage() {
                         </section>
 
                     </div>
+
+                    {/* ═══ FOOTER ═══ */}
+                    <footer className="px-8 py-6 border-t border-gray-200 flex justify-between items-center bg-gray-50">
+                        <div className="text-xs text-gray-500">
+                            <p>© {new Date().getFullYear()} RE/MAX Exclusive</p>
+                            <p className="mt-0.5">{inspectorName || 'Inspector Externo'}</p>
+                        </div>
+                        <img src={LOGO_SRC} alt="RE/MAX" className="h-10 object-contain" />
+                    </footer>
                 </div>
             </div>
         </div>
