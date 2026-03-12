@@ -115,7 +115,7 @@ const Layout = ({ children }) => {
             backgroundColor: '#fff',
             animation: 'pulse 1.5s ease-in-out infinite',
           }} />
-          ⚠️ Nos encontramos haciendo cambios e implementaciones, por favor no utilice la plataforma hasta las 00hs. Muchas gracias y disculpas por las molestias.
+          ⚠️ Gmail se encuentra experimentando problemas. Por favor no lo utilice hasta que nuestro equipo le indique lo contrario. Muchas gracias.
         </div>
         <style>{`@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }`}</style>
         <Header />
