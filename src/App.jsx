@@ -56,6 +56,7 @@ import AdminAdministradaImport from './pages/AdminAdministradaImport'
 import PublicInspectionPage from './pages/PublicInspectionPage'
 import { Toaster } from 'sonner'
 import { initGlobalErrorCapture, auditLog } from './services/auditLogService'
+import { LOGO_BASE64 } from './services/logo'
 
 // Initialize global error capture once
 initGlobalErrorCapture()
@@ -91,57 +92,79 @@ const Layout = ({ children }) => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)',
+        background: 'linear-gradient(135deg, #001a4d 0%, #003DA5 40%, #0052cc 100%)',
         fontFamily: "'Inter', 'Segoe UI', sans-serif",
         padding: '24px',
+        position: 'relative',
+        overflow: 'hidden',
       }}>
         <style>{`
-          @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
           @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
           @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+          @keyframes loading { from { margin-left: 0; } to { margin-left: 60%; } }
+          @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
         `}</style>
+        {/* Decorative circles */}
+        <div style={{ position: 'absolute', top: '-10%', left: '-5%', width: '300px', height: '300px', borderRadius: '50%', background: 'rgba(255,255,255,0.03)' }} />
+        <div style={{ position: 'absolute', bottom: '-15%', right: '-8%', width: '400px', height: '400px', borderRadius: '50%', background: 'rgba(220,20,49,0.08)' }} />
+
         <div style={{
           textAlign: 'center',
           color: '#fff',
           maxWidth: '520px',
           animation: 'fadeIn 0.8s ease-out',
+          position: 'relative',
+          zIndex: 1,
         }}>
-          {/* Animated icon */}
-          <div style={{
-            fontSize: '64px',
-            marginBottom: '24px',
-            animation: 'pulse 2s ease-in-out infinite',
-          }}>
-            🔧
+          {/* RE/MAX Logo */}
+          <div style={{ marginBottom: '32px', animation: 'float 3s ease-in-out infinite' }}>
+            <img
+              src={`data:image/png;base64,${LOGO_BASE64}`}
+              alt="RE/MAX Exclusive"
+              style={{
+                width: '160px',
+                height: 'auto',
+                margin: '0 auto',
+                filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.3))',
+              }}
+            />
           </div>
 
           {/* Title */}
           <h1 style={{
-            fontSize: '28px',
+            fontSize: '30px',
             fontWeight: 700,
             marginBottom: '16px',
-            background: 'linear-gradient(90deg, #f59e0b, #fbbf24)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
+            color: '#ffffff',
+            letterSpacing: '0.5px',
           }}>
             Sistema en Mantenimiento
           </h1>
 
+          {/* Divider */}
+          <div style={{
+            width: '60px',
+            height: '3px',
+            background: '#DC1431',
+            margin: '0 auto 24px',
+            borderRadius: '2px',
+          }} />
+
           {/* Message */}
           <p style={{
             fontSize: '18px',
-            lineHeight: 1.6,
-            color: '#94a3b8',
-            marginBottom: '32px',
+            lineHeight: 1.7,
+            color: 'rgba(255,255,255,0.85)',
+            marginBottom: '36px',
           }}>
-            El sistema se encuentra en mantenimiento, todo volverá a operar con normalidad a las <strong style={{ color: '#fbbf24' }}>13hs</strong>.
+            El sistema se encuentra en mantenimiento, todo volverá a operar con normalidad a las <strong style={{ color: '#fff', fontWeight: 700 }}>13hs</strong>.
           </p>
 
           {/* Loading bar */}
           <div style={{
-            width: '200px',
+            width: '220px',
             height: '4px',
-            background: '#1e293b',
+            background: 'rgba(255,255,255,0.15)',
             borderRadius: '4px',
             margin: '0 auto',
             overflow: 'hidden',
@@ -149,17 +172,17 @@ const Layout = ({ children }) => {
             <div style={{
               width: '40%',
               height: '100%',
-              background: 'linear-gradient(90deg, #f59e0b, #fbbf24)',
+              background: 'linear-gradient(90deg, #DC1431, #ff4060)',
               borderRadius: '4px',
               animation: 'loading 1.5s ease-in-out infinite alternate',
             }} />
           </div>
-          <style>{`@keyframes loading { from { margin-left: 0; } to { margin-left: 60%; } }`}</style>
 
           <p style={{
-            fontSize: '13px',
-            color: '#475569',
-            marginTop: '24px',
+            fontSize: '14px',
+            color: 'rgba(255,255,255,0.45)',
+            marginTop: '28px',
+            letterSpacing: '0.3px',
           }}>
             Gracias por su paciencia · RE/MAX Exclusive
           </p>
