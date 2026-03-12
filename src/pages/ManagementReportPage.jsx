@@ -1440,7 +1440,30 @@ export default function ManagementReportPage() {
         // Convert relative paths to absolute
         reportHtml = reportHtml.replace(/src="\/([^"]+)"/g, `src="${window.location.origin}/$1"`)
 
-        // Convert all external images to inline base64 for Gotenberg
+        // Helper: compress image blob via canvas to reduce payload size
+        const compressImageBlob = async (blob, maxWidth = 800, quality = 0.6) => {
+            return new Promise((resolve) => {
+                const img = new Image()
+                img.onload = () => {
+                    const scale = img.width > maxWidth ? maxWidth / img.width : 1
+                    const canvas = document.createElement('canvas')
+                    canvas.width = img.width * scale
+                    canvas.height = img.height * scale
+                    const ctx = canvas.getContext('2d')
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+                    resolve(canvas.toDataURL('image/jpeg', quality))
+                }
+                img.onerror = () => {
+                    // Fallback: return original as base64
+                    const reader = new FileReader()
+                    reader.onload = () => resolve(reader.result)
+                    reader.readAsDataURL(blob)
+                }
+                img.src = URL.createObjectURL(blob)
+            })
+        }
+
+        // Convert all external images to inline base64 for Gotenberg (compressed)
         const imgRegex = /src="(https?:\/\/[^"]+)"/g
         const imageUrls = [...new Set([...reportHtml.matchAll(imgRegex)].map(m => m[1]))]
         for (const url of imageUrls) {
@@ -1448,12 +1471,15 @@ export default function ManagementReportPage() {
                 const resp = await fetch(url)
                 if (!resp.ok) continue
                 const blob = await resp.blob()
-                const b64 = await new Promise((resolve, reject) => {
-                    const reader = new FileReader()
-                    reader.onload = () => resolve(reader.result)
-                    reader.onerror = reject
-                    reader.readAsDataURL(blob)
-                })
+                // Compress images to reduce payload (max 800px wide, JPEG quality 0.6)
+                const b64 = blob.type.startsWith('image/')
+                    ? await compressImageBlob(blob, 800, 0.6)
+                    : await new Promise((resolve, reject) => {
+                        const reader = new FileReader()
+                        reader.onload = () => resolve(reader.result)
+                        reader.onerror = reject
+                        reader.readAsDataURL(blob)
+                    })
                 reportHtml = reportHtml.split(url).join(b64)
             } catch (e) {
                 console.warn('Could not inline image:', url, e)

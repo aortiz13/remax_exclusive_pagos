@@ -525,7 +525,7 @@ export default function BusinessPlan() {
                             <span className="text-[0.5rem] text-gray-400 font-bold">TOTAL</span>
                             <span className="text-sm font-bold text-gray-800">{fmtCLP(totalInvestment)}</span>
                         </div>
-                        <ResponsiveContainer width="100%" height="100%">
+                        <ResponsiveContainer width="100%" height="100%" minHeight={1} minWidth={1}>
                             <PieChart><Pie data={chartData} innerRadius={45} outerRadius={58} paddingAngle={4} dataKey="value" stroke="none" cornerRadius={4}>
                                 {chartData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                             </Pie><Tooltip formatter={v => fmtCLP(v)} contentStyle={{ borderRadius: '8px', border: 'none', fontSize: '10px', padding: '4px 8px', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }} /></PieChart>
