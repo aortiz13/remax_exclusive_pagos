@@ -7,6 +7,77 @@ const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 
 export const supabase = createClient(supabaseUrl, supabaseKey)
 
+// =============================================
+// Edge Function → Express API mapping
+// Intercept supabase.functions.invoke() calls and route them
+// to the self-hosted Express API endpoints
+// =============================================
+const FUNCTION_ROUTES = {
+    'google-calendar-sync': { path: '/api/calendar/sync', method: 'POST' },
+    'gmail-auth-url': { path: '/api/gmail/auth-url', method: 'GET' },
+    'gmail-auth-callback': { path: '/api/gmail/callback', method: 'POST' },
+    'gmail-send': { path: '/api/gmail/send', method: 'POST' },
+    'invite-agent': { path: '/api/invite/agent', method: 'POST' },
+    'admin-action': { path: '/api/admin/action', method: 'POST' },
+    'import-remax-listings': { path: '/api/import/remax-listings', method: 'POST' },
+    'google-auth': { path: '/api/auth/google', method: 'POST' },
+    'slack-error-alert': { path: '/api/notifications/slack-alert', method: 'POST' },
+    'generate-tts': { path: '/api/tts/generate', method: 'POST' },
+    'send-notification': { path: '/api/notifications/send', method: 'POST' },
+}
+
+// Override supabase.functions.invoke to route to Express API
+const originalInvoke = supabase.functions.invoke.bind(supabase.functions)
+supabase.functions.invoke = async (functionName, options = {}) => {
+    const route = FUNCTION_ROUTES[functionName]
+    if (!route) {
+        console.warn(`[API] Unknown function: ${functionName}, falling back to original invoke`)
+        return originalInvoke(functionName, options)
+    }
+
+    try {
+        const session = await supabase.auth.getSession()
+        const token = session?.data?.session?.access_token
+
+        const headers = {
+            'Content-Type': 'application/json',
+            'Authorization': token ? `Bearer ${token}` : '',
+            'apikey': supabaseKey,
+            // Forward any custom headers from the caller
+            ...(options.headers || {}),
+        }
+
+        const fetchOptions = {
+            method: route.method,
+            headers,
+        }
+
+        // For GET requests, encode body as URL params
+        let url = `${supabaseUrl}${route.path}`
+        if (route.method === 'GET') {
+            if (options.body && Object.keys(options.body).length > 0) {
+                const params = new URLSearchParams()
+                Object.entries(options.body).forEach(([k, v]) => params.set(k, v))
+                url += `?${params.toString()}`
+            }
+        } else {
+            fetchOptions.body = JSON.stringify(options.body || {})
+        }
+
+        const response = await fetch(url, fetchOptions)
+        const data = await response.json().catch(() => null)
+
+        if (!response.ok) {
+            return { data: null, error: { message: data?.error || `HTTP ${response.status}`, status: response.status } }
+        }
+
+        return { data, error: null }
+    } catch (err) {
+        console.error(`[API] Error calling ${functionName}:`, err)
+        return { data: null, error: { message: err.message } }
+    }
+}
+
 // MinIO public URL for file access
 const STORAGE_PUBLIC_URL = 'https://remax-crm-remax-storage.jzuuqr.easypanel.host'
 
