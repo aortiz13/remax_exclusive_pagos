@@ -51,10 +51,25 @@ const ACTION_TYPES = [
 
 // Maps action_type → kpi_records field to decrement by 1 when deleted
 const ACTION_KPI_MAP = {
+    // Gestión de Contactos — conversations_started
+    'Llamada en frío (I.C)': 'conversations_started',
+    'Llamada vendedor/arrendador (I.C)': 'conversations_started',
+    'Llamada comprador/arrendatario (I.C)': 'conversations_started',
+    'Llamada a base relacional (I.C)': 'conversations_started',
+    'Visita a Conserjes (IC)': 'conversations_started',
+    // Café & Entrevistas
+    'Café relacional': 'relational_coffees',
+    'Entrevista Venta (Pre-listing)': 'sales_interviews',
+    'Entrevista Compra (Pre-Buying)': 'buying_interviews',
+    'Evaluación Comercial': 'commercial_evaluations',
+    // Visitas & Negociaciones
+    'Visita Propiedad': 'portfolio_visits',
+    'Visita comprador/arrendatario (Canje)': 'buyer_visits',
     'Carta Oferta': 'offers_in_negotiation',
-    'Baja de Precio': 'price_reductions',
+    'Promesa Firmada': 'signed_promises',
     'Contrato de arriendo firmado': 'signed_promises',
-    // NOTE: 'Cierre de negocio' is handled separately with money amounts, not a -1 counter
+    'Baja de Precio': 'price_reductions',
+    // NOTE: 'Cierre de negocio' / 'Facturación' is handled separately with money amounts
 };
 
 const ActionList = () => {

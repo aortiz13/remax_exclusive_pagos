@@ -70,9 +70,24 @@ const ACTION_TYPES = [
 
 // Maps action_type → kpi_records field to auto-increment on save / decrement on delete
 const ACTION_KPI_MAP = {
+    // Gestión de Contactos — conversations_started
+    'Llamada en frío (I.C)': 'conversations_started',
+    'Llamada vendedor/arrendador (I.C)': 'conversations_started',
+    'Llamada comprador/arrendatario (I.C)': 'conversations_started',
+    'Llamada a base relacional (I.C)': 'conversations_started',
+    'Visita a Conserjes (IC)': 'conversations_started',
+    // Café & Entrevistas
+    'Café relacional': 'relational_coffees',
+    'Entrevista Venta (Pre-listing)': 'sales_interviews',
+    'Entrevista Compra (Pre-Buying)': 'buying_interviews',
+    'Evaluación Comercial': 'commercial_evaluations',
+    // Visitas & Negociaciones
+    'Visita Propiedad': 'portfolio_visits',
+    'Visita comprador/arrendatario (Canje)': 'buyer_visits',
     'Carta Oferta': 'offers_in_negotiation',
-    'Baja de Precio': 'price_reductions',
+    'Promesa Firmada': 'signed_promises',
     'Contrato de arriendo firmado': 'signed_promises',
+    'Baja de Precio': 'price_reductions',
     // Note: Facturación uses gross_fees value stored in billing_primary (handled separately)
 };
 
@@ -523,7 +538,8 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
             }
 
             // Auto-increment KPI if this action type maps to a KPI field
-            const kpiField = ACTION_KPI_MAP[resolvedType];
+            // For 'Otra (I.C)', resolvedType is the custom text, so fall back to conversations_started
+            const kpiField = ACTION_KPI_MAP[resolvedType] || (actionType === 'Otra (I.C)' ? 'conversations_started' : null);
             if (kpiField) {
                 const actionDateStr = (actionDate || '').split('T')[0];
                 const { data: existingKpi } = await supabase

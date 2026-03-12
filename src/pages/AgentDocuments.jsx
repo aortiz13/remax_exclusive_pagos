@@ -306,22 +306,38 @@ export default function AgentDocuments() {
     const handlePreview = async (file) => {
         // Initializing preview
         setPreviewUrl(null)
-
-        // Note: For private buckets, getPublicUrl might return a URL that requires a token
-        // or we might need creating a signed URL if the bucket is not public.
-        // My migration set public=false. So I need Signed URL.
+        setPreviewTitle(file.name)
+        setIsPreviewOpen(true)
 
         try {
-            const { data, error } = await supabase.storage
-                .from('agent_documents')
-                .createSignedUrl(file.storage_path, 3600) // 1 hour
+            const isImage = /\.(png|jpe?g|gif|webp|svg)$/i.test(file.name)
+            const isPdf = /\.pdf$/i.test(file.name)
 
-            if (error) throw error
+            if (isImage || isPdf) {
+                // For images and PDFs: download as blob and create object URL
+                // This is more reliable than signed URLs for embedded content
+                const { data, error } = await supabase.storage
+                    .from('agent_documents')
+                    .createSignedUrl(file.storage_path, 3600)
 
-            if (data?.signedUrl) {
-                setPreviewUrl(data.signedUrl)
-                setPreviewTitle(file.name)
-                setIsPreviewOpen(true)
+                if (error) throw error
+
+                // Fetch the file via the signed URL and create blob
+                const response = await fetch(data.signedUrl)
+                if (!response.ok) throw new Error('Failed to fetch file')
+                const blob = await response.blob()
+                const blobUrl = URL.createObjectURL(blob)
+                setPreviewUrl(blobUrl)
+            } else {
+                // For office docs: use signed URL with Google/Office viewer
+                const { data, error } = await supabase.storage
+                    .from('agent_documents')
+                    .createSignedUrl(file.storage_path, 3600)
+
+                if (error) throw error
+                if (data?.signedUrl) {
+                    setPreviewUrl(data.signedUrl)
+                }
             }
         } catch (error) {
             console.error('Preview error:', error)
