@@ -23,24 +23,12 @@ const Storyline = ({ propertyId, contactId }) => {
     useEffect(() => {
         fetchActivities()
 
-        // Subscribe to changes
-        const channel = supabase
-            .channel('activity_logs_feed')
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'activity_logs' }, (payload) => {
-                const newLog = payload.new
-                // Filter client side to avoid complexity or just re-fetch
-                if (
-                    (propertyId && (newLog.property_id === propertyId || (newLog.entity_type === 'Propiedad' && newLog.entity_id === propertyId))) ||
-                    (contactId && (newLog.contact_id === contactId || (newLog.entity_type === 'Contacto' && newLog.entity_id === contactId)))
-                ) {
-                    fetchActivities()
-                }
-            })
-            .subscribe()
+        // Polling for activity changes (replaces Supabase Realtime)
+        const interval = setInterval(() => {
+            fetchActivities()
+        }, 10000) // Poll every 10 seconds
 
-        return () => {
-            supabase.removeChannel(channel)
-        }
+        return () => clearInterval(interval)
     }, [propertyId, contactId])
 
     const fetchActivities = async () => {

@@ -170,21 +170,12 @@ const UnifiedTimeline = ({ contactId, propertyId }) => {
     useEffect(() => {
         loadTimeline()
 
-        // Real-time subscription for activity_logs
-        const channel = supabase
-            .channel('unified_timeline_feed')
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'activity_logs' }, (payload) => {
-                const n = payload.new
-                if (
-                    (propertyId && n.property_id === propertyId) ||
-                    (contactId && n.contact_id === contactId)
-                ) {
-                    loadTimeline()
-                }
-            })
-            .subscribe()
+        // Polling for timeline changes (replaces Supabase Realtime)
+        const interval = setInterval(() => {
+            loadTimeline()
+        }, 10000) // Poll every 10 seconds
 
-        return () => { supabase.removeChannel(channel) }
+        return () => clearInterval(interval)
     }, [contactId, propertyId, loadTimeline])
 
     // ── Filtering ──────────────────────────────────────────────
@@ -451,8 +442,8 @@ const UnifiedTimeline = ({ contactId, propertyId }) => {
                                                 )}
                                                 {event.type === 'inspeccion' && event.meta?.statusLabel && (
                                                     <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${event.meta.status === 'sent' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                                                            : event.meta.status === 'completed' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
-                                                                : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
+                                                        : event.meta.status === 'completed' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                                                            : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
                                                         }`}>
                                                         {event.meta.statusLabel}
                                                     </span>

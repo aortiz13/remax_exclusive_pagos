@@ -191,25 +191,15 @@ export default function CalendarPage() {
         }
     }, [user])
 
-    // Realtime subscription
+    // Polling for task changes (replaces Supabase Realtime)
     useEffect(() => {
         if (!user) return;
 
-        const channel = supabase
-            .channel('crm_tasks_calendar')
-            .on('postgres_changes', {
-                event: '*',
-                schema: 'public',
-                table: 'crm_tasks',
-                filter: `agent_id=eq.${user.id}`
-            }, () => {
-                fetchEvents(true)
-            })
-            .subscribe();
+        const interval = setInterval(() => {
+            fetchEvents(true);
+        }, 10000); // Poll every 10 seconds
 
-        return () => {
-            supabase.removeChannel(channel);
-        };
+        return () => clearInterval(interval);
     }, [user]);
 
     // Background polling for Google Calendar (Auto-Sync)
