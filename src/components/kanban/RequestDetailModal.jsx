@@ -490,7 +490,7 @@ export function RequestDetailModal({ request, isOpen, onClose }) {
                 ...item,
                 url: item.url?.replace(
                     'https://solicitudes.remax-exclusive.cl/storage/v1/object/public/',
-                    'https://wdyfeolbuogoyngrvxkc.supabase.co/storage/v1/object/public/'
+                    'https://remax-crm-remax-storage.jzuuqr.easypanel.host/'
                 )
             })
 
@@ -625,7 +625,7 @@ export function RequestDetailModal({ request, isOpen, onClose }) {
                                         const downloadUrl = file.url
                                             ? file.url.replace(
                                                 'https://solicitudes.remax-exclusive.cl/storage/v1/object/public/',
-                                                'https://wdyfeolbuogoyngrvxkc.supabase.co/storage/v1/object/public/'
+                                                'https://remax-crm-remax-storage.jzuuqr.easypanel.host/'
                                             )
                                             : file.url
                                         return (
