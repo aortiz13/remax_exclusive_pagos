@@ -54,6 +54,7 @@ import InspectionFormPage from './pages/InspectionFormPage'
 import InspectionDashboard from './pages/InspectionDashboard'
 import AdminAdministradaImport from './pages/AdminAdministradaImport'
 import PublicInspectionPage from './pages/PublicInspectionPage'
+import AuthCallback from './pages/AuthCallback'
 import { Toaster } from 'sonner'
 import { initGlobalErrorCapture, auditLog } from './services/auditLogService'
 
@@ -164,6 +165,11 @@ function App() {
 
             {/* ═══ Public route: External Inspection (no login) ═══ */}
             <Route path="/inspeccion-publica/:token" element={<PublicInspectionPage />} />
+
+            {/* ═══ Auth callback routes (recovery, confirm, invite) ═══ */}
+            <Route path="/auth/recovery" element={<AuthCallback />} />
+            <Route path="/auth/confirm" element={<AuthCallback />} />
+            <Route path="/auth/invite" element={<AuthCallback />} />
 
             {/* ═══ All other routes wrapped in Layout ═══ */}
             <Route path="/*" element={
