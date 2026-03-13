@@ -171,13 +171,15 @@ function App() {
             <Route path="/auth/confirm" element={<AuthCallback />} />
             <Route path="/auth/invite" element={<AuthCallback />} />
 
+            {/* ═══ Update password (standalone, no sidebar) ═══ */}
+            <Route path="/update-password" element={<UpdatePassword />} />
+
             {/* ═══ All other routes wrapped in Layout ═══ */}
             <Route path="/*" element={
               <Layout>
                 <Routes>
                   <Route path="/login" element={<Login />} />
                   <Route path="/forgot-password" element={<ForgotPassword />} />
-                  <Route path="/update-password" element={<UpdatePassword />} />
                   <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
                   <Route path="/dashboard" element={
