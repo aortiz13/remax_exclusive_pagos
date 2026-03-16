@@ -31,15 +31,15 @@ export default function CameraAgentActions() {
     const [submitting, setSubmitting] = useState(false)
 
     useEffect(() => {
-        if (!user) return
+        if (!user || !profile) return
         fetchActiveBookings()
         // Poll every 2 minutes for updates
         const interval = setInterval(fetchActiveBookings, 120000)
         return () => clearInterval(interval)
-    }, [user])
+    }, [user, profile])
 
     const fetchActiveBookings = async () => {
-        if (!user) return
+        if (!user || !profile) return
         try {
             const { data, error } = await supabase
                 .from('camera_bookings')
@@ -50,7 +50,7 @@ export default function CameraAgentActions() {
             if (error) throw error
             setActiveBookings(data || [])
         } catch (err) {
-            console.error('Error fetching active bookings:', err)
+            // Silently handle — this is a non-critical floating widget
         } finally { setLoading(false) }
     }
 
