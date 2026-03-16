@@ -11,6 +11,10 @@ let _flushTimer = null
 const FLUSH_INTERVAL = 5000 // ms
 const MAX_QUEUE = 50
 
+// Keep a reference to the ORIGINAL console.error before we patch it
+// so sendSlackAlert can log failures without triggering the interceptor
+const _nativeConsoleError = console.error.bind(console)
+
 // Slack alert deduplication — avoid flooding channel with identical errors
 const _slackSent = new Map() // key → timestamp
 const SLACK_COOLDOWN = 60_000 // 60s cooldown per unique error
@@ -119,8 +123,9 @@ async function sendSlackAlert(entry) {
             }
         })
     } catch (e) {
-        // Silent fail — Slack alert is non-critical
-        console.warn('[AuditLog] Slack alert failed:', e.message)
+        // Log via native console.error (bypasses our interceptor to avoid recursion)
+        // This makes Slack delivery failures visible in browser DevTools
+        _nativeConsoleError('[AuditLog] Slack alert failed:', e.message)
     }
 }
 
@@ -165,9 +170,8 @@ export const auditLog = {
 
 export function initGlobalErrorCapture() {
     // Intercept console.error → also log to audit system (triggers Slack)
-    const _origConsoleError = console.error;
     console.error = (...args) => {
-        _origConsoleError.apply(console, args);
+        _nativeConsoleError(...args);
         try {
             const msg = args
                 .map(a => (typeof a === 'string' ? a : a?.message || (a instanceof Error ? a.toString() : '')))
