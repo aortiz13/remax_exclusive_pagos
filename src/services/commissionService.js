@@ -1,4 +1,6 @@
 import * as XLSX from 'xlsx'
+import { supabase } from './supabase'
+import { extractAddressParts, normalize as normImport } from './adminImportService'
 
 // n8n webhook URL for sending commission emails
 const N8N_WEBHOOK_URL = 'https://workflow.remax-exclusive.cl/webhook/commission-payment'
@@ -133,20 +135,111 @@ export function detectMonth(rows) {
     return `${months[now.getMonth()]} ${now.getFullYear()}`
 }
 
+// ─── Property Matching ─────────────────────────────────────────
+/**
+ * Match Excel rows against DB properties by address + depto
+ * Returns a Map<direccion, { property, confidence }>
+ */
+export async function matchCommissionProperties(rows) {
+    const { data: properties } = await supabase
+        .from('properties')
+        .select('id, address, commune, unit_number, status, agent_id')
+        .order('address')
+
+    const dbProps = (properties || []).map(p => ({
+        ...p,
+        _parts: extractAddressParts(p.address || ''),
+        _commune: normalize(p.commune || ''),
+        _unit: normalize(p.unit_number || ''),
+    }))
+
+    const matchMap = {} // key = excel row direccion
+
+    for (const row of rows) {
+        if (matchMap[row.direccion]) continue // already matched this address
+
+        const rowParts = extractAddressParts(row.direccion)
+        let bestMatch = null
+        let bestScore = 0
+
+        for (const prop of dbProps) {
+            let score = 0
+
+            // Street name comparison
+            if (rowParts.street && prop._parts.street) {
+                if (prop._parts.street.includes(rowParts.street) || rowParts.street.includes(prop._parts.street)) {
+                    score += 40
+                } else {
+                    const excelWords = rowParts.street.split(/\s+/).filter(w => w.length > 2)
+                    const dbWords = prop._parts.street.split(/\s+/).filter(w => w.length > 2)
+                    const commonWords = excelWords.filter(w => dbWords.some(dw => dw.includes(w) || w.includes(dw)))
+                    if (commonWords.length > 0) {
+                        score += Math.min(35, commonWords.length * 15)
+                    }
+                }
+            }
+
+            // Number comparison
+            if (rowParts.number && prop._parts.number && rowParts.number === prop._parts.number) {
+                score += 30
+            }
+
+            // Depto/unit comparison
+            if (rowParts.depto || prop._unit) {
+                const normDepto = normalize(rowParts.depto || '')
+                const normUnit = normalize(prop._unit || '')
+                if (normDepto && normUnit) {
+                    if (normUnit.includes(normDepto) || normDepto.includes(normUnit)) {
+                        score += 20
+                    } else {
+                        score -= 15
+                    }
+                } else if (normDepto && !normUnit) {
+                    score -= 5
+                }
+            }
+
+            if (score > bestScore) {
+                bestScore = score
+                bestMatch = prop
+            }
+        }
+
+        if (bestMatch && bestScore >= 50) {
+            matchMap[row.direccion] = {
+                property: bestMatch,
+                confidence: bestScore,
+            }
+        } else {
+            matchMap[row.direccion] = null
+        }
+    }
+
+    return matchMap
+}
+
 // ─── Commission Calculation ────────────────────────────────────
 const IVA_RATE = 0.19
 
+// Valid states for processing
+const VALID_STATES = ['LIQUIDADO', 'LIQUIDACION MANUAL', 'LIQUIDACIÓN MANUAL']
+function isValidState(estado) {
+    return VALID_STATES.includes(estado)
+}
+
 /**
  * Process rows into agent commission summaries
+ * propertyMatches is optional Map from matchCommissionProperties()
  * Returns array of { agentName, email, properties: [], total }
  */
-export function processCommissions(rows) {
+export function processCommissions(rows, propertyMatches = {}) {
     const agentMap = {} // key = agent email (lowercase)
 
     for (const row of rows) {
-        // Only process LIQUIDADO
-        if (row.estado !== 'LIQUIDADO') continue
+        // Only process valid states
+        if (!isValidState(row.estado)) continue
         if (!row.agent_name || row.percentage <= 0) continue
+        // Skip negative amounts
         if (row.monto_admin <= 0) continue
 
         const iva = Math.round(row.monto_admin * IVA_RATE)
@@ -163,6 +256,8 @@ export function processCommissions(rows) {
             }
         }
 
+        const match = propertyMatches[row.direccion] || null
+
         agentMap[key].properties.push({
             id: row.id,
             codigo: row.codigo,
@@ -172,6 +267,12 @@ export function processCommissions(rows) {
             neto,
             porcentaje: row.percentage,
             comision,
+            // Property match info
+            matched: !!match,
+            matchConfidence: match?.confidence || 0,
+            propertyId: match?.property?.id || null,
+            propertyAddress: match?.property?.address || null,
+            propertyUnit: match?.property?.unit_number || null,
         })
         agentMap[key].total += comision
     }
@@ -186,9 +287,9 @@ export function processCommissions(rows) {
  */
 export function getSkippedSummary(rows) {
     const expired = rows.filter(r => r.estado === 'EXPIRADO')
-    const noAgent = rows.filter(r => r.estado === 'LIQUIDADO' && (!r.agent_name || r.percentage <= 0))
-    const negative = rows.filter(r => r.estado === 'LIQUIDADO' && r.monto_admin < 0)
-    const otherStatus = rows.filter(r => r.estado !== 'LIQUIDADO' && r.estado !== 'EXPIRADO' && r.estado)
+    const noAgent = rows.filter(r => isValidState(r.estado) && (!r.agent_name || r.percentage <= 0))
+    const negative = rows.filter(r => isValidState(r.estado) && r.monto_admin < 0)
+    const otherStatus = rows.filter(r => !isValidState(r.estado) && r.estado !== 'EXPIRADO' && r.estado)
 
     return { expired, noAgent, negative, otherStatus }
 }

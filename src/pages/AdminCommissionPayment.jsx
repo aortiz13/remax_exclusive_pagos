@@ -4,17 +4,21 @@ import { toast } from 'sonner'
 import {
     Upload, FileSpreadsheet, Check, X, AlertTriangle, CreditCard,
     ArrowRight, ArrowLeft, CheckCircle, XCircle, ChevronDown, ChevronUp,
-    Send, User, Mail, DollarSign, Building, Info, Loader2, RotateCcw
+    Send, User, Mail, DollarSign, Building, Info, Loader2, RotateCcw,
+    Link2, ExternalLink
 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import {
     parseCommissionExcel, processCommissions, detectMonth,
-    getSkippedSummary, sendCommissionEmails, formatCLP
+    getSkippedSummary, sendCommissionEmails, formatCLP,
+    matchCommissionProperties
 } from '../services/commissionService'
 
 const ALLOWED = ['superadministrador', 'tecnico', 'legal', 'comercial', 'administracion']
 
 export default function AdminCommissionPayment() {
     const { profile } = useAuth()
+    const navigate = useNavigate()
     const [step, setStep] = useState(1)
 
     // Step 1
@@ -28,6 +32,8 @@ export default function AdminCommissionPayment() {
     const [skipped, setSkipped] = useState({})
     const [selectedAgents, setSelectedAgents] = useState(new Set())
     const [expandedAgent, setExpandedAgent] = useState(null)
+    const [matching, setMatching] = useState(false)
+    const [matchStats, setMatchStats] = useState({ matched: 0, unmatched: 0 })
 
     // Step 3
     const [sending, setSending] = useState(false)
@@ -70,14 +76,34 @@ export default function AdminCommissionPayment() {
         if (file) handleFile(file)
     }, [])
 
-    const proceedToReview = () => {
-        const summaries = processCommissions(rows)
-        const skipSummary = getSkippedSummary(rows)
-        setAgentSummaries(summaries)
-        setSkipped(skipSummary)
-        setSelectedAgents(new Set(summaries.map((_, i) => i)))
-        setStep(2)
-        toast.success(`${summaries.length} agentes con comisiones detectados`)
+    const proceedToReview = async () => {
+        setMatching(true)
+        try {
+            // Match Excel addresses against DB properties
+            const propertyMatches = await matchCommissionProperties(rows)
+            const summaries = processCommissions(rows, propertyMatches)
+            const skipSummary = getSkippedSummary(rows)
+
+            // Count match stats
+            let matched = 0, unmatched = 0
+            for (const agent of summaries) {
+                for (const prop of agent.properties) {
+                    if (prop.matched) matched++
+                    else unmatched++
+                }
+            }
+            setMatchStats({ matched, unmatched })
+            setAgentSummaries(summaries)
+            setSkipped(skipSummary)
+            setSelectedAgents(new Set(summaries.map((_, i) => i)))
+            setStep(2)
+            toast.success(`${summaries.length} agentes — ${matched} propiedades encontradas en el sistema`)
+        } catch (err) {
+            console.error('Match error:', err)
+            toast.error('Error al procesar comisiones')
+        } finally {
+            setMatching(false)
+        }
     }
 
     // ─── Step 2: Review ─────────────────────────────────────────
@@ -134,8 +160,9 @@ export default function AdminCommissionPayment() {
         setSendResults(null)
     }
 
-    // Stats
-    const liquidadoCount = rows.filter(r => r.estado === 'LIQUIDADO').length
+    // Valid states helper (mirrors service)
+    const isValid = (e) => ['LIQUIDADO', 'LIQUIDACION MANUAL', 'LIQUIDACIÓN MANUAL'].includes(e)
+    const liquidadoCount = rows.filter(r => isValid(r.estado)).length
 
     return (
         <div className="max-w-6xl mx-auto p-6">
@@ -246,13 +273,13 @@ export default function AdminCommissionPayment() {
                                         </thead>
                                         <tbody className="divide-y divide-gray-100">
                                             {rows.slice(0, 100).map((row, i) => (
-                                                <tr key={i} className={`hover:bg-gray-50 ${row.estado !== 'LIQUIDADO' ? 'opacity-50' : ''}`}>
+                                                <tr key={i} className={`hover:bg-gray-50 ${!isValid(row.estado) ? 'opacity-50' : ''}`}>
                                                     <td className="px-3 py-2 text-gray-400">{row._row}</td>
                                                     <td className="px-3 py-2 text-gray-800 font-medium max-w-xs truncate">{row.direccion}</td>
                                                     <td className="px-3 py-2 text-gray-700">{formatCLP(row.monto_admin)}</td>
                                                     <td className="px-3 py-2">
                                                         <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${
-                                                            row.estado === 'LIQUIDADO' ? 'bg-green-100 text-green-700' :
+                                                            isValid(row.estado) ? 'bg-green-100 text-green-700' :
                                                             row.estado === 'EXPIRADO' ? 'bg-red-100 text-red-700' :
                                                             'bg-gray-100 text-gray-600'
                                                         }`}>
@@ -278,11 +305,20 @@ export default function AdminCommissionPayment() {
                             <div className="flex justify-end">
                                 <button
                                     onClick={proceedToReview}
-                                    disabled={liquidadoCount === 0 || !month}
+                                    disabled={liquidadoCount === 0 || !month || matching}
                                     className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-xl font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-blue-200"
                                 >
-                                    Procesar Comisiones
-                                    <ArrowRight className="w-4 h-4" />
+                                    {matching ? (
+                                        <>
+                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                            Buscando propiedades...
+                                        </>
+                                    ) : (
+                                        <>
+                                            Procesar Comisiones
+                                            <ArrowRight className="w-4 h-4" />
+                                        </>
+                                    )}
                                 </button>
                             </div>
                         </>
@@ -294,7 +330,7 @@ export default function AdminCommissionPayment() {
             {step === 2 && (
                 <div className="space-y-6">
                     {/* Summary cards */}
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                         <SummaryCard
                             icon={<User className="w-5 h-5" />}
                             label="Agentes"
@@ -306,6 +342,12 @@ export default function AdminCommissionPayment() {
                             label="Propiedades"
                             value={agentSummaries.reduce((s, a) => s + a.properties.length, 0)}
                             color="purple"
+                        />
+                        <SummaryCard
+                            icon={<Link2 className="w-5 h-5" />}
+                            label="Encontradas en CRM"
+                            value={`${matchStats.matched} / ${matchStats.matched + matchStats.unmatched}`}
+                            color="teal"
                         />
                         <SummaryCard
                             icon={<DollarSign className="w-5 h-5" />}
@@ -407,6 +449,7 @@ export default function AdminCommissionPayment() {
                                                 <thead className="bg-gray-100">
                                                     <tr>
                                                         <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase">Propiedad</th>
+                                                        <th className="px-4 py-2 text-center text-xs font-semibold text-gray-500 uppercase">Match CRM</th>
                                                         <th className="px-4 py-2 text-right text-xs font-semibold text-gray-500 uppercase">Monto Admin</th>
                                                         <th className="px-4 py-2 text-right text-xs font-semibold text-gray-500 uppercase">IVA (19%)</th>
                                                         <th className="px-4 py-2 text-right text-xs font-semibold text-gray-500 uppercase">Neto</th>
@@ -417,7 +460,32 @@ export default function AdminCommissionPayment() {
                                                 <tbody className="divide-y divide-gray-100">
                                                     {agent.properties.map((prop, pi) => (
                                                         <tr key={pi} className="hover:bg-white">
-                                                            <td className="px-4 py-2.5 text-gray-700 max-w-xs truncate">{prop.direccion}</td>
+                                                            <td className="px-4 py-2.5 text-gray-700 max-w-xs">
+                                                                <div className="truncate">{prop.direccion}</div>
+                                                                {prop.matched && prop.propertyAddress && prop.propertyAddress !== prop.direccion && (
+                                                                    <div className="text-xs text-gray-400 truncate mt-0.5">
+                                                                        DB: {prop.propertyAddress}{prop.propertyUnit ? `, ${prop.propertyUnit}` : ''}
+                                                                    </div>
+                                                                )}
+                                                            </td>
+                                                            <td className="px-4 py-2.5 text-center">
+                                                                {prop.matched ? (
+                                                                    <button
+                                                                        onClick={() => window.open(`/crm/property/${prop.propertyId}`, '_blank')}
+                                                                        className="inline-flex items-center gap-1 bg-green-100 text-green-700 px-2 py-0.5 rounded-full text-xs font-semibold hover:bg-green-200 transition-colors"
+                                                                        title={`Confianza: ${prop.matchConfidence}%`}
+                                                                    >
+                                                                        <CheckCircle className="w-3 h-3" />
+                                                                        Sí
+                                                                        <ExternalLink className="w-3 h-3" />
+                                                                    </button>
+                                                                ) : (
+                                                                    <span className="inline-flex items-center gap-1 bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full text-xs">
+                                                                        <XCircle className="w-3 h-3" />
+                                                                        No
+                                                                    </span>
+                                                                )}
+                                                            </td>
                                                             <td className="px-4 py-2.5 text-right text-gray-600">{formatCLP(prop.monto_admin)}</td>
                                                             <td className="px-4 py-2.5 text-right text-red-500">{formatCLP(prop.iva)}</td>
                                                             <td className="px-4 py-2.5 text-right text-gray-600">{formatCLP(prop.neto)}</td>
@@ -428,7 +496,7 @@ export default function AdminCommissionPayment() {
                                                 </tbody>
                                                 <tfoot className="bg-gray-100">
                                                     <tr>
-                                                        <td className="px-4 py-3 text-sm font-bold text-gray-700" colSpan={5}>
+                                                        <td className="px-4 py-3 text-sm font-bold text-gray-700" colSpan={6}>
                                                             Total a pagar
                                                         </td>
                                                         <td className="px-4 py-3 text-right text-lg font-bold text-green-600">
@@ -556,6 +624,7 @@ function SummaryCard({ icon, label, value, color, isLarge }) {
         purple: 'bg-purple-50 text-purple-600 border-purple-200',
         green: 'bg-green-50 text-green-600 border-green-200',
         orange: 'bg-orange-50 text-orange-600 border-orange-200',
+        teal: 'bg-teal-50 text-teal-600 border-teal-200',
     }
     return (
         <div className={`rounded-xl border p-4 ${colorMap[color]}`}>
