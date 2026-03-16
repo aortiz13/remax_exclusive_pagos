@@ -183,6 +183,44 @@ export default function InspectionDashboard() {
 
             const agentName = agents.find(a => a.id === selectedAgentId)
             toast.success(`Inspección derivada a ${agentName?.first_name || ''} ${agentName?.last_name || ''}`)
+
+            // Notify agent via n8n webhook (fire and forget)
+            try {
+                // Fetch agent email and phone for notification
+                const { data: agentProfile } = await supabase
+                    .from('profiles')
+                    .select('id, first_name, last_name, email, phone')
+                    .eq('id', selectedAgentId)
+                    .single()
+
+                const propertyAddr = showAssignModal.property
+                    ? `${showAssignModal.property.address || ''}, ${showAssignModal.property.commune || ''}`.replace(/^,\s*|,\s*$/g, '')
+                    : 'Sin dirección'
+
+                await fetch('https://workflow.remax-exclusive.cl/webhook/inspection-assigned', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        event: 'inspection_assigned',
+                        agent: {
+                            id: agentProfile?.id || selectedAgentId,
+                            name: `${agentProfile?.first_name || ''} ${agentProfile?.last_name || ''}`.trim(),
+                            email: agentProfile?.email || '',
+                            phone: agentProfile?.phone || '',
+                        },
+                        inspection: {
+                            schedule_id: showAssignModal.id,
+                            property_id: showAssignModal.property_id,
+                            address: propertyAddr,
+                            scheduled_date: showAssignModal.scheduled_date,
+                        },
+                        assigned_by: `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim(),
+                    })
+                })
+            } catch (notifyErr) {
+                console.warn('Agent notification webhook failed (non-blocking):', notifyErr)
+            }
+
             setShowAssignModal(null)
             await loadData()
         } catch (err) {

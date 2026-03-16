@@ -164,6 +164,25 @@ export const auditLog = {
 // ─── Global error handlers ───────────────────────────────────────────────────
 
 export function initGlobalErrorCapture() {
+    // Intercept console.error → also log to audit system (triggers Slack)
+    const _origConsoleError = console.error;
+    console.error = (...args) => {
+        _origConsoleError.apply(console, args);
+        try {
+            const msg = args
+                .map(a => (typeof a === 'string' ? a : a?.message || (a instanceof Error ? a.toString() : '')))
+                .filter(Boolean)
+                .join(' ')
+                .substring(0, 500);
+            // Guard: skip audit-log internal errors to prevent infinite loop
+            if (msg && !msg.includes('[AuditLog]') && !msg.includes('console_interceptor')) {
+                auditLog.error('system', 'console.error', msg, {
+                    module: 'console_interceptor',
+                });
+            }
+        } catch { /* never break console.error */ }
+    };
+
     // Unhandled JS errors
     window.addEventListener('error', (event) => {
         // Ignore benign browser warnings that are not real errors

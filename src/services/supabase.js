@@ -68,11 +68,28 @@ supabase.functions.invoke = async (functionName, options = {}) => {
         const data = await response.json().catch(() => null)
 
         if (!response.ok) {
+            // Auto-log API errors to audit log → triggers Slack alerts
+            try {
+                const { auditLog } = await import('./auditLogService')
+                auditLog.error('api', `http.${response.status}`, data?.error || `HTTP ${response.status} on ${functionName}`, {
+                    module: functionName,
+                    error_code: String(response.status),
+                    details: { url: route.path, status: response.status, responseBody: typeof data === 'object' ? JSON.stringify(data)?.substring(0, 300) : data },
+                })
+            } catch { /* non-critical */ }
             return { data: null, error: { message: data?.error || `HTTP ${response.status}`, status: response.status } }
         }
 
         return { data, error: null }
     } catch (err) {
+        // Auto-log network/fetch errors
+        try {
+            const { auditLog } = await import('./auditLogService')
+            auditLog.error('api', 'fetch.exception', `${functionName}: ${err.message}`, {
+                module: functionName,
+                details: { url: `${supabaseUrl}${route.path}` },
+            })
+        } catch { /* non-critical */ }
         console.error(`[API] Error calling ${functionName}:`, err)
         return { data: null, error: { message: err.message } }
     }

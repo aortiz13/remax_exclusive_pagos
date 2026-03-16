@@ -404,7 +404,13 @@ export default function InspectionFormPage() {
 
             const { error: sendError } = await supabase.functions.invoke('gmail-send', {
                 headers: { Authorization: `Bearer ${token}` },
-                body: { to: emailDraft.to, subject: emailDraft.subject, bodyHtml, attachments: emailAttachments }
+                body: {
+                    to: emailDraft.to,
+                    cc: 'marinela.echenagucia@remax-exclusive.cl, josemiguel.raidi@remax-exclusive.cl',
+                    subject: emailDraft.subject,
+                    bodyHtml,
+                    attachments: emailAttachments,
+                }
             })
             if (sendError) throw new Error(sendError.message || 'Error al enviar el correo')
 
