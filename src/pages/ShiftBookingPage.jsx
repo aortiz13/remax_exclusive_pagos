@@ -135,12 +135,17 @@ export default function ShiftBookingPage() {
         setAgents(map)
     }
 
+    function normalizeDate(d) {
+        // DB may return date as full ISO timestamp ("2026-03-19T03:00:00.000Z") or plain date ("2026-03-19")
+        return typeof d === 'string' ? d.split('T')[0] : d
+    }
+
     function getBookingForSlot(date, shift) {
-        return bookings.find(b => b.booking_date === date && b.shift === shift)
+        return bookings.find(b => normalizeDate(b.booking_date) === date && b.shift === shift)
     }
 
     function isSlotPublished(date, shift) {
-        return availableSlots.some(s => s.booking_date === date && s.shift === shift)
+        return availableSlots.some(s => normalizeDate(s.booking_date) === date && s.shift === shift)
     }
 
     async function handleBook(date, shift) {

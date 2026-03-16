@@ -204,7 +204,15 @@ export default function InspectionDashboard() {
         )
     }
 
+    // Only show inspections from 5 days ago onwards
+    const fiveDaysAgo = new Date()
+    fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5)
+    fiveDaysAgo.setHours(0, 0, 0, 0)
+    const fiveDaysAgoStr = fiveDaysAgo.toISOString().split('T')[0]
+
     const filteredInspections = inspections.filter(i => {
+        // Date filter: only show if inspection_date is within last 5 days or future, or if no date (draft)
+        if (i.inspection_date && i.inspection_date < fiveDaysAgoStr) return false
         if (statusFilter && i.status !== statusFilter) return false
         if (searchQuery) {
             const q = searchQuery.toLowerCase()

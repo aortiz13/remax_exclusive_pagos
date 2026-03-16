@@ -257,6 +257,44 @@ export default function PublicInspectionPage() {
             if (andSubmit) {
                 setSubmitted(true)
                 toast.success('¡Inspección enviada correctamente!')
+
+                // Notify office via n8n webhook with full form data for PDF generation
+                try {
+                    const propertyAddr = formData.direccion || inspection?.properties?.address || 'Sin dirección'
+                    const inspDate = formData.fecha_inspeccion || new Date().toISOString().split('T')[0]
+                    // Collect photo public URLs for the PDF
+                    const photoUrls = photos.filter(p => p.url).map(p => p.url)
+                    await fetch('https://workflow.remax-exclusive.cl/webhook/inspection-public-completed', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            event: 'public_inspection_completed',
+                            inspection: {
+                                id: inspection.id,
+                                address: propertyAddr,
+                                inspector_name: inspectorName,
+                                inspection_date: inspDate,
+                                propietario: formData.propietario || '',
+                                arrendatario: formData.arrendatario || '',
+                                metraje_informado: formData.metraje_informado || '',
+                                metraje_terrazas: formData.metraje_terrazas || '',
+                                metraje_total: formData.metraje_total || '',
+                            },
+                            form_data: {
+                                cocina: formData.cocina || [],
+                                sala_estar: formData.sala_estar || [],
+                                comedor: formData.comedor || [],
+                                dormitorios: formData.dormitorios || [],
+                                banos: formData.banos || [],
+                            },
+                            observations: observations || 'Sin observaciones',
+                            recommendations: recommendations || 'Sin recomendaciones',
+                            photo_urls: photoUrls,
+                        })
+                    })
+                } catch (notifyErr) {
+                    console.warn('Notification webhook failed (non-blocking):', notifyErr)
+                }
             } else {
                 toast.success('Inspección guardada')
             }

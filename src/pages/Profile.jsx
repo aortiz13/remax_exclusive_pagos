@@ -38,6 +38,12 @@ export default function Profile() {
     // Handle Google OAuth Callback
     useEffect(() => {
         const code = searchParams.get('code')
+        const googleError = searchParams.get('google_error')
+        if (googleError) {
+            toast.error(`Google rechazó la conexión: ${googleError}`)
+            setSearchParams({})
+            return
+        }
         if (code) {
             handleGoogleCallback(code)
         }

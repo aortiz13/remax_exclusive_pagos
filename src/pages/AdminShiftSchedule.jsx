@@ -93,17 +93,22 @@ export default function AdminShiftSchedule() {
 
         // Pre-fill selectedSlots from existing available slots
         const set = new Set()
-            ; (avail || []).forEach(s => set.add(`${s.booking_date}|${s.shift}`))
+            ; (avail || []).forEach(s => set.add(`${normalizeDate(s.booking_date)}|${s.shift}`))
         setSelectedSlots(set)
         setLoading(false)
     }
 
+    function normalizeDate(d) {
+        // DB may return date as full ISO timestamp ("2026-03-19T03:00:00.000Z") or plain date ("2026-03-19")
+        return typeof d === 'string' ? d.split('T')[0] : d
+    }
+
     function getBookingForSlot(date, shift) {
-        return bookings.find(b => b.booking_date === date && b.shift === shift && (b.status === 'pendiente' || b.status === 'aprobado'))
+        return bookings.find(b => normalizeDate(b.booking_date) === date && b.shift === shift && (b.status === 'pendiente' || b.status === 'aprobado'))
     }
 
     function isSlotAvailable(date, shift) {
-        return availableSlots.some(s => s.booking_date === date && s.shift === shift)
+        return availableSlots.some(s => normalizeDate(s.booking_date) === date && s.shift === shift)
     }
 
     function toggleSlot(date, shift) {

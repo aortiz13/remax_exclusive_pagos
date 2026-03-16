@@ -113,11 +113,14 @@ export default function InspectionFormPage() {
                 ? `${data.property.owner.first_name || ''} ${data.property.owner.last_name || ''}`.trim()
                 : (data.owner_name || '')
 
+            const ownerEmail = data.property?.owner?.email || ''
+
             const autoFields = {
                 agente_nombre: agentName,
                 fecha_inspeccion: data.inspection_date || new Date().toISOString().split('T')[0],
                 direccion: propertyAddress,
                 propietario: ownerName,
+                owner_email: ownerEmail,
                 arrendatario: data.tenant_name || '',
             }
 
@@ -307,10 +310,10 @@ export default function InspectionFormPage() {
             return
         }
 
-        // Check owner email
-        const ownerEmail = inspection?.property?.owner?.email
+        // Check owner email — use formData.owner_email (editable) or fall back to property relation
+        const ownerEmail = formData.owner_email || inspection?.property?.owner?.email
         if (!ownerEmail) {
-            toast.error('El propietario no tiene un correo electrónico registrado.')
+            toast.error('El propietario no tiene un correo electrónico registrado. Ingresa el email en la sección "Datos de la Propiedad".')
             return
         }
 
@@ -894,7 +897,11 @@ export default function InspectionFormPage() {
                                                 label="Buscar propietario en CRM"
                                                 onSelectContact={(contact) => {
                                                     if (contact) {
-                                                        setFormData(p => ({ ...p, propietario: `${contact.first_name || ''} ${contact.last_name || ''}`.trim() }))
+                                                        setFormData(p => ({
+                                                            ...p,
+                                                            propietario: `${contact.first_name || ''} ${contact.last_name || ''}`.trim(),
+                                                            owner_email: contact.email || p.owner_email || '',
+                                                        }))
                                                     }
                                                 }}
                                             />
@@ -907,6 +914,21 @@ export default function InspectionFormPage() {
                                         placeholder="Nombre del propietario..."
                                         className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none disabled:bg-gray-50"
                                     />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">
+                                        <span className="flex items-center gap-1.5"><Mail className="w-3.5 h-3.5" /> Email del Propietario</span>
+                                    </label>
+                                    <input
+                                        type="email" value={formData.owner_email || ''}
+                                        onChange={e => setFormData(p => ({ ...p, owner_email: e.target.value }))}
+                                        disabled={isReadOnly}
+                                        placeholder="correo@ejemplo.cl"
+                                        className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none disabled:bg-gray-50"
+                                    />
+                                    {!formData.owner_email && !isReadOnly && (
+                                        <p className="text-xs text-amber-600 mt-1">⚠️ Requerido para enviar el informe al propietario</p>
+                                    )}
                                 </div>
                                 <div>
                                     <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Arrendatario</label>
