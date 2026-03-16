@@ -25,10 +25,10 @@ export default function AdminRequests() {
 
     const getTypeFilterForRole = (role) => {
         switch (role) {
-            case 'legal': return ['contract', 'annex']
+            case 'legal': return null // Legal ve todas las solicitudes
             case 'comercial': return ['evaluacion_comercial']
-            case 'administracion': return ['annex', 'invoice']
-            default: return null // superadministrador = all
+            case 'administracion': return ['payment', 'invoice']
+            default: return null // superadministrador / tecnico = all
         }
     }
 

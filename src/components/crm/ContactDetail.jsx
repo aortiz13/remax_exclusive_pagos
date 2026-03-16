@@ -188,8 +188,18 @@ const ContactDetail = () => {
             navigate('/crm')
         } catch (error) {
             console.error('Error deleting contact:', error)
-            toast.error('Error al eliminar contacto: ' + (error.message || 'Error desconocido'))
+            const msg = error.message || ''
+            if (msg.includes('shift_guard_leads')) {
+                toast.error(
+                    'No es posible eliminar contactos asociados a leads de turnos de guardia. Puedes cambiar el estado del lead a "Inactivo" o "Archivado" en el pipeline de ventas.',
+                    { duration: 8000 }
+                )
+            } else {
+                toast.error('Error al eliminar contacto: ' + (msg || 'Error desconocido'))
+            }
             setIsDeleting(false)
+            setIsDeleteOpen(false)
+            setDeleteConfirmation('')
         }
     }
 

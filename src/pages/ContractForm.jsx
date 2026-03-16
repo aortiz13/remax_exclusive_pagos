@@ -89,32 +89,81 @@ function DateField({ label, name, defaultValue, ...rest }) {
     )
 }
 
-const FileUploadField = forwardRef(function FileUploadField({ label, name, accept, multiple = false }, ref) {
-    const [files, setFiles] = useState([])
+const FileUploadField = forwardRef(function FileUploadField({ label, name, accept, multiple = false, category = '', initialFiles = [] }, ref) {
+    // files: array of { name, url, storagePath } OR { name, uploading: true } during upload
+    const [files, setFiles] = useState(() => {
+        // Restore previously uploaded files from draft data
+        if (initialFiles && initialFiles.length > 0) {
+            return initialFiles.map(f => ({ name: f.name, url: f.url, storagePath: f.storagePath }))
+        }
+        return []
+    })
     const inputRef = useRef(null)
+    const [uploading, setUploading] = useState(false)
 
-    // Expose getFiles() to parent via ref
+    // Expose getFiles() to parent via ref — returns uploaded file metadata (not raw File objects)
     useImperativeHandle(ref, () => ({
-        getFiles: () => files
+        getFiles: () => files.filter(f => f.url && !f.uploading),
+        getUploadedUrls: () => files.filter(f => f.url).map(f => ({ name: f.name, url: f.url, storagePath: f.storagePath })),
     }), [files])
 
-    const handleFileChange = (e) => {
+    const handleFileChange = async (e) => {
         const selectedFiles = Array.from(e.target.files || [])
-        if (selectedFiles.length > 0) {
-            setFiles(prev => multiple ? [...prev, ...selectedFiles] : [selectedFiles[0]])
-        }
-        // Reset the input so the same file can be re-selected if needed
+        if (selectedFiles.length === 0) return
+
+        // Reset the input so the same file can be re-selected
         if (inputRef.current) inputRef.current.value = ''
+
+        setUploading(true)
+
+        for (const file of (multiple ? selectedFiles : [selectedFiles[0]])) {
+            // Add placeholder entry while uploading
+            const tempId = `${Date.now()}-${Math.random()}`
+            setFiles(prev => multiple ? [...prev, { name: file.name, uploading: true, _tempId: tempId }] : [{ name: file.name, uploading: true, _tempId: tempId }])
+
+            try {
+                const ext = file.name.split('.').pop()
+                const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+                const storagePath = `drafts/${category}/${Date.now()}-${safeName}`
+
+                const { error: uploadError } = await supabase.storage
+                    .from('contracts')
+                    .upload(storagePath, file, { cacheControl: '3600', upsert: false })
+
+                if (uploadError) throw uploadError
+
+                const url = `https://remax-crm-remax-storage.jzuuqr.easypanel.host/contracts/${storagePath}`
+
+                // Replace placeholder with real data
+                setFiles(prev => prev.map(f => f._tempId === tempId ? { name: file.name, url, storagePath } : f))
+            } catch (err) {
+                console.error('File upload error:', err)
+                toast.error(`Error subiendo ${file.name}: ${err.message}`)
+                // Remove failed placeholder
+                setFiles(prev => prev.filter(f => f._tempId !== tempId))
+            }
+        }
+
+        setUploading(false)
     }
 
-    const handleRemove = (index) => {
+    const handleRemove = async (index) => {
+        const file = files[index]
+        // Optionally delete from storage
+        if (file?.storagePath) {
+            try {
+                await supabase.storage.from('contracts').remove([file.storagePath])
+            } catch (err) {
+                console.error('Error deleting file from storage:', err)
+            }
+        }
         setFiles(prev => prev.filter((_, i) => i !== index))
     }
 
     return (
         <div className="space-y-4">
             <Label className="text-sm font-semibold text-slate-700">{label}</Label>
-            <Card className={"border-dashed border-2 cursor-pointer transition-colors " + (files.length > 0 ? 'bg-blue-50/50 border-primary/30' : 'bg-slate-50/50 border-slate-200 hover:bg-slate-100')} onClick={() => inputRef.current?.click()}>
+            <Card className={"border-dashed border-2 cursor-pointer transition-colors " + (files.length > 0 ? 'bg-blue-50/50 border-primary/30' : 'bg-slate-50/50 border-slate-200 hover:bg-slate-100')} onClick={() => !uploading && inputRef.current?.click()}>
                 <CardContent className="flex flex-col items-center justify-center py-8 text-center">
                     <input
                         ref={inputRef}
@@ -140,17 +189,25 @@ const FileUploadField = forwardRef(function FileUploadField({ label, name, accep
                             {files.map((file, idx) => (
                                 <div key={idx} className="w-full flex items-center justify-between bg-white p-3 rounded-lg border shadow-sm" onClick={(e) => e.stopPropagation()}>
                                     <div className="flex items-center space-x-3 overflow-hidden">
-                                        <div className="p-2 bg-blue-100 rounded text-blue-600">
-                                            <UploadCloud className="h-4 w-4" />
+                                        <div className={`p-2 rounded ${file.uploading ? 'bg-yellow-100 text-yellow-600' : 'bg-blue-100 text-blue-600'}`}>
+                                            {file.uploading ? (
+                                                <div className="h-4 w-4 border-2 border-yellow-600 border-t-transparent rounded-full animate-spin" />
+                                            ) : (
+                                                <UploadCloud className="h-4 w-4" />
+                                            )}
                                         </div>
                                         <span className="text-sm font-medium truncate max-w-[180px]">{file.name}</span>
+                                        {file.uploading && <span className="text-xs text-yellow-600">Subiendo...</span>}
+                                        {file.url && <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />}
                                     </div>
-                                    <Button type="button" variant="ghost" size="icon" className="text-red-500 hover:text-red-700 hover:bg-red-50" onClick={(e) => { e.stopPropagation(); handleRemove(idx); }}>
-                                        <Trash2 className="h-4 w-4" />
-                                    </Button>
+                                    {!file.uploading && (
+                                        <Button type="button" variant="ghost" size="icon" className="text-red-500 hover:text-red-700 hover:bg-red-50" onClick={(e) => { e.stopPropagation(); handleRemove(idx); }}>
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    )}
                                 </div>
                             ))}
-                            {multiple && (
+                            {multiple && !uploading && (
                                 <p className="text-xs text-center text-slate-400 mt-2">Click para agregar más</p>
                             )}
                         </div>
@@ -758,6 +815,16 @@ function BuySellFormLogic({ user, profile, navigate, initialData = {}, requestId
                 }
             }
 
+            // Include uploaded file URLs in draft data
+            const dominioFiles = dominioRef.current?.getUploadedUrls() || []
+            const gpFiles = gpRef.current?.getUploadedUrls() || []
+            const otrosFiles = otrosRef.current?.getUploadedUrls() || []
+            jsonData.uploaded_files = {
+                dominio_vigente: dominioFiles,
+                gp_certificado: gpFiles,
+                otros_documentos: otrosFiles,
+            }
+
             let error;
             if (requestId) {
                 const { error: updateError } = await supabase.from('requests').update({
@@ -792,7 +859,7 @@ function BuySellFormLogic({ user, profile, navigate, initialData = {}, requestId
         e.preventDefault()
         const formData = new FormData(e.currentTarget)
 
-        // Validation - Files (from refs)
+        // Validation - Files (from refs) — files are now { name, url, storagePath } objects
         const dominioFiles = dominioRef.current?.getFiles() || []
         const gpFiles = gpRef.current?.getFiles() || []
         const otrosFiles = otrosRef.current?.getFiles() || []
@@ -820,7 +887,7 @@ function BuySellFormLogic({ user, profile, navigate, initialData = {}, requestId
             formData.append('moneda_reserva', reservationCurrency)
 
 
-            // Prepare Webhook Payload
+            // Prepare Webhook Payload — fetch files from storage URLs and attach as blobs
             const webhookData = new FormData()
             // Append all string fields
             formData.forEach((value, key) => {
@@ -828,10 +895,21 @@ function BuySellFormLogic({ user, profile, navigate, initialData = {}, requestId
                     webhookData.append(key, value)
                 }
             })
-            // Append Files from refs (reliable source of truth)
-            dominioFiles.forEach(file => webhookData.append('dominio_vigente[]', file))
-            gpFiles.forEach(file => webhookData.append('gp_certificado[]', file))
-            otrosFiles.forEach(file => webhookData.append('otros_documentos[]', file))
+            // Fetch and append files from storage URLs
+            const fetchAndAppendFiles = async (fileList, fieldName) => {
+                for (const f of fileList) {
+                    try {
+                        const resp = await fetch(f.url)
+                        const blob = await resp.blob()
+                        webhookData.append(fieldName, new File([blob], f.name, { type: blob.type }))
+                    } catch (err) {
+                        console.warn(`Could not fetch file ${f.name} for webhook:`, err)
+                    }
+                }
+            }
+            await fetchAndAppendFiles(dominioFiles, 'dominio_vigente[]')
+            await fetchAndAppendFiles(gpFiles, 'gp_certificado[]')
+            await fetchAndAppendFiles(otrosFiles, 'otros_documentos[]')
 
             // Trigger Webhook
             await triggerLegalWebhook(webhookData)
@@ -1075,6 +1153,8 @@ function BuySellFormLogic({ user, profile, navigate, initialData = {}, requestId
                             name="dominio_vigente"
                             accept=".pdf,image/*,.doc,.docx"
                             multiple
+                            category="dominio_vigente"
+                            initialFiles={initialData?.uploaded_files?.dominio_vigente || []}
                         />
                         <FileUploadField
                             ref={gpRef}
@@ -1082,6 +1162,8 @@ function BuySellFormLogic({ user, profile, navigate, initialData = {}, requestId
                             name="gp_certificado"
                             accept=".pdf,image/*,.doc,.docx"
                             multiple
+                            category="gp_certificado"
+                            initialFiles={initialData?.uploaded_files?.gp_certificado || []}
                         />
                         <div className="pt-4 border-t mt-4">
                             <FileUploadField
@@ -1090,6 +1172,8 @@ function BuySellFormLogic({ user, profile, navigate, initialData = {}, requestId
                                 name="otros_documentos"
                                 accept=".pdf,image/*,.doc,.docx,.xls,.xlsx"
                                 multiple
+                                category="otros_documentos"
+                                initialFiles={initialData?.uploaded_files?.otros_documentos || []}
                             />
                         </div>
                     </div>
@@ -1161,6 +1245,14 @@ function LeaseFormLogic({ user, profile, navigate, initialData = {}, requestId =
                         jsonData[key] = value
                     }
                 }
+            }
+
+            // Include uploaded file URLs in draft data
+            const dominioFiles = dominioRef.current?.getUploadedUrls() || []
+            const otrosFiles = otrosRef.current?.getUploadedUrls() || []
+            jsonData.uploaded_files = {
+                dominio_vigente: dominioFiles,
+                otros_documentos: otrosFiles,
             }
 
             let error;
@@ -1277,9 +1369,20 @@ function LeaseFormLogic({ user, profile, navigate, initialData = {}, requestId =
                 }
             }
 
-            // Append Files from refs (reliable source of truth)
-            dominioFiles.forEach(file => webhookData.append('dominio_vigente[]', file))
-            otrosFiles.forEach(file => webhookData.append('otros_documentos[]', file))
+            // Fetch and append files from storage URLs
+            const fetchAndAppendFiles = async (fileList, fieldName) => {
+                for (const f of fileList) {
+                    try {
+                        const resp = await fetch(f.url)
+                        const blob = await resp.blob()
+                        webhookData.append(fieldName, new File([blob], f.name, { type: blob.type }))
+                    } catch (err) {
+                        console.warn(`Could not fetch file ${f.name} for webhook:`, err)
+                    }
+                }
+            }
+            await fetchAndAppendFiles(dominioFiles, 'dominio_vigente[]')
+            await fetchAndAppendFiles(otrosFiles, 'otros_documentos[]')
 
             // Trigger Webhook
             await triggerLegalWebhook(webhookData)
@@ -1610,9 +1713,9 @@ function LeaseFormLogic({ user, profile, navigate, initialData = {}, requestId =
                 </CardSection>
 
                 <CardSection title="5. Documentación Adjunta">
-                    <FileUploadField ref={dominioRef} label="Dominio Vigente" name="dominio_vigente" accept=".pdf,image/*,.doc,.docx,.xls,.xlsx,.csv" multiple={true} />
+                    <FileUploadField ref={dominioRef} label="Dominio Vigente" name="dominio_vigente" accept=".pdf,image/*,.doc,.docx,.xls,.xlsx,.csv" multiple={true} category="dominio_vigente" initialFiles={initialData?.uploaded_files?.dominio_vigente || []} />
                     <div className="pt-4"></div>
-                    <FileUploadField ref={otrosRef} label="Otros Documentos (Opcional)" name="otros_documentos" accept=".pdf,image/*,.doc,.docx,.xls,.xlsx,.csv" multiple={true} />
+                    <FileUploadField ref={otrosRef} label="Otros Documentos (Opcional)" name="otros_documentos" accept=".pdf,image/*,.doc,.docx,.xls,.xlsx,.csv" multiple={true} category="otros_documentos" initialFiles={initialData?.uploaded_files?.otros_documentos || []} />
                 </CardSection>
 
                 <CardSection title="6. Notas Adicionales">
@@ -1675,6 +1778,14 @@ function AnnexFormLogic({ user, profile, navigate, initialData = {}, requestId =
                         jsonData[key] = value
                     }
                 }
+            }
+
+            // Include uploaded file URLs in draft data
+            const contratoFiles = contratoRef.current?.getUploadedUrls() || []
+            const docAdicionalesFiles = docAdicionalesRef.current?.getUploadedUrls() || []
+            jsonData.uploaded_files = {
+                contrato_original: contratoFiles,
+                documentos_adicionales: docAdicionalesFiles,
             }
 
             let error;
@@ -1774,9 +1885,20 @@ function AnnexFormLogic({ user, profile, navigate, initialData = {}, requestId =
                 }
             }
 
-            // Append Files from refs (reliable source of truth)
-            contratoFiles.forEach(file => webhookData.append('contrato_original[]', file))
-            docAdicionalesFiles.forEach(file => webhookData.append('documentos_adicionales[]', file))
+            // Fetch and append files from storage URLs
+            const fetchAndAppendFiles = async (fileList, fieldName) => {
+                for (const f of fileList) {
+                    try {
+                        const resp = await fetch(f.url)
+                        const blob = await resp.blob()
+                        webhookData.append(fieldName, new File([blob], f.name, { type: blob.type }))
+                    } catch (err) {
+                        console.warn(`Could not fetch file ${f.name} for webhook:`, err)
+                    }
+                }
+            }
+            await fetchAndAppendFiles(contratoFiles, 'contrato_original[]')
+            await fetchAndAppendFiles(docAdicionalesFiles, 'documentos_adicionales[]')
 
             // Trigger Webhook
             await triggerLegalWebhook(webhookData)
@@ -1886,6 +2008,8 @@ function AnnexFormLogic({ user, profile, navigate, initialData = {}, requestId =
                             label="Contrato Original (Obligatorio)"
                             name="contrato_original"
                             accept=".pdf,image/*,.doc,.docx"
+                            category="contrato_original"
+                            initialFiles={initialData?.uploaded_files?.contrato_original || []}
                         />
                         <FileUploadField
                             ref={docAdicionalesRef}
@@ -1893,6 +2017,8 @@ function AnnexFormLogic({ user, profile, navigate, initialData = {}, requestId =
                             name="documentos_adicionales"
                             accept=".pdf,image/*,.doc,.docx"
                             multiple
+                            category="documentos_adicionales"
+                            initialFiles={initialData?.uploaded_files?.documentos_adicionales || []}
                         />
                     </div>
                 </CardSection>
