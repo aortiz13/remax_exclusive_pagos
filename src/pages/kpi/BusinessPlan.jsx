@@ -95,8 +95,8 @@ export default function BusinessPlan() {
         try {
             const { data: prof } = await supabase.from('profiles').select('association_plan').eq('id', user.id).single()
             if (prof?.association_plan) setAgentPlan(prof.association_plan)
-            const { data: pd, error: pe } = await supabase.from('business_plans').select('*').eq('agent_id', user.id).eq('year', year).single()
-            if (pe && pe.code !== 'PGRST116') throw pe
+            const { data: pd, error: pe } = await supabase.from('business_plans').select('*').eq('agent_id', user.id).eq('year', year).maybeSingle()
+            if (pe) throw pe
             if (pd) {
                 setPlan(pd)
                 const [{ data: inv }, { data: ch }, { data: act }] = await Promise.all([
