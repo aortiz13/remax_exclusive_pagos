@@ -383,6 +383,16 @@ const EmailComposer = ({ onClose, onSuccess, replyTo = null, userProfile, initia
                 <div className="flex-1 flex flex-col min-h-[200px] bg-white overflow-hidden">
                     <MenuBar editor={editor} />
                     <EditorContent editor={editor} className="flex-1 flex flex-col h-full overflow-hidden [&>div]:h-full [&>div]:outline-none" />
+                    {/* Signature preview */}
+                    {userProfile?.signature_image_url && (
+                        <div className="px-4 py-2 border-t border-dashed border-gray-200 bg-gray-50/50">
+                            <img
+                                src={userProfile.signature_image_url}
+                                alt="Firma"
+                                className="max-w-[280px] max-h-[100px] object-contain opacity-70"
+                            />
+                        </div>
+                    )}
                 </div>
 
                 {/* Linked Task / Action chips */}

@@ -47,7 +47,10 @@ export default function ManagementReportList() {
                     query = query.eq('status', 'overdue')
                 }
             } else {
-                if (filter !== 'all') {
+                if (filter === 'pending') {
+                    // "Por enviar" includes both pending and overdue statuses
+                    query = query.in('status', ['pending', 'overdue'])
+                } else if (filter !== 'all') {
                     query = query.eq('status', filter)
                 }
             }
@@ -159,23 +162,21 @@ export default function ManagementReportList() {
     }
 
     const statusConfig = {
-        pending: { label: 'Pendiente', color: 'bg-amber-100 text-amber-800 border-amber-200', icon: Clock },
+        pending: { label: 'Por enviar', color: 'bg-amber-100 text-amber-800 border-amber-200', icon: Clock },
         overdue: { label: 'Atrasado', color: 'bg-red-100 text-red-800 border-red-200', icon: AlertTriangle },
         sent: { label: 'Enviado', color: 'bg-emerald-100 text-emerald-800 border-emerald-200', icon: CheckCircle },
-        waiting_publication: { label: 'Esperando Publicación', color: 'bg-slate-100 text-slate-600 border-slate-200', icon: PauseCircle }
+        waiting_publication: { label: 'En pausa', color: 'bg-slate-100 text-slate-600 border-slate-200', icon: PauseCircle }
     }
 
-    const overdue = reports.filter(r => {
+    const pendingReports = reports.filter(r => r.status === 'pending' || r.status === 'overdue')
+    const pendingCount = pendingReports.length
+    const overdueCount = pendingReports.filter(r => {
         if (r.status === 'overdue') return true
-        if (r.status === 'pending') {
-            const dueDate = new Date(r.due_date + 'T12:00:00')
-            const today = new Date()
-            today.setHours(0, 0, 0, 0)
-            return dueDate < today
-        }
-        return false
+        const dueDate = new Date(r.due_date + 'T12:00:00')
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+        return dueDate < today
     }).length
-    const pending = reports.filter(r => r.status === 'pending').length
     const sent = reports.filter(r => r.status === 'sent').length
     const waiting = reports.filter(r => r.status === 'waiting_publication').length
 
@@ -188,9 +189,8 @@ export default function ManagementReportList() {
     // Agent tabs
     const agentTabs = [
         { key: 'all', label: 'Todos' },
-        { key: 'overdue', label: 'Atrasados' },
-        { key: 'pending', label: 'Pendientes' },
-        { key: 'waiting_publication', label: 'Esperando' },
+        { key: 'pending', label: 'Por enviar' },
+        { key: 'waiting_publication', label: 'En pausa' },
         { key: 'sent', label: 'Enviados' }
     ]
 
@@ -228,16 +228,15 @@ export default function ManagementReportList() {
             </div>
 
             {/* Stats Cards */}
-            <div className={cn("grid gap-4", isAdmin ? "grid-cols-2" : "grid-cols-4")}>
+            <div className={cn("grid gap-4", isAdmin ? "grid-cols-2" : "grid-cols-3")}>
                 {(isAdmin
                     ? [
-                        { label: 'Atrasados', count: overdue, color: 'from-red-500 to-red-600', bg: 'bg-red-50' },
+                        { label: 'Atrasados', count: overdueCount, color: 'from-red-500 to-red-600', bg: 'bg-red-50' },
                         { label: 'Enviados', count: sent, color: 'from-emerald-500 to-emerald-600', bg: 'bg-emerald-50' }
                     ]
                     : [
-                        { label: 'Atrasados', count: overdue, color: 'from-red-500 to-red-600', bg: 'bg-red-50' },
-                        { label: 'Pendientes', count: pending, color: 'from-amber-500 to-amber-600', bg: 'bg-amber-50' },
-                        { label: 'Esperando', count: waiting, color: 'from-slate-400 to-slate-500', bg: 'bg-slate-50' },
+                        { label: 'Por enviar', count: pendingCount, color: overdueCount > 0 ? 'from-red-500 to-red-600' : 'from-amber-500 to-amber-600', bg: overdueCount > 0 ? 'bg-red-50' : 'bg-amber-50', sub: overdueCount > 0 ? `${overdueCount} atrasado${overdueCount !== 1 ? 's' : ''}` : null },
+                        { label: 'En pausa', count: waiting, color: 'from-slate-400 to-slate-500', bg: 'bg-slate-50' },
                         { label: 'Enviados', count: sent, color: 'from-emerald-500 to-emerald-600', bg: 'bg-emerald-50' }
                     ]
                 ).map((stat, i) => (
@@ -252,6 +251,7 @@ export default function ManagementReportList() {
                             <span className={cn("bg-gradient-to-r bg-clip-text text-transparent", stat.color)}>{stat.count}</span>
                         </p>
                         <p className="text-sm font-medium text-slate-600 mt-1">{stat.label}</p>
+                        {stat.sub && <p className="text-xs font-medium text-red-500 mt-0.5">{stat.sub}</p>}
                     </motion.div>
                 ))}
             </div>
@@ -287,6 +287,10 @@ export default function ManagementReportList() {
                             ? 'No hay informes atrasados'
                             : isAdmin && filter === 'sent'
                                 ? 'No hay informes enviados'
+                                : filter === 'pending'
+                                    ? 'No hay informes por enviar'
+                                    : filter === 'waiting_publication'
+                                        ? 'No hay informes en pausa'
                                 : 'No hay informes de gestión'
                         }
                     </p>
@@ -359,7 +363,8 @@ export default function ManagementReportList() {
                         const dueDate = isWaiting ? null : new Date(report.due_date + 'T12:00:00')
                         const today = new Date()
                         today.setHours(0, 0, 0, 0)
-                        const isOverdue = report.status === 'pending' && dueDate && dueDate < today
+                        const isOverdue = (report.status === 'pending' || report.status === 'overdue') && dueDate && dueDate < today
+                        const daysOverdue = isOverdue ? Math.floor((today - dueDate) / (1000 * 60 * 60 * 24)) : 0
 
                         // Auto-mark as overdue visually
                         const displayCfg = isWaiting ? statusConfig.waiting_publication : (isOverdue ? statusConfig.overdue : cfg)
@@ -385,9 +390,18 @@ export default function ManagementReportList() {
                                                     <span className="text-slate-400 font-normal"> — {report.agent.first_name} {report.agent.last_name}</span>
                                                 )}
                                             </h3>
-                                            <p className="text-sm text-slate-500">
+                                            <p className="text-sm text-slate-500 flex items-center gap-1.5">
                                                 {report.properties?.address || 'Propiedad sin dirección'}
                                                 {report.properties?.commune && `, ${report.properties.commune}`}
+                                                {report.property_id && (
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); navigate(`/crm/property/${report.property_id}`) }}
+                                                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 transition-colors"
+                                                        title="Ver propiedad"
+                                                    >
+                                                        <Home className="w-3 h-3" />
+                                                    </button>
+                                                )}
                                             </p>
                                             <p className="text-xs text-slate-400 mt-1">
                                                 Propietario: {report.owner?.first_name} {report.owner?.last_name}
@@ -398,10 +412,10 @@ export default function ManagementReportList() {
                                     <div className="flex items-center gap-3">
                                         <div className="text-right">
                                             <span className={cn("inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border", displayCfg.color)}>
-                                                {displayCfg.label}
+                                                {isOverdue ? `${daysOverdue}d de atraso` : displayCfg.label}
                                             </span>
                                             <p className="text-xs text-slate-400 mt-1">
-                                                {isWaiting ? 'Esperando publicación' : `Enviar: ${dueDate.toLocaleDateString('es-CL')}`}
+                                                {isWaiting ? 'Propiedad no publicada' : `Enviar: ${dueDate.toLocaleDateString('es-CL')}`}
                                             </p>
                                         </div>
                                         {isAdmin ? (

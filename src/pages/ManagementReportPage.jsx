@@ -1435,7 +1435,21 @@ export default function ManagementReportPage() {
         if (!reportEl) return null
 
         const footerAgentName = `${report?.agent?.first_name || profile?.first_name || ''} ${report?.agent?.last_name || profile?.last_name || ''}`.trim()
-        const styles = Array.from(document.querySelectorAll('link[rel="stylesheet"], style')).map(el => el.outerHTML).join('\n')
+        // Inline all CSS content to avoid 404s when Gotenberg tries to fetch hashed Vite CSS files
+        const styles = Array.from(document.querySelectorAll('link[rel="stylesheet"], style')).map(el => {
+            if (el.tagName === 'STYLE') return el.outerHTML
+            // For <link> stylesheets, read parsed CSS rules and inline them
+            try {
+                const sheet = el.sheet
+                if (sheet) {
+                    const rules = Array.from(sheet.cssRules).map(r => r.cssText).join('\n')
+                    return `<style>${rules}</style>`
+                }
+            } catch (e) {
+                console.warn('Could not inline stylesheet:', el.href, e)
+            }
+            return el.outerHTML // fallback to link tag for cross-origin sheets
+        }).join('\n')
         let reportHtml = reportEl.innerHTML
         // Convert relative paths to absolute
         reportHtml = reportHtml.replace(/src="\/([^"]+)"/g, `src="${window.location.origin}/$1"`)

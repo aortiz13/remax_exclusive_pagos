@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
-import { supabase } from '../services/supabase'
+import { supabase, getCustomPublicUrl } from '../services/supabase'
 import { Button, Input, Label, Card, CardHeader, CardTitle, CardContent, CardFooter, CardDescription } from '@/components/ui'
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom'
-import { Calendar } from 'lucide-react'
+import { Calendar, Upload, Trash2, PenTool } from 'lucide-react'
 
 export default function Profile() {
     const { user, profile, refreshProfile } = useAuth()
@@ -13,6 +13,9 @@ export default function Profile() {
     const [firstName, setFirstName] = useState('')
     const [lastName, setLastName] = useState('')
     const [phone, setPhone] = useState('')
+    const [signatureUrl, setSignatureUrl] = useState('')
+    const [uploadingSignature, setUploadingSignature] = useState(false)
+    const signatureInputRef = useRef(null)
     const [searchParams, setSearchParams] = useSearchParams()
     const location = useLocation()
     const navigate = useNavigate()
@@ -28,6 +31,7 @@ export default function Profile() {
             setFirstName(profile.first_name || '')
             setLastName(profile.last_name || '')
             setPhone(profile.phone || '')
+            setSignatureUrl(profile.signature_image_url || '')
         }
     }, [profile])
 
@@ -89,6 +93,72 @@ export default function Profile() {
             toast.error('Error al iniciar vinculación con Google')
         } finally {
             setConnectingGoogle(false)
+        }
+    }
+
+    const handleSignatureUpload = async (e) => {
+        const file = e.target.files?.[0]
+        if (!file) return
+
+        const maxSize = 5 * 1024 * 1024
+        if (file.size > maxSize) {
+            toast.error('La imagen no debe superar 5MB')
+            return
+        }
+
+        const validTypes = ['image/png', 'image/jpeg', 'image/webp']
+        if (!validTypes.includes(file.type)) {
+            toast.error('Solo se permiten imágenes PNG, JPG o WebP')
+            return
+        }
+
+        setUploadingSignature(true)
+        try {
+            const ext = file.name.split('.').pop().toLowerCase()
+            const filePath = `signatures/${user.id}/${Date.now()}.${ext}`
+
+            const { error: uploadError } = await supabase.storage
+                .from('avatars')
+                .upload(filePath, file, { cacheControl: '3600', upsert: true })
+
+            if (uploadError) throw uploadError
+
+            const publicUrl = getCustomPublicUrl('avatars', filePath)
+
+            const { error: updateError } = await supabase
+                .from('profiles')
+                .update({ signature_image_url: publicUrl, updated_at: new Date().toISOString() })
+                .eq('id', user.id)
+
+            if (updateError) throw updateError
+
+            setSignatureUrl(publicUrl)
+            await refreshProfile()
+            toast.success('Firma de email actualizada')
+        } catch (error) {
+            console.error('Signature upload error:', error)
+            toast.error('Error al subir la firma')
+        } finally {
+            setUploadingSignature(false)
+            if (signatureInputRef.current) signatureInputRef.current.value = ''
+        }
+    }
+
+    const handleDeleteSignature = async () => {
+        try {
+            const { error } = await supabase
+                .from('profiles')
+                .update({ signature_image_url: null, updated_at: new Date().toISOString() })
+                .eq('id', user.id)
+
+            if (error) throw error
+
+            setSignatureUrl('')
+            await refreshProfile()
+            toast.success('Firma eliminada')
+        } catch (error) {
+            console.error('Error deleting signature:', error)
+            toast.error('Error al eliminar la firma')
         }
     }
 
@@ -194,6 +264,70 @@ export default function Profile() {
                                 <p className="text-[10px] text-muted-foreground">Este ID es asignado por administración.</p>
                             </div>
                         )}
+
+                        {/* Firma de Email */}
+                        <div className="pt-4 border-t border-slate-200 dark:border-slate-800">
+                            <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
+                                <PenTool className="w-5 h-5 text-amber-500" />
+                                Firma de Email
+                            </h3>
+                            <p className="text-xs text-muted-foreground mb-3">
+                                Sube la imagen de tu firma profesional. Se incluirá automáticamente en todos los correos que envíes desde la plataforma.
+                            </p>
+
+                            {signatureUrl ? (
+                                <div className="space-y-3">
+                                    <div className="border border-slate-200 dark:border-slate-700 rounded-lg p-3 bg-white dark:bg-slate-900">
+                                        <img
+                                            src={signatureUrl}
+                                            alt="Firma de email"
+                                            className="max-w-full max-h-48 object-contain rounded"
+                                        />
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <label htmlFor="signature-upload" className="inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium transition-all disabled:pointer-events-none disabled:opacity-50 border border-input bg-background shadow-xs hover:bg-accent hover:text-accent-foreground h-8 rounded-md px-3 text-xs cursor-pointer">
+                                            <Upload className="w-4 h-4 mr-1" />
+                                            {uploadingSignature ? 'Subiendo...' : 'Cambiar'}
+                                        </label>
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                                            onClick={handleDeleteSignature}
+                                        >
+                                            <Trash2 className="w-4 h-4 mr-1" />
+                                            Eliminar
+                                        </Button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <button
+                                    type="button"
+                                    className="w-full border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg p-8 text-center cursor-pointer hover:border-amber-400 hover:bg-amber-50/30 dark:hover:bg-amber-900/10 transition-colors block bg-transparent"
+                                    onClick={(e) => {
+                                        e.preventDefault()
+                                        e.stopPropagation()
+                                        signatureInputRef.current?.click()
+                                    }}
+                                >
+                                    <Upload className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+                                    <p className="text-sm text-slate-600 dark:text-slate-400 font-medium">
+                                        {uploadingSignature ? 'Subiendo...' : 'Haz clic para subir tu firma'}
+                                    </p>
+                                    <p className="text-xs text-slate-400 mt-1">PNG, JPG o WebP — Máx. 5MB</p>
+                                </button>
+                            )}
+                            <input
+                                id="signature-upload"
+                                ref={signatureInputRef}
+                                type="file"
+                                accept="image/png,image/jpeg,image/webp"
+                                tabIndex={-1}
+                                style={{ position: 'absolute', clip: 'rect(0,0,0,0)', pointerEvents: 'none' }}
+                                onChange={handleSignatureUpload}
+                            />
+                        </div>
 
                         <div className="pt-4 border-t border-slate-200 dark:border-slate-800">
                             <h3 className="text-lg font-medium mb-4 flex items-center gap-2">

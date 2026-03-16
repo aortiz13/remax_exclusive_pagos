@@ -116,7 +116,7 @@ const Layout = ({ children }) => {
             backgroundColor: '#fff',
             animation: 'pulse 1.5s ease-in-out infinite',
           }} />
-          ⚠️ Gmail se encuentra experimentando problemas. Por favor no lo utilice hasta que nuestro equipo le indique lo contrario. Muchas gracias.
+          ⚠️ Hemos realizado mejoras en la app. Si detecta algún error, escríbanos al chat de Soporte con una descripción + captura de pantalla.
         </div>
         <style>{`@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }`}</style>
         <Header />
