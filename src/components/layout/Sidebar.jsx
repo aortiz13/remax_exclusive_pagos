@@ -149,6 +149,7 @@ export default function Sidebar() {
                         { title: 'Captaciones', icon: ClipboardList, path: '/admin/captaciones' },
                         { title: 'Importar Propiedades', icon: Download, path: '/admin/import' },
                         { title: 'Importar Administradas', icon: FileSpreadsheet, path: '/admin/import-administradas' },
+                        { title: 'Liquidación Comisiones', icon: CreditCard, path: '/admin/comisiones' },
                     ]
                 },
                 {
@@ -184,6 +185,7 @@ export default function Sidebar() {
                         { title: 'Captaciones', icon: ClipboardList, path: '/admin/captaciones' },
                         { title: 'Importar Propiedades', icon: Download, path: '/admin/import' },
                         { title: 'Importar Administradas', icon: FileSpreadsheet, path: '/admin/import-administradas' },
+                        { title: 'Liquidación Comisiones', icon: CreditCard, path: '/admin/comisiones' },
                     ]
                 },
                 {
@@ -225,6 +227,7 @@ export default function Sidebar() {
                         { title: 'Captaciones', icon: ClipboardList, path: '/admin/captaciones' },
                         { title: 'Importar Propiedades', icon: Download, path: '/admin/import' },
                         { title: 'Importar Administradas', icon: FileSpreadsheet, path: '/admin/import-administradas' },
+                        { title: 'Liquidación Comisiones', icon: CreditCard, path: '/admin/comisiones' },
                     ]
                 },
                 {
@@ -254,6 +257,7 @@ export default function Sidebar() {
                 { title: 'Solicitudes', icon: FileText, path: '/admin/requests' },
                 { title: 'Captaciones', icon: ClipboardList, path: '/admin/captaciones' },
                 { title: 'Importar Administradas', icon: FileSpreadsheet, path: '/admin/import-administradas' },
+                { title: 'Liquidación Comisiones', icon: CreditCard, path: '/admin/comisiones' },
                 { title: 'Agenda Cámara 360°', icon: Camera, path: '/admin/camera-schedule' },
                 { title: 'Agenda Turnos', icon: Shield, path: '/admin/shift-schedule' },
                 { title: 'Leads Asignados', icon: FileText, path: '/guard-leads' },
@@ -264,6 +268,7 @@ export default function Sidebar() {
             items: [
                 { title: 'Solicitudes', icon: FileText, path: '/admin/requests' },
                 { title: 'Importar Administradas', icon: FileSpreadsheet, path: '/admin/import-administradas' },
+                { title: 'Liquidación Comisiones', icon: CreditCard, path: '/admin/comisiones' },
                 { title: 'Agenda Turnos', icon: Shield, path: '/admin/shift-schedule' },
                 { title: 'Leads Asignados', icon: FileText, path: '/guard-leads' },
             ]

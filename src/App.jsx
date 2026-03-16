@@ -53,6 +53,7 @@ import AdminAuditLogs from './pages/AdminAuditLogs'
 import InspectionFormPage from './pages/InspectionFormPage'
 import InspectionDashboard from './pages/InspectionDashboard'
 import AdminAdministradaImport from './pages/AdminAdministradaImport'
+import AdminCommissionPayment from './pages/AdminCommissionPayment'
 import PublicInspectionPage from './pages/PublicInspectionPage'
 import AuthCallback from './pages/AuthCallback'
 import { Toaster } from 'sonner'
@@ -384,6 +385,13 @@ function App() {
                   <Route path="/admin/import-administradas" element={
                     <ProtectedRoute>
                       <AdminAdministradaImport />
+                    </ProtectedRoute>
+                  } />
+
+                  {/* ═══ Admin: Commission Payment ═══ */}
+                  <Route path="/admin/comisiones" element={
+                    <ProtectedRoute>
+                      <AdminCommissionPayment />
                     </ProtectedRoute>
                   } />
 
