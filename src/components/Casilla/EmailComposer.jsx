@@ -385,11 +385,11 @@ const EmailComposer = ({ onClose, onSuccess, replyTo = null, userProfile, initia
                     <EditorContent editor={editor} className="flex-1 flex flex-col h-full overflow-hidden [&>div]:h-full [&>div]:outline-none" />
                     {/* Signature preview */}
                     {userProfile?.signature_image_url && (
-                        <div className="px-4 py-2 border-t border-dashed border-gray-200 bg-gray-50/50">
+                        <div className="px-4 py-2 text-center">
                             <img
                                 src={userProfile.signature_image_url}
                                 alt="Firma"
-                                className="max-w-[280px] max-h-[100px] object-contain opacity-70"
+                                className="max-w-[280px] max-h-[100px] object-contain opacity-70 inline-block"
                             />
                         </div>
                     )}

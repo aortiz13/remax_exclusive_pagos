@@ -128,7 +128,7 @@ export default function ManagementReportPage() {
             if (data.agent_id) {
                 const { data: agentProfile } = await supabase
                     .from('profiles')
-                    .select('id, first_name, last_name, email')
+                    .select('id, first_name, last_name, email, signature_image_url')
                     .eq('id', data.agent_id)
                     .single()
                 agentData = agentProfile
@@ -537,16 +537,8 @@ export default function ManagementReportPage() {
             // Build HTML email from the editable draft body
             const bodyLines = emailDraft.body.split('\n').filter(l => l.trim())
             const bodyHtml = `
-                <div style="font-family: 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #1a1a1a;">
+                <div style="font-family: 'Helvetica Neue', Arial, sans-serif; color: #1a1a1a; text-align: left;">
                     ${bodyLines.map(line => `<p style="font-size: 15px; line-height: 1.7; color: #4a4a4a; margin: 0 0 16px 0;">${line}</p>`).join('\n')}
-                    <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #e5e7eb;">
-                        <div style="color: #1a1a1a; font-weight: 700; font-size: 15px;">${agentName}</div>
-                        <div style="color: #003DA5; font-size: 13px; font-weight: 600; margin-top: 2px;">Agente RE/MAX Exclusive</div>
-                        ${agentEmail ? `<div style="color: #6b7280; font-size: 13px; margin-top: 4px;">${agentEmail}</div>` : ''}
-                    </div>
-                    <div style="margin-top: 32px; padding: 16px 0; border-top: 1px solid #e5e7eb; text-align: center;">
-                        <span style="color: #9ca3af; font-size: 11px;">© ${new Date().getFullYear()} RE/MAX Exclusive · Santiago, Chile</span>
-                    </div>
                 </div>
             `
 

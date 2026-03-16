@@ -1,7 +1,7 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
-import { supabase, getCustomPublicUrl } from '../services/supabase'
+import { supabase } from '../services/supabase'
 import { Button, Input, Label, Card, CardHeader, CardTitle, CardContent, CardFooter, CardDescription } from '@/components/ui'
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom'
 import { Calendar, Upload, Trash2, PenTool } from 'lucide-react'
@@ -15,7 +15,7 @@ export default function Profile() {
     const [phone, setPhone] = useState('')
     const [signatureUrl, setSignatureUrl] = useState('')
     const [uploadingSignature, setUploadingSignature] = useState(false)
-    const signatureInputRef = useRef(null)
+    const [isDragging, setIsDragging] = useState(false)
     const [searchParams, setSearchParams] = useSearchParams()
     const location = useLocation()
     const navigate = useNavigate()
@@ -114,33 +114,29 @@ export default function Profile() {
 
         setUploadingSignature(true)
         try {
-            const ext = file.name.split('.').pop().toLowerCase()
-            const filePath = `signatures/${user.id}/${Date.now()}.${ext}`
-
-            const { error: uploadError } = await supabase.storage
-                .from('avatars')
-                .upload(filePath, file, { cacheControl: '3600', upsert: true })
-
-            if (uploadError) throw uploadError
-
-            const publicUrl = getCustomPublicUrl('avatars', filePath)
+            // Convert to base64 data URL (bypass broken storage service)
+            const dataUrl = await new Promise((resolve, reject) => {
+                const reader = new FileReader()
+                reader.onload = () => resolve(reader.result)
+                reader.onerror = reject
+                reader.readAsDataURL(file)
+            })
 
             const { error: updateError } = await supabase
                 .from('profiles')
-                .update({ signature_image_url: publicUrl, updated_at: new Date().toISOString() })
+                .update({ signature_image_url: dataUrl, updated_at: new Date().toISOString() })
                 .eq('id', user.id)
 
             if (updateError) throw updateError
 
-            setSignatureUrl(publicUrl)
+            setSignatureUrl(dataUrl)
             await refreshProfile()
             toast.success('Firma de email actualizada')
         } catch (error) {
             console.error('Signature upload error:', error)
-            toast.error('Error al subir la firma')
+            toast.error(`Error al subir la firma: ${error?.message || 'desconocido'}`)
         } finally {
             setUploadingSignature(false)
-            if (signatureInputRef.current) signatureInputRef.current.value = ''
         }
     }
 
@@ -285,10 +281,19 @@ export default function Profile() {
                                         />
                                     </div>
                                     <div className="flex gap-2">
-                                        <label htmlFor="signature-upload" className="inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium transition-all disabled:pointer-events-none disabled:opacity-50 border border-input bg-background shadow-xs hover:bg-accent hover:text-accent-foreground h-8 rounded-md px-3 text-xs cursor-pointer">
-                                            <Upload className="w-4 h-4 mr-1" />
-                                            {uploadingSignature ? 'Subiendo...' : 'Cambiar'}
-                                        </label>
+                                        <div className="relative">
+                                            <input
+                                                type="file"
+                                                accept="image/png,image/jpeg,image/webp"
+                                                onChange={handleSignatureUpload}
+                                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                                disabled={uploadingSignature}
+                                            />
+                                            <Button type="button" variant="outline" size="sm" disabled={uploadingSignature}>
+                                                <Upload className="w-4 h-4 mr-1" />
+                                                {uploadingSignature ? 'Subiendo...' : 'Cambiar'}
+                                            </Button>
+                                        </div>
                                         <Button
                                             type="button"
                                             variant="ghost"
@@ -302,31 +307,35 @@ export default function Profile() {
                                     </div>
                                 </div>
                             ) : (
-                                <button
-                                    type="button"
-                                    className="w-full border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg p-8 text-center cursor-pointer hover:border-amber-400 hover:bg-amber-50/30 dark:hover:bg-amber-900/10 transition-colors block bg-transparent"
-                                    onClick={(e) => {
+                                <div
+                                    className={`relative border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+                                        isDragging
+                                            ? 'border-amber-500 bg-amber-50/50 dark:bg-amber-900/20'
+                                            : 'border-slate-300 dark:border-slate-600 hover:border-amber-400 hover:bg-amber-50/30 dark:hover:bg-amber-900/10'
+                                    }`}
+                                    onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
+                                    onDragLeave={() => setIsDragging(false)}
+                                    onDrop={(e) => {
                                         e.preventDefault()
-                                        e.stopPropagation()
-                                        signatureInputRef.current?.click()
+                                        setIsDragging(false)
+                                        const file = e.dataTransfer.files?.[0]
+                                        if (file) handleSignatureUpload({ target: { files: [file] } })
                                     }}
                                 >
+                                    <input
+                                        type="file"
+                                        accept="image/png,image/jpeg,image/webp"
+                                        onChange={handleSignatureUpload}
+                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                        disabled={uploadingSignature}
+                                    />
                                     <Upload className="w-8 h-8 text-slate-400 mx-auto mb-2" />
                                     <p className="text-sm text-slate-600 dark:text-slate-400 font-medium">
-                                        {uploadingSignature ? 'Subiendo...' : 'Haz clic para subir tu firma'}
+                                        {uploadingSignature ? 'Subiendo...' : isDragging ? 'Suelta aquí' : 'Haz clic o arrastra tu firma aquí'}
                                     </p>
                                     <p className="text-xs text-slate-400 mt-1">PNG, JPG o WebP — Máx. 5MB</p>
-                                </button>
+                                </div>
                             )}
-                            <input
-                                id="signature-upload"
-                                ref={signatureInputRef}
-                                type="file"
-                                accept="image/png,image/jpeg,image/webp"
-                                tabIndex={-1}
-                                style={{ position: 'absolute', clip: 'rect(0,0,0,0)', pointerEvents: 'none' }}
-                                onChange={handleSignatureUpload}
-                            />
                         </div>
 
                         <div className="pt-4 border-t border-slate-200 dark:border-slate-800">
