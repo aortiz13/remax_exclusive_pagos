@@ -232,7 +232,7 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
                 setOtherActionType('');
                 setSelectedPropertyId(defaultPropertyId || 'none');
                 setSelectedContactIds(defaultContactId ? [defaultContactId] : []);
-                setActionDate(new Date().toISOString().slice(0, 16));
+                setActionDate(toISOLocal());
                 setNote('');
                 setCallResult('');
                 setOtherCallResult('');
