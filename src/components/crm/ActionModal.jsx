@@ -47,6 +47,7 @@ import {
 import ContactForm from './ContactForm'; // To create a new contact
 import PropertyForm from './PropertyForm'; // To create a new property
 import { logActivity } from '../../services/activityService'
+import { fetchUFValue } from '../../services/ufService'
 
 const ACTION_TYPES = [
     "Café relacional",
@@ -136,28 +137,10 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
     const [fetchingUF, setFetchingUF] = useState(false);
 
     useEffect(() => {
-        const fetchUF = async () => {
-            setFetchingUF(true);
-            const maxRetries = 2;
-            for (let attempt = 0; attempt <= maxRetries; attempt++) {
-                try {
-                    const res = await fetch('https://mindicador.cl/api/uf');
-                    const data = await res.json();
-                    if (data?.serie?.[0]?.valor) {
-                        setUfValue(data.serie[0].valor);
-                        break;
-                    }
-                } catch (e) {
-                    if (attempt === maxRetries) {
-                        console.error('Error fetching UF:', e);
-                    } else {
-                        await new Promise(r => setTimeout(r, 1000));
-                    }
-                }
-            }
-            setFetchingUF(false);
-        };
-        fetchUF();
+        setFetchingUF(true);
+        fetchUFValue().then(result => {
+            if (result) setUfValue(result.valor);
+        }).finally(() => setFetchingUF(false));
     }, []);
 
     // Helper: convert input amount to CLP for storage

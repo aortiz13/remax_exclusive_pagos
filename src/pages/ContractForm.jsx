@@ -1473,9 +1473,9 @@ function LeaseFormLogic({ user, profile, navigate, initialData = {}, requestId =
 
                 if (currency === 'uf') {
                     try {
-                        const ufRes = await fetch('https://mindicador.cl/api/uf')
-                        const ufData = await ufRes.json()
-                        const valorUF = ufData.serie && ufData.serie[0] ? ufData.serie[0].valor : null
+                        const { fetchUFValue } = await import('../../services/ufService')
+                        const ufResult = await fetchUFValue()
+                        const valorUF = ufResult?.valor || null
 
                         if (valorUF) {
                             // Parse canon (handle comma/dot)

@@ -5,6 +5,7 @@ import {
     Briefcase, ChevronRight, ChevronLeft, Calendar, FileCheck,
     AlertTriangle, CheckCircle, Building, Home, Info, Trash2, Plus
 } from 'lucide-react'
+import { fetchUFValue } from '../../services/ufService'
 
 // ── Toggle Switch Component ──────────────────────────────────────────────
 const ToggleSwitch = ({ checked, onChange, id }) => (
@@ -69,31 +70,12 @@ export default function StepCalculos({ data, onUpdate, onNext, onBack }) {
     const [ufData, setUfData] = useState({ valor: 0, fecha: '' })
 
     useEffect(() => {
-        const fetchUF = async () => {
-            const maxRetries = 2
-            for (let attempt = 0; attempt <= maxRetries; attempt++) {
-                try {
-                    const resRoot = await fetch('https://mindicador.cl/api')
-                    if (!resRoot.ok) throw new Error('Failed to fetch UF')
-                    const rootData = await resRoot.json()
-                    if (rootData.uf) {
-                        setUfData({
-                            valor: rootData.uf.valor,
-                            fecha: rootData.uf.fecha?.split('T')[0]
-                        })
-                        onUpdate('ufValue', rootData.uf.valor)
-                        break
-                    }
-                } catch (err) {
-                    if (attempt === maxRetries) {
-                        console.error('Error fetching UF:', err)
-                    } else {
-                        await new Promise(r => setTimeout(r, 1000))
-                    }
-                }
+        fetchUFValue().then(result => {
+            if (result) {
+                setUfData({ valor: result.valor, fecha: result.fecha })
+                onUpdate('ufValue', result.valor)
             }
-        }
-        fetchUF()
+        })
     }, [])
 
     useEffect(() => {

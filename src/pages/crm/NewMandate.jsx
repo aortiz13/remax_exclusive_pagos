@@ -21,6 +21,7 @@ import AddressAutocomplete from "@/components/ui/AddressAutocomplete"
 import ContactPickerInline from '../../components/ui/ContactPickerInline'
 import PropertyPickerInline from '../../components/ui/PropertyPickerInline'
 import { logActivity } from '../../services/activityService'
+import { fetchUFValue } from '../../services/ufService'
 import Camera360BookingModal from '../../components/crm/Camera360BookingModal'
 
 const NewMandate = () => {
@@ -57,25 +58,8 @@ const NewMandate = () => {
 
     const fetchUF = async () => {
         setFetchingUF(true)
-        const maxRetries = 2
-        for (let attempt = 0; attempt <= maxRetries; attempt++) {
-            try {
-                const res = await fetch('https://mindicador.cl/api/uf')
-                if (res.ok) {
-                    const data = await res.json()
-                    if (data.serie && data.serie.length > 0) {
-                        setUfValue(data.serie[0].valor)
-                        break
-                    }
-                }
-            } catch (err) {
-                if (attempt === maxRetries) {
-                    console.error('Error fetching UF:', err)
-                } else {
-                    await new Promise(r => setTimeout(r, 1000))
-                }
-            }
-        }
+        const result = await fetchUFValue()
+        if (result) setUfValue(result.valor)
         setFetchingUF(false)
     }
 

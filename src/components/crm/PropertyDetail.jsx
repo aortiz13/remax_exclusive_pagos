@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Button, Badge, Separator, AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui'
-import { ArrowLeft, User, MapPin, Building, Ruler, BedDouble, Bath, Link as LinkIcon, FileText, Briefcase, Plus, Filter, Trash2, History, Star, ChevronLeft, ChevronRight, Upload, X, Camera, Image as ImageIcon } from 'lucide-react'
+import { ArrowLeft, User, MapPin, Building, Ruler, BedDouble, Bath, Link as LinkIcon, FileText, Briefcase, Plus, Filter, Trash2, History, Star, ChevronLeft, ChevronRight, Upload, X, Camera, Image as ImageIcon, Car, Layers, Calendar, DollarSign, Video, Globe, Landmark } from 'lucide-react'
 import { supabase, getCustomPublicUrl } from '../../services/supabase'
 import { useAuth } from '../../context/AuthContext'
 import PropertyForm from './PropertyForm'
@@ -326,10 +326,20 @@ const PropertyDetail = () => {
                     <h1 className="text-xl font-bold truncate max-w-md" title={property.address}>
                         {property.address}
                     </h1>
-                    <div className="flex items-center gap-2 text-sm text-gray-500">
+                    <div className="flex items-center gap-2 text-sm text-gray-500 flex-wrap">
                         {property.price && (
                             <span className="font-semibold text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 px-2 py-0.5 rounded">
                                 {property.currency === 'CLP' ? '$' : property.currency} {new Intl.NumberFormat('es-CL').format(property.price)}
+                            </span>
+                        )}
+                        {property.sold_price > 0 && (
+                            <span className="font-semibold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20 px-2 py-0.5 rounded text-xs">
+                                Vendida: {property.currency === 'CLP' ? '$' : property.currency} {new Intl.NumberFormat('es-CL').format(property.sold_price)}
+                            </span>
+                        )}
+                        {property.maintenance_fee > 0 && (
+                            <span className="text-xs text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20 px-2 py-0.5 rounded">
+                                GC: ${new Intl.NumberFormat('es-CL').format(property.maintenance_fee)}
                             </span>
                         )}
                         {property.is_exclusive && (
@@ -469,10 +479,26 @@ const PropertyDetail = () => {
                                     <Bath className="w-4 h-4 text-gray-400" />
                                     <span>{property.bathrooms || '-'}</span>
                                 </div>
-                                <div className="flex items-center gap-1 col-span-2" title="Superficie">
+                                <div className="flex items-center gap-1" title="Superficie">
                                     <Ruler className="w-4 h-4 text-gray-400" />
                                     <span>{property.m2_built || '-'} / {property.m2_total || '-'} m²</span>
                                 </div>
+                                <div className="flex items-center gap-1" title="Estacionamientos">
+                                    <Car className="w-4 h-4 text-gray-400" />
+                                    <span>{property.parking_spaces || '-'}</span>
+                                </div>
+                                {property.floor_number && (
+                                    <div className="flex items-center gap-1" title="Piso">
+                                        <Layers className="w-4 h-4 text-gray-400" />
+                                        <span>Piso {property.floor_number}</span>
+                                    </div>
+                                )}
+                                {property.year_built && (
+                                    <div className="flex items-center gap-1" title="Año de Construcción">
+                                        <Landmark className="w-4 h-4 text-gray-400" />
+                                        <span>{property.year_built}</span>
+                                    </div>
+                                )}
                             </div>
                         </div>
                         <div className="bg-white dark:bg-gray-900 p-4 rounded-xl border">
@@ -627,16 +653,98 @@ const PropertyDetail = () => {
                                         <span className="block text-muted-foreground">Tipo</span>
                                         <span>{property.property_type}</span>
                                     </div>
+                                    <div>
+                                        <span className="block text-muted-foreground">Operación</span>
+                                        <span className="capitalize">{property.operation_type || '-'}</span>
+                                    </div>
                                     <div className="col-span-2">
                                         <span className="block text-muted-foreground">Dirección Completa</span>
-                                        <span>{property.address}, {property.unit_number}, {property.commune}</span>
+                                        <span>{property.address}{property.unit_number ? `, ${property.unit_number}` : ''}{property.commune ? `, ${property.commune}` : ''}</span>
                                     </div>
                                     <div>
                                         <span className="block text-muted-foreground">ROL</span>
                                         <span>{property.rol_number || '-'}</span>
                                     </div>
+                                    <div>
+                                        <span className="block text-muted-foreground">Fuente</span>
+                                        <span className="capitalize">{property.source || 'manual'}</span>
+                                    </div>
                                 </div>
                             </div>
+
+                            {/* Fechas Importantes */}
+                            {(property.published_at || property.expires_at || property.sold_at || property.contract_start_date) && (
+                                <div className="bg-white dark:bg-gray-900 rounded-xl border p-4">
+                                    <h3 className="font-medium mb-3 flex items-center gap-2">
+                                        <Calendar className="w-4 h-4 text-indigo-500" /> Fechas
+                                    </h3>
+                                    <div className="grid grid-cols-2 gap-4 text-sm">
+                                        {property.published_at && (
+                                            <div>
+                                                <span className="block text-muted-foreground">Publicada</span>
+                                                <span>{new Date(property.published_at).toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                                            </div>
+                                        )}
+                                        {property.last_updated_at && (
+                                            <div>
+                                                <span className="block text-muted-foreground">Última Actualización</span>
+                                                <span>{new Date(property.last_updated_at).toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                                            </div>
+                                        )}
+                                        {property.expires_at && (
+                                            <div>
+                                                <span className="block text-muted-foreground">Expiración</span>
+                                                <span>{new Date(property.expires_at).toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                                            </div>
+                                        )}
+                                        {property.sold_at && (
+                                            <div>
+                                                <span className="block text-muted-foreground">Fecha Venta/Cierre</span>
+                                                <span>{new Date(property.sold_at).toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                                            </div>
+                                        )}
+                                        {property.contract_start_date && (
+                                            <div>
+                                                <span className="block text-muted-foreground">Inicio Contrato</span>
+                                                <span>{new Date(property.contract_start_date + 'T00:00:00').toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                                            </div>
+                                        )}
+                                        {property.contract_end_date && (
+                                            <div>
+                                                <span className="block text-muted-foreground">Término Contrato</span>
+                                                <span>{new Date(property.contract_end_date + 'T00:00:00').toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Precio de Venta y Gastos Comunes */}
+                            {(property.sold_price > 0 || property.maintenance_fee > 0) && (
+                                <div className="bg-white dark:bg-gray-900 rounded-xl border p-4">
+                                    <h3 className="font-medium mb-3 flex items-center gap-2">
+                                        <DollarSign className="w-4 h-4 text-green-500" /> Valores Adicionales
+                                    </h3>
+                                    <div className="grid grid-cols-2 gap-4 text-sm">
+                                        {property.sold_price > 0 && (
+                                            <div>
+                                                <span className="block text-muted-foreground">Precio de Venta Real</span>
+                                                <span className="font-semibold text-purple-600 dark:text-purple-400">
+                                                    {property.currency === 'CLP' ? '$' : property.currency} {new Intl.NumberFormat('es-CL').format(property.sold_price)}
+                                                </span>
+                                            </div>
+                                        )}
+                                        {property.maintenance_fee > 0 && (
+                                            <div>
+                                                <span className="block text-muted-foreground">Gastos Comunes</span>
+                                                <span className="font-semibold text-orange-600 dark:text-orange-400">
+                                                    ${new Intl.NumberFormat('es-CL').format(property.maintenance_fee)}
+                                                </span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
                         </TabsContent>
 
                         <TabsContent value="notes" className="py-4">
@@ -667,7 +775,25 @@ const PropertyDetail = () => {
                                     </div>
                                 </a>
                             )}
-                            {!property.listing_link && !property.documentation_link && (
+                            {property.virtual_tour_url && (
+                                <a href={property.virtual_tour_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 rounded-lg border hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                                    <Globe className="w-5 h-5 text-teal-500" />
+                                    <div>
+                                        <div className="font-medium text-teal-600">Tour Virtual 360°</div>
+                                        <div className="text-xs text-muted-foreground truncate max-w-sm">{property.virtual_tour_url}</div>
+                                    </div>
+                                </a>
+                            )}
+                            {property.video_url && (
+                                <a href={property.video_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 rounded-lg border hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                                    <Video className="w-5 h-5 text-red-500" />
+                                    <div>
+                                        <div className="font-medium text-red-600">Video</div>
+                                        <div className="text-xs text-muted-foreground truncate max-w-sm">{property.video_url}</div>
+                                    </div>
+                                </a>
+                            )}
+                            {!property.listing_link && !property.documentation_link && !property.virtual_tour_url && !property.video_url && (
                                 <div className="text-sm text-muted-foreground italic">No hay enlaces registrados.</div>
                             )}
                         </TabsContent>
