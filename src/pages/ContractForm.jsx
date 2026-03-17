@@ -1473,7 +1473,7 @@ function LeaseFormLogic({ user, profile, navigate, initialData = {}, requestId =
 
                 if (currency === 'uf') {
                     try {
-                        const { fetchUFValue } = await import('../../services/ufService')
+                        const { fetchUFValue } = await import('../services/ufService')
                         const ufResult = await fetchUFValue()
                         const valorUF = ufResult?.valor || null
 
