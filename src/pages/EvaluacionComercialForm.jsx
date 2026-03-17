@@ -316,12 +316,21 @@ export default function EvaluacionComercialForm() {
                 requestId = newReq?.id;
             }
 
+            // Webhook is non-blocking: DB record is already saved, so don't fail the form if webhook fails
             const webhookPayload = {
                 ...payloadData,
                 documentos: base64Files
             };
 
-            await triggerEvaluacionComercialWebhook(webhookPayload);
+            triggerEvaluacionComercialWebhook(webhookPayload).catch((webhookErr) => {
+                const errMsg = webhookErr?.message || String(webhookErr) || 'Error desconocido';
+                console.warn('Webhook de evaluación comercial falló (solicitud ya guardada):', errMsg);
+                auditLog.warn('crm', 'evaluacion_comercial.webhook_failed', `Webhook falló pero solicitud fue guardada: ${errMsg}`, {
+                    module: 'EvaluacionComercialForm.submitRequest',
+                    details: { address: propDireccion, owner: propNombre, requestId }
+                });
+                toast.warning('La solicitud fue guardada, pero hubo un problema al notificar al equipo. Se reintentará automáticamente.');
+            });
 
             toast.success('Solicitud enviada exitosamente');
 
@@ -338,12 +347,13 @@ export default function EvaluacionComercialForm() {
 
             navigate('/dashboard');
         } catch (error) {
+            const errMsg = error?.message || String(error) || 'Error desconocido';
             console.error('Error submitting evaluacion comercial:', error);
-            auditLog.error('crm', 'evaluacion_comercial.submit_failed', `Error al enviar evaluación comercial: ${error.message}`, {
+            auditLog.error('crm', 'evaluacion_comercial.submit_failed', `Error al enviar evaluación comercial: ${errMsg}`, {
                 module: 'EvaluacionComercialForm.submitRequest',
-                error_code: error.code || undefined,
+                error_code: error?.code || undefined,
                 details: {
-                    error: error.message,
+                    error: errMsg,
                     address: propDireccion,
                     owner: propNombre,
                     selectedPropertyId,
