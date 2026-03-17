@@ -130,16 +130,20 @@ const AdminPropertyImport = () => {
 
             setScannedProperties(allProperties)
 
-            // Check existing in DB
-            const urls = allProperties.map(p => p.source_url).filter(Boolean)
+            // Check existing in DB by listing_reference (reliable identifier)
+            const refs = allProperties.map(p => p.listing_reference).filter(Boolean)
             let foundLinks = new Set()
-            if (urls.length > 0) {
+            if (refs.length > 0) {
                 const { data: existingData } = await supabase
                     .from('properties')
-                    .select('listing_link')
-                    .in('listing_link', urls)
+                    .select('listing_reference')
+                    .in('listing_reference', refs)
                 if (existingData) {
-                    existingData.forEach(item => foundLinks.add(item.listing_link))
+                    existingData.forEach(item => {
+                        // Map listing_reference back to source_url for the row opacity filter
+                        const matched = allProperties.find(p => p.listing_reference === item.listing_reference)
+                        if (matched) foundLinks.add(matched.source_url)
+                    })
                 }
             }
             setExistingLinks(foundLinks)
@@ -184,6 +188,17 @@ const AdminPropertyImport = () => {
         }
     }
 
+    // Helper: convert Unix timestamps to ISO date strings
+    const safeDate = (val) => {
+        if (!val) return null
+        if (typeof val === 'number' || (typeof val === 'string' && /^\d+$/.test(val))) {
+            const num = Number(val)
+            const ms = num < 1e11 ? num * 1000 : num
+            try { return new Date(ms).toISOString() } catch { return null }
+        }
+        return val // already a string date
+    }
+
     // Helper: builds a merge object that only fills empty/null fields on the existing property
     const buildMergeUpdate = (existing, incoming) => {
         const update = {}
@@ -205,10 +220,10 @@ const AdminPropertyImport = () => {
             latitude: incoming.latitude,
             longitude: incoming.longitude,
             image_url: incoming.image_url,
-            published_at: incoming.published_at,
-            last_updated_at: incoming.last_updated_at,
-            expires_at: incoming.expires_at,
-            sold_at: incoming.sold_at,
+            published_at: safeDate(incoming.published_at),
+            last_updated_at: safeDate(incoming.last_updated_at),
+            expires_at: safeDate(incoming.expires_at),
+            sold_at: safeDate(incoming.sold_at),
             sold_price: incoming.sold_price,
             is_exclusive: incoming.is_exclusive || false,
             year_built: incoming.year_built,
@@ -386,12 +401,42 @@ const AdminPropertyImport = () => {
                         await supabase.from('crm_tasks').delete().in('property_id', idsToDelete)
                         await supabase.from('crm_actions').delete().in('property_id', idsToDelete)
                         await supabase.from('property_listing_history').delete().in('property_id', idsToDelete)
+                        await supabase.from('property_import_log').delete().in('property_id', idsToDelete)
+                        await supabase.from('property_photos').delete().in('property_id', idsToDelete)
                         await supabase.from('properties').delete().in('id', idsToDelete)
                     }
 
                     // 5. Insert NEW properties (no ROL match found)
                     if (toInsert.length > 0) {
-                        const dbProperties = toInsert.map(p => ({
+                        // Deduplicate by listing_link to avoid unique constraint violation
+                        const seenLinks = new Set()
+                        const deduped = toInsert.filter(p => {
+                            const link = p.source_url || ''
+                            if (!link || seenLinks.has(link)) return false
+                            seenLinks.add(link)
+                            return true
+                        })
+
+                        // Clear any orphaned properties with same listing_link
+                        const linksToInsert = deduped.map(p => p.source_url).filter(Boolean)
+                        if (linksToInsert.length > 0) {
+                            const { data: conflicting } = await supabase
+                                .from('properties')
+                                .select('id')
+                                .in('listing_link', linksToInsert)
+                            if (conflicting?.length > 0) {
+                                const conflictIds = conflicting.map(c => c.id)
+                                await supabase.from('property_import_log').delete().in('property_id', conflictIds)
+                                await supabase.from('property_photos').delete().in('property_id', conflictIds)
+                                await supabase.from('property_listing_history').delete().in('property_id', conflictIds)
+                                await supabase.from('crm_tasks').delete().in('property_id', conflictIds)
+                                await supabase.from('crm_actions').delete().in('property_id', conflictIds)
+                                await supabase.from('mandates').update({ property_id: null }).in('property_id', conflictIds)
+                                await supabase.from('properties').delete().in('id', conflictIds)
+                            }
+                        }
+
+                        const dbProperties = deduped.map(p => ({
                             address: p.address,
                             commune: p.commune || p.address?.split(',')[1]?.trim() || '',
                             property_type: p.property_type,
@@ -410,14 +455,14 @@ const AdminPropertyImport = () => {
                             source: 'remax',
                             agent_id: agentProfile.id,
                             image_url: p.image_url,
-                            published_at: p.published_at,
-                            last_updated_at: p.last_updated_at,
-                            expires_at: p.expires_at,
-                            sold_at: p.sold_at,
+                            published_at: safeDate(p.published_at),
+                            last_updated_at: safeDate(p.last_updated_at),
+                            expires_at: safeDate(p.expires_at),
+                            sold_at: safeDate(p.sold_at),
                             sold_price: p.sold_price,
                             listing_status_uid: p.listing_status_uid,
                             listing_reference: p.listing_reference,
-                            rol_number: p.listing_reference, // Sync ROL with listing_reference
+                            rol_number: p.listing_reference,
                             remax_listing_id: p.listing_id,
                             transaction_type_uid: p.transaction_type_uid,
                             is_exclusive: p.is_exclusive || false,

@@ -69,5 +69,8 @@ export const SHIFT_EVENTS = {
     SHIFT_APPROVED: 'shift_approved',
     SHIFT_REJECTED: 'shift_rejected',
     SHIFT_CANCELLED: 'shift_cancelled',
+    SHIFT_CANCELLED_BY_ADMIN: 'shift_cancelled_by_admin',
+    SHIFT_REASSIGNED: 'shift_reassigned',
+    SHIFT_ASSIGNED: 'shift_assigned',
     SHIFTS_PUBLISHED: 'shifts_published',
 }

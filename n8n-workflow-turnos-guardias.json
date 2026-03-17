@@ -149,6 +149,75 @@
                             },
                             "renameOutput": true,
                             "outputKey": "Publicado"
+                        },
+                        {
+                            "conditions": {
+                                "options": {
+                                    "caseSensitive": true,
+                                    "leftValue": "",
+                                    "typeValidation": "strict",
+                                    "version": 3
+                                },
+                                "conditions": [
+                                    {
+                                        "leftValue": "={{ $json.body.event }}",
+                                        "rightValue": "shift_cancelled_by_admin",
+                                        "operator": {
+                                            "type": "string",
+                                            "operation": "equals"
+                                        }
+                                    }
+                                ],
+                                "combinator": "and"
+                            },
+                            "renameOutput": true,
+                            "outputKey": "CanceladoPorAdmin"
+                        },
+                        {
+                            "conditions": {
+                                "options": {
+                                    "caseSensitive": true,
+                                    "leftValue": "",
+                                    "typeValidation": "strict",
+                                    "version": 3
+                                },
+                                "conditions": [
+                                    {
+                                        "leftValue": "={{ $json.body.event }}",
+                                        "rightValue": "shift_reassigned",
+                                        "operator": {
+                                            "type": "string",
+                                            "operation": "equals"
+                                        }
+                                    }
+                                ],
+                                "combinator": "and"
+                            },
+                            "renameOutput": true,
+                            "outputKey": "Reasignado"
+                        },
+                        {
+                            "conditions": {
+                                "options": {
+                                    "caseSensitive": true,
+                                    "leftValue": "",
+                                    "typeValidation": "strict",
+                                    "version": 3
+                                },
+                                "conditions": [
+                                    {
+                                        "leftValue": "={{ $json.body.event }}",
+                                        "rightValue": "shift_assigned",
+                                        "operator": {
+                                            "type": "string",
+                                            "operation": "equals"
+                                        }
+                                    }
+                                ],
+                                "combinator": "and"
+                            },
+                            "renameOutput": true,
+                            "outputKey": "AsignadoDirecto"
                         }
                     ]
                 },
@@ -987,6 +1056,423 @@
                 }
             },
             "onError": "continueRegularOutput"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.remax-exclusive.cl/message/sendText/Remax%20Exclusive",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        { "name": "apikey", "value": "A47DF197AC02-4F21-BEB4-9F3485E5E4EB" },
+                        { "name": "Content-Type", "value": "application/json" }
+                    ]
+                },
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        { "name": "number", "value": "120363408247795331@g.us" },
+                        { "name": "text", "value": "=⚠️ *TURNO CANCELADO POR ADMINISTRACIÓN*\n\n👤 *Agente:* {{ $json.body.agent.name }}\n📅 *Fecha:* {{ $json.body.shift.booking_date }}\n⏰ *Turno:* {{ $json.body.shift.shift_label }}\n{{ $json.body.admin_notes ? '\\n📝 *Motivo:* ' + $json.body.admin_notes : '' }}\n\nEl turno queda disponible para reasignación." }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [740, 1160],
+            "id": "ws-cadm-group",
+            "name": "WA Grupo CanceladoAdmin",
+            "onError": "continueRegularOutput"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.remax-exclusive.cl/message/sendText/Remax%20Exclusive",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        { "name": "apikey", "value": "A47DF197AC02-4F21-BEB4-9F3485E5E4EB" },
+                        { "name": "Content-Type", "value": "application/json" }
+                    ]
+                },
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        { "name": "number", "value": "={{ $('Webhook').first().json.body.agent.phone }}" },
+                        { "name": "text", "value": "=⚠️ *Turno Cancelado por Administración*\n\nHola {{ $('Webhook').first().json.body.agent.name }}, tu turno ha sido cancelado por la administración.\n\n📅 *Fecha:* {{ $('Webhook').first().json.body.shift.booking_date }}\n⏰ *Turno:* {{ $('Webhook').first().json.body.shift.shift_label }}\n{{ $('Webhook').first().json.body.admin_notes ? '\\n📝 *Motivo:* ' + $('Webhook').first().json.body.admin_notes : '' }}\n\nSi tienes alguna duda, comunícate con el equipo comercial." }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [1120, 1160],
+            "id": "ws-cadm-agent",
+            "name": "WA Agente CanceladoAdmin",
+            "onError": "continueRegularOutput"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.remax-exclusive.cl/chat/sendPresence/Remax%20Exclusive",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"number\": \"{{ $(\"Webhook\").item.json.body.agent.phone.replace(/[^0-9]/g, '') }}@s.whatsapp.net\",\n  \"presence\": \"composing\",\n  \"delay\": 2000\n}",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [920, 1160],
+            "id": "typing-cadm",
+            "name": "Typing CAdm",
+            "credentials": { "httpHeaderAuth": { "id": "L0bt00uZyaRQNmdF", "name": "evolution_api" } },
+            "onError": "continueRegularOutput"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.remax-exclusive.cl/chat/sendPresence/Remax%20Exclusive",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"number\": \"{{ $(\"Webhook\").item.json.body.agent.phone.replace(/[^0-9]/g, '') }}@s.whatsapp.net\",\n  \"presence\": \"paused\",\n  \"delay\": 1000\n}",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [1300, 1160],
+            "id": "paused-cadm",
+            "name": "Paused CAdm",
+            "credentials": { "httpHeaderAuth": { "id": "L0bt00uZyaRQNmdF", "name": "evolution_api" } },
+            "onError": "continueRegularOutput"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.remax-exclusive.cl/chat/markMessageAsRead/Remax%20Exclusive",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"readMessages\": [\n    {\n      \"remoteJid\": \"{{ $(\"Webhook\").item.json.body.agent.phone.replace(/[^0-9]/g, '') }}@s.whatsapp.net\",\n      \"fromMe\": true,\n      \"id\": \"{{ $(\"WA Agente CanceladoAdmin\").item.json.key.id }}\"\n    }\n  ]\n}",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [1520, 1160],
+            "id": "leido-cadm",
+            "name": "Leído CAdm",
+            "credentials": { "httpHeaderAuth": { "id": "L0bt00uZyaRQNmdF", "name": "evolution_api" } },
+            "onError": "continueRegularOutput"
+        },
+        {
+            "parameters": {
+                "sendTo": "={{ $('Webhook').first().json.body.agent.email }}",
+                "subject": "=⚠️ Tu turno ha sido cancelado - {{ $('Webhook').first().json.body.shift.booking_date }}",
+                "message": "=<html><body style='font-family:Open Sans,sans-serif;background:#f5f5f5;padding:30px 20px'><div style='max-width:600px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.08)'><div style='background:linear-gradient(135deg,#6b7280,#4b5563);padding:25px 30px'><h1 style='color:#fff;font-size:20px;margin:0'>⚠️ Turno Cancelado por Administración</h1></div><div style='padding:35px 30px'><p style='color:#333;font-size:15px;line-height:1.6'>Hola {{ $('Webhook').first().json.body.agent.name }},</p><p style='color:#333;font-size:15px;line-height:1.6'>Tu turno ha sido cancelado por la administración.</p><div style='background:#f9fafb;border-left:3px solid #6b7280;padding:20px;margin:20px 0;border-radius:4px'><div style='margin-bottom:12px'><span style='color:#666;font-size:13px;font-weight:600;display:block;margin-bottom:4px'>Fecha</span><span style='color:#333;font-size:15px'>{{ $('Webhook').first().json.body.shift.booking_date }}</span></div><div style='margin-bottom:12px'><span style='color:#666;font-size:13px;font-weight:600;display:block;margin-bottom:4px'>Turno</span><span style='color:#333;font-size:15px'>{{ $('Webhook').first().json.body.shift.shift_label }}</span></div></div>{{ $('Webhook').first().json.body.admin_notes ? '<div style=\"background:#fff7ed;border-left:3px solid #f97316;padding:15px;margin:20px 0;border-radius:4px\"><strong>Motivo:</strong> ' + $('Webhook').first().json.body.admin_notes + '</div>' : '' }}<p style='color:#333;font-size:15px'>Si deseas agendar un nuevo turno, ingresa a la plataforma.</p></div><div style='background:#fafafa;padding:20px 30px;text-align:center;border-top:1px solid #e8e8e8'><p style='font-size:12px;color:#999'><strong>RE/MAX Exclusive Chile</strong></p></div></div></body></html>",
+                "options": { "appendAttribution": false, "ccList": "administracion@remax-exclusive.cl, coordinadora@remax-exclusive.cl" }
+            },
+            "type": "n8n-nodes-base.gmail",
+            "typeVersion": 2.2,
+            "position": [1740, 1160],
+            "id": "gm-cadm",
+            "name": "Email CanceladoAdmin"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.remax-exclusive.cl/message/sendText/Remax%20Exclusive",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        { "name": "apikey", "value": "A47DF197AC02-4F21-BEB4-9F3485E5E4EB" },
+                        { "name": "Content-Type", "value": "application/json" }
+                    ]
+                },
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        { "name": "number", "value": "120363408247795331@g.us" },
+                        { "name": "text", "value": "=🔄 *TURNO REASIGNADO*\n\n👤 *Agente:* {{ $json.body.agent.name }}\n\n📤 *Desde:* {{ $json.body.old_shift.booking_date }} — {{ $json.body.old_shift.shift_label }}\n📥 *Hacia:* {{ $json.body.shift.booking_date }} — {{ $json.body.shift.shift_label }}\n\nEl turno ha sido reasignado por administración." }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [740, 1400],
+            "id": "ws-reas-group",
+            "name": "WA Grupo Reasignado",
+            "onError": "continueRegularOutput"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.remax-exclusive.cl/message/sendText/Remax%20Exclusive",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        { "name": "apikey", "value": "A47DF197AC02-4F21-BEB4-9F3485E5E4EB" },
+                        { "name": "Content-Type", "value": "application/json" }
+                    ]
+                },
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        { "name": "number", "value": "={{ $('Webhook').first().json.body.agent.phone }}" },
+                        { "name": "text", "value": "=🔄 *Tu Turno ha sido Reasignado*\n\nHola {{ $('Webhook').first().json.body.agent.name }}, tu turno ha sido movido por la administración.\n\n📤 *Antes:* {{ $('Webhook').first().json.body.old_shift.booking_date }} — {{ $('Webhook').first().json.body.old_shift.shift_label }}\n📥 *Ahora:* {{ $('Webhook').first().json.body.shift.booking_date }} — {{ $('Webhook').first().json.body.shift.shift_label }}\n\nSi tienes alguna duda, comunícate con el equipo comercial." }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [1120, 1400],
+            "id": "ws-reas-agent",
+            "name": "WA Agente Reasignado",
+            "onError": "continueRegularOutput"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.remax-exclusive.cl/chat/sendPresence/Remax%20Exclusive",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"number\": \"{{ $(\"Webhook\").item.json.body.agent.phone.replace(/[^0-9]/g, '') }}@s.whatsapp.net\",\n  \"presence\": \"composing\",\n  \"delay\": 2000\n}",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [920, 1400],
+            "id": "typing-reas",
+            "name": "Typing Reas",
+            "credentials": { "httpHeaderAuth": { "id": "L0bt00uZyaRQNmdF", "name": "evolution_api" } },
+            "onError": "continueRegularOutput"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.remax-exclusive.cl/chat/sendPresence/Remax%20Exclusive",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"number\": \"{{ $(\"Webhook\").item.json.body.agent.phone.replace(/[^0-9]/g, '') }}@s.whatsapp.net\",\n  \"presence\": \"paused\",\n  \"delay\": 1000\n}",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [1300, 1400],
+            "id": "paused-reas",
+            "name": "Paused Reas",
+            "credentials": { "httpHeaderAuth": { "id": "L0bt00uZyaRQNmdF", "name": "evolution_api" } },
+            "onError": "continueRegularOutput"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.remax-exclusive.cl/chat/markMessageAsRead/Remax%20Exclusive",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"readMessages\": [\n    {\n      \"remoteJid\": \"{{ $(\"Webhook\").item.json.body.agent.phone.replace(/[^0-9]/g, '') }}@s.whatsapp.net\",\n      \"fromMe\": true,\n      \"id\": \"{{ $(\"WA Agente Reasignado\").item.json.key.id }}\"\n    }\n  ]\n}",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [1520, 1400],
+            "id": "leido-reas",
+            "name": "Leído Reas",
+            "credentials": { "httpHeaderAuth": { "id": "L0bt00uZyaRQNmdF", "name": "evolution_api" } },
+            "onError": "continueRegularOutput"
+        },
+        {
+            "parameters": {
+                "sendTo": "={{ $('Webhook').first().json.body.agent.email }}",
+                "subject": "=🔄 Tu turno ha sido reasignado - {{ $('Webhook').first().json.body.shift.booking_date }}",
+                "message": "=<html><body style='font-family:Open Sans,sans-serif;background:#f5f5f5;padding:30px 20px'><div style='max-width:600px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.08)'><div style='background:linear-gradient(135deg,#3b82f6,#2563eb);padding:25px 30px'><h1 style='color:#fff;font-size:20px;margin:0'>🔄 Tu Turno ha sido Reasignado</h1></div><div style='padding:35px 30px'><p style='color:#333;font-size:15px;line-height:1.6'>Hola {{ $('Webhook').first().json.body.agent.name }},</p><p style='color:#333;font-size:15px;line-height:1.6'>Tu turno ha sido movido por la administración.</p><div style='background:#fef2f2;border-left:3px solid #ef4444;padding:20px;margin:20px 0;border-radius:4px'><div><span style='color:#666;font-size:13px;font-weight:600;display:block;margin-bottom:4px'>Turno Anterior</span><span style='color:#333;font-size:15px'>{{ $('Webhook').first().json.body.old_shift.booking_date }} — {{ $('Webhook').first().json.body.old_shift.shift_label }}</span></div></div><div style='background:#f0fdf4;border-left:3px solid #22c55e;padding:20px;margin:20px 0;border-radius:4px'><div><span style='color:#666;font-size:13px;font-weight:600;display:block;margin-bottom:4px'>Nuevo Turno</span><span style='color:#333;font-size:15px'>{{ $('Webhook').first().json.body.shift.booking_date }} — {{ $('Webhook').first().json.body.shift.shift_label }}</span></div></div></div><div style='background:#fafafa;padding:20px 30px;text-align:center;border-top:1px solid #e8e8e8'><p style='font-size:12px;color:#999'><strong>RE/MAX Exclusive Chile</strong></p></div></div></body></html>",
+                "options": { "appendAttribution": false, "ccList": "administracion@remax-exclusive.cl, coordinadora@remax-exclusive.cl" }
+            },
+            "type": "n8n-nodes-base.gmail",
+            "typeVersion": 2.2,
+            "position": [1740, 1400],
+            "id": "gm-reas",
+            "name": "Email Reasignado"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.remax-exclusive.cl/message/sendText/Remax%20Exclusive",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        { "name": "apikey", "value": "A47DF197AC02-4F21-BEB4-9F3485E5E4EB" },
+                        { "name": "Content-Type", "value": "application/json" }
+                    ]
+                },
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        { "name": "number", "value": "120363408247795331@g.us" },
+                        { "name": "text", "value": "=📌 *TURNO ASIGNADO DIRECTAMENTE*\n\n👤 *Agente:* {{ $json.body.agent.name }}\n📅 *Fecha:* {{ $json.body.shift.booking_date }}\n⏰ *Turno:* {{ $json.body.shift.shift_label }}\n\nTurno asignado y aprobado automáticamente por administración." }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [740, 1640],
+            "id": "ws-asig-group",
+            "name": "WA Grupo Asignado",
+            "onError": "continueRegularOutput"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.remax-exclusive.cl/message/sendText/Remax%20Exclusive",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        { "name": "apikey", "value": "A47DF197AC02-4F21-BEB4-9F3485E5E4EB" },
+                        { "name": "Content-Type", "value": "application/json" }
+                    ]
+                },
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        { "name": "number", "value": "={{ $('Webhook').first().json.body.agent.phone }}" },
+                        { "name": "text", "value": "=📌 *Se te ha Asignado un Turno*\n\nHola {{ $('Webhook').first().json.body.agent.name }}, se te ha asignado un turno de guardia.\n\n📅 *Fecha:* {{ $('Webhook').first().json.body.shift.booking_date }}\n⏰ *Turno:* {{ $('Webhook').first().json.body.shift.shift_label }}\n\n*Recuerda:*\n• Mantener informado al staff comercial del estatus de cada lead asignado\n• Registrar captaciones nuevas como producto de tu gestión\n\n¡Mucho éxito! 🏠" }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [1120, 1640],
+            "id": "ws-asig-agent",
+            "name": "WA Agente Asignado",
+            "onError": "continueRegularOutput"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.remax-exclusive.cl/chat/sendPresence/Remax%20Exclusive",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"number\": \"{{ $(\"Webhook\").item.json.body.agent.phone.replace(/[^0-9]/g, '') }}@s.whatsapp.net\",\n  \"presence\": \"composing\",\n  \"delay\": 2000\n}",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [920, 1640],
+            "id": "typing-asig",
+            "name": "Typing Asig",
+            "credentials": { "httpHeaderAuth": { "id": "L0bt00uZyaRQNmdF", "name": "evolution_api" } },
+            "onError": "continueRegularOutput"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.remax-exclusive.cl/chat/sendPresence/Remax%20Exclusive",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"number\": \"{{ $(\"Webhook\").item.json.body.agent.phone.replace(/[^0-9]/g, '') }}@s.whatsapp.net\",\n  \"presence\": \"paused\",\n  \"delay\": 1000\n}",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [1300, 1640],
+            "id": "paused-asig",
+            "name": "Paused Asig",
+            "credentials": { "httpHeaderAuth": { "id": "L0bt00uZyaRQNmdF", "name": "evolution_api" } },
+            "onError": "continueRegularOutput"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.remax-exclusive.cl/chat/markMessageAsRead/Remax%20Exclusive",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"readMessages\": [\n    {\n      \"remoteJid\": \"{{ $(\"Webhook\").item.json.body.agent.phone.replace(/[^0-9]/g, '') }}@s.whatsapp.net\",\n      \"fromMe\": true,\n      \"id\": \"{{ $(\"WA Agente Asignado\").item.json.key.id }}\"\n    }\n  ]\n}",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [1520, 1640],
+            "id": "leido-asig",
+            "name": "Leído Asig",
+            "credentials": { "httpHeaderAuth": { "id": "L0bt00uZyaRQNmdF", "name": "evolution_api" } },
+            "onError": "continueRegularOutput"
+        },
+        {
+            "parameters": {
+                "sendTo": "={{ $('Webhook').first().json.body.agent.email }}",
+                "subject": "=📌 Se te ha asignado un turno - {{ $('Webhook').first().json.body.shift.booking_date }}",
+                "message": "=<html><body style='font-family:Open Sans,sans-serif;background:#f5f5f5;padding:30px 20px'><div style='max-width:600px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.08)'><div style='background:linear-gradient(135deg,#059669,#047857);padding:25px 30px'><h1 style='color:#fff;font-size:20px;margin:0'>📌 Turno Asignado</h1></div><div style='padding:35px 30px'><p style='color:#333;font-size:15px;line-height:1.6'>Hola {{ $('Webhook').first().json.body.agent.name }},</p><p style='color:#333;font-size:15px;line-height:1.6'>Se te ha asignado un turno de guardia en la oficina.</p><div style='background:#f0fdf4;border-left:3px solid #059669;padding:20px;margin:20px 0;border-radius:4px'><div style='margin-bottom:12px'><span style='color:#666;font-size:13px;font-weight:600;display:block;margin-bottom:4px'>Fecha</span><span style='color:#333;font-size:15px'>{{ $('Webhook').first().json.body.shift.booking_date }}</span></div><div><span style='color:#666;font-size:13px;font-weight:600;display:block;margin-bottom:4px'>Turno</span><span style='color:#333;font-size:15px'>{{ $('Webhook').first().json.body.shift.shift_label }}</span></div></div><p style='color:#333;font-size:15px'><strong>Recuerda:</strong> Por cada propiedad asignada durante tu turno, debes mantener informado al staff comercial y registrar las captaciones nuevas.</p></div><div style='background:#fafafa;padding:20px 30px;text-align:center;border-top:1px solid #e8e8e8'><p style='font-size:12px;color:#999'><strong>RE/MAX Exclusive Chile</strong></p></div></div></body></html>",
+                "options": { "appendAttribution": false, "ccList": "administracion@remax-exclusive.cl, coordinadora@remax-exclusive.cl" }
+            },
+            "type": "n8n-nodes-base.gmail",
+            "typeVersion": 2.2,
+            "position": [1740, 1640],
+            "id": "gm-asig",
+            "name": "Email Asignado"
+        },
+        {
+            "parameters": { "method": "POST", "url": "https://api.remax-exclusive.cl/chat/sendPresence/Remax%20Exclusive", "authentication": "genericCredentialType", "genericAuthType": "httpHeaderAuth", "sendBody": true, "specifyBody": "json", "jsonBody": "={\n  \"number\": \"120363408247795331@g.us\",\n  \"presence\": \"composing\",\n  \"delay\": 2000\n}", "options": {} },
+            "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [540, 1160], "id": "typing-grp-cadm", "name": "Typing Grp CAdm",
+            "credentials": { "httpHeaderAuth": { "id": "L0bt00uZyaRQNmdF", "name": "evolution_api" } }, "onError": "continueRegularOutput"
+        },
+        {
+            "parameters": { "method": "POST", "url": "https://api.remax-exclusive.cl/chat/sendPresence/Remax%20Exclusive", "authentication": "genericCredentialType", "genericAuthType": "httpHeaderAuth", "sendBody": true, "specifyBody": "json", "jsonBody": "={\n  \"number\": \"120363408247795331@g.us\",\n  \"presence\": \"paused\",\n  \"delay\": 1000\n}", "options": {} },
+            "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [540, 1200], "id": "paused-grp-cadm", "name": "Paused Grp CAdm",
+            "credentials": { "httpHeaderAuth": { "id": "L0bt00uZyaRQNmdF", "name": "evolution_api" } }, "onError": "continueRegularOutput"
+        },
+        {
+            "parameters": { "method": "POST", "url": "https://api.remax-exclusive.cl/chat/markMessageAsRead/Remax%20Exclusive", "authentication": "genericCredentialType", "genericAuthType": "httpHeaderAuth", "sendBody": true, "specifyBody": "json", "jsonBody": "={\n  \"readMessages\": [{\n    \"remoteJid\": \"120363408247795331@g.us\",\n    \"fromMe\": true,\n    \"id\": \"{{ $(\"WA Grupo CanceladoAdmin\").item.json.key.id }}\"\n  }]\n}", "options": {} },
+            "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [540, 1240], "id": "leido-grp-cadm", "name": "Leído Grp CAdm",
+            "credentials": { "httpHeaderAuth": { "id": "L0bt00uZyaRQNmdF", "name": "evolution_api" } }, "onError": "continueRegularOutput"
+        },
+        {
+            "parameters": { "method": "POST", "url": "https://api.remax-exclusive.cl/chat/sendPresence/Remax%20Exclusive", "authentication": "genericCredentialType", "genericAuthType": "httpHeaderAuth", "sendBody": true, "specifyBody": "json", "jsonBody": "={\n  \"number\": \"120363408247795331@g.us\",\n  \"presence\": \"composing\",\n  \"delay\": 2000\n}", "options": {} },
+            "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [540, 1400], "id": "typing-grp-reas", "name": "Typing Grp Reas",
+            "credentials": { "httpHeaderAuth": { "id": "L0bt00uZyaRQNmdF", "name": "evolution_api" } }, "onError": "continueRegularOutput"
+        },
+        {
+            "parameters": { "method": "POST", "url": "https://api.remax-exclusive.cl/chat/sendPresence/Remax%20Exclusive", "authentication": "genericCredentialType", "genericAuthType": "httpHeaderAuth", "sendBody": true, "specifyBody": "json", "jsonBody": "={\n  \"number\": \"120363408247795331@g.us\",\n  \"presence\": \"paused\",\n  \"delay\": 1000\n}", "options": {} },
+            "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [540, 1440], "id": "paused-grp-reas", "name": "Paused Grp Reas",
+            "credentials": { "httpHeaderAuth": { "id": "L0bt00uZyaRQNmdF", "name": "evolution_api" } }, "onError": "continueRegularOutput"
+        },
+        {
+            "parameters": { "method": "POST", "url": "https://api.remax-exclusive.cl/chat/markMessageAsRead/Remax%20Exclusive", "authentication": "genericCredentialType", "genericAuthType": "httpHeaderAuth", "sendBody": true, "specifyBody": "json", "jsonBody": "={\n  \"readMessages\": [{\n    \"remoteJid\": \"120363408247795331@g.us\",\n    \"fromMe\": true,\n    \"id\": \"{{ $(\"WA Grupo Reasignado\").item.json.key.id }}\"\n  }]\n}", "options": {} },
+            "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [540, 1480], "id": "leido-grp-reas", "name": "Leído Grp Reas",
+            "credentials": { "httpHeaderAuth": { "id": "L0bt00uZyaRQNmdF", "name": "evolution_api" } }, "onError": "continueRegularOutput"
+        },
+        {
+            "parameters": { "method": "POST", "url": "https://api.remax-exclusive.cl/chat/sendPresence/Remax%20Exclusive", "authentication": "genericCredentialType", "genericAuthType": "httpHeaderAuth", "sendBody": true, "specifyBody": "json", "jsonBody": "={\n  \"number\": \"120363408247795331@g.us\",\n  \"presence\": \"composing\",\n  \"delay\": 2000\n}", "options": {} },
+            "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [540, 1640], "id": "typing-grp-asig", "name": "Typing Grp Asig",
+            "credentials": { "httpHeaderAuth": { "id": "L0bt00uZyaRQNmdF", "name": "evolution_api" } }, "onError": "continueRegularOutput"
+        },
+        {
+            "parameters": { "method": "POST", "url": "https://api.remax-exclusive.cl/chat/sendPresence/Remax%20Exclusive", "authentication": "genericCredentialType", "genericAuthType": "httpHeaderAuth", "sendBody": true, "specifyBody": "json", "jsonBody": "={\n  \"number\": \"120363408247795331@g.us\",\n  \"presence\": \"paused\",\n  \"delay\": 1000\n}", "options": {} },
+            "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [540, 1680], "id": "paused-grp-asig", "name": "Paused Grp Asig",
+            "credentials": { "httpHeaderAuth": { "id": "L0bt00uZyaRQNmdF", "name": "evolution_api" } }, "onError": "continueRegularOutput"
+        },
+        {
+            "parameters": { "method": "POST", "url": "https://api.remax-exclusive.cl/chat/markMessageAsRead/Remax%20Exclusive", "authentication": "genericCredentialType", "genericAuthType": "httpHeaderAuth", "sendBody": true, "specifyBody": "json", "jsonBody": "={\n  \"readMessages\": [{\n    \"remoteJid\": \"120363408247795331@g.us\",\n    \"fromMe\": true,\n    \"id\": \"{{ $(\"WA Grupo Asignado\").item.json.key.id }}\"\n  }]\n}", "options": {} },
+            "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [540, 1720], "id": "leido-grp-asig", "name": "Leído Grp Asig",
+            "credentials": { "httpHeaderAuth": { "id": "L0bt00uZyaRQNmdF", "name": "evolution_api" } }, "onError": "continueRegularOutput"
         }
     ],
     "connections": {
@@ -1045,6 +1531,27 @@
                 [
                     {
                         "node": "WA Grupo Publicados",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Typing Grp CAdm",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Typing Grp Reas",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Typing Grp Asig",
                         "type": "main",
                         "index": 0
                     }
@@ -1248,6 +1755,78 @@
                     }
                 ]
             ]
+        },
+        "Typing Grp CAdm": {
+            "main": [[ { "node": "WA Grupo CanceladoAdmin", "type": "main", "index": 0 } ]]
+        },
+        "WA Grupo CanceladoAdmin": {
+            "main": [[ { "node": "Paused Grp CAdm", "type": "main", "index": 0 } ]]
+        },
+        "Paused Grp CAdm": {
+            "main": [[ { "node": "Leído Grp CAdm", "type": "main", "index": 0 } ]]
+        },
+        "Leído Grp CAdm": {
+            "main": [[ { "node": "Typing CAdm", "type": "main", "index": 0 } ]]
+        },
+        "Typing CAdm": {
+            "main": [[ { "node": "WA Agente CanceladoAdmin", "type": "main", "index": 0 } ]]
+        },
+        "WA Agente CanceladoAdmin": {
+            "main": [[ { "node": "Paused CAdm", "type": "main", "index": 0 } ]]
+        },
+        "Paused CAdm": {
+            "main": [[ { "node": "Leído CAdm", "type": "main", "index": 0 } ]]
+        },
+        "Leído CAdm": {
+            "main": [[ { "node": "Email CanceladoAdmin", "type": "main", "index": 0 } ]]
+        },
+        "Typing Grp Reas": {
+            "main": [[ { "node": "WA Grupo Reasignado", "type": "main", "index": 0 } ]]
+        },
+        "WA Grupo Reasignado": {
+            "main": [[ { "node": "Paused Grp Reas", "type": "main", "index": 0 } ]]
+        },
+        "Paused Grp Reas": {
+            "main": [[ { "node": "Leído Grp Reas", "type": "main", "index": 0 } ]]
+        },
+        "Leído Grp Reas": {
+            "main": [[ { "node": "Typing Reas", "type": "main", "index": 0 } ]]
+        },
+        "Typing Reas": {
+            "main": [[ { "node": "WA Agente Reasignado", "type": "main", "index": 0 } ]]
+        },
+        "WA Agente Reasignado": {
+            "main": [[ { "node": "Paused Reas", "type": "main", "index": 0 } ]]
+        },
+        "Paused Reas": {
+            "main": [[ { "node": "Leído Reas", "type": "main", "index": 0 } ]]
+        },
+        "Leído Reas": {
+            "main": [[ { "node": "Email Reasignado", "type": "main", "index": 0 } ]]
+        },
+        "Typing Grp Asig": {
+            "main": [[ { "node": "WA Grupo Asignado", "type": "main", "index": 0 } ]]
+        },
+        "WA Grupo Asignado": {
+            "main": [[ { "node": "Paused Grp Asig", "type": "main", "index": 0 } ]]
+        },
+        "Paused Grp Asig": {
+            "main": [[ { "node": "Leído Grp Asig", "type": "main", "index": 0 } ]]
+        },
+        "Leído Grp Asig": {
+            "main": [[ { "node": "Typing Asig", "type": "main", "index": 0 } ]]
+        },
+        "Typing Asig": {
+            "main": [[ { "node": "WA Agente Asignado", "type": "main", "index": 0 } ]]
+        },
+        "WA Agente Asignado": {
+            "main": [[ { "node": "Paused Asig", "type": "main", "index": 0 } ]]
+        },
+        "Paused Asig": {
+            "main": [[ { "node": "Leído Asig", "type": "main", "index": 0 } ]]
+        },
+        "Leído Asig": {
+            "main": [[ { "node": "Email Asignado", "type": "main", "index": 0 } ]]
         }
     },
     "settings": {

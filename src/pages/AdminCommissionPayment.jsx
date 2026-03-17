@@ -161,8 +161,9 @@ export default function AdminCommissionPayment() {
     }
 
     // Valid states helper (mirrors service)
-    const isValid = (e) => ['LIQUIDADO', 'LIQUIDACION MANUAL', 'LIQUIDACIÓN MANUAL'].includes(e)
-    const liquidadoCount = rows.filter(r => isValid(r.estado)).length
+    const isValid = (e) => ['LIQUIDADO', 'LIQUIDADO MANUAL', 'LIQUIDACION MANUAL', 'LIQUIDACIÓN MANUAL'].includes(e)
+    const isProcessable = (row) => isValid(row.estado) && row.monto_admin > 0
+    const liquidadoCount = rows.filter(r => isProcessable(r)).length
 
     return (
         <div className="max-w-6xl mx-auto p-6">
@@ -252,7 +253,7 @@ export default function AdminCommissionPayment() {
                                 />
                                 <div className="flex items-center gap-2 text-sm text-gray-500 ml-auto">
                                     <Info className="w-4 h-4" />
-                                    <span>{liquidadoCount} filas LIQUIDADO de {rows.length} total</span>
+                                    <span>{liquidadoCount} filas válidas de {rows.length} total</span>
                                 </div>
                             </div>
 
@@ -273,10 +274,10 @@ export default function AdminCommissionPayment() {
                                         </thead>
                                         <tbody className="divide-y divide-gray-100">
                                             {rows.slice(0, 100).map((row, i) => (
-                                                <tr key={i} className={`hover:bg-gray-50 ${!isValid(row.estado) ? 'opacity-50' : ''}`}>
+                                                <tr key={i} className={`hover:bg-gray-50 ${!isProcessable(row) ? 'opacity-40' : ''}`}>
                                                     <td className="px-3 py-2 text-gray-400">{row._row}</td>
                                                     <td className="px-3 py-2 text-gray-800 font-medium max-w-xs truncate">{row.direccion}</td>
-                                                    <td className="px-3 py-2 text-gray-700">{formatCLP(row.monto_admin)}</td>
+                                                    <td className={`px-3 py-2 ${row.monto_admin < 0 ? 'text-red-500 font-semibold' : 'text-gray-700'}`}>{formatCLP(row.monto_admin)}</td>
                                                     <td className="px-3 py-2">
                                                         <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${
                                                             isValid(row.estado) ? 'bg-green-100 text-green-700' :

@@ -121,17 +121,30 @@ export function parseCommissionExcel(file) {
     })
 }
 
+    const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+        'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
+
 /**
  * Auto-detect the month from the Excel data
  */
 export function detectMonth(rows) {
     for (const row of rows) {
-        if (row.mes) return row.mes
+        if (row.mes) {
+            // If it's a Date object (Excel dates), format it
+            if (row.mes instanceof Date || (typeof row.mes === 'object' && row.mes.getMonth)) {
+                return `${months[row.mes.getMonth()]} ${row.mes.getFullYear()}`
+            }
+            // If it's a string that looks like a date, try to parse
+            const str = String(row.mes).trim()
+            const dateTest = new Date(str)
+            if (!isNaN(dateTest) && str.length > 10) {
+                return `${months[dateTest.getMonth()]} ${dateTest.getFullYear()}`
+            }
+            return str
+        }
     }
     // Fallback to current month
     const now = new Date()
-    const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-        'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
     return `${months[now.getMonth()]} ${now.getFullYear()}`
 }
 
@@ -222,7 +235,7 @@ export async function matchCommissionProperties(rows) {
 const IVA_RATE = 0.19
 
 // Valid states for processing
-const VALID_STATES = ['LIQUIDADO', 'LIQUIDACION MANUAL', 'LIQUIDACIÓN MANUAL']
+const VALID_STATES = ['LIQUIDADO', 'LIQUIDADO MANUAL', 'LIQUIDACION MANUAL', 'LIQUIDACIÓN MANUAL']
 function isValidState(estado) {
     return VALID_STATES.includes(estado)
 }

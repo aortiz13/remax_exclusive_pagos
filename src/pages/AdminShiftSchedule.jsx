@@ -5,7 +5,8 @@ import { Button, Card, CardContent, AlertDialog, AlertDialogContent, AlertDialog
 import { toast } from 'sonner'
 import {
     Calendar, ChevronLeft, ChevronRight, CheckCircle2, X, Ban,
-    AlertCircle, Loader2, Shield, Users, Clock, Send, Plus, Minus
+    AlertCircle, Loader2, Shield, Users, Clock, Send, Plus, Minus,
+    ArrowRightLeft, UserPlus, XCircle
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { motion } from 'framer-motion'
@@ -25,6 +26,7 @@ const STATUS_CONFIG = {
 }
 
 const DAY_NAMES = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie']
+const DAY_FULL = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes']
 
 export default function AdminShiftSchedule() {
     const { profile } = useAuth()
@@ -45,6 +47,23 @@ export default function AdminShiftSchedule() {
     const [showRejectDialog, setShowRejectDialog] = useState(false)
     const [rejectBooking, setRejectBooking] = useState(null)
     const [rejectNotes, setRejectNotes] = useState('')
+
+    // Admin Cancel dialog
+    const [showAdminCancelDialog, setShowAdminCancelDialog] = useState(false)
+    const [adminCancelBooking, setAdminCancelBooking] = useState(null)
+    const [adminCancelNotes, setAdminCancelNotes] = useState('')
+
+    // Move Turno dialog
+    const [showMoveDialog, setShowMoveDialog] = useState(false)
+    const [moveBooking, setMoveBooking] = useState(null)
+    const [moveTarget, setMoveTarget] = useState(null) // { date, shift }
+
+    // Assign Agent dialog
+    const [showAssignDialog, setShowAssignDialog] = useState(false)
+    const [assignSlot, setAssignSlot] = useState(null) // { date, shift }
+    const [eligibleAgents, setEligibleAgents] = useState([])
+    const [selectedAgentId, setSelectedAgentId] = useState(null)
+    const [agentSearch, setAgentSearch] = useState('')
 
     // Fetch comercial user (Marinela) on mount
     useEffect(() => {
@@ -99,7 +118,6 @@ export default function AdminShiftSchedule() {
     }
 
     function normalizeDate(d) {
-        // DB may return date as full ISO timestamp ("2026-03-19T03:00:00.000Z") or plain date ("2026-03-19")
         return typeof d === 'string' ? d.split('T')[0] : d
     }
 
@@ -111,6 +129,10 @@ export default function AdminShiftSchedule() {
         return availableSlots.some(s => normalizeDate(s.booking_date) === date && s.shift === shift)
     }
 
+    function isSlotFree(date, shift) {
+        return !getBookingForSlot(date, shift) && isSlotAvailable(date, shift)
+    }
+
     function toggleSlot(date, shift) {
         const key = `${date}|${shift}`
         const next = new Set(selectedSlots)
@@ -118,6 +140,11 @@ export default function AdminShiftSchedule() {
         setSelectedSlots(next)
     }
 
+    function formatDayLabel(date) {
+        return new Date(date + 'T12:00:00').toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'short' })
+    }
+
+    // ─── Publish ──────────────────────
     async function handlePublish() {
         if (selectedSlots.size === 0) {
             toast.error('Selecciona al menos un turno para publicar.')
@@ -128,17 +155,14 @@ export default function AdminShiftSchedule() {
 
     async function confirmPublish() {
         setShowPublishDialog(false)
-
         setPublishing(true)
 
-        // Delete existing available slots for this week
         await supabase
             .from('shift_available_slots')
             .delete()
             .gte('booking_date', weekDates[0])
             .lte('booking_date', weekDates[4])
 
-        // Insert new ones
         const slotsToInsert = Array.from(selectedSlots).map(key => {
             const [date, shift] = key.split('|')
             return { booking_date: date, shift: parseInt(shift), published_by: profile.id }
@@ -150,27 +174,23 @@ export default function AdminShiftSchedule() {
             return
         }
 
-        // Get eligible agents for notification
         const [{ data: captacionesCounts }, { data: cierresCounts }] = await Promise.all([
             supabase.rpc('get_agents_with_captaciones'),
             supabase.rpc('get_agents_with_cierres'),
         ]).catch(() => [{ data: null }, { data: null }])
 
-        // Fallback: just get all agents
         const { data: allAgents } = await supabase
             .from('profiles')
             .select('id, first_name, last_name, email, phone')
             .eq('role', 'agent')
             .eq('shift_eligible', true)
 
-        // Build slots summary for notification
         const slotsSummary = Array.from(selectedSlots).sort().map(key => {
             const [date, shift] = key.split('|')
             const dayLabel = new Date(date + 'T12:00:00').toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'short' })
             return `${dayLabel} — ${SHIFT_CONFIG[parseInt(shift)]?.label} (${SHIFT_CONFIG[parseInt(shift)]?.time})`
         })
 
-        // Send notification
         sendShiftNotification(SHIFT_EVENTS.SHIFTS_PUBLISHED, {
             id: null,
             booking_date: weekDates[0],
@@ -192,6 +212,7 @@ export default function AdminShiftSchedule() {
         await fetchAll()
     }
 
+    // ─── Approve ──────────────────────
     async function handleApprove(booking) {
         const { error } = await supabase.from('shift_bookings').update({
             status: 'aprobado', approved_by: profile.id, updated_at: new Date().toISOString(),
@@ -199,7 +220,6 @@ export default function AdminShiftSchedule() {
         if (error) { toast.error('Error: ' + error.message); return }
         sendShiftNotification(SHIFT_EVENTS.SHIFT_APPROVED, { ...booking, status: 'aprobado' }, booking.agent || {})
 
-        // Create calendar events for agent + comercial, sync to Google Calendar
         const agentName = booking.agent ? `${booking.agent.first_name || ''} ${booking.agent.last_name || ''}`.trim() : ''
         createShiftCalendarEvent(booking, booking.agent_id, comercialId, agentName)
 
@@ -207,6 +227,7 @@ export default function AdminShiftSchedule() {
         fetchAll()
     }
 
+    // ─── Reject (pending) ──────────────────────
     async function handleReject(booking) {
         setRejectBooking(booking)
         setRejectNotes('')
@@ -224,13 +245,185 @@ export default function AdminShiftSchedule() {
         if (error) { toast.error('Error: ' + error.message); return }
         sendShiftNotification(SHIFT_EVENTS.SHIFT_REJECTED, { ...booking, status: 'rechazado' }, booking.agent || {}, notes || '')
 
-        // Remove calendar events for agent + comercial, delete from Google Calendar
         deleteShiftCalendarEvent(booking, booking.agent_id, comercialId)
 
         toast.success('Turno rechazado.')
         fetchAll()
     }
 
+    // ─── Admin Cancel (approved turno) ──────────────────────
+    function handleAdminCancel(booking) {
+        setAdminCancelBooking(booking)
+        setAdminCancelNotes('')
+        setShowAdminCancelDialog(true)
+    }
+
+    async function confirmAdminCancel() {
+        const booking = adminCancelBooking
+        const notes = adminCancelNotes
+        setShowAdminCancelDialog(false)
+        setAdminCancelBooking(null)
+
+        const { error } = await supabase.from('shift_bookings').update({
+            status: 'cancelado', admin_notes: notes || null, approved_by: profile.id, updated_at: new Date().toISOString(),
+        }).eq('id', booking.id)
+        if (error) { toast.error('Error: ' + error.message); return }
+
+        deleteShiftCalendarEvent(booking, booking.agent_id, comercialId)
+
+        sendShiftNotification(SHIFT_EVENTS.SHIFT_CANCELLED_BY_ADMIN,
+            { ...booking, status: 'cancelado' },
+            booking.agent || {},
+            notes || ''
+        )
+
+        toast.success('Turno cancelado por administración.')
+        fetchAll()
+    }
+
+    // ─── Move Turno ──────────────────────
+    function handleMove(booking) {
+        setMoveBooking(booking)
+        setMoveTarget(null)
+        setShowMoveDialog(true)
+    }
+
+    // Get available slots for move modal (published & no active booking)
+    const moveAvailableSlots = useMemo(() => {
+        if (!moveBooking) return []
+        const slots = []
+        weekDates.forEach((date, di) => {
+            ;[1, 2].forEach(shift => {
+                const currentKey = `${normalizeDate(moveBooking.booking_date)}|${moveBooking.shift}`
+                const slotKey = `${date}|${shift}`
+                if (slotKey === currentKey) return // skip current slot
+                if (isSlotFree(date, shift)) {
+                    slots.push({ date, shift, dayLabel: `${DAY_FULL[di]} ${new Date(date + 'T12:00:00').getDate()}` })
+                }
+            })
+        })
+        return slots
+    }, [moveBooking, bookings, availableSlots, weekDates])
+
+    async function confirmMove() {
+        if (!moveBooking || !moveTarget) return
+        setShowMoveDialog(false)
+
+        const oldBooking = moveBooking
+        const agentName = oldBooking.agent ? `${oldBooking.agent.first_name || ''} ${oldBooking.agent.last_name || ''}`.trim() : ''
+
+        // 1. Cancel old booking
+        await supabase.from('shift_bookings').update({
+            status: 'cancelado',
+            admin_notes: `Reasignado a ${formatDayLabel(moveTarget.date)} – ${SHIFT_CONFIG[moveTarget.shift]?.label}`,
+            approved_by: profile.id,
+            updated_at: new Date().toISOString(),
+        }).eq('id', oldBooking.id)
+
+        deleteShiftCalendarEvent(oldBooking, oldBooking.agent_id, comercialId)
+
+        // 2. Create new booking as approved
+        const { data: newBooking, error } = await supabase.from('shift_bookings').insert({
+            agent_id: oldBooking.agent_id,
+            booking_date: moveTarget.date,
+            shift: moveTarget.shift,
+            status: 'aprobado',
+            approved_by: profile.id,
+            admin_notes: `Reasignado desde ${formatDayLabel(normalizeDate(oldBooking.booking_date))} – ${SHIFT_CONFIG[oldBooking.shift]?.label}`,
+        }).select('*, agent:profiles!shift_bookings_agent_id_fkey(id, first_name, last_name, email, phone)').single()
+
+        if (error) {
+            toast.error('Error al mover turno: ' + error.message)
+            fetchAll()
+            return
+        }
+
+        // 3. Create new calendar event
+        createShiftCalendarEvent(newBooking, newBooking.agent_id, comercialId, agentName)
+
+        // 4. Send notification with old and new shift info
+        sendShiftNotification(SHIFT_EVENTS.SHIFT_REASSIGNED, {
+            ...newBooking,
+            status: 'aprobado',
+        }, oldBooking.agent || {}, '', {
+            old_shift: {
+                booking_date: normalizeDate(oldBooking.booking_date),
+                shift_number: oldBooking.shift,
+                shift_label: SHIFT_CONFIG[oldBooking.shift]?.label + ' (' + SHIFT_CONFIG[oldBooking.shift]?.time + ')',
+            },
+        })
+
+        toast.success(`Turno de ${agentName} movido a ${formatDayLabel(moveTarget.date)} – ${SHIFT_CONFIG[moveTarget.shift]?.label}`)
+        setMoveBooking(null)
+        setMoveTarget(null)
+        fetchAll()
+    }
+
+    // ─── Assign Agent ──────────────────────
+    async function handleAssign(date, shift) {
+        setAssignSlot({ date, shift })
+        setSelectedAgentId(null)
+        setAgentSearch('')
+        setShowAssignDialog(true)
+
+        // Fetch eligible agents
+        const { data } = await supabase
+            .from('profiles')
+            .select('id, first_name, last_name, email, phone')
+            .eq('role', 'agent')
+            .eq('shift_eligible', true)
+            .order('first_name', { ascending: true })
+        setEligibleAgents(data || [])
+    }
+
+    const filteredAgents = useMemo(() => {
+        if (!agentSearch.trim()) return eligibleAgents
+        const q = agentSearch.toLowerCase()
+        return eligibleAgents.filter(a =>
+            `${a.first_name || ''} ${a.last_name || ''}`.toLowerCase().includes(q) ||
+            (a.email || '').toLowerCase().includes(q)
+        )
+    }, [eligibleAgents, agentSearch])
+
+    async function confirmAssign() {
+        if (!assignSlot || !selectedAgentId) return
+        setShowAssignDialog(false)
+
+        const agent = eligibleAgents.find(a => a.id === selectedAgentId)
+        const agentName = agent ? `${agent.first_name || ''} ${agent.last_name || ''}`.trim() : ''
+
+        const { data: newBooking, error } = await supabase.from('shift_bookings').insert({
+            agent_id: selectedAgentId,
+            booking_date: assignSlot.date,
+            shift: assignSlot.shift,
+            status: 'aprobado',
+            approved_by: profile.id,
+            admin_notes: 'Asignado directamente por administración',
+        }).select('*, agent:profiles!shift_bookings_agent_id_fkey(id, first_name, last_name, email, phone)').single()
+
+        if (error) {
+            if (error.code === '23505') {
+                toast.error('Este turno ya fue reservado.')
+            } else {
+                toast.error('Error al asignar: ' + error.message)
+            }
+            return
+        }
+
+        createShiftCalendarEvent(newBooking, selectedAgentId, comercialId, agentName)
+
+        sendShiftNotification(SHIFT_EVENTS.SHIFT_ASSIGNED, {
+            ...newBooking,
+            status: 'aprobado',
+        }, agent || {})
+
+        toast.success(`Turno asignado a ${agentName}`)
+        setAssignSlot(null)
+        setSelectedAgentId(null)
+        fetchAll()
+    }
+
+    // ─── Stats ──────────────────────
     const pendingCount = bookings.filter(b => b.status === 'pendiente').length
     const approvedCount = bookings.filter(b => b.status === 'aprobado').length
     const publishedCount = availableSlots.length
@@ -388,6 +581,8 @@ export default function AdminShiftSchedule() {
                                                     </div>
                                                     <div className="text-[10px] opacity-75">{cfg.time}</div>
                                                     <div className="mt-1 font-semibold truncate">{agentName}</div>
+
+                                                    {/* Pending: Approve / Reject */}
                                                     {booking.status === 'pendiente' && (
                                                         <div className="flex gap-1 mt-2">
                                                             <Button size="sm" className="flex-1 h-6 text-[10px] bg-emerald-500 hover:bg-emerald-600 text-white" onClick={() => handleApprove(booking)}>
@@ -398,11 +593,23 @@ export default function AdminShiftSchedule() {
                                                             </Button>
                                                         </div>
                                                     )}
+
+                                                    {/* Approved: Move / Cancel */}
+                                                    {booking.status === 'aprobado' && (
+                                                        <div className="flex gap-1 mt-2">
+                                                            <Button size="sm" variant="outline" className="flex-1 h-6 text-[10px] border-blue-300 text-blue-600 hover:bg-blue-50" onClick={() => handleMove(booking)}>
+                                                                <ArrowRightLeft className="w-3 h-3 mr-0.5" /> Mover
+                                                            </Button>
+                                                            <Button size="sm" variant="outline" className="flex-1 h-6 text-[10px] border-red-300 text-red-600 hover:bg-red-50" onClick={() => handleAdminCancel(booking)}>
+                                                                <XCircle className="w-3 h-3 mr-0.5" /> Cancelar
+                                                            </Button>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             )
                                         }
 
-                                        // Available but no booking
+                                        // Available but no booking — show Assign button
                                         return (
                                             <div key={shift} className={cn(
                                                 "rounded-lg p-2.5 border-2 border-dashed text-xs text-center",
@@ -415,6 +622,16 @@ export default function AdminShiftSchedule() {
                                                 <div className={cn("mt-1 font-semibold", available ? "text-violet-500" : "")}>
                                                     {available ? '✓ Publicado' : 'No publicado'}
                                                 </div>
+                                                {available && (
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        className="w-full mt-1.5 h-6 text-[10px] border-emerald-300 text-emerald-600 hover:bg-emerald-50"
+                                                        onClick={() => handleAssign(date, shift)}
+                                                    >
+                                                        <UserPlus className="w-3 h-3 mr-0.5" /> Asignar
+                                                    </Button>
+                                                )}
                                             </div>
                                         )
                                     })}
@@ -456,6 +673,16 @@ export default function AdminShiftSchedule() {
                                                         <Button size="sm" variant="outline" className="h-7 text-xs border-red-300 text-red-600 hover:bg-red-50" onClick={() => handleReject(b)}>Rechazar</Button>
                                                     </>
                                                 )}
+                                                {b.status === 'aprobado' && (
+                                                    <>
+                                                        <Button size="sm" variant="outline" className="h-7 text-xs border-blue-300 text-blue-600 hover:bg-blue-50" onClick={() => handleMove(b)}>
+                                                            <ArrowRightLeft className="w-3 h-3 mr-1" /> Mover
+                                                        </Button>
+                                                        <Button size="sm" variant="outline" className="h-7 text-xs border-red-300 text-red-600 hover:bg-red-50" onClick={() => handleAdminCancel(b)}>
+                                                            <XCircle className="w-3 h-3 mr-1" /> Cancelar
+                                                        </Button>
+                                                    </>
+                                                )}
                                             </div>
                                         </div>
                                     )
@@ -466,7 +693,7 @@ export default function AdminShiftSchedule() {
                 </Card>
             )}
 
-            {/* Publish Confirmation Dialog */}
+            {/* ─── Publish Confirmation Dialog ─── */}
             <AlertDialog open={showPublishDialog} onOpenChange={setShowPublishDialog}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
@@ -489,7 +716,7 @@ export default function AdminShiftSchedule() {
                 </AlertDialogContent>
             </AlertDialog>
 
-            {/* Reject Reason Dialog */}
+            {/* ─── Reject Reason Dialog ─── */}
             <AlertDialog open={showRejectDialog} onOpenChange={(open) => { if (!open) { setShowRejectDialog(false); setRejectBooking(null) } }}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
@@ -518,6 +745,189 @@ export default function AdminShiftSchedule() {
                         <AlertDialogCancel>Cancelar</AlertDialogCancel>
                         <AlertDialogAction className="bg-red-600 hover:bg-red-700" onClick={confirmReject}>
                             <Ban className="w-4 h-4 mr-1" /> Rechazar Turno
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            {/* ─── Admin Cancel Dialog ─── */}
+            <AlertDialog open={showAdminCancelDialog} onOpenChange={(open) => { if (!open) { setShowAdminCancelDialog(false); setAdminCancelBooking(null) } }}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle className="flex items-center gap-2">
+                            <XCircle className="w-5 h-5 text-red-500" />
+                            Cancelar Turno Aprobado
+                        </AlertDialogTitle>
+                        <AlertDialogDescription className="text-left">
+                            {adminCancelBooking && (
+                                <>
+                                    Cancelar el turno aprobado de <strong>{adminCancelBooking.agent ? `${adminCancelBooking.agent.first_name || ''} ${adminCancelBooking.agent.last_name || ''}`.trim() : 'Agente'}</strong> para el <strong>{formatDayLabel(normalizeDate(adminCancelBooking.booking_date))}</strong> ({SHIFT_CONFIG[adminCancelBooking.shift]?.time}).
+                                    <br /><br />
+                                    Se notificará al agente automáticamente. Esta acción no se puede deshacer.
+                                </>
+                            )}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <div className="px-6 pb-2">
+                        <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5 block">Motivo de cancelación <span className="text-red-500">*</span></label>
+                        <textarea
+                            value={adminCancelNotes}
+                            onChange={(e) => setAdminCancelNotes(e.target.value)}
+                            placeholder="Ej: El agente avisó que no puede asistir..."
+                            className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm min-h-[80px] focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-400"
+                        />
+                    </div>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Volver</AlertDialogCancel>
+                        <AlertDialogAction
+                            className="bg-red-600 hover:bg-red-700"
+                            onClick={confirmAdminCancel}
+                            disabled={!adminCancelNotes.trim()}
+                        >
+                            <XCircle className="w-4 h-4 mr-1" /> Cancelar Turno
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            {/* ─── Move Turno Dialog ─── */}
+            <AlertDialog open={showMoveDialog} onOpenChange={(open) => { if (!open) { setShowMoveDialog(false); setMoveBooking(null); setMoveTarget(null) } }}>
+                <AlertDialogContent className="max-w-lg">
+                    <AlertDialogHeader>
+                        <AlertDialogTitle className="flex items-center gap-2">
+                            <ArrowRightLeft className="w-5 h-5 text-blue-500" />
+                            Mover Turno
+                        </AlertDialogTitle>
+                        <AlertDialogDescription className="text-left">
+                            {moveBooking && (
+                                <>
+                                    Mover a <strong>{moveBooking.agent ? `${moveBooking.agent.first_name || ''} ${moveBooking.agent.last_name || ''}`.trim() : 'Agente'}</strong> desde <strong>{formatDayLabel(normalizeDate(moveBooking.booking_date))} – {SHIFT_CONFIG[moveBooking.shift]?.label}</strong> a un nuevo slot.
+                                </>
+                            )}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <div className="px-6 pb-2">
+                        <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 block">Selecciona el nuevo turno:</label>
+                        {moveAvailableSlots.length === 0 ? (
+                            <div className="text-center py-6 text-slate-400 text-sm">
+                                <AlertCircle className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                                No hay turnos disponibles esta semana para mover.
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-2 gap-2 max-h-[300px] overflow-y-auto">
+                                {moveAvailableSlots.map(slot => {
+                                    const cfg = SHIFT_CONFIG[slot.shift]
+                                    const isSelected = moveTarget?.date === slot.date && moveTarget?.shift === slot.shift
+                                    return (
+                                        <button
+                                            key={`${slot.date}|${slot.shift}`}
+                                            onClick={() => setMoveTarget(slot)}
+                                            className={cn(
+                                                "rounded-lg p-3 border-2 text-xs text-left transition-all",
+                                                isSelected
+                                                    ? "border-blue-400 bg-blue-50 dark:bg-blue-950/30 ring-2 ring-blue-400/30"
+                                                    : "border-slate-200 dark:border-slate-700 hover:border-blue-300 hover:bg-blue-50/50"
+                                            )}
+                                        >
+                                            <div className="font-bold text-slate-900 dark:text-white">{slot.dayLabel}</div>
+                                            <div className={cn("font-semibold mt-1", cfg.text)}>{cfg.label}</div>
+                                            <div className="text-[10px] text-slate-500">{cfg.time}</div>
+                                            {isSelected && <CheckCircle2 className="w-4 h-4 text-blue-500 mt-1" />}
+                                        </button>
+                                    )
+                                })}
+                            </div>
+                        )}
+                    </div>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction
+                            className="bg-blue-600 hover:bg-blue-700"
+                            onClick={confirmMove}
+                            disabled={!moveTarget}
+                        >
+                            <ArrowRightLeft className="w-4 h-4 mr-1" /> Confirmar Movimiento
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            {/* ─── Assign Agent Dialog ─── */}
+            <AlertDialog open={showAssignDialog} onOpenChange={(open) => { if (!open) { setShowAssignDialog(false); setAssignSlot(null); setSelectedAgentId(null) } }}>
+                <AlertDialogContent className="max-w-md">
+                    <AlertDialogHeader>
+                        <AlertDialogTitle className="flex items-center gap-2">
+                            <UserPlus className="w-5 h-5 text-emerald-500" />
+                            Asignar Agente a Turno
+                        </AlertDialogTitle>
+                        <AlertDialogDescription className="text-left">
+                            {assignSlot && (
+                                <>
+                                    Asignar agente al <strong>{formatDayLabel(assignSlot.date)}</strong> — <strong>{SHIFT_CONFIG[assignSlot.shift]?.label} ({SHIFT_CONFIG[assignSlot.shift]?.time})</strong>.
+                                    <br />
+                                    El turno se aprobará directamente.
+                                </>
+                            )}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <div className="px-6 pb-2">
+                        <input
+                            type="text"
+                            value={agentSearch}
+                            onChange={(e) => setAgentSearch(e.target.value)}
+                            placeholder="Buscar agente por nombre o email..."
+                            className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
+                        />
+                        {eligibleAgents.length === 0 ? (
+                            <div className="text-center py-4 text-slate-400 text-sm">
+                                <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2" />
+                                Cargando agentes...
+                            </div>
+                        ) : filteredAgents.length === 0 ? (
+                            <div className="text-center py-4 text-slate-400 text-sm">
+                                No se encontraron agentes.
+                            </div>
+                        ) : (
+                            <div className="space-y-1.5 max-h-[250px] overflow-y-auto">
+                                {filteredAgents.map(a => {
+                                    const name = `${a.first_name || ''} ${a.last_name || ''}`.trim()
+                                    const isSelected = selectedAgentId === a.id
+                                    return (
+                                        <button
+                                            key={a.id}
+                                            onClick={() => setSelectedAgentId(a.id)}
+                                            className={cn(
+                                                "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border text-left text-sm transition-all",
+                                                isSelected
+                                                    ? "border-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 ring-1 ring-emerald-400/30"
+                                                    : "border-slate-200 dark:border-slate-700 hover:border-emerald-300 hover:bg-emerald-50/50"
+                                            )}
+                                        >
+                                            <div className={cn(
+                                                "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0",
+                                                isSelected ? "bg-emerald-500 text-white" : "bg-slate-100 text-slate-600"
+                                            )}>
+                                                {(a.first_name || '?')[0]}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="font-semibold text-slate-900 dark:text-white truncate">{name}</div>
+                                                <div className="text-xs text-slate-500 truncate">{a.email}</div>
+                                            </div>
+                                            {isSelected && <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />}
+                                        </button>
+                                    )
+                                })}
+                            </div>
+                        )}
+                    </div>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction
+                            className="bg-emerald-600 hover:bg-emerald-700"
+                            onClick={confirmAssign}
+                            disabled={!selectedAgentId}
+                        >
+                            <UserPlus className="w-4 h-4 mr-1" /> Asignar Turno
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
