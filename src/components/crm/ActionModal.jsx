@@ -202,9 +202,8 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
 
                 if (actionData.action_date) {
                     try {
-                        let dateStr = actionData.action_date;
-                        if (!dateStr.includes('T')) dateStr += 'T00:00';
-                        setActionDate(dateStr.slice(0, 16));
+                        // Convert UTC timestamp to local time for display
+                        setActionDate(toISOLocal(new Date(actionData.action_date)));
                     } catch (e) {
                         setActionDate(toISOLocal());
                     }
