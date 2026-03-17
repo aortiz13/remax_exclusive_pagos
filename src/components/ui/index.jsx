@@ -988,11 +988,13 @@ Progress.displayName = ProgressPrimitive.Root.displayName
 // TABS
 const TabsContext = React.createContext({})
 
-const Tabs = React.forwardRef(({ className, defaultValue, onValueChange, ...props }, ref) => {
-    const [value, setValue] = React.useState(defaultValue)
+const Tabs = React.forwardRef(({ className, defaultValue, value: controlledValue, onValueChange, ...props }, ref) => {
+    const [internalValue, setInternalValue] = React.useState(defaultValue)
+    const isControlled = controlledValue !== undefined
+    const value = isControlled ? controlledValue : internalValue
 
     const handleValueChange = (newValue) => {
-        setValue(newValue)
+        if (!isControlled) setInternalValue(newValue)
         onValueChange?.(newValue)
     }
 

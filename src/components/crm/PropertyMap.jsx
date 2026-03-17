@@ -12,17 +12,32 @@ import markerIconPng from "leaflet/dist/images/marker-icon.png"
 import markerIcon2xPng from "leaflet/dist/images/marker-icon-2x.png"
 import markerShadowPng from "leaflet/dist/images/marker-shadow.png"
 
-const getMarkerIcon = (statusArray) => {
-    const statusStr = (statusArray || []).join(', ').toLowerCase()
-    let color = '#3b82f6' // Default Blue (RE/MAX Blue-ish)
+// Status → color mapping for pins and legend
+const STATUS_PIN_COLORS = {
+    'Publicada':    '#3b82f6', // Blue
+    'En Venta':     '#ef4444', // Red
+    'En Arriendo':  '#8b5cf6', // Violet
+    'Vendida':      '#a855f7', // Purple
+    'Arrendada':    '#06b6d4', // Cyan
+    'Administrada': '#f97316', // Orange
+    'Pendiente':    '#eab308', // Yellow
+    'Pausada':      '#f59e0b', // Amber
+    'Retirada':     '#6b7280', // Gray
+    'Por Captar':   '#14b8a6', // Teal
+    'Visitas':      '#ec4899', // Pink
+}
 
-    if (statusStr.includes('venta')) {
-        color = '#ef4444' // Red (RE/MAX Red)
-    } else if (statusStr.includes('arriendo')) {
-        color = '#22c55e' // Green
-    } else if (statusStr.includes('administr')) {
-        color = '#f97316' // Orange
+const getStatusColor = (statusArray) => {
+    if (!statusArray || statusArray.length === 0) return '#9ca3af'
+    // Priority: pick the first status that has a defined color
+    for (const s of statusArray) {
+        if (STATUS_PIN_COLORS[s]) return STATUS_PIN_COLORS[s]
     }
+    return '#9ca3af' // Fallback gray
+}
+
+const getMarkerIcon = (statusArray) => {
+    const color = getStatusColor(statusArray)
 
     return divIcon({
         html: `<div style="display: flex; justify-content: center; align-items: center;">
@@ -41,6 +56,7 @@ const getMarkerIcon = (statusArray) => {
 const PropertyMap = () => {
     const [properties, setProperties] = useState([])
     const [loading, setLoading] = useState(true)
+    const [activeFilters, setActiveFilters] = useState(new Set(Object.keys(STATUS_PIN_COLORS)))
     const navigate = useNavigate()
 
     useEffect(() => {
@@ -49,7 +65,6 @@ const PropertyMap = () => {
 
     const fetchProperties = async () => {
         try {
-            // Only fetch properties that have coordinates
             const { data, error } = await supabase
                 .from('properties')
                 .select('*')
@@ -63,6 +78,39 @@ const PropertyMap = () => {
         } finally {
             setLoading(false)
         }
+    }
+
+    // Count properties per status
+    const statusCounts = {}
+    for (const s of Object.keys(STATUS_PIN_COLORS)) statusCounts[s] = 0
+    properties.forEach(p => {
+        (p.status || []).forEach(s => {
+            if (statusCounts[s] !== undefined) statusCounts[s]++
+        })
+    })
+
+    // Filter properties based on active filters
+    const allActive = activeFilters.size === Object.keys(STATUS_PIN_COLORS).length
+    const filteredProperties = allActive
+        ? properties
+        : properties.filter(p =>
+            (p.status || []).some(s => activeFilters.has(s))
+        )
+
+    const toggleFilter = (status) => {
+        setActiveFilters(prev => {
+            const next = new Set(prev)
+            if (next.has(status)) {
+                next.delete(status)
+            } else {
+                next.add(status)
+            }
+            return next
+        })
+    }
+
+    const resetFilters = () => {
+        setActiveFilters(new Set(Object.keys(STATUS_PIN_COLORS)))
     }
 
     if (loading) {
@@ -82,33 +130,49 @@ const PropertyMap = () => {
         )
     }
 
-    // Calculate center based on first property or default to Santiago
     const center = properties.length > 0
         ? [properties[0].latitude, properties[0].longitude]
         : [-33.4489, -70.6693]
 
     return (
         <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 overflow-hidden shadow-sm">
-            <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex flex-wrap justify-between items-center gap-3">
-                <h3 className="font-semibold text-lg">Mapa de Propiedades</h3>
-                <div className="flex items-center gap-4 flex-wrap">
-                    <div className="flex items-center gap-1.5">
-                        <span className="w-3 h-3 rounded-full inline-block" style={{ backgroundColor: '#ef4444' }} />
-                        <span className="text-xs text-muted-foreground">Venta</span>
+            <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex flex-col gap-3">
+                <div className="flex flex-wrap justify-between items-center gap-3">
+                    <h3 className="font-semibold text-lg">Mapa de Propiedades</h3>
+                    <div className="flex items-center gap-2">
+                        {!allActive && (
+                            <Button variant="ghost" size="sm" className="h-7 text-xs px-2" onClick={resetFilters}>
+                                Mostrar todas
+                            </Button>
+                        )}
+                        <Badge variant="outline">
+                            {filteredProperties.length}{!allActive ? ` / ${properties.length}` : ''} Ubicaciones
+                        </Badge>
                     </div>
-                    <div className="flex items-center gap-1.5">
-                        <span className="w-3 h-3 rounded-full inline-block" style={{ backgroundColor: '#22c55e' }} />
-                        <span className="text-xs text-muted-foreground">Arriendo</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                        <span className="w-3 h-3 rounded-full inline-block" style={{ backgroundColor: '#f97316' }} />
-                        <span className="text-xs text-muted-foreground">Administración</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                        <span className="w-3 h-3 rounded-full inline-block" style={{ backgroundColor: '#3b82f6' }} />
-                        <span className="text-xs text-muted-foreground">Otros</span>
-                    </div>
-                    <Badge variant="outline">{properties.length} Ubicaciones</Badge>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                    {Object.entries(STATUS_PIN_COLORS).map(([label, color]) => {
+                        const isActive = activeFilters.has(label)
+                        const count = statusCounts[label] || 0
+                        return (
+                            <button
+                                key={label}
+                                onClick={() => toggleFilter(label)}
+                                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs transition-all cursor-pointer select-none
+                                    ${isActive
+                                        ? 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 shadow-sm ring-1 ring-offset-1 dark:ring-offset-slate-900'
+                                        : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 opacity-40'
+                                    }`}
+                                style={isActive ? { ringColor: color } : {}}
+                            >
+                                <span className="w-2.5 h-2.5 rounded-full inline-block flex-shrink-0" style={{ backgroundColor: color }} />
+                                <span className="whitespace-nowrap text-foreground">{label}</span>
+                                {count > 0 && (
+                                    <span className="text-[10px] font-semibold text-muted-foreground ml-0.5">({count})</span>
+                                )}
+                            </button>
+                        )
+                    })}
                 </div>
             </div>
             <div className="h-[500px] w-full relative z-0">
@@ -122,7 +186,7 @@ const PropertyMap = () => {
                         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                     />
-                    {properties.map(property => (
+                    {filteredProperties.map(property => (
                         <Marker
                             key={property.id}
                             position={[property.latitude, property.longitude]}
@@ -140,7 +204,12 @@ const PropertyMap = () => {
                                                 />
                                             </div>
                                         )}
-                                        <Badge className="w-fit mb-1">{property.property_type}</Badge>
+                                        <div className="flex gap-1.5 flex-wrap mb-1">
+                                            <Badge className="w-fit">{property.property_type}</Badge>
+                                            {property.status?.map(s => (
+                                                <Badge key={s} className="w-fit text-white text-[10px]" style={{ backgroundColor: getStatusColor(property.status) }}>{s}</Badge>
+                                            ))}
+                                        </div>
                                         <h4 className="font-bold text-sm leading-tight">{property.address}</h4>
                                         <p className="text-xs text-muted-foreground">{property.commune}</p>
 

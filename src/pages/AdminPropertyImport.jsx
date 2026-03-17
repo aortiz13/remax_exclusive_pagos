@@ -417,25 +417,6 @@ const AdminPropertyImport = () => {
                             return true
                         })
 
-                        // Clear any orphaned properties with same listing_link
-                        const linksToInsert = deduped.map(p => p.source_url).filter(Boolean)
-                        if (linksToInsert.length > 0) {
-                            const { data: conflicting } = await supabase
-                                .from('properties')
-                                .select('id')
-                                .in('listing_link', linksToInsert)
-                            if (conflicting?.length > 0) {
-                                const conflictIds = conflicting.map(c => c.id)
-                                await supabase.from('property_import_log').delete().in('property_id', conflictIds)
-                                await supabase.from('property_photos').delete().in('property_id', conflictIds)
-                                await supabase.from('property_listing_history').delete().in('property_id', conflictIds)
-                                await supabase.from('crm_tasks').delete().in('property_id', conflictIds)
-                                await supabase.from('crm_actions').delete().in('property_id', conflictIds)
-                                await supabase.from('mandates').update({ property_id: null }).in('property_id', conflictIds)
-                                await supabase.from('properties').delete().in('id', conflictIds)
-                            }
-                        }
-
                         const dbProperties = deduped.map(p => ({
                             address: p.address,
                             commune: p.commune || p.address?.split(',')[1]?.trim() || '',
@@ -476,7 +457,7 @@ const AdminPropertyImport = () => {
 
                         const { data: insertedProps, error: insertError } = await supabase
                             .from('properties')
-                            .insert(dbProperties)
+                            .upsert(dbProperties, { onConflict: 'listing_link, agent_id' })
                             .select('id, listing_reference, agent_id')
 
                         if (insertError) throw insertError
