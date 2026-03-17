@@ -75,6 +75,8 @@ export const CAMERA_EVENTS = {
     BOOKING_REJECTED: 'booking_rejected',
     BOOKING_RESCHEDULED: 'booking_rescheduled',
     BOOKING_CANCELLED: 'booking_cancelled',
+    BOOKING_CANCELLED_BY_ADMIN: 'booking_cancelled_by_admin',
+    BOOKING_TRANSFERRED: 'booking_transferred',
     URGENT_REQUEST: 'urgent_request',
     PICKUP_CONFIRMED: 'pickup_confirmed',
     RETURN_CONFIRMED: 'return_confirmed',

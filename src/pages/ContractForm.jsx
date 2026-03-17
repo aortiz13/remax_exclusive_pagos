@@ -394,9 +394,9 @@ function PartyForm({ typeLabel, index, prefix, initialData = {}, onRemove, isRem
                         <Input name={`${prefix}nacionalidad`} value={formData.nacionalidad} onChange={handleInputChange} />
                     </div>
 
-                    {['Vendedor', 'Comprador'].includes(typeLabel) && (
+                    {['Vendedor', 'Comprador', 'Arrendador', 'Arrendatario'].includes(typeLabel) && (
                         <div className="space-y-2">
-                            <Label htmlFor={`${prefix}civil`} className="text-xs font-semibold uppercase text-slate-500">Estado Civil</Label>
+                            <Label htmlFor={`${prefix}civil`} className="text-xs font-semibold uppercase text-slate-500">Estado Civil <span className="text-red-500">*</span></Label>
                             <Select value={formData.civil || undefined} onValueChange={(v) => handleSelectChange('civil', v)}>
                                 <SelectTrigger className="h-10">
                                     <SelectValue placeholder="Seleccione..." />
@@ -874,6 +874,22 @@ function BuySellFormLogic({ user, profile, navigate, initialData = {}, requestId
             return
         }
 
+        // Validate estado civil for all parties
+        for (let i = 1; i <= 4; i++) {
+            const vNombres = formData.get(`vendedor_${i}_nombres`)
+            const vTipo = formData.get(`vendedor_${i}_tipo_persona`)
+            if (vNombres && vTipo === 'natural' && !formData.get(`vendedor_${i}_civil`)) {
+                toast.error(`Estado Civil del Vendedor ${i} es obligatorio.`)
+                return
+            }
+            const cNombres = formData.get(`comprador_${i}_nombres`)
+            const cTipo = formData.get(`comprador_${i}_tipo_persona`)
+            if (cNombres && cTipo === 'natural' && !formData.get(`comprador_${i}_civil`)) {
+                toast.error(`Estado Civil del Comprador ${i} es obligatorio.`)
+                return
+            }
+        }
+
         setIsSubmitting(true)
         try {
             // Append context data
@@ -1336,6 +1352,22 @@ function LeaseFormLogic({ user, profile, navigate, initialData = {}, requestId =
             toast.error('Nombre, RUT y Datos Bancarios del Arrendador 1 son obligatorios');
             setIsSubmitting(false);
             return;
+        }
+
+        // Validate estado civil for all parties
+        for (let i = 1; i <= 4; i++) {
+            const aNombres = formData.get(`arrendador_${i}_nombres`)
+            const aTipo = formData.get(`arrendador_${i}_tipo_persona`)
+            if (aNombres && aTipo === 'natural' && !formData.get(`arrendador_${i}_civil`)) {
+                toast.error(`Estado Civil del Arrendador ${i} es obligatorio.`)
+                return
+            }
+            const tNombres = formData.get(`arrendatario_${i}_nombres`)
+            const tTipo = formData.get(`arrendatario_${i}_tipo_persona`)
+            if (tNombres && tTipo === 'natural' && !formData.get(`arrendatario_${i}_civil`)) {
+                toast.error(`Estado Civil del Arrendatario ${i} es obligatorio.`)
+                return
+            }
         }
 
         setIsSubmitting(true)

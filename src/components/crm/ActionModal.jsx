@@ -138,15 +138,24 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
     useEffect(() => {
         const fetchUF = async () => {
             setFetchingUF(true);
-            try {
-                const res = await fetch('https://mindicador.cl/api/uf');
-                const data = await res.json();
-                if (data?.serie?.[0]?.valor) setUfValue(data.serie[0].valor);
-            } catch (e) {
-                console.error('Error fetching UF:', e);
-            } finally {
-                setFetchingUF(false);
+            const maxRetries = 2;
+            for (let attempt = 0; attempt <= maxRetries; attempt++) {
+                try {
+                    const res = await fetch('https://mindicador.cl/api/uf');
+                    const data = await res.json();
+                    if (data?.serie?.[0]?.valor) {
+                        setUfValue(data.serie[0].valor);
+                        break;
+                    }
+                } catch (e) {
+                    if (attempt === maxRetries) {
+                        console.error('Error fetching UF:', e);
+                    } else {
+                        await new Promise(r => setTimeout(r, 1000));
+                    }
+                }
             }
+            setFetchingUF(false);
         };
         fetchUF();
     }, []);

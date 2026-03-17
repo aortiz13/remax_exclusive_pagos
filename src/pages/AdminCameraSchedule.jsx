@@ -9,7 +9,7 @@ import {
     Camera, ChevronLeft, ChevronRight, Clock, CalendarDays,
     CheckCircle2, XCircle, AlertCircle, Loader2, RefreshCw,
     Filter, Zap, AlertTriangle, Wrench, Package, RotateCcw,
-    UserCheck, MapPin, Eye, X, ChevronDown
+    UserCheck, MapPin, Eye, X, ChevronDown, Ban, ArrowRightLeft
 } from 'lucide-react'
 import { format, addDays, startOfWeek, isToday, parseISO, isBefore } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -38,7 +38,8 @@ export default function AdminCameraSchedule() {
     const [activeTab, setActiveTab] = useState('calendario')
 
     // Action modals
-    const [actionModal, setActionModal] = useState(null) // { booking, action: 'approve'|'reject'|'reschedule'|'detail' }
+    const [actionModal, setActionModal] = useState(null) // { booking, action: 'approve'|'reject'|'reschedule'|'cancel'|'transfer'|'detail' }
+    const [transferData, setTransferData] = useState({ agent_id: '', booking_date: '', return_date: '', start_time: '', end_time: '', camera_unit: '' })
     const [adminNotes, setAdminNotes] = useState('')
     const [rescheduleData, setRescheduleData] = useState({})
     const [handoffData, setHandoffData] = useState({ agent_id: '', location: '' })
@@ -180,6 +181,112 @@ export default function AdminCameraSchedule() {
             setRescheduleData({})
             fetchAll()
         } catch (err) { toast.error('Error al reprogramar') }
+        finally { setSubmitting(false) }
+    }
+
+    const handleAdminCancel = async (booking) => {
+        if (!adminNotes.trim()) { toast.error('Agrega un motivo de anulación'); return }
+        setSubmitting(true)
+        try {
+            const now = new Date().toISOString()
+            const { error } = await supabase.from('camera_bookings')
+                .update({
+                    status: 'cancelada',
+                    admin_notes: `Anulado por admin: ${adminNotes}`,
+                    cancelled_at: now,
+                    approver_id: user.id,
+                    updated_at: now,
+                })
+                .eq('id', booking.id)
+            if (error) throw error
+
+            // If camera was in use, free it
+            if (booking.pickup_confirmed_at && !booking.return_confirmed_at) {
+                await supabase.from('camera_units')
+                    .update({ status: 'disponible', current_booking_id: null, updated_at: now })
+                    .eq('id', booking.camera_unit)
+            }
+
+            // Remove calendar events
+            if (booking.crm_task_id_agent || booking.crm_task_id_comercial) {
+                deleteCameraCalendarEvents(booking, booking.agent_id, user.id)
+            }
+
+            const agent = agents[booking.agent_id] || {}
+            sendCameraNotification(CAMERA_EVENTS.BOOKING_CANCELLED_BY_ADMIN, { ...booking, status: 'cancelada' }, agent, adminNotes)
+
+            // Auto-promote waitlist if exists
+            const { data: waitlistEntries } = await supabase.from('camera_bookings')
+                .select('*')
+                .eq('waitlist_for', booking.id)
+                .eq('status', 'lista_espera')
+                .order('created_at')
+                .limit(1)
+            if (waitlistEntries?.length > 0) {
+                const wl = waitlistEntries[0]
+                await supabase.from('camera_bookings')
+                    .update({ status: 'pendiente', waitlist_for: null, admin_notes: 'Promovido automáticamente desde lista de espera', updated_at: now })
+                    .eq('id', wl.id)
+                const wlAgent = agents[wl.agent_id] || {}
+                sendCameraNotification(CAMERA_EVENTS.WAITLIST_AVAILABLE, wl, wlAgent, 'Tu pre-reserva fue promovida porque el horario se liberó.')
+                toast.success('📋 Reserva en lista de espera promovida automáticamente')
+            }
+
+            toast.success('🚫 Reserva anulada por administración')
+            setActionModal(null)
+            setAdminNotes('')
+            fetchAll()
+        } catch (err) { toast.error('Error al anular la reserva') }
+        finally { setSubmitting(false) }
+    }
+
+    const handleTransferBooking = async (booking) => {
+        if (!transferData.agent_id) { toast.error('Selecciona el agente destino'); return }
+        setSubmitting(true)
+        try {
+            const now = new Date().toISOString()
+            const originalAgent = agents[booking.agent_id] || {}
+            const newAgent = agents[transferData.agent_id] || {}
+            const transferNote = `Transferido de ${originalAgent.name || 'agente'} a ${newAgent.name || 'agente'}. ${adminNotes || ''}`
+
+            const updatePayload = {
+                agent_id: transferData.agent_id,
+                admin_notes: transferNote,
+                updated_at: now,
+            }
+            // Optional: change date/time/camera if provided
+            if (transferData.booking_date) updatePayload.booking_date = transferData.booking_date
+            if (transferData.return_date) updatePayload.return_date = transferData.return_date
+            if (transferData.start_time) updatePayload.start_time = transferData.start_time
+            if (transferData.end_time) updatePayload.end_time = transferData.end_time
+            if (transferData.camera_unit) updatePayload.camera_unit = Number(transferData.camera_unit)
+
+            const { error } = await supabase.from('camera_bookings')
+                .update(updatePayload)
+                .eq('id', booking.id)
+            if (error) throw error
+
+            // Remove old calendar events
+            if (booking.crm_task_id_agent || booking.crm_task_id_comercial) {
+                await deleteCameraCalendarEvents(booking, booking.agent_id, user.id)
+            }
+
+            // Create new calendar events for the new agent (only if approved)
+            if (booking.status === 'aprobada') {
+                const mergedBooking = { ...booking, ...updatePayload }
+                createCameraCalendarEvents(mergedBooking, transferData.agent_id, user.id, transferNote)
+            }
+
+            // Notify both agents
+            sendCameraNotification(CAMERA_EVENTS.BOOKING_TRANSFERRED, { ...booking, status: booking.status }, originalAgent, transferNote, { transfer_to: newAgent.name })
+            sendCameraNotification(CAMERA_EVENTS.BOOKING_TRANSFERRED, { ...booking, ...updatePayload, status: booking.status }, newAgent, transferNote, { transfer_from: originalAgent.name })
+
+            toast.success(`✅ Reserva transferida a ${newAgent.name || 'nuevo agente'}`)
+            setActionModal(null)
+            setAdminNotes('')
+            setTransferData({ agent_id: '', booking_date: '', return_date: '', start_time: '', end_time: '', camera_unit: '' })
+            fetchAll()
+        } catch (err) { toast.error('Error al transferir la reserva') }
         finally { setSubmitting(false) }
     }
 
@@ -468,10 +575,24 @@ export default function AdminCameraSchedule() {
                                                     <CheckCircle2 className="w-4 h-4" />
                                                 </button>
                                             )}
-                                            <button onClick={() => { setActionModal({ booking: b, action: 'reschedule' }); setRescheduleData({ booking_date: b.booking_date, return_date: b.return_date || b.booking_date, start_time: b.start_time?.slice(0, 5), end_time: b.end_time?.slice(0, 5), camera_unit: b.camera_unit }) }}
-                                                className="p-2 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-600 transition-colors" title="Reprogramar">
-                                                <RefreshCw className="w-4 h-4" />
-                                            </button>
+                                            {(b.status === 'pendiente' || b.status === 'aprobada') && (
+                                                <button onClick={() => { setActionModal({ booking: b, action: 'reschedule' }); setRescheduleData({ booking_date: b.booking_date, return_date: b.return_date || b.booking_date, start_time: b.start_time?.slice(0, 5), end_time: b.end_time?.slice(0, 5), camera_unit: b.camera_unit }) }}
+                                                    className="p-2 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-600 transition-colors" title="Reagendar">
+                                                    <RefreshCw className="w-4 h-4" />
+                                                </button>
+                                            )}
+                                            {(b.status === 'pendiente' || b.status === 'aprobada') && (
+                                                <button onClick={() => { setActionModal({ booking: b, action: 'transfer' }); setTransferData({ agent_id: '', booking_date: b.booking_date, return_date: b.return_date || b.booking_date, start_time: b.start_time?.slice(0, 5), end_time: b.end_time?.slice(0, 5), camera_unit: String(b.camera_unit) }); setAdminNotes('') }}
+                                                    className="p-2 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-600 transition-colors" title="Transferir">
+                                                    <ArrowRightLeft className="w-4 h-4" />
+                                                </button>
+                                            )}
+                                            {(b.status === 'pendiente' || b.status === 'aprobada') && (
+                                                <button onClick={() => { setActionModal({ booking: b, action: 'cancel' }); setAdminNotes('') }}
+                                                    className="p-2 rounded-lg bg-red-50 hover:bg-red-100 text-red-500 transition-colors" title="Anular">
+                                                    <Ban className="w-4 h-4" />
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
                                 )
@@ -592,7 +713,9 @@ export default function AdminCameraSchedule() {
                                 <h3 className="text-lg font-bold text-slate-900 dark:text-white">
                                     {actionModal.action === 'approve' && '✅ Aprobar Reserva'}
                                     {actionModal.action === 'reject' && '❌ Rechazar Reserva'}
-                                    {actionModal.action === 'reschedule' && '🔄 Reprogramar'}
+                                    {actionModal.action === 'reschedule' && '🔄 Reagendar'}
+                                    {actionModal.action === 'cancel' && '🚫 Anular Reserva'}
+                                    {actionModal.action === 'transfer' && '🔀 Transferir Reserva'}
                                     {actionModal.action === 'detail' && '📋 Detalle de Reserva'}
                                 </h3>
                                 <button onClick={() => setActionModal(null)} className="p-1.5 rounded-lg hover:bg-slate-100"><X className="w-4 h-4" /></button>
@@ -643,7 +766,7 @@ export default function AdminCameraSchedule() {
                             {actionModal.action === 'detail' && (
                                 <div className="space-y-3">
                                     {actionModal.booking.status === 'pendiente' && (
-                                        <div className="flex gap-2">
+                                        <div className="flex gap-2 flex-wrap">
                                             <Button onClick={() => setActionModal({ ...actionModal, action: 'approve' })} className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white">
                                                 <CheckCircle2 className="w-4 h-4 mr-1" /> Aprobar
                                             </Button>
@@ -651,17 +774,35 @@ export default function AdminCameraSchedule() {
                                                 <XCircle className="w-4 h-4 mr-1" /> Rechazar
                                             </Button>
                                             <Button onClick={() => { setActionModal({ ...actionModal, action: 'reschedule' }); setRescheduleData({ booking_date: actionModal.booking.booking_date, return_date: actionModal.booking.return_date || actionModal.booking.booking_date, start_time: actionModal.booking.start_time?.slice(0, 5), end_time: actionModal.booking.end_time?.slice(0, 5), camera_unit: actionModal.booking.camera_unit }) }} variant="outline" className="flex-1">
-                                                <RefreshCw className="w-4 h-4 mr-1" /> Reprogramar
+                                                <RefreshCw className="w-4 h-4 mr-1" /> Reagendar
+                                            </Button>
+                                            <Button onClick={() => { setActionModal({ ...actionModal, action: 'transfer' }); setTransferData({ agent_id: '', booking_date: actionModal.booking.booking_date, return_date: actionModal.booking.return_date || actionModal.booking.booking_date, start_time: actionModal.booking.start_time?.slice(0, 5), end_time: actionModal.booking.end_time?.slice(0, 5), camera_unit: String(actionModal.booking.camera_unit) }); setAdminNotes('') }} variant="outline" className="flex-1 text-indigo-600 border-indigo-200 hover:bg-indigo-50">
+                                                <ArrowRightLeft className="w-4 h-4 mr-1" /> Transferir
+                                            </Button>
+                                            <Button onClick={() => { setActionModal({ ...actionModal, action: 'cancel' }); setAdminNotes('') }} variant="outline" className="flex-1 text-red-500 border-red-200 hover:bg-red-50">
+                                                <Ban className="w-4 h-4 mr-1" /> Anular
                                             </Button>
                                         </div>
                                     )}
                                     {actionModal.booking.status === 'aprobada' && (
-                                        <div className="space-y-2">
+                                        <div className="space-y-3">
                                             {actionModal.booking.pickup_confirmed_at && !actionModal.booking.return_confirmed_at && (
                                                 <Button onClick={() => handleComplete(actionModal.booking)} className="w-full bg-blue-600 hover:bg-blue-700 text-white">
                                                     <CheckCircle2 className="w-4 h-4 mr-1" /> Marcar como Completada
                                                 </Button>
                                             )}
+                                            {/* Admin actions for approved bookings */}
+                                            <div className="flex gap-2 flex-wrap">
+                                                <Button onClick={() => { setActionModal({ ...actionModal, action: 'reschedule' }); setRescheduleData({ booking_date: actionModal.booking.booking_date, return_date: actionModal.booking.return_date || actionModal.booking.booking_date, start_time: actionModal.booking.start_time?.slice(0, 5), end_time: actionModal.booking.end_time?.slice(0, 5), camera_unit: actionModal.booking.camera_unit }) }} variant="outline" className="flex-1">
+                                                    <RefreshCw className="w-4 h-4 mr-1" /> Reagendar
+                                                </Button>
+                                                <Button onClick={() => { setActionModal({ ...actionModal, action: 'transfer' }); setTransferData({ agent_id: '', booking_date: actionModal.booking.booking_date, return_date: actionModal.booking.return_date || actionModal.booking.booking_date, start_time: actionModal.booking.start_time?.slice(0, 5), end_time: actionModal.booking.end_time?.slice(0, 5), camera_unit: String(actionModal.booking.camera_unit) }); setAdminNotes('') }} variant="outline" className="flex-1 text-indigo-600 border-indigo-200 hover:bg-indigo-50">
+                                                    <ArrowRightLeft className="w-4 h-4 mr-1" /> Transferir
+                                                </Button>
+                                                <Button onClick={() => { setActionModal({ ...actionModal, action: 'cancel' }); setAdminNotes('') }} variant="outline" className="flex-1 text-red-500 border-red-200 hover:bg-red-50">
+                                                    <Ban className="w-4 h-4 mr-1" /> Anular
+                                                </Button>
+                                            </div>
                                             {/* Handoff config */}
                                             <div className="p-4 bg-slate-50 rounded-xl space-y-3">
                                                 <p className="text-xs font-bold text-slate-700 flex items-center gap-1"><UserCheck className="w-3.5 h-3.5" /> Configurar Traspaso</p>
@@ -773,7 +914,104 @@ export default function AdminCameraSchedule() {
                                     <Button onClick={() => handleReschedule(actionModal.booking)} disabled={submitting}
                                         className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl h-11">
                                         {submitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <RefreshCw className="w-4 h-4 mr-2" />}
-                                        Confirmar Reprogramación
+                                        Confirmar Reagendamiento
+                                    </Button>
+                                </div>
+                            )}
+
+                            {/* Cancel (Admin) form */}
+                            {actionModal.action === 'cancel' && (
+                                <div className="space-y-3">
+                                    <div className="p-4 bg-red-50 border border-red-200 rounded-xl">
+                                        <p className="text-sm text-red-700 flex items-center gap-2">
+                                            <AlertTriangle className="w-4 h-4 shrink-0" />
+                                            <span>Esta acción <strong>anulará la reserva</strong> y notificará al agente. Si hay alguien en lista de espera, será promovido automáticamente.</span>
+                                        </p>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label className="text-xs font-bold text-slate-600">Motivo de la anulación <span className="text-red-500">*</span></Label>
+                                        <textarea className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm resize-none" rows={2}
+                                            placeholder="Ej: No se va a utilizar esta semana, cámara necesita mantenimiento..."
+                                            value={adminNotes} onChange={(e) => setAdminNotes(e.target.value)} />
+                                    </div>
+                                    <Button onClick={() => handleAdminCancel(actionModal.booking)} disabled={submitting}
+                                        className="w-full bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl h-11">
+                                        {submitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Ban className="w-4 h-4 mr-2" />}
+                                        Confirmar Anulación
+                                    </Button>
+                                </div>
+                            )}
+
+                            {/* Transfer form */}
+                            {actionModal.action === 'transfer' && (
+                                <div className="space-y-3">
+                                    <div className="p-4 bg-indigo-50 border border-indigo-200 rounded-xl">
+                                        <p className="text-sm text-indigo-700 flex items-center gap-2">
+                                            <ArrowRightLeft className="w-4 h-4 shrink-0" />
+                                            <span>Transferir esta reserva a otro agente. Los calendarios se actualizarán automáticamente.</span>
+                                        </p>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label className="text-xs font-bold text-slate-600">Agente destino <span className="text-red-500">*</span></Label>
+                                        <Select value={transferData.agent_id || undefined} onValueChange={v => setTransferData(p => ({ ...p, agent_id: v }))}>
+                                            <SelectTrigger className="w-full h-9 rounded-lg border border-slate-200 px-3 text-sm">
+                                                <SelectValue placeholder="Seleccionar agente" />
+                                            </SelectTrigger>
+                                            <SelectContent className="z-[300]">
+                                                {Object.entries(agents).filter(([id]) => id !== actionModal.booking.agent_id).map(([id, a]) => (
+                                                    <SelectItem key={id} value={id}>{a.name}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="space-y-1">
+                                            <Label className="text-xs font-bold text-slate-600">Fecha retiro (opcional)</Label>
+                                            <input type="date" className="w-full h-9 rounded-lg border border-slate-200 px-3 text-sm"
+                                                value={transferData.booking_date || ''} onChange={(e) => setTransferData(p => ({ ...p, booking_date: e.target.value }))} />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <Label className="text-xs font-bold text-slate-600">Fecha devolución</Label>
+                                            <input type="date" className="w-full h-9 rounded-lg border border-slate-200 px-3 text-sm"
+                                                value={transferData.return_date || transferData.booking_date || ''}
+                                                min={transferData.booking_date || ''}
+                                                onChange={(e) => setTransferData(p => ({ ...p, return_date: e.target.value }))} />
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-3 gap-3">
+                                        <div className="space-y-1">
+                                            <Label className="text-xs font-bold text-slate-600">Hora retiro</Label>
+                                            <input type="time" className="w-full h-9 rounded-lg border border-slate-200 px-3 text-sm"
+                                                value={transferData.start_time || ''} onChange={(e) => setTransferData(p => ({ ...p, start_time: e.target.value }))} />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <Label className="text-xs font-bold text-slate-600">Hora devolución</Label>
+                                            <input type="time" className="w-full h-9 rounded-lg border border-slate-200 px-3 text-sm"
+                                                value={transferData.end_time || ''} onChange={(e) => setTransferData(p => ({ ...p, end_time: e.target.value }))} />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <Label className="text-xs font-bold text-slate-600">Cámara</Label>
+                                            <Select value={transferData.camera_unit || '1'} onValueChange={v => setTransferData(p => ({ ...p, camera_unit: v }))}>
+                                                <SelectTrigger className="w-full h-9 rounded-lg border border-slate-200 px-3 text-sm">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent className="z-[300]">
+                                                    <SelectItem value="1">Cámara 1</SelectItem>
+                                                    <SelectItem value="2">Cámara 2</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label className="text-xs font-bold text-slate-600">Nota (opcional)</Label>
+                                        <textarea className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm resize-none" rows={2}
+                                            placeholder="Ej: Se reasigna porque el agente original no la necesita..."
+                                            value={adminNotes} onChange={(e) => setAdminNotes(e.target.value)} />
+                                    </div>
+                                    <Button onClick={() => handleTransferBooking(actionModal.booking)} disabled={submitting}
+                                        className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl h-11">
+                                        {submitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <ArrowRightLeft className="w-4 h-4 mr-2" />}
+                                        Confirmar Transferencia
                                     </Button>
                                 </div>
                             )}

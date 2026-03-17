@@ -57,19 +57,26 @@ const NewMandate = () => {
 
     const fetchUF = async () => {
         setFetchingUF(true)
-        try {
-            const res = await fetch('https://mindicador.cl/api/uf')
-            if (res.ok) {
-                const data = await res.json()
-                if (data.serie && data.serie.length > 0) {
-                    setUfValue(data.serie[0].valor)
+        const maxRetries = 2
+        for (let attempt = 0; attempt <= maxRetries; attempt++) {
+            try {
+                const res = await fetch('https://mindicador.cl/api/uf')
+                if (res.ok) {
+                    const data = await res.json()
+                    if (data.serie && data.serie.length > 0) {
+                        setUfValue(data.serie[0].valor)
+                        break
+                    }
+                }
+            } catch (err) {
+                if (attempt === maxRetries) {
+                    console.error('Error fetching UF:', err)
+                } else {
+                    await new Promise(r => setTimeout(r, 1000))
                 }
             }
-        } catch (err) {
-            console.error('Error fetching UF:', err)
-        } finally {
-            setFetchingUF(false)
         }
+        setFetchingUF(false)
     }
 
     // Dynamic Logic Variables

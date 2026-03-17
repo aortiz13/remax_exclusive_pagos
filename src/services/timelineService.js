@@ -303,7 +303,7 @@ async function fetchInspections(contactId, propertyId) {
             owner_name, tenant_name, observations, recommendations,
             pdf_url, sent_at, property_id, agent_id,
             properties:property_id ( address, commune ),
-            profiles:agent_id ( full_name )
+            profiles:agent_id ( first_name, last_name )
         `)
         .order('created_at', { ascending: false })
 
@@ -326,6 +326,9 @@ async function fetchInspections(contactId, propertyId) {
     return (data || []).map(i => {
         const statusMap = { draft: 'Borrador', completed: 'Completada', sent: 'Enviada' }
         const statusLabel = statusMap[i.status] || i.status || '-'
+        const agentName = i.profiles
+            ? `${i.profiles.first_name || ''} ${i.profiles.last_name || ''}`.trim()
+            : null
         return {
             id: `inspeccion-${i.id}`,
             type: 'inspeccion',
@@ -344,7 +347,7 @@ async function fetchInspections(contactId, propertyId) {
                 recommendations: i.recommendations,
                 pdfUrl: i.pdf_url,
                 sentAt: i.sent_at,
-                agentName: i.profiles?.full_name,
+                agentName,
                 propertyAddress: i.properties?.address || i.address,
                 propertyId: i.property_id,
                 inspectionId: i.id,
