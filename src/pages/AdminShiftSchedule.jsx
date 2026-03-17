@@ -288,7 +288,7 @@ export default function AdminShiftSchedule() {
         setShowMoveDialog(true)
     }
 
-    // Get available slots for move modal (published & no active booking)
+    // Get slots for move modal (published slots — free or occupied by another agent)
     const moveAvailableSlots = useMemo(() => {
         if (!moveBooking) return []
         const slots = []
@@ -297,8 +297,20 @@ export default function AdminShiftSchedule() {
                 const currentKey = `${normalizeDate(moveBooking.booking_date)}|${moveBooking.shift}`
                 const slotKey = `${date}|${shift}`
                 if (slotKey === currentKey) return // skip current slot
-                if (isSlotFree(date, shift)) {
-                    slots.push({ date, shift, dayLabel: `${DAY_FULL[di]} ${new Date(date + 'T12:00:00').getDate()}` })
+                const existingBooking = getBookingForSlot(date, shift)
+                // Skip if same agent already has this slot
+                if (existingBooking && existingBooking.agent_id === moveBooking.agent_id) return
+                if (isSlotAvailable(date, shift) || existingBooking) {
+                    const occupantName = existingBooking?.agent
+                        ? `${existingBooking.agent.first_name || ''} ${existingBooking.agent.last_name || ''}`.trim()
+                        : null
+                    slots.push({
+                        date, shift,
+                        dayLabel: `${DAY_FULL[di]} ${new Date(date + 'T12:00:00').getDate()}`,
+                        occupant: occupantName,
+                        occupantBooking: existingBooking || null,
+                        isSwap: !!existingBooking,
+                    })
                 }
             })
         })
@@ -310,50 +322,110 @@ export default function AdminShiftSchedule() {
         setShowMoveDialog(false)
 
         const oldBooking = moveBooking
-        const agentName = oldBooking.agent ? `${oldBooking.agent.first_name || ''} ${oldBooking.agent.last_name || ''}`.trim() : ''
+        const agentAName = oldBooking.agent ? `${oldBooking.agent.first_name || ''} ${oldBooking.agent.last_name || ''}`.trim() : ''
+        const isSwap = moveTarget.isSwap && moveTarget.occupantBooking
 
-        // 1. Cancel old booking
-        await supabase.from('shift_bookings').update({
-            status: 'cancelado',
-            admin_notes: `Reasignado a ${formatDayLabel(moveTarget.date)} – ${SHIFT_CONFIG[moveTarget.shift]?.label}`,
-            approved_by: profile.id,
-            updated_at: new Date().toISOString(),
-        }).eq('id', oldBooking.id)
+        if (isSwap) {
+            // ─── SWAP: Exchange shifts between two agents ───
+            const otherBooking = moveTarget.occupantBooking
+            const agentBName = otherBooking.agent ? `${otherBooking.agent.first_name || ''} ${otherBooking.agent.last_name || ''}`.trim() : ''
 
-        deleteShiftCalendarEvent(oldBooking, oldBooking.agent_id, comercialId)
+            // 1. Cancel both old bookings
+            await Promise.all([
+                supabase.from('shift_bookings').update({
+                    status: 'cancelado',
+                    admin_notes: `Intercambiado con ${agentBName}`,
+                    approved_by: profile.id,
+                    updated_at: new Date().toISOString(),
+                }).eq('id', oldBooking.id),
+                supabase.from('shift_bookings').update({
+                    status: 'cancelado',
+                    admin_notes: `Intercambiado con ${agentAName}`,
+                    approved_by: profile.id,
+                    updated_at: new Date().toISOString(),
+                }).eq('id', otherBooking.id),
+            ])
 
-        // 2. Create new booking as approved
-        const { data: newBooking, error } = await supabase.from('shift_bookings').insert({
-            agent_id: oldBooking.agent_id,
-            booking_date: moveTarget.date,
-            shift: moveTarget.shift,
-            status: 'aprobado',
-            approved_by: profile.id,
-            admin_notes: `Reasignado desde ${formatDayLabel(normalizeDate(oldBooking.booking_date))} – ${SHIFT_CONFIG[oldBooking.shift]?.label}`,
-        }).select('*, agent:profiles!shift_bookings_agent_id_fkey(id, first_name, last_name, email, phone)').single()
+            // Delete old calendar events
+            deleteShiftCalendarEvent(oldBooking, oldBooking.agent_id, comercialId)
+            deleteShiftCalendarEvent(otherBooking, otherBooking.agent_id, comercialId)
 
-        if (error) {
-            toast.error('Error al mover turno: ' + error.message)
-            fetchAll()
-            return
+            // 2. Create new bookings (swapped positions)
+            const [{ data: newBookingA }, { data: newBookingB }] = await Promise.all([
+                supabase.from('shift_bookings').insert({
+                    agent_id: oldBooking.agent_id,
+                    booking_date: moveTarget.date,
+                    shift: moveTarget.shift,
+                    status: 'aprobado',
+                    approved_by: profile.id,
+                    admin_notes: `Intercambio: antes ${formatDayLabel(normalizeDate(oldBooking.booking_date))} ${SHIFT_CONFIG[oldBooking.shift]?.label}`,
+                }).select('*, agent:profiles!shift_bookings_agent_id_fkey(id, first_name, last_name, email, phone)').single(),
+                supabase.from('shift_bookings').insert({
+                    agent_id: otherBooking.agent_id,
+                    booking_date: normalizeDate(oldBooking.booking_date),
+                    shift: oldBooking.shift,
+                    status: 'aprobado',
+                    approved_by: profile.id,
+                    admin_notes: `Intercambio: antes ${formatDayLabel(normalizeDate(otherBooking.booking_date))} ${SHIFT_CONFIG[otherBooking.shift]?.label}`,
+                }).select('*, agent:profiles!shift_bookings_agent_id_fkey(id, first_name, last_name, email, phone)').single(),
+            ])
+
+            // 3. Create new calendar events
+            if (newBookingA) createShiftCalendarEvent(newBookingA, newBookingA.agent_id, comercialId, agentAName)
+            if (newBookingB) createShiftCalendarEvent(newBookingB, newBookingB.agent_id, comercialId, agentBName)
+
+            // 4. Notify both agents
+            if (newBookingA) {
+                sendShiftNotification(SHIFT_EVENTS.SHIFT_REASSIGNED, { ...newBookingA, status: 'aprobado' }, oldBooking.agent || {}, '', {
+                    old_shift: { booking_date: normalizeDate(oldBooking.booking_date), shift_number: oldBooking.shift, shift_label: SHIFT_CONFIG[oldBooking.shift]?.label + ' (' + SHIFT_CONFIG[oldBooking.shift]?.time + ')' },
+                })
+            }
+            if (newBookingB) {
+                sendShiftNotification(SHIFT_EVENTS.SHIFT_REASSIGNED, { ...newBookingB, status: 'aprobado' }, otherBooking.agent || {}, '', {
+                    old_shift: { booking_date: normalizeDate(otherBooking.booking_date), shift_number: otherBooking.shift, shift_label: SHIFT_CONFIG[otherBooking.shift]?.label + ' (' + SHIFT_CONFIG[otherBooking.shift]?.time + ')' },
+                })
+            }
+
+            toast.success(`Turnos intercambiados: ${agentAName} ↔ ${agentBName}`)
+        } else {
+            // ─── MOVE to empty slot ───
+            // 1. Cancel old booking
+            await supabase.from('shift_bookings').update({
+                status: 'cancelado',
+                admin_notes: `Reasignado a ${formatDayLabel(moveTarget.date)} – ${SHIFT_CONFIG[moveTarget.shift]?.label}`,
+                approved_by: profile.id,
+                updated_at: new Date().toISOString(),
+            }).eq('id', oldBooking.id)
+
+            deleteShiftCalendarEvent(oldBooking, oldBooking.agent_id, comercialId)
+
+            // 2. Create new booking as approved
+            const { data: newBooking, error } = await supabase.from('shift_bookings').insert({
+                agent_id: oldBooking.agent_id,
+                booking_date: moveTarget.date,
+                shift: moveTarget.shift,
+                status: 'aprobado',
+                approved_by: profile.id,
+                admin_notes: `Reasignado desde ${formatDayLabel(normalizeDate(oldBooking.booking_date))} – ${SHIFT_CONFIG[oldBooking.shift]?.label}`,
+            }).select('*, agent:profiles!shift_bookings_agent_id_fkey(id, first_name, last_name, email, phone)').single()
+
+            if (error) {
+                toast.error('Error al mover turno: ' + error.message)
+                fetchAll()
+                return
+            }
+
+            createShiftCalendarEvent(newBooking, newBooking.agent_id, comercialId, agentAName)
+
+            sendShiftNotification(SHIFT_EVENTS.SHIFT_REASSIGNED, {
+                ...newBooking, status: 'aprobado',
+            }, oldBooking.agent || {}, '', {
+                old_shift: { booking_date: normalizeDate(oldBooking.booking_date), shift_number: oldBooking.shift, shift_label: SHIFT_CONFIG[oldBooking.shift]?.label + ' (' + SHIFT_CONFIG[oldBooking.shift]?.time + ')' },
+            })
+
+            toast.success(`Turno de ${agentAName} movido a ${formatDayLabel(moveTarget.date)} – ${SHIFT_CONFIG[moveTarget.shift]?.label}`)
         }
 
-        // 3. Create new calendar event
-        createShiftCalendarEvent(newBooking, newBooking.agent_id, comercialId, agentName)
-
-        // 4. Send notification with old and new shift info
-        sendShiftNotification(SHIFT_EVENTS.SHIFT_REASSIGNED, {
-            ...newBooking,
-            status: 'aprobado',
-        }, oldBooking.agent || {}, '', {
-            old_shift: {
-                booking_date: normalizeDate(oldBooking.booking_date),
-                shift_number: oldBooking.shift,
-                shift_label: SHIFT_CONFIG[oldBooking.shift]?.label + ' (' + SHIFT_CONFIG[oldBooking.shift]?.time + ')',
-            },
-        })
-
-        toast.success(`Turno de ${agentName} movido a ${formatDayLabel(moveTarget.date)} – ${SHIFT_CONFIG[moveTarget.shift]?.label}`)
         setMoveBooking(null)
         setMoveTarget(null)
         fetchAll()
@@ -826,12 +898,22 @@ export default function AdminShiftSchedule() {
                                                 "rounded-lg p-3 border-2 text-xs text-left transition-all",
                                                 isSelected
                                                     ? "border-blue-400 bg-blue-50 dark:bg-blue-950/30 ring-2 ring-blue-400/30"
-                                                    : "border-slate-200 dark:border-slate-700 hover:border-blue-300 hover:bg-blue-50/50"
+                                                    : slot.isSwap
+                                                        ? "border-orange-200 dark:border-orange-800 hover:border-orange-400 hover:bg-orange-50/50 bg-orange-50/30"
+                                                        : "border-slate-200 dark:border-slate-700 hover:border-blue-300 hover:bg-blue-50/50"
                                             )}
                                         >
                                             <div className="font-bold text-slate-900 dark:text-white">{slot.dayLabel}</div>
                                             <div className={cn("font-semibold mt-1", cfg.text)}>{cfg.label}</div>
                                             <div className="text-[10px] text-slate-500">{cfg.time}</div>
+                                            {slot.isSwap ? (
+                                                <div className="mt-1.5 flex items-center gap-1">
+                                                    <ArrowRightLeft className="w-3 h-3 text-orange-500" />
+                                                    <span className="font-semibold text-orange-600 truncate">↔ {slot.occupant}</span>
+                                                </div>
+                                            ) : (
+                                                <div className="mt-1 text-emerald-500 font-semibold">✓ Libre</div>
+                                            )}
                                             {isSelected && <CheckCircle2 className="w-4 h-4 text-blue-500 mt-1" />}
                                         </button>
                                     )
@@ -842,11 +924,11 @@ export default function AdminShiftSchedule() {
                     <AlertDialogFooter>
                         <AlertDialogCancel>Cancelar</AlertDialogCancel>
                         <AlertDialogAction
-                            className="bg-blue-600 hover:bg-blue-700"
+                            className={moveTarget?.isSwap ? "bg-orange-600 hover:bg-orange-700" : "bg-blue-600 hover:bg-blue-700"}
                             onClick={confirmMove}
                             disabled={!moveTarget}
                         >
-                            <ArrowRightLeft className="w-4 h-4 mr-1" /> Confirmar Movimiento
+                            <ArrowRightLeft className="w-4 h-4 mr-1" /> {moveTarget?.isSwap ? 'Intercambiar Turnos' : 'Confirmar Movimiento'}
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
