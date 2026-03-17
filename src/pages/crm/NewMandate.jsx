@@ -143,13 +143,19 @@ const NewMandate = () => {
             )
 
             const uploadedUrls = []
+            const failedUploads = []
             uploadResults.forEach((result, i) => {
                 if (result.error) {
                     console.error(`Error uploading ${files[i].name}:`, result.error)
+                    failedUploads.push(files[i].name)
                 } else {
                     uploadedUrls.push({ path: filePaths[i], index: i })
                 }
             })
+
+            if (failedUploads.length > 0) {
+                toast.warning(`No se pudieron subir ${failedUploads.length} archivo(s): ${failedUploads.join(', ')}`)
+            }
 
             // 1.5 Generate signed URLs in BATCH (single API call)
             let archivosConUrl = [];
