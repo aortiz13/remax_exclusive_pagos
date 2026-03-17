@@ -29,6 +29,8 @@ export default function CameraAgentActions() {
     const [condition, setCondition] = useState({})
     const [conditionNotes, setConditionNotes] = useState('')
     const [submitting, setSubmitting] = useState(false)
+    const [minimized, setMinimized] = useState(false)
+    const [dismissedIds, setDismissedIds] = useState(new Set())
 
     useEffect(() => {
         if (!user || !profile) return
@@ -56,6 +58,15 @@ export default function CameraAgentActions() {
 
     const needsPickup = (b) => !b.pickup_confirmed_at
     const needsReturn = (b) => b.pickup_confirmed_at && !b.return_confirmed_at
+
+    const dismissCard = (id) => {
+        setDismissedIds(prev => new Set([...prev, id]))
+    }
+
+    const restoreAll = () => {
+        setDismissedIds(new Set())
+        setMinimized(false)
+    }
 
     const handlePickupConfirm = async () => {
         if (!actionModal) return
@@ -169,59 +180,107 @@ export default function CameraAgentActions() {
 
     if (loading || activeBookings.length === 0) return null
 
+    const visibleBookings = activeBookings.filter(b => !dismissedIds.has(b.id))
+    const hiddenCount = dismissedIds.size
+
     return (
         <>
-            {/* Floating widget at bottom-right */}
-            <div className="fixed bottom-6 right-6 z-40 space-y-3" style={{ maxWidth: '380px' }}>
-                {activeBookings.map(b => {
-                    const isOverdue = needsReturn(b) && new Date() > new Date(`${b.booking_date}T${b.end_time}`)
-                    return (
-                        <motion.div
-                            key={b.id}
-                            initial={{ opacity: 0, y: 20, scale: 0.95 }}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                            className={cn(
-                                "p-4 rounded-2xl shadow-2xl border-2 backdrop-blur-sm",
-                                isOverdue
-                                    ? "bg-red-50/95 border-red-300 dark:bg-red-950/95"
-                                    : "bg-white/95 border-blue-200 dark:bg-slate-900/95 dark:border-blue-800"
-                            )}
-                        >
-                            <div className="flex items-center gap-3 mb-3">
-                                <div className={cn("p-2 rounded-xl", isOverdue ? "bg-red-100" : "bg-blue-100")}>
-                                    <Camera className={cn("w-5 h-5", isOverdue ? "text-red-600" : "text-blue-600")} />
-                                </div>
-                                <div className="flex-1">
-                                    <p className="text-sm font-bold text-slate-900 dark:text-white">
-                                        Cámara {b.camera_unit}
-                                        {isOverdue && <span className="ml-2 text-red-600 text-xs">⚠️ VENCIDA</span>}
-                                    </p>
-                                    <p className="text-xs text-slate-500">
-                                        {format(parseISO(b.booking_date), "d MMM", { locale: es })} · {b.start_time?.slice(0, 5)} — {b.end_time?.slice(0, 5)}
-                                    </p>
-                                </div>
-                            </div>
+            {/* Minimized floating toggle button */}
+            {(minimized || visibleBookings.length === 0) && activeBookings.length > 0 && (
+                <motion.button
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    onClick={restoreAll}
+                    className="fixed bottom-6 right-6 z-40 p-3 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-2xl transition-colors"
+                    title="Mostrar notificaciones de cámara"
+                >
+                    <Camera className="w-5 h-5" />
+                    {activeBookings.length > 0 && (
+                        <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center">
+                            {activeBookings.length}
+                        </span>
+                    )}
+                </motion.button>
+            )}
 
-                            {needsPickup(b) && (
-                                <Button onClick={() => { setActionModal({ booking: b, type: 'pickup' }); setCondition({}) }}
-                                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl h-10 text-sm font-bold">
-                                    <CheckCircle2 className="w-4 h-4 mr-2" /> Confirmar Retiro
-                                </Button>
-                            )}
-                            {needsReturn(b) && (
-                                <div className="flex gap-2">
-                                    <Button onClick={() => { setActionModal({ booking: b, type: 'return' }); setCondition({}) }}
-                                        className={cn("flex-1 text-white rounded-xl h-10 text-sm font-bold",
-                                            isOverdue ? "bg-red-600 hover:bg-red-700" : "bg-blue-600 hover:bg-blue-700")}>
-                                        <RotateCcw className="w-4 h-4 mr-2" />
-                                        {isOverdue ? 'Devolver (Urgente)' : 'Confirmar Devolución'}
-                                    </Button>
+            {/* Floating widget at bottom-right */}
+            {!minimized && visibleBookings.length > 0 && (
+                <div className="fixed bottom-6 right-6 z-40 space-y-3" style={{ maxWidth: '380px' }}>
+                    {/* Minimize all button */}
+                    <div className="flex justify-end gap-1">
+                        {hiddenCount > 0 && (
+                            <button onClick={restoreAll}
+                                className="text-xs text-blue-600 hover:text-blue-800 bg-white/90 rounded-full px-2 py-0.5 shadow border border-blue-200">
+                                Mostrar {hiddenCount} oculta{hiddenCount > 1 ? 's' : ''}
+                            </button>
+                        )}
+                        <button onClick={() => setMinimized(true)}
+                            className="text-xs text-slate-500 hover:text-slate-700 bg-white/90 rounded-full px-2 py-0.5 shadow border border-slate-200"
+                            title="Minimizar todo">
+                            Minimizar
+                        </button>
+                    </div>
+
+                    {visibleBookings.map(b => {
+                        const isOverdue = needsReturn(b) && new Date() > new Date(`${b.booking_date}T${b.end_time}`)
+                        return (
+                            <motion.div
+                                key={b.id}
+                                initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                exit={{ opacity: 0, x: 100, scale: 0.9 }}
+                                className={cn(
+                                    "p-4 rounded-2xl shadow-2xl border-2 backdrop-blur-sm relative",
+                                    isOverdue
+                                        ? "bg-red-50/95 border-red-300 dark:bg-red-950/95"
+                                        : "bg-white/95 border-blue-200 dark:bg-slate-900/95 dark:border-blue-800"
+                                )}
+                            >
+                                {/* Dismiss button */}
+                                <button
+                                    onClick={() => dismissCard(b.id)}
+                                    className="absolute top-2 right-2 p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                                    title="Cerrar notificación"
+                                >
+                                    <X className="w-3.5 h-3.5 text-slate-400 hover:text-slate-600" />
+                                </button>
+
+                                <div className="flex items-center gap-3 mb-3 pr-6">
+                                    <div className={cn("p-2 rounded-xl", isOverdue ? "bg-red-100" : "bg-blue-100")}>
+                                        <Camera className={cn("w-5 h-5", isOverdue ? "text-red-600" : "text-blue-600")} />
+                                    </div>
+                                    <div className="flex-1">
+                                        <p className="text-sm font-bold text-slate-900 dark:text-white">
+                                            Cámara {b.camera_unit}
+                                            {isOverdue && <span className="ml-2 text-red-600 text-xs">⚠️ VENCIDA</span>}
+                                        </p>
+                                        <p className="text-xs text-slate-500">
+                                            {format(parseISO(b.booking_date), "d MMM", { locale: es })} · {b.start_time?.slice(0, 5)} — {b.end_time?.slice(0, 5)}
+                                        </p>
+                                    </div>
                                 </div>
-                            )}
-                        </motion.div>
-                    )
-                })}
-            </div>
+
+                                {needsPickup(b) && (
+                                    <Button onClick={() => { setActionModal({ booking: b, type: 'pickup' }); setCondition({}) }}
+                                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl h-10 text-sm font-bold">
+                                        <CheckCircle2 className="w-4 h-4 mr-2" /> Confirmar Retiro
+                                    </Button>
+                                )}
+                                {needsReturn(b) && (
+                                    <div className="flex gap-2">
+                                        <Button onClick={() => { setActionModal({ booking: b, type: 'return' }); setCondition({}) }}
+                                            className={cn("flex-1 text-white rounded-xl h-10 text-sm font-bold",
+                                                isOverdue ? "bg-red-600 hover:bg-red-700" : "bg-blue-600 hover:bg-blue-700")}>
+                                            <RotateCcw className="w-4 h-4 mr-2" />
+                                            {isOverdue ? 'Devolver (Urgente)' : 'Confirmar Devolución'}
+                                        </Button>
+                                    </div>
+                                )}
+                            </motion.div>
+                        )
+                    })}
+                </div>
+            )}
 
             {/* Condition Checklist Modal */}
             <AnimatePresence>
