@@ -1,10 +1,17 @@
 /**
  * Centralized UF (Unidad de Fomento) fetching service.
- * Uses retry logic + dual-endpoint fallback to handle network/CORS issues.
+ * Uses retry logic + multiple-endpoint fallback to handle network/CORS issues.
+ *
+ * Priority:
+ *  1. Backend proxy (/api/uf) — server-side fetch, no CORS issues
+ *  2. mindicador.cl/api/uf — direct, may fail due to CORS or downtime
+ *  3. mindicador.cl/api — general endpoint fallback
  */
 
 let cachedUF = null     // { valor, fecha, fetchedAt }
 const CACHE_TTL = 1000 * 60 * 60 // 1 hour
+
+const API_GATEWAY = 'https://remax-crm-remax-app.jzuuqr.easypanel.host'
 
 /**
  * Fetch the current UF value with retries and fallback endpoints.
@@ -17,6 +24,18 @@ export async function fetchUFValue() {
     }
 
     const endpoints = [
+        {
+            url: `${API_GATEWAY}/api/uf`,
+            extract: (data) => {
+                if (data?.valor) {
+                    return {
+                        valor: data.valor,
+                        fecha: (data.fecha || '').split('T')[0]
+                    }
+                }
+                return null
+            }
+        },
         {
             url: 'https://mindicador.cl/api/uf',
             extract: (data) => {
