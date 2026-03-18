@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { withRetry } from '../lib/fetchWithRetry'
 
 /**
  * Unified Timeline Service
@@ -32,7 +33,7 @@ async function fetchActions(contactId, propertyId) {
         query = query.eq('property_id', propertyId)
     }
 
-    const { data, error } = await query
+    const { data, error } = await withRetry(() => query)
     if (error) { console.error('Timeline: actions error', error); return [] }
 
     return (data || []).map(a => {
@@ -80,7 +81,7 @@ async function fetchTasks(contactId, propertyId) {
     if (contactId) query = query.eq('contact_id', contactId)
     else if (propertyId) query = query.eq('property_id', propertyId)
 
-    const { data, error } = await query
+    const { data, error } = await withRetry(() => query)
     if (error) { console.error('Timeline: tasks error', error); return [] }
 
     return (data || []).map(t => ({
@@ -108,13 +109,13 @@ async function fetchTasks(contactId, propertyId) {
 async function fetchContactActivities(contactId) {
     if (!contactId) return []
 
-    const { data, error } = await supabase
+    const { data, error } = await withRetry(() => supabase
         .from('contact_activities')
         .select('id, type, description, created_at')
         .eq('contact_id', contactId)
         .neq('type', 'task_completed')
         .order('created_at', { ascending: false })
-
+    )
     if (error) { console.error('Timeline: contact_activities error', error); return [] }
 
     return (data || []).map(a => ({
@@ -133,10 +134,11 @@ async function fetchEmails(contactId, propertyId) {
     // Emails are linked to contacts via email_threads.contact_id
     if (!contactId) return []
 
-    const { data: threads, error: thError } = await supabase
+    const { data: threads, error: thError } = await withRetry(() => supabase
         .from('email_threads')
         .select('id, subject, contact_id')
         .eq('contact_id', contactId)
+    )
 
     if (thError || !threads?.length) return []
 
@@ -144,12 +146,13 @@ async function fetchEmails(contactId, propertyId) {
     const threadMap = Object.fromEntries(threads.map(t => [t.id, t]))
 
     // Fetch latest message per thread (limit total)
-    const { data: messages, error: msgError } = await supabase
+    const { data: messages, error: msgError } = await withRetry(() => supabase
         .from('email_messages')
         .select('id, thread_id, from_address, to_address, subject, snippet, received_at')
         .in('thread_id', threadIds)
         .order('received_at', { ascending: false })
         .limit(100)
+    )
 
     if (msgError) { console.error('Timeline: emails error', msgError); return [] }
 
@@ -195,7 +198,7 @@ async function fetchMandates(contactId, propertyId) {
     if (contactId) query = query.eq('contact_id', contactId)
     else if (propertyId) query = query.eq('property_id', propertyId)
 
-    const { data, error } = await query
+    const { data, error } = await withRetry(() => query)
     if (error) { console.error('Timeline: mandates error', error); return [] }
 
     return (data || []).map(m => ({
@@ -241,7 +244,7 @@ async function fetchEvaluaciones(contactId, propertyId) {
     if (contactId) query = query.eq('contact_id', contactId)
     else if (propertyId) query = query.eq('property_id', propertyId)
 
-    const { data, error } = await query
+    const { data, error } = await withRetry(() => query)
     if (error) { console.error('Timeline: evaluaciones error', error); return [] }
 
     return (data || []).map(e => ({
@@ -272,7 +275,7 @@ async function fetchActivityLogs(contactId, propertyId) {
     if (propertyId) query = query.eq('property_id', propertyId)
     else if (contactId) query = query.eq('contact_id', contactId)
 
-    const { data, error } = await query
+    const { data, error } = await withRetry(() => query)
     if (error) { console.error('Timeline: activity_logs error', error); return [] }
 
     return (data || []).map(l => {
@@ -320,7 +323,7 @@ async function fetchInspections(contactId, propertyId) {
         query = query.in('property_id', propIds)
     }
 
-    const { data, error } = await query
+    const { data, error } = await withRetry(() => query)
     if (error) { console.error('Timeline: inspections error', error); return [] }
 
     return (data || []).map(i => {
