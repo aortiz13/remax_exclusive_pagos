@@ -365,26 +365,8 @@ const ActionList = () => {
                                                                                 .eq('id', action.id);
                                                                             if (error) throw error;
 
-                                                                            // Decrement KPI for Captación Nueva (mandate_id) or other mapped types
-                                                                            const actionDateStr = (action.action_date || '').split('T')[0];
-                                                                            const kpiField = action.mandate_id
-                                                                                ? 'new_listings'
-                                                                                : ACTION_KPI_MAP[action.action_type];
-                                                                            if (kpiField && actionDateStr) {
-                                                                                const { data: kpiRow } = await supabase
-                                                                                    .from('kpi_records')
-                                                                                    .select(`id, ${kpiField}`)
-                                                                                    .eq('agent_id', user.id)
-                                                                                    .eq('period_type', 'daily')
-                                                                                    .eq('date', actionDateStr)
-                                                                                    .single();
-                                                                                if (kpiRow && kpiRow[kpiField] > 0) {
-                                                                                    await supabase
-                                                                                        .from('kpi_records')
-                                                                                        .update({ [kpiField]: kpiRow[kpiField] - 1 })
-                                                                                        .eq('id', kpiRow.id);
-                                                                                }
-                                                                            }
+                                                                            // KPI decrement is handled by the DB trigger `trg_action_delete_kpi`
+                                                                            // (function sync_action_to_kpi) — no frontend decrement needed here.
 
                                                                             // Special: Cierre de negocio - subtract actual billing amounts from kpi_records
                                                                             if (action.action_type === 'Cierre de negocio') {

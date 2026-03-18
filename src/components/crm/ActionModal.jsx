@@ -528,39 +528,8 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
                 if (contactsError) throw contactsError;
             }
 
-            // Auto-increment KPI if this action type maps to a KPI field
-            // For 'Otra (I.C)', resolvedType is the custom text, so fall back to conversations_started
-            const kpiField = ACTION_KPI_MAP[resolvedType] || (actionType === 'Otra (I.C)' ? 'conversations_started' : null);
-            if (kpiField) {
-                const actionDateStr = (actionDate || '').split('T')[0];
-                const { data: existingKpi } = await supabase
-                    .from('kpi_records')
-                    .select(`id, ${kpiField}`)
-                    .eq('agent_id', user.id)
-                    .eq('period_type', 'daily')
-                    .eq('date', actionDateStr)
-                    .single();
-                if (existingKpi) {
-                    await supabase
-                        .from('kpi_records')
-                        .update({ [kpiField]: (existingKpi[kpiField] || 0) + 1 })
-                        .eq('id', existingKpi.id);
-                } else {
-                    await supabase
-                        .from('kpi_records')
-                        .insert({
-                            agent_id: user.id,
-                            period_type: 'daily',
-                            date: actionDateStr,
-                            [kpiField]: 1,
-                            new_listings: 0, conversations_started: 0, relational_coffees: 0,
-                            sales_interviews: 0, buying_interviews: 0, commercial_evaluations: 0,
-                            active_portfolio: 0, price_reductions: 0, portfolio_visits: 0,
-                            buyer_visits: 0, offers_in_negotiation: 0, signed_promises: 0,
-                            billing_primary: 0, referrals_count: 0, billing_secondary: 0,
-                        });
-                }
-            }
+            // KPI auto-increment is handled by the DB trigger `trg_action_insert_kpi`
+            // (function sync_action_to_kpi) — no frontend increment needed here.
 
             // Special case: Facturación → billing_primary += gross_fees, billing_secondary += closing_value
             if (resolvedType === 'Facturación') {
