@@ -182,10 +182,12 @@ const TaskModal = ({ task, contactId, propertyId, isOpen, onClose }) => {
                     // Insert contact junction if we have a contact
                     const contactForAction = formData.contact_id || contactId
                     if (contactForAction) {
-                        await supabase.from('crm_action_contacts').insert({
-                            action_id: actionRow.id,
-                            contact_id: contactForAction
-                        }).catch(() => {})
+                        try {
+                            await supabase.from('crm_action_contacts').insert({
+                                action_id: actionRow.id,
+                                contact_id: contactForAction
+                            })
+                        } catch (_) { /* ignore duplicate */ }
                     }
                 }
             } else if ((!linkedActionType || linkedActionType === 'none') && task?.action_id && !hasExecutedAction) {
