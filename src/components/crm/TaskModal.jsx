@@ -293,7 +293,7 @@ const TaskModal = ({ task, contactId, propertyId, isOpen, onClose }) => {
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.95 }}
-                className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col relative z-50 border border-gray-200 dark:border-gray-800"
+                className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col relative z-50 border border-gray-200 dark:border-gray-800"
             >
                 <div className="p-4 border-b flex justify-between items-center bg-gray-50 dark:bg-gray-800/50">
                     <h2 className="text-xl font-bold">{task ? 'Editar Tarea' : 'Nueva Tarea'}</h2>
@@ -303,7 +303,7 @@ const TaskModal = ({ task, contactId, propertyId, isOpen, onClose }) => {
                 </div>
 
                 <div className="flex-1 overflow-y-auto custom-scrollbar" onWheel={(e) => e.stopPropagation()}>
-                    <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                    <form onSubmit={handleSubmit} className="p-5 space-y-3">
                         {task?.crm_actions && (
                             <div className="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-xl border border-blue-100 dark:border-blue-900/50 space-y-2">
                                 <div className="flex items-center gap-2 text-blue-700 dark:text-blue-400 font-bold text-xs uppercase tracking-wider">
@@ -339,16 +339,18 @@ const TaskModal = ({ task, contactId, propertyId, isOpen, onClose }) => {
                             </div>
                         )}
 
+                        {/* Contact & Property row */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         {!contactId && (
-                            <div className="space-y-2">
-                                <Label>Contacto <span className="text-red-500">*</span></Label>
+                            <div className="space-y-1.5">
+                                <Label className="text-sm">Contacto <span className="text-red-500">*</span></Label>
                                 <Popover open={openContactSelect} onOpenChange={setOpenContactSelect}>
                                     <PopoverTrigger asChild>
                                         <Button
                                             variant="outline"
                                             role="combobox"
                                             aria-expanded={openContactSelect}
-                                            className="w-full justify-between font-normal"
+                                            className="w-full justify-between font-normal h-9 text-sm"
                                         >
                                             {formData.contact_id
                                                 ? contacts.find((c) => c.id === formData.contact_id)?.first_name + " " + contacts.find((c) => c.id === formData.contact_id)?.last_name
@@ -395,15 +397,15 @@ const TaskModal = ({ task, contactId, propertyId, isOpen, onClose }) => {
                             </div>
                         )}
 
-                        <div className="space-y-2">
-                            <Label>Propiedad (Opcional)</Label>
+                        <div className={`space-y-1.5 ${contactId ? 'md:col-span-2' : ''}`}>
+                            <Label className="text-sm">Propiedad (Opcional)</Label>
                             <Popover open={openPropertySelect} onOpenChange={setOpenPropertySelect}>
                                 <PopoverTrigger asChild>
                                     <Button
                                         variant="outline"
                                         role="combobox"
                                         aria-expanded={openPropertySelect}
-                                        className="w-full justify-between font-normal"
+                                        className="w-full justify-between font-normal h-9 text-sm"
                                     >
                                         <span className="truncate">
                                             {formData.property_id
@@ -450,8 +452,11 @@ const TaskModal = ({ task, contactId, propertyId, isOpen, onClose }) => {
                                 </PopoverContent>
                             </Popover>
                         </div>
+                        </div>
 
-                        <div className="space-y-2">
+                        {/* Title + Action Selector in 2-col */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
                             <label className="text-sm font-medium">Título tarea <span className="text-red-500">*</span></label>
                             <Input
                                 name="action"
@@ -459,11 +464,12 @@ const TaskModal = ({ task, contactId, propertyId, isOpen, onClose }) => {
                                 onChange={handleChange}
                                 placeholder="Ej: Llamar para seguimiento"
                                 required
+                                className="h-9"
                             />
                         </div>
 
                         {/* Linked Action Selector */}
-                        <div className="space-y-2">
+                        <div className="space-y-1.5">
                             <label className="text-sm font-medium flex items-center gap-2">
                                 <Link2 className="w-4 h-4 text-indigo-500" />
                                 Vincular Acción <span className="text-gray-500 font-normal">(opcional)</span>
@@ -515,64 +521,62 @@ const TaskModal = ({ task, contactId, propertyId, isOpen, onClose }) => {
                                 </p>
                             )}
                         </div>
+                        </div>
 
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium">Descripción de tarea <span className="text-gray-500 font-normal">(opcional)</span></label>
+                        <div className="space-y-1.5">
+                            <label className="text-sm font-medium">Descripción <span className="text-gray-500 font-normal">(opcional)</span></label>
                             <Textarea
                                 name="description"
                                 value={formData.description}
                                 onChange={handleChange}
                                 placeholder="Detalles adicionales..."
-                                className="resize-none h-20"
+                                className="resize-none h-16"
                             />
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
+                        <div className="grid grid-cols-3 gap-3">
+                            <div className="space-y-1.5">
                                 <label className="text-sm font-medium">Fecha</label>
-                                <div className="relative">
-                                    <Input
-                                        type="date"
-                                        name="execution_date"
-                                        value={formData.execution_date}
-                                        onChange={handleChange}
-                                        required
-                                    />
-                                </div>
+                                <Input
+                                    type="date"
+                                    name="execution_date"
+                                    value={formData.execution_date}
+                                    onChange={handleChange}
+                                    required
+                                    className="h-9"
+                                />
                             </div>
-                            <div className="space-y-2">
+                            <div className="space-y-1.5">
                                 <label className="text-sm font-medium">Hora</label>
-                                <div className="relative">
-                                    <Input
-                                        type="time"
-                                        name="execution_time"
-                                        value={formData.execution_time}
-                                        onChange={handleChange}
-                                        required
-                                    />
-                                </div>
+                                <Input
+                                    type="time"
+                                    name="execution_time"
+                                    value={formData.execution_time}
+                                    onChange={handleChange}
+                                    required
+                                    className="h-9"
+                                />
                             </div>
-                        </div>
-
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium">Recordatorio</label>
-                            <Select
-                                value={formData.reminder_minutes}
-                                onValueChange={(val) => setFormData(prev => ({ ...prev, reminder_minutes: val }))}
-                            >
-                                <SelectTrigger className="w-full">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent className="z-[300]">
-                                    <SelectItem value="none">Sin recordatorio</SelectItem>
-                                    <SelectItem value="10">10 min antes</SelectItem>
-                                    <SelectItem value="20">20 min antes</SelectItem>
-                                    <SelectItem value="30">30 min antes</SelectItem>
-                                    <SelectItem value="40">40 min antes</SelectItem>
-                                    <SelectItem value="50">50 min antes</SelectItem>
-                                    <SelectItem value="60">1 hora antes</SelectItem>
-                                </SelectContent>
-                            </Select>
+                            <div className="space-y-1.5">
+                                <label className="text-sm font-medium">Recordatorio</label>
+                                <Select
+                                    value={formData.reminder_minutes}
+                                    onValueChange={(val) => setFormData(prev => ({ ...prev, reminder_minutes: val }))}
+                                >
+                                    <SelectTrigger className="w-full h-9">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent className="z-[300]">
+                                        <SelectItem value="none">Sin recordatorio</SelectItem>
+                                        <SelectItem value="10">10 min antes</SelectItem>
+                                        <SelectItem value="20">20 min antes</SelectItem>
+                                        <SelectItem value="30">30 min antes</SelectItem>
+                                        <SelectItem value="40">40 min antes</SelectItem>
+                                        <SelectItem value="50">50 min antes</SelectItem>
+                                        <SelectItem value="60">1 hora antes</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
                         </div>
                     </form>
                 </div>
