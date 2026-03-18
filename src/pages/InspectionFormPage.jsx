@@ -7,6 +7,10 @@ import {
     getInspection, createInspection, saveInspection, submitInspection,
     uploadInspectionPhoto, uploadSignature, getDefaultFormData, markInspectionSent
 } from '../services/inspectionService'
+import {
+    isNewFormat, convertLegacyFormData, getAddableAreas, createSection,
+    renumberSections, getCategoryLabel, getFormDataForPropertyType
+} from '../config/inspectionFormTemplates'
 import { logActivity } from '../services/activityService'
 import { LOGO_BASE64 } from '../services/logo'
 import ContactPickerInline from '../components/ui/ContactPickerInline'
@@ -16,7 +20,10 @@ import { Toaster } from 'sonner'
 import {
     ArrowLeft, Save, Send, Camera, Trash2, Plus, CheckCircle2,
     Loader2, User, Home, ChefHat, Sofa, UtensilsCrossed, BedDouble,
-    Bath, FileText, PenTool, Mail, X, Eye, Paperclip, File as FileIcon
+    Bath, FileText, PenTool, Mail, X, Eye, Paperclip, File as FileIcon,
+    ChevronDown, Trees, Sun, Waves, Shirt, Warehouse, Car, DoorOpen,
+    Monitor, Coffee, Users, Briefcase, Truck, Factory, ClipboardList,
+    Fence
 } from 'lucide-react'
 
 const LOGO_SRC = LOGO_BASE64 ? `data:image/png;base64,${LOGO_BASE64}` : '/primerolog.png'
@@ -47,6 +54,7 @@ export default function InspectionFormPage() {
     const [submitting, setSubmitting] = useState(false)
     const [sending, setSending] = useState(false)
     const [observations, setObservations] = useState('')
+    const [showAddAreaMenu, setShowAddAreaMenu] = useState(false)
     const [recommendations, setRecommendations] = useState('')
     const [showSendPreview, setShowSendPreview] = useState(false)
     const [sendPreviewHtml, setSendPreviewHtml] = useState('')
@@ -125,8 +133,12 @@ export default function InspectionFormPage() {
             }
 
             if (data.form_data && Object.keys(data.form_data).length > 0) {
-                // Merge saved form_data but always backfill empty auto-fields
-                const saved = { ...getDefaultFormData(), ...data.form_data }
+                // Convert legacy format if needed
+                let saved = isNewFormat(data.form_data)
+                    ? data.form_data
+                    : convertLegacyFormData(data.form_data)
+
+                // Merge auto-fields
                 Object.entries(autoFields).forEach(([key, val]) => {
                     if (!saved[key] && val) saved[key] = val
                 })
@@ -170,70 +182,40 @@ export default function InspectionFormPage() {
         return () => { if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current) }
     }, [formData, photos, observations, recommendations])
 
-    // Section item handlers
-    const updateSectionItem = (section, index, field, value) => {
+    // ─── Section handlers (new dynamic format) ────────────
+    const updateSectionItem = (sectionIdx, itemIdx, field, value) => {
         setFormData(prev => {
             const updated = { ...prev }
-            const items = [...(updated[section] || [])]
-            items[index] = { ...items[index], [field]: value }
-            updated[section] = items
+            const sections = [...(updated.sections || [])]
+            const section = { ...sections[sectionIdx] }
+            const items = [...section.items]
+            items[itemIdx] = { ...items[itemIdx], [field]: value }
+            section.items = items
+            sections[sectionIdx] = section
+            updated.sections = sections
             return updated
         })
     }
 
-    const updateDynamicSection = (section, roomIndex, itemIndex, field, value) => {
+    const addArea = (sectionKey) => {
         setFormData(prev => {
             const updated = { ...prev }
-            const rooms = [...(updated[section] || [])]
-            const room = { ...rooms[roomIndex] }
-            const items = [...room.items]
-            items[itemIndex] = { ...items[itemIndex], [field]: value }
-            room.items = items
-            rooms[roomIndex] = room
-            updated[section] = rooms
+            const sections = [...(updated.sections || [])]
+            const newSection = createSection(sectionKey, sections)
+            if (!newSection) return prev
+            sections.push(newSection)
+            updated.sections = renumberSections(sections)
             return updated
         })
+        setShowAddAreaMenu(false)
     }
 
-    const addRoom = (section, baseName) => {
+    const removeSection = (sectionIdx) => {
         setFormData(prev => {
             const updated = { ...prev }
-            const rooms = [...(updated[section] || [])]
-            const num = rooms.length + 1
-
-            const makeItems = (items) => items.map(label => ({ label, estado: '', observacion: '' }))
-            let items
-            if (section === 'dormitorios') {
-                items = makeItems([
-                    'Estado de paredes y cielos', 'Estado de pisos', 'Estado de ventanas',
-                    'Estado de puertas', 'Closet (puertas, repisas, etc.)',
-                    'Estado de enchufes e interruptores (indicar cantidad)',
-                ])
-            } else {
-                items = makeItems([
-                    'Estado de paredes y techos', 'Estado de pisos', 'Estado de ventanas',
-                    'Estado de puertas', 'Estado de grifos y llaves', 'Estado de inodoro',
-                    'Estado de tina / ducha',
-                ])
-            }
-
-            rooms.push({ nombre: `${baseName} ${num}`, items })
-            updated[section] = rooms
-            return updated
-        })
-    }
-
-    const removeRoom = (section, index) => {
-        setFormData(prev => {
-            const updated = { ...prev }
-            const rooms = [...(updated[section] || [])]
-            rooms.splice(index, 1)
-            // Rename remaining
-            rooms.forEach((r, i) => {
-                const base = section === 'dormitorios' ? 'Dormitorio' : 'Baño'
-                r.nombre = `${base} ${i + 1}`
-            })
-            updated[section] = rooms
+            const sections = [...(updated.sections || [])]
+            sections.splice(sectionIdx, 1)
+            updated.sections = renumberSections(sections)
             return updated
         })
     }
@@ -564,22 +546,28 @@ export default function InspectionFormPage() {
         </select>
     )
 
-    const addOtroItem = (sectionKey) => {
+    const addOtroItem = (sectionIdx) => {
         setFormData(prev => {
             const updated = { ...prev }
-            const items = [...(updated[sectionKey] || [])]
+            const sections = [...(updated.sections || [])]
+            const section = { ...sections[sectionIdx] }
+            const items = [...section.items]
             const otrosCount = items.filter(i => i.label.startsWith('Otro')).length
             items.push({ label: `Otro ${otrosCount + 1}`, estado: '', observacion: '', isCustom: true })
-            updated[sectionKey] = items
+            section.items = items
+            sections[sectionIdx] = section
+            updated.sections = sections
             return updated
         })
     }
 
-    const removeOtroItem = (sectionKey, idx) => {
+    const removeOtroItem = (sectionIdx, itemIdx) => {
         setFormData(prev => {
             const updated = { ...prev }
-            const items = [...(updated[sectionKey] || [])]
-            items.splice(idx, 1)
+            const sections = [...(updated.sections || [])]
+            const section = { ...sections[sectionIdx] }
+            const items = [...section.items]
+            items.splice(itemIdx, 1)
             let otroNum = 0
             items.forEach(item => {
                 if (item.isCustom || item.label.startsWith('Otro')) {
@@ -588,19 +576,45 @@ export default function InspectionFormPage() {
                     item.isCustom = true
                 }
             })
-            updated[sectionKey] = items
+            section.items = items
+            sections[sectionIdx] = section
+            updated.sections = sections
             return updated
         })
     }
 
-    const renderSectionTable = (title, items, sectionKey, onUpdate, icon) => (
+    // ─── Icon mapping for section icons ────────────────────
+    const ICON_MAP = {
+        'chef-hat': ChefHat, 'sofa': Sofa, 'bed-double': BedDouble, 'bath': Bath,
+        'trees': Trees, 'sun': Sun, 'waves': Waves, 'shirt': Shirt,
+        'warehouse': Warehouse, 'car': Car, 'door-open': DoorOpen, 'monitor': Monitor,
+        'coffee': Coffee, 'users': Users, 'briefcase': Briefcase, 'truck': Truck,
+        'factory': Factory, 'clipboard-list': ClipboardList, 'fence': Fence,
+        'utensils': UtensilsCrossed, 'home': Home,
+    }
+    const getSectionIcon = (iconKey) => {
+        const Icon = ICON_MAP[iconKey]
+        return Icon ? <Icon className="w-4 h-4" /> : null
+    }
+
+    // ─── Render a section table ───────────────────────────
+    const renderSectionTable = (section, sectionIdx) => (
         <div className="mb-8">
-            {title && (
-                <h3 className="text-lg font-bold text-[#003DA5] flex items-center gap-2 mb-4">
-                    {icon && <span>{icon}</span>}
-                    {title}
+            <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold text-[#003DA5] flex items-center gap-2">
+                    {getSectionIcon(section.icon)}
+                    {section.title}
                 </h3>
-            )}
+                {section.removable && !isReadOnly && (
+                    <button
+                        data-hide-pdf
+                        onClick={() => removeSection(sectionIdx)}
+                        className="text-red-500 hover:text-red-700 text-sm font-medium flex items-center gap-1"
+                    >
+                        <Trash2 className="w-3.5 h-3.5" /> Eliminar
+                    </button>
+                )}
+            </div>
             <div className="overflow-x-auto rounded-xl border border-gray-200">
                 <table className="w-full">
                     <thead>
@@ -611,7 +625,7 @@ export default function InspectionFormPage() {
                         </tr>
                     </thead>
                     <tbody>
-                        {items.map((item, idx) => (
+                        {(section.items || []).map((item, idx) => (
                             <tr key={idx} className={`border-b border-gray-100 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}>
                                 <td className="py-3 px-4 text-sm text-gray-700 font-medium">
                                     <div className="flex items-center gap-2">
@@ -623,9 +637,13 @@ export default function InspectionFormPage() {
                                                     const newLabel = e.target.value
                                                     setFormData(prev => {
                                                         const updated = { ...prev }
-                                                        const arr = [...(updated[sectionKey] || [])]
-                                                        arr[idx] = { ...arr[idx], label: newLabel }
-                                                        updated[sectionKey] = arr
+                                                        const sections = [...(updated.sections || [])]
+                                                        const sec = { ...sections[sectionIdx] }
+                                                        const items = [...sec.items]
+                                                        items[idx] = { ...items[idx], label: newLabel }
+                                                        sec.items = items
+                                                        sections[sectionIdx] = sec
+                                                        updated.sections = sections
                                                         return updated
                                                     })
                                                 }}
@@ -638,7 +656,7 @@ export default function InspectionFormPage() {
                                             <button
                                                 data-hide-pdf
                                                 type="button"
-                                                onClick={() => removeOtroItem(sectionKey, idx)}
+                                                onClick={() => removeOtroItem(sectionIdx, idx)}
                                                 className="text-red-400 hover:text-red-600 flex-shrink-0"
                                             >
                                                 <Trash2 className="w-3.5 h-3.5" />
@@ -647,14 +665,14 @@ export default function InspectionFormPage() {
                                     </div>
                                 </td>
                                 <td className="py-3 px-4">
-                                    {renderEstadoSelect(item.estado, val => onUpdate(idx, 'estado', val), isReadOnly)}
+                                    {renderEstadoSelect(item.estado, val => updateSectionItem(sectionIdx, idx, 'estado', val), isReadOnly)}
                                 </td>
                                 <td className="py-3 px-4">
                                     <textarea
                                         rows={1}
                                         value={item.observacion || ''}
                                         onChange={e => {
-                                            onUpdate(idx, 'observacion', e.target.value)
+                                            updateSectionItem(sectionIdx, idx, 'observacion', e.target.value)
                                             e.target.style.height = 'auto'
                                             e.target.style.height = e.target.scrollHeight + 'px'
                                         }}
@@ -673,7 +691,7 @@ export default function InspectionFormPage() {
                 <button
                     data-hide-pdf
                     type="button"
-                    onClick={() => addOtroItem(sectionKey)}
+                    onClick={() => addOtroItem(sectionIdx)}
                     className="mt-2 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1 ml-auto"
                 >
                     <Plus className="w-3.5 h-3.5" />
@@ -683,82 +701,9 @@ export default function InspectionFormPage() {
         </div>
     )
 
-    const renderDynamicSectionTable = (title, section, baseName, icon) => {
-        const rooms = formData[section] || []
-        return (
-            <div className="mb-8">
-                <div className="flex items-center justify-between mb-4">
-                    {title && (
-                        <h3 className="text-lg font-bold text-[#003DA5] flex items-center gap-2">
-                            {icon && <span>{icon}</span>}
-                            {title}
-                        </h3>
-                    )}
-                    {!isReadOnly && (
-                        <button
-                            data-hide-pdf
-                            onClick={() => addRoom(section, baseName)}
-                            className="px-4 py-2 bg-[#003DA5] text-white text-sm font-semibold rounded-lg hover:bg-[#002d7a] transition-colors flex items-center gap-1"
-                        >
-                            <Plus className="w-4 h-4" /> Agregar {baseName}
-                        </button>
-                    )}
-                </div>
-                {rooms.map((room, roomIdx) => (
-                    <div key={roomIdx} className="mb-6">
-                        <div className="flex items-center justify-between mb-2">
-                            <h4 className="text-base font-bold text-gray-700">{room.nombre}</h4>
-                            {!isReadOnly && rooms.length > 1 && (
-                                <button
-                                    data-hide-pdf
-                                    onClick={() => removeRoom(section, roomIdx)}
-                                    className="text-red-500 hover:text-red-700 text-sm font-medium"
-                                >
-                                    Eliminar
-                                </button>
-                            )}
-                        </div>
-                        <div className="overflow-x-auto rounded-xl border border-gray-200">
-                            <table className="w-full">
-                                <thead>
-                                    <tr className="bg-[#003DA5] text-white">
-                                        <th className="text-left py-3 px-4 font-semibold text-sm w-[40%]">Ítem</th>
-                                        <th className="text-center py-3 px-4 font-semibold text-sm w-[25%]">Estado</th>
-                                        <th className="text-left py-3 px-4 font-semibold text-sm w-[35%]">Observación</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {room.items.map((item, itemIdx) => (
-                                        <tr key={itemIdx} className={`border-b border-gray-100 ${itemIdx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}>
-                                            <td className="py-3 px-4 text-sm text-gray-700 font-medium">{item.label}</td>
-                                            <td className="py-3 px-4">
-                                                {renderEstadoSelect(item.estado, val => updateDynamicSection(section, roomIdx, itemIdx, 'estado', val), isReadOnly)}
-                                            </td>
-                                            <td className="py-3 px-4">
-                                                <textarea
-                                                    rows={1}
-                                                    value={item.observacion || ''}
-                                                    onChange={e => {
-                                                        updateDynamicSection(section, roomIdx, itemIdx, 'observacion', e.target.value)
-                                                        e.target.style.height = 'auto'
-                                                        e.target.style.height = e.target.scrollHeight + 'px'
-                                                    }}
-                                                    onFocus={e => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px' }}
-                                                    disabled={isReadOnly}
-                                                    placeholder="Observaciones..."
-                                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none disabled:bg-gray-50 disabled:text-gray-500 resize-none overflow-hidden"
-                                                />
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                ))}
-            </div>
-        )
-    }
+    // Available areas for the add-area dropdown
+    const addableAreas = getAddableAreas(formData.inspection_type || 'residential')
+    const categoryLabel = getCategoryLabel(formData.inspection_type || 'residential')
 
     if (loading) {
         return (
@@ -843,7 +788,12 @@ export default function InspectionFormPage() {
                             <img src={LOGO_SRC} alt="RE/MAX Exclusive" className="h-16 object-contain" />
                             <div className="text-right">
                                 <h2 className="text-xl font-bold text-gray-900 uppercase tracking-wide">Formulario de Inspección</h2>
-                                <p className="text-sm text-gray-400 mt-1">Departamento</p>
+                                <p className="text-sm text-gray-400 mt-1">{formData.property_type || 'Departamento'}</p>
+                                <span className={`inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                                    formData.inspection_type === 'commercial' ? 'bg-purple-100 text-purple-700' :
+                                    formData.inspection_type === 'industrial' ? 'bg-amber-100 text-amber-700' :
+                                    'bg-blue-100 text-blue-700'
+                                }`}>{categoryLabel}</span>
                             </div>
                         </div>
                     </div>
@@ -991,64 +941,56 @@ export default function InspectionFormPage() {
                             </div>
                         </section>
 
-                        {/* ═══ SECCIÓN 3: Cocina ═══ */}
-                        <section>
-                            <div className="flex items-center gap-3 mb-6">
-                                <div className="w-8 h-8 bg-[#003DA5] text-white rounded-lg flex items-center justify-center text-sm font-bold">3</div>
-                                <span className="text-lg font-bold text-[#003DA5]">Cocina</span>
-                            </div>
-                            {renderSectionTable(
-                                "",
-                                formData.cocina,
-                                "cocina",
-                                (idx, field, val) => updateSectionItem('cocina', idx, field, val)
-                            )}
-                        </section>
+                        {/* ═══ DYNAMIC SECTIONS ═══ */}
+                        {(formData.sections || []).map((section, sectionIdx) => (
+                            <section key={section.key || sectionIdx}>
+                                <div className="flex items-center gap-3 mb-6">
+                                    <div className="w-8 h-8 bg-[#003DA5] text-white rounded-lg flex items-center justify-center text-sm font-bold">{sectionIdx + 3}</div>
+                                    <span className="text-lg font-bold text-[#003DA5]">{section.title}</span>
+                                </div>
+                                {renderSectionTable(section, sectionIdx)}
+                            </section>
+                        ))}
 
-                        {/* ═══ SECCIÓN 4: Sala de Estar / Living / Comedor ═══ */}
-                        <section>
-                            <div className="flex items-center gap-3 mb-6">
-                                <div className="w-8 h-8 bg-[#003DA5] text-white rounded-lg flex items-center justify-center text-sm font-bold">4</div>
-                                <span className="text-lg font-bold text-[#003DA5]">Sala de Estar / Living / Comedor</span>
+                        {/* ═══ AGREGAR ÁREA ═══ */}
+                        {!isReadOnly && (
+                            <div className="relative" data-hide-pdf>
+                                <button
+                                    onClick={() => setShowAddAreaMenu(!showAddAreaMenu)}
+                                    className="w-full py-4 border-2 border-dashed border-[#003DA5]/30 rounded-xl text-[#003DA5] font-bold hover:border-[#003DA5] hover:bg-blue-50/50 transition-all flex items-center justify-center gap-2"
+                                >
+                                    <Plus className="w-5 h-5" />
+                                    Agregar Área
+                                    <ChevronDown className={`w-4 h-4 transition-transform ${showAddAreaMenu ? 'rotate-180' : ''}`} />
+                                </button>
+                                {showAddAreaMenu && (
+                                    <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-2xl border border-gray-200 z-50 overflow-hidden">
+                                        <div className="p-3 border-b border-gray-100 bg-gray-50">
+                                            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Seleccionar área para agregar</p>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-1 p-2 max-h-64 overflow-y-auto">
+                                            {addableAreas.map(area => (
+                                                <button
+                                                    key={area.key}
+                                                    onClick={() => addArea(area.key)}
+                                                    className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-blue-50 text-left transition-colors group"
+                                                >
+                                                    <div className="w-8 h-8 bg-gray-100 group-hover:bg-[#003DA5]/10 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors">
+                                                        {getSectionIcon(area.icon)}
+                                                    </div>
+                                                    <span className="text-sm font-medium text-gray-700 group-hover:text-[#003DA5]">{area.title}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
-                            {renderSectionTable(
-                                "",
-                                formData.sala_estar,
-                                "sala_estar",
-                                (idx, field, val) => updateSectionItem('sala_estar', idx, field, val)
-                            )}
-                        </section>
+                        )}
 
-                        {/* ═══ SECCIÓN 5: Dormitorios ═══ */}
+                        {/* ═══ OBSERVACIONES FINALES ═══ */}
                         <section>
                             <div className="flex items-center gap-3 mb-6">
-                                <div className="w-8 h-8 bg-[#003DA5] text-white rounded-lg flex items-center justify-center text-sm font-bold">5</div>
-                                <span className="text-lg font-bold text-[#003DA5]">Dormitorios</span>
-                            </div>
-                            {renderDynamicSectionTable(
-                                "",
-                                "dormitorios",
-                                "Dormitorio"
-                            )}
-                        </section>
-
-                        {/* ═══ SECCIÓN 6: Baños ═══ */}
-                        <section>
-                            <div className="flex items-center gap-3 mb-6">
-                                <div className="w-8 h-8 bg-[#003DA5] text-white rounded-lg flex items-center justify-center text-sm font-bold">6</div>
-                                <span className="text-lg font-bold text-[#003DA5]">Baño(s)</span>
-                            </div>
-                            {renderDynamicSectionTable(
-                                "",
-                                "banos",
-                                "Baño"
-                            )}
-                        </section>
-
-                        {/* ═══ SECCIÓN 7: Observaciones Finales ═══ */}
-                        <section>
-                            <div className="flex items-center gap-3 mb-6">
-                                <div className="w-8 h-8 bg-[#003DA5] text-white rounded-lg flex items-center justify-center text-sm font-bold">7</div>
+                                <div className="w-8 h-8 bg-[#003DA5] text-white rounded-lg flex items-center justify-center text-sm font-bold">{(formData.sections?.length || 0) + 3}</div>
                                 <span className="text-lg font-bold text-[#003DA5]">Observaciones Finales</span>
                             </div>
                             <div className="space-y-4">

@@ -1,4 +1,5 @@
 import { supabase, getCustomPublicUrl } from './supabase'
+import { getFormDataForPropertyType } from '../config/inspectionFormTemplates'
 
 const BUCKET = 'inspection-photos'
 
@@ -32,7 +33,7 @@ export async function createInspection({ propertyId, scheduleId, agentId }) {
     const { data: property } = await supabase
         .from('properties')
         .select(`
-            id, address, commune, status,
+            id, address, commune, status, property_type,
             owner:contacts!properties_owner_id_fkey(first_name, last_name)
         `)
         .eq('id', propertyId)
@@ -60,6 +61,10 @@ export async function createInspection({ propertyId, scheduleId, agentId }) {
         : ''
     const address = property ? `${property.address || ''}${property.commune ? `, ${property.commune}` : ''}` : ''
 
+    // Generate form_data based on property type
+    const propertyType = property?.property_type || 'Departamento'
+    const formData = getFormDataForPropertyType(propertyType) || getDefaultFormData()
+
     const { data, error } = await supabase
         .from('property_inspections')
         .insert({
@@ -69,7 +74,7 @@ export async function createInspection({ propertyId, scheduleId, agentId }) {
             owner_name: ownerName,
             tenant_name: tenantName,
             address,
-            form_data: getDefaultFormData(),
+            form_data: formData,
         })
         .select()
         .single()
@@ -238,88 +243,12 @@ export async function getInspections(filters = {}) {
 /**
  * Default form data structure for a new inspection
  */
+/**
+ * Default form data — backwards-compatible wrapper
+ * New inspections should use getFormDataForPropertyType() from inspectionFormTemplates.js
+ */
 export function getDefaultFormData() {
-    const makeItems = (items) => items.map(label => ({ label, estado: '', observacion: '' }))
-
-    return {
-        // Section 1 - Agent (auto-filled)
-        agente_nombre: '',
-        fecha_inspeccion: new Date().toISOString().split('T')[0],
-
-        // Section 2 - Property (auto-filled)
-        direccion: '',
-        propietario: '',
-        arrendatario: '',
-        metraje_informado: '',
-        metraje_terrazas: '',
-        metraje_total: '',
-
-        // Section 3 - Cocina
-        cocina: makeItems([
-            'Estado de paredes y techos',
-            'Estado de pisos',
-            'Estado de ventanas',
-            'Estado de puertas',
-            'Estado de muebles empotrados',
-            'Estado de grifos y llaves',
-            'Estado de campana',
-            'Estado de cocina',
-            'Estado del horno',
-            'Estado de enchufes e interruptores (indicar cantidad)',
-            'Otros',
-        ]),
-
-        // Section 4 - Sala de Estar / Living / Comedor
-        sala_estar: makeItems([
-            'Estado de paredes y cielos',
-            'Estado de pisos',
-            'Estado de puertas y ventanas',
-            'Estado de enchufes e interruptores (indicar cantidad)',
-        ]),
-
-        // Section 5 - Comedor
-        comedor: makeItems([
-            'Estado de paredes y cielos',
-            'Estado de pisos',
-            'Estado de puertas y ventanas',
-            'Estado de enchufes e interruptores (indicar cantidad)',
-        ]),
-
-        // Section 6 - Dormitorios (dynamic)
-        dormitorios: [
-            {
-                nombre: 'Dormitorio 1',
-                items: makeItems([
-                    'Estado de paredes y cielos',
-                    'Estado de pisos',
-                    'Estado de ventanas',
-                    'Estado de puertas',
-                    'Closet (puertas, repisas, etc.)',
-                    'Estado de enchufes e interruptores (indicar cantidad)',
-                ]),
-            },
-        ],
-
-        // Section 7 - Baños (dynamic)
-        banos: [
-            {
-                nombre: 'Baño 1',
-                items: makeItems([
-                    'Estado de paredes y techos',
-                    'Estado de pisos',
-                    'Estado de ventanas',
-                    'Estado de puertas',
-                    'Estado de grifos y llaves',
-                    'Estado de inodoro',
-                    'Estado de tina / ducha',
-                ]),
-            },
-        ],
-
-        // Section 8 - Observaciones
-        observaciones_adicionales: '',
-        recomendaciones: '',
-    }
+    return getFormDataForPropertyType('Departamento')
 }
 
 /**
@@ -328,7 +257,7 @@ export function getDefaultFormData() {
 export async function getAdministradaProperties() {
     const { data, error } = await supabase
         .from('properties')
-        .select('id, address, commune, unit_number, contract_start_date, contract_end_date, agent_id, status')
+        .select('id, address, commune, unit_number, property_type, contract_start_date, contract_end_date, agent_id, status')
         .contains('status', ['Administrada'])
         .order('address')
 
@@ -424,11 +353,15 @@ export async function createPublicInspection(propertyId, agentId = null) {
 
     const { data: property } = await supabase
         .from('properties')
-        .select('id, address, commune, unit_number')
+        .select('id, address, commune, unit_number, property_type')
         .eq('id', propertyId)
         .single()
 
     const address = property ? `${property.address || ''}${property.commune ? `, ${property.commune}` : ''}` : ''
+
+    // Get property type for the right form template
+    const propertyType = property?.property_type || 'Departamento'
+    const formData = getFormDataForPropertyType(propertyType) || getDefaultFormData()
 
     const { data, error } = await supabase
         .from('property_inspections')
@@ -437,7 +370,7 @@ export async function createPublicInspection(propertyId, agentId = null) {
             agent_id: agentId,
             address,
             public_token: token,
-            form_data: getDefaultFormData(),
+            form_data: formData,
             status: 'pending',
         })
         .select()

@@ -189,31 +189,44 @@ const InspectionPdfDocument = ({ formData, observations, recommendations, photos
                         </View>
                     </View>
 
-                    {/* 3 */}
-                    <Section title="Cocina" />
-                    <Table items={formData?.cocina} />
+                    {/* Dynamic sections (new format) */}
+                    {Array.isArray(formData?.sections) ? (
+                        formData.sections.map((section, i) => (
+                            <View key={section.key || i}>
+                                <Section title={section.title} />
+                                <Table items={section.items} />
+                            </View>
+                        ))
+                    ) : (
+                        <>
+                            {/* Legacy format fallback */}
+                            {/* 3 */}
+                            <Section title="Cocina" />
+                            <Table items={formData?.cocina} />
 
-                    {/* 4 */}
-                    <Section title="Sala de Estar / Living / Comedor" />
-                    <Table items={formData?.sala_estar} />
+                            {/* 4 */}
+                            <Section title="Sala de Estar / Living / Comedor" />
+                            <Table items={formData?.sala_estar} />
 
-                    {/* 5 */}
-                    <Section title="Dormitorios" />
-                    {(formData?.dormitorios || []).map((r, i) => (
-                        <View key={i}>
-                            <Text style={s.roomName}>{r.nombre}</Text>
-                            <Table items={r.items} />
-                        </View>
-                    ))}
+                            {/* 5 */}
+                            <Section title="Dormitorios" />
+                            {(formData?.dormitorios || []).map((r, i) => (
+                                <View key={i}>
+                                    <Text style={s.roomName}>{r.nombre}</Text>
+                                    <Table items={r.items} />
+                                </View>
+                            ))}
 
-                    {/* 6 */}
-                    <Section title="Baño(s)" />
-                    {(formData?.banos || []).map((r, i) => (
-                        <View key={i}>
-                            <Text style={s.roomName}>{r.nombre}</Text>
-                            <Table items={r.items} />
-                        </View>
-                    ))}
+                            {/* 6 */}
+                            <Section title="Baño(s)" />
+                            {(formData?.banos || []).map((r, i) => (
+                                <View key={i}>
+                                    <Text style={s.roomName}>{r.nombre}</Text>
+                                    <Table items={r.items} />
+                                </View>
+                            ))}
+                        </>
+                    )}
 
                     {/* 7 */}
                     <View wrap={false}>
