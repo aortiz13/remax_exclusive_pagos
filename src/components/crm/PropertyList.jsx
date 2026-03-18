@@ -101,6 +101,7 @@ const PropertyList = () => {
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
     const [propertyToDelete, setPropertyToDelete] = useState(null)
     const [isDeleting, setIsDeleting] = useState(false)
+    const [mandateCount, setMandateCount] = useState(0)
 
     // Column State
     const [columns, setColumns] = useState([
@@ -262,7 +263,13 @@ const PropertyList = () => {
         }
     }
 
-    const confirmDelete = (property) => {
+    const confirmDelete = async (property) => {
+        // Check for associated mandates before showing dialog
+        const { count } = await supabase
+            .from('mandates')
+            .select('id', { count: 'exact', head: true })
+            .eq('property_id', property.id)
+        setMandateCount(count || 0)
         setPropertyToDelete(property)
         setIsDeleteDialogOpen(true)
     }
@@ -272,7 +279,13 @@ const PropertyList = () => {
 
         setIsDeleting(true)
         try {
-            // 1. Delete associated tasks manually (NO ACTION constraint)
+            // 1. Unlink mandates (SET NULL to avoid FK violation)
+            await supabase
+                .from('mandates')
+                .update({ property_id: null })
+                .eq('property_id', propertyToDelete.id)
+
+            // 2. Delete associated tasks manually (NO ACTION constraint)
             const { error: tasksError } = await supabase
                 .from('crm_tasks')
                 .delete()
@@ -288,7 +301,7 @@ const PropertyList = () => {
                 description: `Propiedad eliminada: ${propertyToDelete.address || 'Sin dirección'}`,
             }).catch(() => { })
 
-            // 3. Delete the property (Contacts/Logs will CASCADE)
+            // 4. Delete the property (Contacts/Logs will CASCADE)
             const { error: propertyError } = await supabase
                 .from('properties')
                 .delete()
@@ -618,11 +631,25 @@ const PropertyList = () => {
                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle>¿Estás seguro de que quieres eliminar esta propiedad?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Esta acción es permanente. Se eliminará la propiedad <strong>{propertyToDelete?.address}</strong> y todas sus tareas asociadas.
-                            <br /><br />
-                            <strong className="text-red-500 font-semibold">Nota Importante:</strong> Los contactos vinculados a esta propiedad
-                            <strong> NO SE BORRARÁN</strong> de tu base de datos, simplemente se desvincularán de aquí.
+                        <AlertDialogDescription asChild>
+                            <div className="space-y-3">
+                                {mandateCount > 0 && (
+                                    <div className="flex items-start gap-2 p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg">
+                                        <span className="text-red-500 text-lg">⚠️</span>
+                                        <div className="text-sm text-red-700 dark:text-red-300">
+                                            Esta propiedad tiene <strong>{mandateCount} mandato{mandateCount > 1 ? 's' : ''}</strong> asociado{mandateCount > 1 ? 's' : ''}.
+                                            Si la eliminas, toda la información de la propiedad se perderá para siempre y los mandatos quedarán sin propiedad vinculada.
+                                        </div>
+                                    </div>
+                                )}
+                                <p>
+                                    Se eliminará la propiedad <strong>{propertyToDelete?.address}</strong> y todas sus tareas asociadas.
+                                </p>
+                                <p>
+                                    <strong className="text-red-500 font-semibold">Nota Importante:</strong> Los contactos vinculados a esta propiedad
+                                    <strong> NO SE BORRARÁN</strong> de tu base de datos, simplemente se desvincularán de aquí.
+                                </p>
+                            </div>
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
