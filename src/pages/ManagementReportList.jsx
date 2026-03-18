@@ -3,9 +3,11 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../services/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Button, Badge } from '@/components/ui'
-import { FileText, Clock, CheckCircle, AlertTriangle, Loader2, ChevronRight, Plus, Construction, Eye, User, Home, Lock, PauseCircle } from 'lucide-react'
-import { motion } from 'framer-motion'
+import { FileText, Clock, CheckCircle, AlertTriangle, Loader2, ChevronRight, Plus, Construction, Eye, User, Home, Lock, PauseCircle, X } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
+import { toast } from 'sonner'
+import PropertyPickerInline from '../components/ui/PropertyPickerInline'
 
 export default function ManagementReportList() {
     const { user, profile } = useAuth()
@@ -16,6 +18,11 @@ export default function ManagementReportList() {
     const isAdmin = ['superadministrador', 'comercial', 'legal', 'tecnico'].includes(profile?.role)
     // Admin default filter: sent; Agent default filter: all
     const [filter, setFilter] = useState(isAdmin ? 'sent' : 'all')
+
+    // --- New report modal state ---
+    const [showNewModal, setShowNewModal] = useState(false)
+    const [selectedProperty, setSelectedProperty] = useState(null)
+    const [creatingReport, setCreatingReport] = useState(false)
 
     useEffect(() => {
         fetchReports()
@@ -196,6 +203,64 @@ export default function ManagementReportList() {
 
     const tabs = isAdmin ? adminTabs : agentTabs
 
+    // --- Create on-demand report ---
+    const handleCreateReport = async () => {
+        if (!selectedProperty) {
+            toast.error('Selecciona una propiedad')
+            return
+        }
+        setCreatingReport(true)
+        try {
+            // 1. Resolve owner from property_contacts
+            const { data: ownerLink } = await supabase
+                .from('property_contacts')
+                .select('contact_id')
+                .eq('property_id', selectedProperty.id)
+                .eq('role', 'propietario')
+                .limit(1)
+                .maybeSingle()
+
+            // 2. Count existing reports for this property to get next report_number
+            const { count } = await supabase
+                .from('management_reports')
+                .select('id', { count: 'exact', head: true })
+                .eq('property_id', selectedProperty.id)
+                .eq('agent_id', user.id)
+
+            const nextNumber = (count || 0) + 1
+
+            // 3. Due date = today + 15 days
+            const dueDate = new Date()
+            dueDate.setDate(dueDate.getDate() + 15)
+
+            // 4. Insert
+            const { data: newReport, error } = await supabase
+                .from('management_reports')
+                .insert({
+                    property_id: selectedProperty.id,
+                    agent_id: user.id,
+                    owner_contact_id: ownerLink?.contact_id || null,
+                    report_number: nextNumber,
+                    due_date: dueDate.toISOString().split('T')[0],
+                    status: 'pending',
+                })
+                .select('id')
+                .single()
+
+            if (error) throw error
+
+            toast.success('Informe creado')
+            setShowNewModal(false)
+            setSelectedProperty(null)
+            navigate(`/informes-gestion/${newReport.id}`)
+        } catch (err) {
+            console.error('Error creating report:', err)
+            toast.error('Error al crear el informe')
+        } finally {
+            setCreatingReport(false)
+        }
+    }
+
     return (
         <div className="max-w-5xl mx-auto space-y-6">
             {/* Construction Banner */}
@@ -225,7 +290,85 @@ export default function ManagementReportList() {
                         }
                     </p>
                 </div>
+                {!isAdmin && (
+                    <Button
+                        onClick={() => { setShowNewModal(true); setSelectedProperty(null) }}
+                        className="gap-2 shadow-lg shadow-blue-500/20"
+                    >
+                        <Plus className="w-4 h-4" />
+                        Nuevo informe
+                    </Button>
+                )}
             </div>
+
+            {/* New report modal */}
+            <AnimatePresence>
+                {showNewModal && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+                        onClick={() => { setShowNewModal(false); setSelectedProperty(null) }}
+                    >
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                            onClick={e => e.stopPropagation()}
+                            className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-lg overflow-visible"
+                        >
+                            {/* Modal header */}
+                            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-800">
+                                <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                                    <FileText className="w-5 h-5 text-blue-600" />
+                                    Nuevo Informe de Gestión
+                                </h2>
+                                <button
+                                    onClick={() => { setShowNewModal(false); setSelectedProperty(null) }}
+                                    className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                                >
+                                    <X className="w-4 h-4 text-slate-400" />
+                                </button>
+                            </div>
+
+                            {/* Modal body */}
+                            <div className="px-6 py-5">
+                                <p className="text-sm text-slate-500 mb-4">
+                                    Selecciona la propiedad para la cual deseas generar un informe de gestión.
+                                </p>
+                                <PropertyPickerInline
+                                    label="Propiedad *"
+                                    value={selectedProperty?.id || ''}
+                                    onSelectProperty={(property) => setSelectedProperty(property || null)}
+                                />
+                            </div>
+
+                            {/* Modal footer */}
+                            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-100 dark:border-slate-800">
+                                <Button
+                                    variant="ghost"
+                                    onClick={() => { setShowNewModal(false); setSelectedProperty(null) }}
+                                    className="text-slate-500"
+                                >
+                                    Cancelar
+                                </Button>
+                                <Button
+                                    onClick={handleCreateReport}
+                                    disabled={!selectedProperty || creatingReport}
+                                    className="gap-2 min-w-[140px]"
+                                >
+                                    {creatingReport ? (
+                                        <><Loader2 className="w-4 h-4 animate-spin" /> Creando...</>
+                                    ) : (
+                                        <><Plus className="w-4 h-4" /> Crear informe</>
+                                    )}
+                                </Button>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
             {/* Stats Cards */}
             <div className={cn("grid gap-4", isAdmin ? "grid-cols-2" : "grid-cols-3")}>

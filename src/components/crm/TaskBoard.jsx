@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext'
 import { Button } from "@/components/ui"
 import { CheckCircle2, Circle, Calendar, Clock, User, Plus, Activity } from 'lucide-react'
 import TaskModal from './TaskModal'
+import { completeTaskWithAction } from '../../services/completeTaskAction'
 
 
 import { toast } from 'sonner'
@@ -29,7 +30,7 @@ const TaskBoard = () => {
                 .select(`
                     *,
                     contacts (first_name, last_name),
-                    crm_actions (action_type, note)
+                    crm_actions (id, action_type, note, kpi_deferred)
                 `)
                 .eq('task_type', 'task')
                 .order('execution_date', { ascending: true })
@@ -44,30 +45,29 @@ const TaskBoard = () => {
     }
 
     const handleToggleComplete = async (taskId, currentStatus) => {
-        try {
-            const { error } = await supabase
-                .from('crm_tasks')
-                .update({ completed: !currentStatus, completed_at: !currentStatus ? new Date().toISOString() : null })
-                .eq('id', taskId)
+        const task = tasks.find(t => t.id === taskId)
+        const linkedAction = task?.crm_actions ? {
+            id: task.crm_actions.id,
+            action_type: task.crm_actions.action_type,
+            kpi_deferred: task.crm_actions.kpi_deferred
+        } : null
 
-            if (error) throw error
+        const result = await completeTaskWithAction(taskId, currentStatus, linkedAction, user.id)
+        if (!result.success) return
 
-            // Optimistic update
-            setTasks(prev => prev.map(t => t.id === taskId ? { ...t, completed: !currentStatus } : t))
+        // Optimistic update
+        setTasks(prev => prev.map(t => t.id === taskId ? {
+            ...t,
+            completed: result.newCompleted,
+            crm_actions: t.crm_actions && result.newCompleted
+                ? { ...t.crm_actions, kpi_deferred: false }
+                : t.crm_actions
+        } : t))
 
-            const task = tasks.find(t => t.id === taskId)
-            if (profile?.google_refresh_token && task?.google_event_id) {
-                await supabase.functions.invoke('google-calendar-sync', {
-                    body: { agentId: user.id, action: 'push_to_google', taskId: taskId }
-                })
-            }
-
-
-
-
-        } catch (error) {
-            console.error('Error updating task:', error)
-            toast.error('Error al actualizar tarea')
+        if (profile?.google_refresh_token && task?.google_event_id) {
+            await supabase.functions.invoke('google-calendar-sync', {
+                body: { agentId: user.id, action: 'push_to_google', taskId: taskId }
+            })
         }
     }
 

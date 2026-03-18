@@ -21,6 +21,7 @@ import PropertyPickerInline from '../components/ui/PropertyPickerInline'
 import ContactPickerInline from '../components/ui/ContactPickerInline'
 import { toISOLocal } from '../lib/utils'
 import { withRetry } from '../lib/fetchWithRetry'
+import { completeTaskWithAction, isTaskDeletionBlocked } from '../services/completeTaskAction'
 
 // Setup date-fns localizer
 const locales = {
@@ -296,7 +297,7 @@ export default function CalendarPage() {
                     is_all_day,
                     contact:contacts(id, first_name, last_name),
                     property:properties(id, address),
-                    parent_action:crm_actions(action_type, note)
+                    parent_action:crm_actions(id, action_type, note, kpi_deferred)
                 `)
                 .eq('agent_id', user.id)
             )
@@ -344,7 +345,12 @@ export default function CalendarPage() {
                     isSyncing: task.google_event_id && !task.last_synced_at,
                     actionId: task.action_id,
                     parentAction: task.parent_action,
-                    allDay: !!task.is_all_day
+                    allDay: !!task.is_all_day,
+                    linkedAction: task.parent_action ? {
+                        id: task.parent_action.id,
+                        action_type: task.parent_action.action_type,
+                        kpi_deferred: task.parent_action.kpi_deferred
+                    } : null
                 }
             })
 
@@ -576,6 +582,15 @@ export default function CalendarPage() {
 
         try {
             setIsDeleting(true)
+
+            // Block deletion if task is completed with an executed linked action
+            if (selectedEvent.completed && selectedEvent.actionId && selectedEvent.linkedAction && !selectedEvent.linkedAction.kpi_deferred) {
+                toast.error('Esta tarea tiene una acción vinculada ya ejecutada y no se puede eliminar.')
+                setIsDeleting(false)
+                setIsDeleteConfirmOpen(false)
+                return
+            }
+
             if (profile?.google_refresh_token && selectedEvent.resource?.google_event_id) {
                 const { error: syncError, data: syncData } = await supabase.functions.invoke('google-calendar-sync', {
                     body: {
@@ -612,19 +627,17 @@ export default function CalendarPage() {
 
     const toggleCompleted = async () => {
         if (!selectedEvent) return
-        const newStatus = !selectedEvent.completed
-        const { error } = await supabase
-            .from('crm_tasks')
-            .update({ completed: newStatus })
-            .eq('id', selectedEvent.id)
 
-        if (error) {
-            toast.error('Error al actualizar estado')
-            return
-        }
+        const result = await completeTaskWithAction(
+            selectedEvent.id,
+            selectedEvent.completed,
+            selectedEvent.linkedAction,
+            user.id
+        )
+        if (!result.success) return
 
-        setSelectedEvent(prev => prev ? { ...prev, completed: newStatus } : null)
-        setEvents(prev => prev.map(e => e.id === selectedEvent.id ? { ...e, completed: newStatus } : e))
+        setSelectedEvent(prev => prev ? { ...prev, completed: result.newCompleted } : null)
+        setEvents(prev => prev.map(e => e.id === selectedEvent.id ? { ...e, completed: result.newCompleted } : e))
 
         if (profile?.google_refresh_token && selectedEvent.resource?.google_event_id) {
             supabase.functions.invoke('google-calendar-sync', {
@@ -632,7 +645,7 @@ export default function CalendarPage() {
             })
         }
 
-        toast.success(newStatus ? 'Tarea completada' : 'Tarea pendiente')
+        toast.success(result.newCompleted ? 'Tarea completada' : 'Tarea pendiente')
     }
 
     const onEventDrop = async ({ event, start, end }) => {

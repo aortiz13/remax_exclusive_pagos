@@ -99,7 +99,8 @@ const ActionList = () => {
                     crm_action_contacts (
                         contact_id,
                         contacts:contact_id ( id, first_name, last_name )
-                    )
+                    ),
+                    crm_tasks!crm_tasks_action_id_fkey ( id, completed )
                 `)
                 .eq('agent_id', user.id)
                 .order('action_date', { ascending: false });
@@ -265,6 +266,11 @@ const ActionList = () => {
                                                             <span>I.C.</span>
                                                         </span>
                                                     )}
+                                                    {action.kpi_deferred && (
+                                                        <span className="text-[10px] bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200 px-1.5 py-0.5 rounded-full font-semibold border border-orange-200 dark:border-orange-800">
+                                                            <span>⏳ Pendiente</span>
+                                                        </span>
+                                                    )}
                                                 </div>
                                             </TableCell>
                                             <TableCell className="text-sm px-6 py-4">
@@ -307,6 +313,12 @@ const ActionList = () => {
                                                         size="icon"
                                                         className="h-8 w-8 text-muted-foreground hover:text-red-600"
                                                         onClick={async () => {
+                                                            // Block deletion of executed linked actions
+                                                            const hasCompletedTask = action.crm_tasks?.some(t => t.completed)
+                                                            if (!action.kpi_deferred && hasCompletedTask) {
+                                                                toast.error('Esta acción está vinculada a una tarea ya completada y no se puede eliminar.')
+                                                                return
+                                                            }
                                                             toast('¿Eliminar esta acción?', {
                                                                 description: 'Esta acción se eliminará permanentemente y el KPI asociado se decrementará.',
                                                                 action: {

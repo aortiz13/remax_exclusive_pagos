@@ -7,6 +7,7 @@ import { format, isToday, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { useNavigate } from 'react-router-dom'
 import { withRetry } from '../../lib/fetchWithRetry'
+import { completeTaskWithAction } from '../../services/completeTaskAction'
 
 export default function DailyCalendarWidget() {
     const { user } = useAuth()
@@ -29,7 +30,8 @@ export default function DailyCalendarWidget() {
                 .from('crm_tasks')
                 .select(`
                     *,
-                    contact:contacts(first_name, last_name)
+                    contact:contacts(first_name, last_name),
+                    linked_action:crm_actions(id, action_type, kpi_deferred)
                 `)
                 .eq('agent_id', user.id)
                 .gte('execution_date', todayStart.toISOString())
@@ -47,17 +49,17 @@ export default function DailyCalendarWidget() {
     }
 
     const toggleTask = async (id, currentStatus) => {
-        try {
-            const { error } = await supabase
-                .from('crm_tasks')
-                .update({ completed: !currentStatus })
-                .eq('id', id)
+        const task = tasks.find(t => t.id === id)
+        const linkedAction = task?.linked_action ? {
+            id: task.linked_action.id,
+            action_type: task.linked_action.action_type,
+            kpi_deferred: task.linked_action.kpi_deferred
+        } : null
 
-            if (error) throw error
-            setTasks(prev => prev.map(t => t.id === id ? { ...t, completed: !currentStatus } : t))
-        } catch (error) {
-            console.error('Error toggling task:', error)
-        }
+        const result = await completeTaskWithAction(id, currentStatus, linkedAction, user.id)
+        if (!result.success) return
+
+        setTasks(prev => prev.map(t => t.id === id ? { ...t, completed: result.newCompleted } : t))
     }
 
     return (

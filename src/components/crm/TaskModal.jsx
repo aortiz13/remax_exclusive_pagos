@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { Button, Input, Label, Textarea, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui'
-import { X, Save, Calendar, Clock, Check, ChevronsUpDown, Plus, Activity, Mail } from 'lucide-react'
+import { X, Save, Calendar, Clock, Check, ChevronsUpDown, Plus, Activity, Mail, Link2, Unlink } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { supabase } from '../../services/supabase'
 import { useAuth } from '../../context/AuthContext'
@@ -14,6 +14,26 @@ import ContactForm from './ContactForm'
 import PropertyForm from './PropertyForm'
 import { useNavigate } from 'react-router-dom'
 
+const ACTION_TYPES = [
+    "Café relacional",
+    "Entrevista Venta (Pre-listing)",
+    "Entrevista Compra (Pre-Buying)",
+    "Evaluación Comercial",
+    "Visita Propiedad",
+    "Visita comprador/arrendatario (Canje)",
+    "Carta Oferta",
+    "Baja de Precio",
+    "Facturación",
+    "Contrato de arriendo firmado",
+    "Promesa Firmada",
+    "Llamada en frío (I.C)",
+    "Llamada vendedor/arrendador (I.C)",
+    "Llamada comprador/arrendatario (I.C)",
+    "Llamada a base relacional (I.C)",
+    "Visita a Conserjes (IC)",
+    "Otra (I.C)"
+]
+
 const TaskModal = ({ task, contactId, propertyId, isOpen, onClose }) => {
     const { profile, user } = useAuth()
     const navigate = useNavigate()
@@ -25,6 +45,8 @@ const TaskModal = ({ task, contactId, propertyId, isOpen, onClose }) => {
     const [openPropertySelect, setOpenPropertySelect] = useState(false)
     const [isContactFormOpen, setIsContactFormOpen] = useState(false)
     const [isPropertyFormOpen, setIsPropertyFormOpen] = useState(false)
+    const [linkedActionType, setLinkedActionType] = useState('')
+    const [hasExecutedAction, setHasExecutedAction] = useState(false)
     const [formData, setFormData] = useState({
         contact_id: contactId || '',
         property_id: propertyId || '',
@@ -66,8 +88,20 @@ const TaskModal = ({ task, contactId, propertyId, isOpen, onClose }) => {
                 is_all_day: !!task.is_all_day
             })
 
+            // Set linked action state
+            if (task.crm_actions) {
+                setLinkedActionType(task.crm_actions.action_type || '')
+                setHasExecutedAction(!task.crm_actions.kpi_deferred && task.completed)
+            } else {
+                setLinkedActionType('')
+                setHasExecutedAction(false)
+            }
+
             // Fetch linked emails for existing tasks
             fetchLinkedEmails(task.id);
+        } else {
+            setLinkedActionType('')
+            setHasExecutedAction(false)
         }
     }, [isOpen, contactId, propertyId, task])
 
@@ -120,6 +154,47 @@ const TaskModal = ({ task, contactId, propertyId, isOpen, onClose }) => {
                 task_type: 'task',
                 is_all_day: !!formData.is_all_day
             }
+
+            // Handle linked action creation/update
+            let actionId = task?.action_id || null
+
+            if (linkedActionType && linkedActionType !== 'none' && !task?.action_id) {
+                // Create new deferred action
+                const { data: actionRow, error: actionError } = await supabase
+                    .from('crm_actions')
+                    .insert({
+                        agent_id: profile?.id || user?.id,
+                        action_type: linkedActionType,
+                        action_date: dateTime.toISOString(),
+                        property_id: formData.property_id || null,
+                        note: `Acción vinculada a tarea: ${formData.action}`,
+                        is_conversation_starter: linkedActionType.includes('(I.C)'),
+                        kpi_deferred: true
+                    })
+                    .select()
+                    .single()
+
+                if (actionError) {
+                    console.error('Error creating linked action:', actionError)
+                    toast.error('Error al crear acción vinculada')
+                } else {
+                    actionId = actionRow.id
+                    // Insert contact junction if we have a contact
+                    const contactForAction = formData.contact_id || contactId
+                    if (contactForAction) {
+                        await supabase.from('crm_action_contacts').insert({
+                            action_id: actionRow.id,
+                            contact_id: contactForAction
+                        }).catch(() => {})
+                    }
+                }
+            } else if ((!linkedActionType || linkedActionType === 'none') && task?.action_id && !hasExecutedAction) {
+                // User removed the linked action (only allowed before execution)
+                await supabase.from('crm_actions').delete().eq('id', task.action_id)
+                actionId = null
+            }
+
+            dataToSave.action_id = actionId
 
             let error;
             let savedTask = null;
@@ -385,6 +460,60 @@ const TaskModal = ({ task, contactId, propertyId, isOpen, onClose }) => {
                                 placeholder="Ej: Llamar para seguimiento"
                                 required
                             />
+                        </div>
+
+                        {/* Linked Action Selector */}
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium flex items-center gap-2">
+                                <Link2 className="w-4 h-4 text-indigo-500" />
+                                Vincular Acción <span className="text-gray-500 font-normal">(opcional)</span>
+                            </label>
+                            {hasExecutedAction ? (
+                                <div className="bg-green-50 dark:bg-green-900/10 p-3 rounded-lg border border-green-200 dark:border-green-800">
+                                    <p className="text-sm text-green-700 dark:text-green-400 font-medium flex items-center gap-2">
+                                        <Activity className="w-4 h-4" />
+                                        Acción ejecutada: {linkedActionType}
+                                    </p>
+                                    <p className="text-xs text-green-600 dark:text-green-500 mt-1">Esta acción ya fue ejecutada y no se puede modificar.</p>
+                                </div>
+                            ) : task?.action_id && linkedActionType ? (
+                                <div className="flex items-center gap-2">
+                                    <div className="flex-1 bg-indigo-50 dark:bg-indigo-900/10 p-3 rounded-lg border border-indigo-200 dark:border-indigo-800">
+                                        <p className="text-sm text-indigo-700 dark:text-indigo-400 font-medium flex items-center gap-2">
+                                            <Activity className="w-4 h-4" />
+                                            {linkedActionType}
+                                            <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">⏳ Pendiente</span>
+                                        </p>
+                                    </div>
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        className="shrink-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                        onClick={() => setLinkedActionType('')}
+                                        title="Desvincular acción"
+                                    >
+                                        <Unlink className="w-4 h-4" />
+                                    </Button>
+                                </div>
+                            ) : (
+                                <Select value={linkedActionType} onValueChange={setLinkedActionType}>
+                                    <SelectTrigger className="w-full">
+                                        <SelectValue placeholder="Sin acción vinculada" />
+                                    </SelectTrigger>
+                                    <SelectContent className="z-[300]">
+                                        <SelectItem value="none">Sin acción vinculada</SelectItem>
+                                        {ACTION_TYPES.map(type => (
+                                            <SelectItem key={type} value={type}>{type}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            )}
+                            {linkedActionType && linkedActionType !== 'none' && !task?.action_id && (
+                                <p className="text-xs text-amber-600 dark:text-amber-400">
+                                    ⏳ La acción se registrará como pendiente hasta que la tarea se marque como realizada.
+                                </p>
+                            )}
                         </div>
 
                         <div className="space-y-2">

@@ -1010,11 +1010,16 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
                             <div className="space-y-2">
                                 <Label htmlFor="property">
                                     Propiedad Asociada
-                                    {actionType === 'Facturación'
+                                    {['Facturación', 'Evaluación Comercial'].includes(actionType)
                                         ? <span className="text-red-500 ml-1">*</span>
                                         : <span className="text-muted-foreground text-xs ml-1">(Opcional)</span>
                                     }
                                 </Label>
+                                {actionType === 'Evaluación Comercial' && !viewOnly && (
+                                    <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                                        Para las evaluaciones comerciales es obligatorio asociarlo a una propiedad para guardar la acción.
+                                    </p>
+                                )}
                                 <div className="relative">
                                     <div
                                         onClick={() => !viewOnly && setPropDropdownOpen(!propDropdownOpen)}

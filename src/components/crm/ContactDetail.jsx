@@ -12,6 +12,7 @@ import { toast } from 'sonner'
 import UnifiedTimeline from './UnifiedTimeline'
 import { logActivity } from '../../services/activityService'
 import ActionModal from './ActionModal'
+import { completeTaskWithAction } from '../../services/completeTaskAction'
 
 const ContactDetail = () => {
     const { profile, user } = useAuth()
@@ -65,7 +66,10 @@ const ContactDetail = () => {
             // 3. Fetch Tasks
             const { data: taskData, error: taskError } = await supabase
                 .from('crm_tasks')
-                .select('*')
+                .select(`
+                    *,
+                    crm_actions(id, action_type, kpi_deferred)
+                `)
                 .eq('contact_id', id)
                 .order('execution_date', { ascending: true })
 
@@ -132,43 +136,36 @@ const ContactDetail = () => {
     }
 
     const toggleTask = async (taskId, currentStatus) => {
-        // Prevent undoing completed tasks
-        if (currentStatus) return
+        const task = tasks.find(t => t.id === taskId)
+        const linkedAction = task?.crm_actions ? {
+            id: task.crm_actions.id,
+            action_type: task.crm_actions.action_type,
+            kpi_deferred: task.crm_actions.kpi_deferred
+        } : null
 
-        try {
-            const { error } = await supabase
-                .from('crm_tasks')
-                .update({ completed: !currentStatus, completed_at: !currentStatus ? new Date().toISOString() : null })
-                .eq('id', taskId)
+        const result = await completeTaskWithAction(taskId, currentStatus, linkedAction, user.id)
+        if (!result.success) return
 
-            if (error) throw error
-
-            const task = tasks.find(t => t.id === taskId)
-
-            // Google Sync
-            if (profile?.google_refresh_token && task?.google_event_id) {
-                supabase.functions.invoke('google-calendar-sync', {
-                    body: { agentId: user.id, action: 'push_to_google', taskId: taskId }
-                })
-            }
-
-            // Log activity for completion
-            if (!currentStatus) {
-                await logActivity({
-                    contact_id: id,
-                    action: 'Tarea',
-                    entity_type: 'Contacto',
-                    entity_id: id,
-                    description: `Tarea completada: ${task?.action}`
-                })
-            }
-
-            toast.success('Tarea actualizada')
-            fetchData() // Refresh tasks
-        } catch (error) {
-            console.error('Error updating task:', error)
-            toast.error('Error al actualizar tarea')
+        // Google Sync
+        if (profile?.google_refresh_token && task?.google_event_id) {
+            supabase.functions.invoke('google-calendar-sync', {
+                body: { agentId: user.id, action: 'push_to_google', taskId: taskId }
+            })
         }
+
+        // Log activity for completion
+        if (result.newCompleted) {
+            await logActivity({
+                contact_id: id,
+                action: 'Tarea',
+                entity_type: 'Contacto',
+                entity_id: id,
+                description: `Tarea completada: ${task?.action}`
+            })
+        }
+
+        toast.success(result.newCompleted ? 'Tarea completada' : 'Tarea pendiente')
+        fetchData()
     }
 
     const handleDeleteContact = async () => {
