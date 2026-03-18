@@ -58,23 +58,29 @@ export default function Profile() {
                 body: { action: 'callback', code }
             })
 
+            if (error) throw new Error(error.message || 'Error al vincular Google Calendar')
+
             if (data?.success) {
                 toast.success('Google Calendar vinculado correctamente', { id: toastId })
 
-                // Trigger initial sync
+                // Refresh profile first to ensure tokens are loaded
+                await refreshProfile()
+
+                // Trigger initial sync after profile is refreshed
                 supabase.functions.invoke('google-calendar-sync', {
                     body: { agentId: user.id, action: 'sync_from_google' }
                 }).then(({ data: syncData, error: syncError }) => {
-                    if (syncError) console.error('Initial sync error:', syncError)
+                    if (syncError) console.warn('Initial sync skipped:', syncError.message)
                     else {
                         const totalSynced = (syncData?.results?.events || 0) + (syncData?.results?.tasks || 0)
                         toast.success(totalSynced > 0 ? `Sincronizados ${totalSynced} eventos de Google` : 'Google Calendar vinculado — sin cambios nuevos')
                     }
                 })
 
-                await refreshProfile()
                 // Clear URL params
                 setSearchParams({})
+            } else {
+                toast.error('No se pudo vincular Google Calendar', { id: toastId })
             }
         } catch (error) {
             console.error(error)
