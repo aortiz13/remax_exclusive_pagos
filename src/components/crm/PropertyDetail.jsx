@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Button, Badge, Separator, AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui'
-import { ArrowLeft, User, MapPin, Building, Ruler, BedDouble, Bath, Link as LinkIcon, FileText, Briefcase, Plus, Filter, Trash2, History, Star, ChevronLeft, ChevronRight, Upload, X, Camera, Image as ImageIcon, Car, Layers, Calendar, DollarSign, Video, Globe, Landmark } from 'lucide-react'
+import { ArrowLeft, User, MapPin, Building, Ruler, BedDouble, Bath, Link as LinkIcon, FileText, Briefcase, Plus, Filter, Trash2, History, Star, ChevronLeft, ChevronRight, Upload, X, Camera, Image as ImageIcon, Car, Layers, Calendar, DollarSign, Video, Globe, Landmark, GripVertical } from 'lucide-react'
 import { supabase, getCustomPublicUrl } from '../../services/supabase'
 import { useAuth } from '../../context/AuthContext'
 import PropertyForm from './PropertyForm'
@@ -13,6 +13,75 @@ import PropertyTimeline from './PropertyTimeline'
 import { logActivity } from '../../services/activityService'
 import { toast } from 'sonner'
 import ActionModal from './ActionModal'
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragOverlay } from '@dnd-kit/core'
+import { SortableContext, useSortable, rectSortingStrategy, arrayMove } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+
+// Sortable photo card component for drag-and-drop reorder
+const SortablePhotoCard = ({ photo, idx, isOwner, onClickPhoto, onDeletePhoto, property, photos }) => {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: photo.id })
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.4 : 1,
+        zIndex: isDragging ? 50 : 'auto',
+    }
+
+    // Calculate correct slide index accounting for deduplication
+    const mainUrlInPhotos = property.image_url && photos.some(p => p.url === property.image_url)
+    const offset = (property.image_url && !mainUrlInPhotos) ? idx + 1 : idx
+
+    return (
+        <div
+            ref={setNodeRef}
+            style={style}
+            className={`relative group rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 aspect-[4/3] cursor-pointer hover:ring-2 hover:ring-emerald-400 transition-all ${
+                isDragging ? 'shadow-2xl ring-2 ring-blue-400' : ''
+            }`}
+            onClick={() => onClickPhoto(offset)}
+        >
+            <img src={photo.url} alt={photo.caption || 'Foto'} className="w-full h-full object-cover" />
+            {photo.source === 'remax' && (
+                <div className="absolute top-2 left-2 bg-blue-600/90 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wide">
+                    RE/MAX
+                </div>
+            )}
+            {photo.caption && (
+                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent px-2 py-1.5">
+                    <p className="text-white text-xs truncate">{photo.caption}</p>
+                </div>
+            )}
+            {/* Position badge */}
+            <div className="absolute top-2 left-2 bg-black/50 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center" style={{ left: photo.source === 'remax' ? 'auto' : '0.5rem', right: photo.source === 'remax' ? undefined : undefined }}>
+                {idx + 1}
+            </div>
+            {isOwner && (
+                <>
+                    {/* Drag handle */}
+                    <button
+                        {...attributes}
+                        {...listeners}
+                        onClick={(e) => e.stopPropagation()}
+                        className="absolute top-2 right-10 bg-black/50 hover:bg-black/70 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-all shadow-lg cursor-grab active:cursor-grabbing"
+                        title="Arrastrar para reordenar"
+                    >
+                        <GripVertical className="w-3 h-3" />
+                    </button>
+                    {/* Delete button — works for ALL photos */}
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation()
+                            onDeletePhoto(photo)
+                        }}
+                        className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-all shadow-lg"
+                    >
+                        <Trash2 className="w-3 h-3" />
+                    </button>
+                </>
+            )}
+        </div>
+    )
+}
 
 const PropertyDetail = () => {
     const { profile, user } = useAuth()
@@ -203,6 +272,17 @@ const PropertyDetail = () => {
         if (!photoToDelete) return
         setIsDeletingPhoto(true)
         try {
+            // Try to delete the file from storage too
+            try {
+                const url = photoToDelete.url || ''
+                const storageMatch = url.match(/\/storage\/v1\/object\/public\/mandates\/(.+)/)
+                if (storageMatch) {
+                    await supabase.storage.from('mandates').remove([decodeURIComponent(storageMatch[1])])
+                }
+            } catch (storageErr) {
+                console.warn('Could not delete photo from storage (may be external URL):', storageErr)
+            }
+
             const { error } = await supabase
                 .from('property_photos')
                 .delete()
@@ -221,6 +301,43 @@ const PropertyDetail = () => {
             setPhotoToDelete(null)
         }
     }
+
+    // DnD sensors with activation constraint to avoid accidental drags
+    const sensors = useSensors(
+        useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+    )
+
+    const handleDragEnd = useCallback(async (event) => {
+        const { active, over } = event
+        if (!over || active.id === over.id) return
+
+        const oldIndex = photos.findIndex(p => p.id === active.id)
+        const newIndex = photos.findIndex(p => p.id === over.id)
+        if (oldIndex === -1 || newIndex === -1) return
+
+        const reordered = arrayMove(photos, oldIndex, newIndex)
+        setPhotos(reordered) // Optimistic update
+
+        // Persist new positions to DB
+        try {
+            const updates = reordered.map((photo, i) => ({
+                id: photo.id,
+                property_id: photo.property_id,
+                agent_id: photo.agent_id,
+                url: photo.url,
+                position: i
+            }))
+            const { error } = await supabase
+                .from('property_photos')
+                .upsert(updates, { onConflict: 'id' })
+            if (error) throw error
+            toast.success('Orden de fotos actualizado')
+        } catch (err) {
+            console.error('Error saving photo order:', err)
+            toast.error('Error al guardar el orden')
+            fetchPhotos() // Revert on error
+        }
+    }, [photos])
 
 
     const handleTaskToggle = async (taskId, currentStatus) => {
@@ -599,7 +716,7 @@ const PropertyDetail = () => {
                                 </div>
                             )}
 
-                            {/* Photo Grid */}
+                            {/* Photo Grid with Drag & Drop Reorder */}
                             {photos.length === 0 ? (
                                 <div className="text-center py-12 text-muted-foreground">
                                     <ImageIcon className="w-12 h-12 mx-auto mb-3 opacity-30" />
@@ -607,47 +724,38 @@ const PropertyDetail = () => {
                                     {isOwner && <p className="text-xs mt-1">Haz clic en "Subir Fotos" para agregar.</p>}
                                 </div>
                             ) : (
-                                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                                    {photos.map((photo, idx) => {
-                                        // Calculate correct slide index accounting for deduplication
-                                        const mainUrlInPhotos = property.image_url && photos.some(p => p.url === property.image_url)
-                                        const offset = (property.image_url && !mainUrlInPhotos) ? idx + 1 : idx
-                                        return (
-                                            <div
-                                                key={photo.id}
-                                                className="relative group rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 aspect-[4/3] cursor-pointer hover:ring-2 hover:ring-emerald-400 transition-all"
-                                                onClick={() => {
-                                                    setCurrentPhotoIndex(offset)
-                                                    window.scrollTo({ top: 0, behavior: 'smooth' })
-                                                }}
-                                            >
-                                                <img src={photo.url} alt={photo.caption || 'Foto'} className="w-full h-full object-cover" />
-                                                {photo.source === 'remax' && (
-                                                    <div className="absolute top-2 left-2 bg-blue-600/90 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wide">
-                                                        RE/MAX
-                                                    </div>
-                                                )}
-                                                {photo.caption && (
-                                                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent px-2 py-1.5">
-                                                        <p className="text-white text-xs truncate">{photo.caption}</p>
-                                                    </div>
-                                                )}
-                                                {isOwner && photo.source !== 'remax' && (
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation()
-                                                            setPhotoToDelete(photo)
+                                <>
+                                    {isOwner && photos.length > 1 && (
+                                        <p className="text-xs text-muted-foreground flex items-center gap-1.5 mb-2">
+                                            <GripVertical className="w-3 h-3" />
+                                            Arrastra las fotos para cambiar el orden
+                                        </p>
+                                    )}
+                                    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                                        <SortableContext items={photos.map(p => p.id)} strategy={rectSortingStrategy}>
+                                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                                {photos.map((photo, idx) => (
+                                                    <SortablePhotoCard
+                                                        key={photo.id}
+                                                        photo={photo}
+                                                        idx={idx}
+                                                        isOwner={isOwner}
+                                                        property={property}
+                                                        photos={photos}
+                                                        onClickPhoto={(offset) => {
+                                                            setCurrentPhotoIndex(offset)
+                                                            window.scrollTo({ top: 0, behavior: 'smooth' })
+                                                        }}
+                                                        onDeletePhoto={(p) => {
+                                                            setPhotoToDelete(p)
                                                             setIsDeletePhotoOpen(true)
                                                         }}
-                                                        className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-all shadow-lg"
-                                                    >
-                                                        <Trash2 className="w-3 h-3" />
-                                                    </button>
-                                                )}
+                                                    />
+                                                ))}
                                             </div>
-                                        )
-                                    })}
-                                </div>
+                                        </SortableContext>
+                                    </DndContext>
+                                </>
                             )}
                         </TabsContent>
 
