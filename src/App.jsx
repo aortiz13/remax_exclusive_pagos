@@ -26,6 +26,7 @@ import CameraRequestPage from './pages/CameraRequestPage'
 import KpiDashboard from './components/kpi/KpiDashboard'
 import AdminKpiView from './components/kpi/AdminKpiView'
 import BusinessPlan from './pages/kpi/BusinessPlan'
+import AdminBusinessPlans from './pages/kpi/AdminBusinessPlans'
 import CRM from './pages/CRM'
 import ContactDetail from './components/crm/ContactDetail'
 import PropertyDetail from './components/crm/PropertyDetail'
@@ -281,6 +282,11 @@ function App() {
                   <Route path="/admin/kpis" element={
                     <ProtectedRoute>
                       <AdminKpiView />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/admin/business-plans" element={
+                    <ProtectedRoute>
+                      <AdminBusinessPlans />
                     </ProtectedRoute>
                   } />
                   <Route path="/admin/import" element={

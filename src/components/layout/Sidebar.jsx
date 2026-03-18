@@ -100,6 +100,9 @@ export default function Sidebar() {
         items: [
             { title: 'Mis KPIs', icon: BarChart3, path: '/kpis/dashboard' },
             { title: 'Mi Plan de Negocio', icon: Target, path: '/kpis/business-plan' },
+            ...(['superadministrador', 'legal', 'tecnico', 'comercial'].includes(role) ? [{
+                title: 'Planes de Negocio', icon: Target, path: '/admin/business-plans'
+            }] : []),
             ...(['superadministrador', 'legal', 'tecnico'].includes(role) ? [{
                 title: 'Dashboard CEO', icon: FileBarChart, path: '/admin/kpis'
             }] : [])

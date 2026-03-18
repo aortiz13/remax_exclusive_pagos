@@ -26,8 +26,9 @@ const CONFIG_TABS = [
     { key: 'hours', label: 'Horas', icon: Clock },
 ]
 
-export default function BusinessPlan() {
+export default function BusinessPlan({ agentId: externalAgentId, readOnly = false }) {
     const { user, profile } = useAuth()
+    const targetAgentId = externalAgentId || user?.id
     const [loading, setLoading] = useState(false)
     const [saving, setSaving] = useState(false)
     const [year, setYear] = useState(new Date().getFullYear())
@@ -89,13 +90,13 @@ export default function BusinessPlan() {
     })).filter(d => d.value > 0)
 
     // ===== DATA FETCH =====
-    useEffect(() => { if (user) fetchData() }, [user, year])
+    useEffect(() => { if (targetAgentId) fetchData() }, [targetAgentId, year])
     const fetchData = async () => {
         setLoading(true)
         try {
-            const { data: prof } = await supabase.from('profiles').select('association_plan').eq('id', user.id).single()
+            const { data: prof } = await supabase.from('profiles').select('association_plan').eq('id', targetAgentId).single()
             if (prof?.association_plan) setAgentPlan(prof.association_plan)
-            const { data: pd, error: pe } = await supabase.from('business_plans').select('*').eq('agent_id', user.id).eq('year', year).maybeSingle()
+            const { data: pd, error: pe } = await supabase.from('business_plans').select('*').eq('agent_id', targetAgentId).eq('year', year).maybeSingle()
             if (pe) throw pe
             if (pd) {
                 setPlan(pd)
@@ -114,12 +115,12 @@ export default function BusinessPlan() {
                 setActivities(DEFAULT_ACTIVITIES.map((d, i) => ({ ...d, id: `act-${i}`, isNew: true })))
             }
             const { data: kpi } = await supabase.rpc('get_kpi_summary', {
-                target_agent_id: user.id, start_date: `${year}-01-01`, end_date: `${year}-12-31`
+                target_agent_id: targetAgentId, start_date: `${year}-01-01`, end_date: `${year}-12-31`
             })
             if (kpi) setKpiData({ billing: kpi.billing_primary || 0 })
 
             // Fetch real ticket data from properties (infer operation from status when operation_type is null)
-            const { data: allProps } = await supabase.from('properties').select('price, operation_type, status').eq('agent_id', user.id).not('price', 'is', null).gt('price', 0)
+            const { data: allProps } = await supabase.from('properties').select('price, operation_type, status').eq('agent_id', targetAgentId).not('price', 'is', null).gt('price', 0)
             const salePrices = [], rentalPrices = []
             for (const p of (allProps || [])) {
                 const price = Number(p.price)
@@ -148,7 +149,7 @@ export default function BusinessPlan() {
         setSaving(true)
         try {
             const payload = {
-                agent_id: user.id, year,
+                agent_id: targetAgentId, year,
                 mission: plan.mission, vision: plan.vision, mantra_text: plan.mantra_text,
                 monthly_goal: Number(plan.monthly_goal) || 0, annual_goal: annualGoal,
                 remax_percentage: Number(plan.remax_percentage), seller_percentage: Number(plan.seller_percentage),
@@ -484,28 +485,36 @@ export default function BusinessPlan() {
                                 <div className="border-t border-gray-100 bg-white p-3 space-y-2">
                                     {items.map(item => (
                                         <div key={item.id} className="flex gap-2 items-center group">
-                                            <input value={item.subcategory} onChange={e => hInv(item.id, 'subcategory', e.target.value)} disabled={!item.is_custom}
-                                                className={`flex-1 py-1 px-2 rounded text-xs ${item.is_custom ? 'border border-gray-200' : 'border-0 bg-transparent font-medium text-gray-600'} focus:ring-0`} placeholder="Ítem" />
-                                            <button onClick={() => hInv(item.id, 'entry_type', item.entry_type === 'monthly' ? 'annual' : 'monthly')}
-                                                className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold shrink-0 cursor-pointer hover:opacity-80 transition-all ${item.entry_type === 'monthly' ? 'bg-blue-100 text-blue-600 ring-1 ring-blue-200' : 'bg-gray-100 text-gray-500 ring-1 ring-gray-200'}`}>
-                                                {item.entry_type === 'monthly' ? 'Mensual' : 'Anual'}
-                                            </button>
+                                            <input value={item.subcategory} onChange={e => hInv(item.id, 'subcategory', e.target.value)} disabled={readOnly || !item.is_custom}
+                                                className={`flex-1 py-1 px-2 rounded text-xs ${item.is_custom && !readOnly ? 'border border-gray-200' : 'border-0 bg-transparent font-medium text-gray-600'} focus:ring-0`} placeholder="Ítem" />
+                                            {readOnly ? (
+                                                <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold shrink-0 ${item.entry_type === 'monthly' ? 'bg-blue-100 text-blue-600 ring-1 ring-blue-200' : 'bg-gray-100 text-gray-500 ring-1 ring-gray-200'}`}>
+                                                    {item.entry_type === 'monthly' ? 'Mensual' : 'Anual'}
+                                                </span>
+                                            ) : (
+                                                <button onClick={() => hInv(item.id, 'entry_type', item.entry_type === 'monthly' ? 'annual' : 'monthly')}
+                                                    className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold shrink-0 cursor-pointer hover:opacity-80 transition-all ${item.entry_type === 'monthly' ? 'bg-blue-100 text-blue-600 ring-1 ring-blue-200' : 'bg-gray-100 text-gray-500 ring-1 ring-gray-200'}`}>
+                                                    {item.entry_type === 'monthly' ? 'Mensual' : 'Anual'}
+                                                </button>
+                                            )}
                                             <div className="relative w-20 shrink-0">
                                                 <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-gray-300 text-[0.55rem]">$</span>
-                                                <input type="number" value={item.amount} onChange={e => hInv(item.id, 'amount', e.target.value)}
-                                                    className="w-full py-1 pl-3.5 pr-1 rounded border border-gray-100 text-right font-medium text-xs text-gray-800 font-mono focus:ring-0" />
+                                                <input type="number" value={item.amount} onChange={e => hInv(item.id, 'amount', e.target.value)} disabled={readOnly}
+                                                    className={`w-full py-1 pl-3.5 pr-1 rounded border border-gray-100 text-right font-medium text-xs text-gray-800 font-mono focus:ring-0 ${readOnly ? 'bg-transparent' : ''}`} />
                                             </div>
                                             {item.entry_type === 'monthly' && Number(item.amount) > 0 && (
                                                 <span className="text-[9px] text-blue-500 font-bold shrink-0 whitespace-nowrap">= {fmtCLP(Number(item.amount) * 12)}/año</span>
                                             )}
-                                            {item.is_custom && (
+                                            {item.is_custom && !readOnly && (
                                                 <button onClick={() => rmInv(item.id)} className="p-1 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100"><Trash2 className="w-3 h-3" /></button>
                                             )}
                                         </div>
                                     ))}
-                                    <button onClick={() => addInv(cat.key)} className="text-[0.65rem] text-gray-500 font-medium px-2 py-1 rounded flex items-center gap-1 w-full justify-center border border-dashed border-gray-200 hover:bg-gray-50 mt-1">
-                                        <Plus className="w-3 h-3" /> Agregar
-                                    </button>
+                                    {!readOnly && (
+                                        <button onClick={() => addInv(cat.key)} className="text-[0.65rem] text-gray-500 font-medium px-2 py-1 rounded flex items-center gap-1 w-full justify-center border border-dashed border-gray-200 hover:bg-gray-50 mt-1">
+                                            <Plus className="w-3 h-3" /> Agregar
+                                        </button>
+                                    )}
                                 </div>
                             )}
                         </div>
@@ -605,7 +614,7 @@ export default function BusinessPlan() {
                     <span className="text-[0.55rem] text-slate-400 italic">Referencia: La facturación de mi negocio el {year - 1} fue</span>
                     <div className="flex items-center gap-0.5 bg-white/10 rounded px-2 py-1">
                         <span className="text-slate-400 text-[0.6rem]">$</span>
-                        <input type="number" name="previous_year_billing" value={plan.previous_year_billing || ''} onChange={hp}
+                        <input type="number" name="previous_year_billing" value={plan.previous_year_billing || ''} onChange={hp} disabled={readOnly}
                             className="text-xs font-bold text-white border-none p-0 focus:ring-0 bg-transparent w-24" placeholder="0" />
                     </div>
                 </div>
@@ -618,7 +627,7 @@ export default function BusinessPlan() {
                     <div className="p-2.5 rounded-lg border border-gray-200 hover:border-blue-200 transition-colors">
                         <label className="text-[0.55rem] font-bold text-gray-400 uppercase block mb-0.5">% Vendedores</label>
                         <div className="flex items-center gap-0.5">
-                            <input type="number" name="seller_percentage" value={plan.seller_percentage || ''} onChange={hp}
+                            <input type="number" name="seller_percentage" value={plan.seller_percentage || ''} onChange={hp} disabled={readOnly}
                                 className="flex-1 text-xs font-bold text-gray-900 border-none p-0 focus:ring-0 bg-transparent w-full" />
                             <span className="text-gray-400 text-[0.6rem]">%</span>
                         </div>
@@ -644,7 +653,7 @@ export default function BusinessPlan() {
                             <label className="text-[0.5rem] font-bold text-gray-400 uppercase block mb-0.5">Valor prom. propiedades en zona</label>
                             <div className="flex items-center gap-0.5">
                                 <span className="text-gray-300 text-[0.6rem]">$</span>
-                                <input type="number" name="avg_sale_value" value={plan.avg_sale_value || ''} onChange={hp}
+                                <input type="number" name="avg_sale_value" value={plan.avg_sale_value || ''} onChange={hp} disabled={readOnly}
                                     className="flex-1 text-xs font-bold text-gray-900 border-none p-0 focus:ring-0 bg-transparent w-full" />
                             </div>
                         </div>
@@ -671,14 +680,14 @@ export default function BusinessPlan() {
                             <label className="text-[0.5rem] font-bold text-gray-400 uppercase block mb-0.5">Valor prom. propiedades en zona</label>
                             <div className="flex items-center gap-0.5">
                                 <span className="text-gray-300 text-[0.6rem]">$</span>
-                                <input type="number" name="avg_rental_value" value={plan.avg_rental_value || ''} onChange={hp}
+                                <input type="number" name="avg_rental_value" value={plan.avg_rental_value || ''} onChange={hp} disabled={readOnly}
                                     className="flex-1 text-xs font-bold text-gray-900 border-none p-0 focus:ring-0 bg-transparent w-full" />
                             </div>
                         </div>
                         <div className="p-2 rounded-lg border border-gray-200 bg-white">
                             <label className="text-[0.5rem] font-bold text-gray-400 uppercase block mb-0.5">% Comisión promedio</label>
                             <div className="flex items-center gap-0.5">
-                                <input type="number" name="rental_commission" value={plan.rental_commission || ''} onChange={hp}
+                                <input type="number" name="rental_commission" value={plan.rental_commission || ''} onChange={hp} disabled={readOnly}
                                     className="flex-1 text-xs font-bold text-gray-900 border-none p-0 focus:ring-0 bg-transparent w-full" />
                                 <span className="text-gray-400 text-[0.6rem]">%</span>
                             </div>
@@ -809,7 +818,7 @@ export default function BusinessPlan() {
             <div className="grid grid-cols-2 gap-2.5">
                 <div className="p-2.5 rounded-lg border border-gray-200">
                     <label className="text-[0.55rem] font-bold text-gray-400 uppercase block mb-0.5">Días trabajo/semana</label>
-                    <input type="number" name="work_days_per_week" value={plan.work_days_per_week || ''} onChange={hp} className="text-xs font-bold text-gray-900 border-none p-0 focus:ring-0 bg-transparent w-full" />
+                    <input type="number" name="work_days_per_week" value={plan.work_days_per_week || ''} onChange={hp} disabled={readOnly} className="text-xs font-bold text-gray-900 border-none p-0 focus:ring-0 bg-transparent w-full" />
                 </div>
             </div>
 
@@ -849,19 +858,21 @@ export default function BusinessPlan() {
                         <div className="space-y-1.5">
                             {items.map(item => (
                                 <div key={item.id} className="flex items-center gap-1.5 group">
-                                    <input value={item.action_name} onChange={e => hCh(item.id, 'action_name', e.target.value)}
-                                        className="flex-1 text-[0.7rem] py-1 px-2 rounded border border-gray-200 focus:border-blue-400 bg-white focus:ring-0" placeholder="Acción..." />
+                                    <input value={item.action_name} onChange={e => hCh(item.id, 'action_name', e.target.value)} disabled={readOnly}
+                                        className={`flex-1 text-[0.7rem] py-1 px-2 rounded border border-gray-200 focus:border-blue-400 bg-white focus:ring-0 ${readOnly ? 'bg-transparent' : ''}`} placeholder="Acción..." />
                                     <div className="flex items-center gap-0.5 shrink-0">
-                                        <input type="number" value={item.hours_per_week} onChange={e => hCh(item.id, 'hours_per_week', e.target.value)}
-                                            className="w-9 text-[0.7rem] py-1 px-0.5 rounded border border-gray-200 text-center font-bold focus:ring-0" />
+                                        <input type="number" value={item.hours_per_week} onChange={e => hCh(item.id, 'hours_per_week', e.target.value)} disabled={readOnly}
+                                            className={`w-9 text-[0.7rem] py-1 px-0.5 rounded border border-gray-200 text-center font-bold focus:ring-0 ${readOnly ? 'bg-transparent' : ''}`} />
                                         <span className="text-[0.55rem] text-gray-400">h</span>
                                     </div>
-                                    <button onClick={() => rmCh(item.id)} className="p-0.5 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="w-3 h-3" /></button>
+                                    {!readOnly && <button onClick={() => rmCh(item.id)} className="p-0.5 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="w-3 h-3" /></button>}
                                 </div>
                             ))}
-                            <button onClick={() => addCh(ch.key)} className="text-[0.6rem] text-gray-500 font-medium px-2 py-1 rounded flex items-center gap-1 w-full justify-center border border-dashed border-gray-200 hover:bg-gray-50 mt-1">
-                                <Plus className="w-3 h-3" /> Agregar
-                            </button>
+                            {!readOnly && (
+                                <button onClick={() => addCh(ch.key)} className="text-[0.6rem] text-gray-500 font-medium px-2 py-1 rounded flex items-center gap-1 w-full justify-center border border-dashed border-gray-200 hover:bg-gray-50 mt-1">
+                                    <Plus className="w-3 h-3" /> Agregar
+                                </button>
+                            )}
                         </div>
                     </div>
                 )
@@ -876,19 +887,21 @@ export default function BusinessPlan() {
                 {activities.map(act => (
                     <div key={act.id} className="flex items-center gap-2 group">
                         <Activity className="w-3 h-3 text-gray-300 shrink-0" />
-                        <input value={act.activity_name} onChange={e => hAct(act.id, 'activity_name', e.target.value)}
-                            className="flex-1 text-xs py-1.5 px-2 rounded border border-gray-200 focus:border-blue-400 bg-white focus:ring-0" placeholder="Actividad..." />
+                        <input value={act.activity_name} onChange={e => hAct(act.id, 'activity_name', e.target.value)} disabled={readOnly}
+                            className={`flex-1 text-xs py-1.5 px-2 rounded border border-gray-200 focus:border-blue-400 bg-white focus:ring-0 ${readOnly ? 'bg-transparent' : ''}`} placeholder="Actividad..." />
                         <div className="flex items-center gap-0.5 shrink-0">
-                            <input type="number" value={act.hours_per_week} onChange={e => hAct(act.id, 'hours_per_week', e.target.value)}
-                                className="w-11 text-xs py-1.5 px-1 rounded border border-gray-200 text-center font-bold focus:ring-0" />
+                            <input type="number" value={act.hours_per_week} onChange={e => hAct(act.id, 'hours_per_week', e.target.value)} disabled={readOnly}
+                                className={`w-11 text-xs py-1.5 px-1 rounded border border-gray-200 text-center font-bold focus:ring-0 ${readOnly ? 'bg-transparent' : ''}`} />
                             <span className="text-[0.55rem] text-gray-400">h</span>
                         </div>
-                        <button onClick={() => rmAct(act.id)} className="p-1 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100"><Trash2 className="w-3 h-3" /></button>
+                        {!readOnly && <button onClick={() => rmAct(act.id)} className="p-1 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100"><Trash2 className="w-3 h-3" /></button>}
                     </div>
                 ))}
-                <button onClick={addAct} className="text-[0.65rem] text-blue-600 font-medium px-2 py-1.5 rounded flex items-center gap-1 w-full justify-center border border-dashed border-blue-200 hover:bg-blue-50">
-                    <Plus className="w-3 h-3" /> Agregar actividad
-                </button>
+                {!readOnly && (
+                    <button onClick={addAct} className="text-[0.65rem] text-blue-600 font-medium px-2 py-1.5 rounded flex items-center gap-1 w-full justify-center border border-dashed border-blue-200 hover:bg-blue-50">
+                        <Plus className="w-3 h-3" /> Agregar actividad
+                    </button>
+                )}
             </div>
             {/* Summary */}
             <div className="mt-3 p-4 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100">
@@ -938,19 +951,32 @@ export default function BusinessPlan() {
                     </div>
                     <div className="flex items-center gap-3">
                         {/* Segmented Control using shadcn Tabs style */}
-                        <TabsList className="grid grid-cols-2 w-[240px]">
-                            <TabsTrigger value="kpis" className="flex items-center gap-1.5">
-                                <BarChart3 className="w-3.5 h-3.5" /> KPIs
-                            </TabsTrigger>
-                            <TabsTrigger value="config" className="flex items-center gap-1.5">
-                                <Briefcase className="w-3.5 h-3.5" /> Configurar
-                            </TabsTrigger>
-                        </TabsList>
-                        {mode === 'config' && (
-                            <button onClick={savePlan} disabled={saving}
-                                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 disabled:opacity-50 transition-all text-sm font-semibold">
-                                <Save className="w-4 h-4" />{saving ? 'Guardando...' : 'Guardar'}
-                            </button>
+                        {readOnly ? (
+                            <TabsList className="grid grid-cols-2 w-[240px]">
+                                <TabsTrigger value="kpis" className="flex items-center gap-1.5">
+                                    <BarChart3 className="w-3.5 h-3.5" /> KPIs
+                                </TabsTrigger>
+                                <TabsTrigger value="config" className="flex items-center gap-1.5">
+                                    <Briefcase className="w-3.5 h-3.5" /> Detalle
+                                </TabsTrigger>
+                            </TabsList>
+                        ) : (
+                            <>
+                                <TabsList className="grid grid-cols-2 w-[240px]">
+                                    <TabsTrigger value="kpis" className="flex items-center gap-1.5">
+                                        <BarChart3 className="w-3.5 h-3.5" /> KPIs
+                                    </TabsTrigger>
+                                    <TabsTrigger value="config" className="flex items-center gap-1.5">
+                                        <Briefcase className="w-3.5 h-3.5" /> Configurar
+                                    </TabsTrigger>
+                                </TabsList>
+                                {mode === 'config' && (
+                                    <button onClick={savePlan} disabled={saving}
+                                        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 disabled:opacity-50 transition-all text-sm font-semibold">
+                                        <Save className="w-4 h-4" />{saving ? 'Guardando...' : 'Guardar'}
+                                    </button>
+                                )}
+                            </>
                         )}
                     </div>
                 </div>
@@ -1005,7 +1031,7 @@ export default function BusinessPlan() {
                                 <label className={`text-[0.6rem] font-bold text-${f.color}-500 uppercase tracking-wider flex items-center gap-1 mb-1.5`}>
                                     <f.icon className="w-3 h-3" /> {f.label}
                                 </label>
-                                <textarea name={f.name} value={plan[f.name] || ''} onChange={hp} placeholder={f.placeholder} rows={2}
+                                <textarea name={f.name} value={plan[f.name] || ''} onChange={hp} placeholder={f.placeholder} rows={2} disabled={readOnly}
                                     className="w-full text-xs text-gray-700 font-medium resize-none border-none p-0 focus:ring-0 placeholder:text-gray-300 bg-transparent leading-relaxed" />
                             </div>
                         ))}
@@ -1019,7 +1045,7 @@ export default function BusinessPlan() {
                                     <label className="text-[0.6rem] font-bold text-blue-300 uppercase block mb-1.5">Meta Mensual</label>
                                     <div className="flex items-center gap-1">
                                         <span className="text-slate-400 text-sm">$</span>
-                                        <input type="number" name="monthly_goal" value={plan.monthly_goal || ''} onChange={hp}
+                                        <input type="number" name="monthly_goal" value={plan.monthly_goal || ''} onChange={hp} disabled={readOnly}
                                             className="flex-1 text-lg font-bold text-white border-none p-0 focus:ring-0 bg-transparent" placeholder="0" />
                                     </div>
                                 </div>
