@@ -20,6 +20,7 @@ import 'react-day-picker/dist/style.css'
 import PropertyPickerInline from '../components/ui/PropertyPickerInline'
 import ContactPickerInline from '../components/ui/ContactPickerInline'
 import { toISOLocal } from '../lib/utils'
+import { withRetry } from '../lib/fetchWithRetry'
 
 // Setup date-fns localizer
 const locales = {
@@ -275,7 +276,7 @@ export default function CalendarPage() {
     const fetchEvents = async (silent = false) => {
         try {
             if (!silent) setLoading(true)
-            const { data, error } = await supabase
+            const { data, error } = await withRetry(() => supabase
                 .from('crm_tasks')
                 .select(`
                     id,
@@ -298,6 +299,7 @@ export default function CalendarPage() {
                     parent_action:crm_actions(action_type, note)
                 `)
                 .eq('agent_id', user.id)
+            )
 
             if (error) throw error
 
@@ -349,7 +351,7 @@ export default function CalendarPage() {
             setEvents(formattedEvents)
         } catch (error) {
             console.error('Error fetching events:', error)
-            toast.error('Error al cargar eventos')
+            if (!silent) toast.error('Error al cargar eventos')
         } finally {
             setLoading(false)
         }

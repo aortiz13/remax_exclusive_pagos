@@ -11,6 +11,7 @@ import StickyNotesWidget from '../components/dashboard/StickyNotesWidget'
 import QuickContactWidget from '../components/dashboard/QuickContactWidget'
 import DailyCalendarWidget from '../components/dashboard/DailyCalendarWidget'
 import { cn } from '@/lib/utils'
+import { withRetry } from '../lib/fetchWithRetry'
 
 import GlobalSearch from '../components/dashboard/GlobalSearch'
 import KpiDataEntry from '../components/kpi/KpiDataEntry'
@@ -53,16 +54,16 @@ export default function Dashboard() {
         const fetchReportCounts = async () => {
             try {
                 const isAdminRole = ['superadministrador', 'comercial', 'legal', 'tecnico'].includes(profile?.role)
-                let query = supabase
-                    .from('management_reports')
-                    .select('id, due_date, status', { count: 'exact' })
-                    .in('status', ['pending', 'overdue'])
-
-                if (!isAdminRole) {
-                    query = query.eq('agent_id', user.id)
-                }
-
-                const { data, count } = await query
+                const { data, count } = await withRetry(() => {
+                    let query = supabase
+                        .from('management_reports')
+                        .select('id, due_date, status', { count: 'exact' })
+                        .in('status', ['pending', 'overdue'])
+                    if (!isAdminRole) {
+                        query = query.eq('agent_id', user.id)
+                    }
+                    return query
+                })
                 if (data) {
                     const today = new Date()
                     today.setHours(0, 0, 0, 0)
@@ -78,17 +79,17 @@ export default function Dashboard() {
         const fetchFollowupCounts = async () => {
             try {
                 const isAdminRole = ['superadministrador', 'comercial', 'legal', 'tecnico'].includes(profile?.role)
-                let query = supabase
-                    .from('transaction_followups')
-                    .select('*, properties(address)')
-                    .eq('status', 'pending')
-                    .order('due_date', { ascending: true })
-
-                if (!isAdminRole) {
-                    query = query.eq('agent_id', user.id)
-                }
-
-                const { data, error } = await query
+                const { data, error } = await withRetry(() => {
+                    let query = supabase
+                        .from('transaction_followups')
+                        .select('*, properties(address)')
+                        .eq('status', 'pending')
+                        .order('due_date', { ascending: true })
+                    if (!isAdminRole) {
+                        query = query.eq('agent_id', user.id)
+                    }
+                    return query
+                })
                 if (error) throw error
 
                 if (data) {
@@ -118,36 +119,28 @@ export default function Dashboard() {
     const fetchRequests = async () => {
         try {
             const role = profile?.role
-            let query = supabase
+            let baseQuery = () => supabase
                 .from('requests')
                 .select('*')
                 .order('updated_at', { ascending: false })
 
-            if (role === 'legal') {
-                // Legal sees ALL submitted requests (no drafts)
-                query = query.not('status', 'in', '("draft","borrador")')
-            } else if (role === 'comercial') {
-                // Comercial: only evaluacion_comercial / annex that are submitted
-                query = query
-                    .in('type', ['evaluacion_comercial', 'annex'])
-                    .not('status', 'in', '("draft","borrador")')
-            } else if (role === 'administracion') {
-                // Administración: only submitted requests
-                query = query.not('status', 'in', '("draft","borrador")')
-            } else {
-                // agent / superadministrador: only their own requests (all statuses including drafts)
-                // superadministrador can see everything — but drafts only of owned requests
-                if (role === 'superadministrador' || role === 'tecnico') {
-                    // sees all requests; drafts included for their own, excluded for others
-                    // Use a filter: status not in draft/borrador OR user_id = current user
-                    query = query.or(`user_id.eq.${user.id},and(status.neq.draft,status.neq.borrador)`)
+            const applyFilters = (query) => {
+                if (role === 'legal') {
+                    return query.not('status', 'in', '("draft","borrador")')
+                } else if (role === 'comercial') {
+                    return query
+                        .in('type', ['evaluacion_comercial', 'annex'])
+                        .not('status', 'in', '("draft","borrador")')
+                } else if (role === 'administracion') {
+                    return query.not('status', 'in', '("draft","borrador")')
+                } else if (role === 'superadministrador' || role === 'tecnico') {
+                    return query.or(`user_id.eq.${user.id},and(status.neq.draft,status.neq.borrador)`)
                 } else {
-                    // regular agent: only their own
-                    query = query.eq('user_id', user.id)
+                    return query.eq('user_id', user.id)
                 }
             }
 
-            const { data, error } = await query
+            const { data, error } = await withRetry(() => applyFilters(baseQuery()))
             if (error) throw error
             // Flatten the data structure since details are inside the 'data' column
             const flattenedRequests = data.map(req => ({

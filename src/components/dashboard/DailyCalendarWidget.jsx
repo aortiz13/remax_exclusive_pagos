@@ -6,6 +6,7 @@ import { Calendar as CalendarIcon, Clock, CheckCircle2, Circle } from 'lucide-re
 import { format, isToday, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { useNavigate } from 'react-router-dom'
+import { withRetry } from '../../lib/fetchWithRetry'
 
 export default function DailyCalendarWidget() {
     const { user } = useAuth()
@@ -24,7 +25,7 @@ export default function DailyCalendarWidget() {
             const todayEnd = new Date()
             todayEnd.setHours(23, 59, 59, 999)
 
-            const { data, error } = await supabase
+            const { data, error } = await withRetry(() => supabase
                 .from('crm_tasks')
                 .select(`
                     *,
@@ -34,6 +35,7 @@ export default function DailyCalendarWidget() {
                 .gte('execution_date', todayStart.toISOString())
                 .lte('execution_date', todayEnd.toISOString())
                 .order('execution_date', { ascending: true })
+            )
 
             if (error) throw error
             setTasks(data || [])
