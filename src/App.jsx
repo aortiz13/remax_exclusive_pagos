@@ -57,6 +57,15 @@ import AdminAdministradaImport from './pages/AdminAdministradaImport'
 import AdminCommissionPayment from './pages/AdminCommissionPayment'
 import PublicInspectionPage from './pages/PublicInspectionPage'
 import AuthCallback from './pages/AuthCallback'
+import RecruitmentPipeline from './pages/recruitment/RecruitmentPipeline'
+import RecruitmentCandidateList from './pages/recruitment/RecruitmentCandidateList'
+import RecruitmentCandidateDetail from './pages/recruitment/RecruitmentCandidateDetail'
+import RecruitmentTasks from './pages/recruitment/RecruitmentTasks'
+import RecruitmentDashboard from './pages/recruitment/RecruitmentDashboard'
+import RecruitmentEmailTemplates from './pages/recruitment/RecruitmentEmailTemplates'
+import RecruitmentAutomationSettings from './pages/recruitment/RecruitmentAutomationSettings'
+import OnboardingForm from './pages/public/OnboardingForm'
+import RecruitmentCalendar from './pages/recruitment/RecruitmentCalendar'
 import { Toaster } from 'sonner'
 import { initGlobalErrorCapture, auditLog } from './services/auditLogService'
 
@@ -175,6 +184,7 @@ function App() {
 
             {/* ═══ Update password (standalone, no sidebar) ═══ */}
             <Route path="/update-password" element={<UpdatePassword />} />
+            <Route path="/ingreso/:token" element={<OnboardingForm />} />
 
             {/* ═══ All other routes wrapped in Layout ═══ */}
             <Route path="/*" element={
@@ -454,6 +464,48 @@ function App() {
                   <Route path="/admin/video-generator" element={
                     <ProtectedRoute>
                       <AdminVideoGenerator />
+                    </ProtectedRoute>
+                  } />
+
+                  {/* ═══ Recruitment Module Routes ═══ */}
+                  <Route path="/recruitment/dashboard" element={
+                    <ProtectedRoute>
+                      <RecruitmentDashboard />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/recruitment/pipeline" element={
+                    <ProtectedRoute>
+                      <RecruitmentPipeline />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/recruitment/candidates" element={
+                    <ProtectedRoute>
+                      <RecruitmentCandidateList />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/recruitment/candidate/:id" element={
+                    <ProtectedRoute>
+                      <RecruitmentCandidateDetail />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/recruitment/tasks" element={
+                    <ProtectedRoute>
+                      <RecruitmentTasks />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/recruitment/templates" element={
+                    <ProtectedRoute>
+                      <RecruitmentEmailTemplates />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/recruitment/automation" element={
+                    <ProtectedRoute>
+                      <RecruitmentAutomationSettings />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/recruitment/calendar" element={
+                    <ProtectedRoute>
+                      <RecruitmentCalendar />
                     </ProtectedRoute>
                   } />
 

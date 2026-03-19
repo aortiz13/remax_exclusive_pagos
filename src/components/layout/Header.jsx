@@ -5,12 +5,7 @@ import {
     Avatar,
     AvatarFallback,
     AvatarImage,
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuLabel,
     DropdownMenuSeparator,
-    DropdownMenuTrigger,
     Sheet,
     SheetContent,
     SheetTrigger,
@@ -44,13 +39,13 @@ export default function Header() {
     }
 
     return (
-        <header className="sticky top-0 z-30 w-full backdrop-blur-sm transition-all duration-300">
-            <div className="flex h-16 items-center justify-between px-4 md:px-8">
-                <div className="flex items-center gap-2 md:hidden">
+        <header className="sticky top-0 z-30 w-full backdrop-blur-sm transition-all duration-300 md:hidden">
+            <div className="flex h-16 items-center justify-between px-4">
+                <div className="flex items-center gap-2">
                     {user && (
                         <Sheet>
                             <SheetTrigger asChild>
-                                <Button variant="ghost" size="icon" className="md:hidden -ml-2">
+                                <Button variant="ghost" size="icon" className="-ml-2">
                                     <Menu className="h-6 w-6 text-slate-600" />
                                 </Button>
                             </SheetTrigger>
@@ -120,11 +115,6 @@ export default function Header() {
                     </Link>
                 </div>
 
-                {/* Breadcrumbs or Page Title Placeholder */}
-                <div className="hidden md:flex flex-1 items-center px-4">
-                    {/* Future Breadcrumbs */}
-                </div>
-
                 <div className="flex items-center gap-4">
                     {user && (
                         <div className="flex items-center gap-3 p-1 pr-4 pl-1 bg-white/50 dark:bg-black/20 backdrop-blur-md rounded-full border border-white/40 dark:border-white/10 shadow-sm hover:bg-white/80 transition-all cursor-pointer" onClick={() => navigate('/profile')}>
@@ -134,7 +124,7 @@ export default function Header() {
                                     {profile?.first_name?.charAt(0) || user.email.charAt(0)}
                                 </AvatarFallback>
                             </Avatar>
-                            <div className="hidden sm:flex flex-col items-start mr-1">
+                            <div className="flex flex-col items-start mr-1">
                                 <p className="text-xs font-bold leading-none text-slate-800 dark:text-slate-100">{profile?.first_name}</p>
                                 <p className="text-[10px] leading-none text-slate-500 dark:text-slate-400 capitalize mt-1">{profile?.role}</p>
                             </div>

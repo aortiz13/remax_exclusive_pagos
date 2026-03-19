@@ -33,13 +33,16 @@ import {
     Video,
     ClipboardCheck,
     ScrollText,
-    FileSpreadsheet
+    FileSpreadsheet,
+    UserPlus,
+    ArrowLeftRight
 } from 'lucide-react'
 import { useState, useEffect, useCallback } from 'react'
 import { cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'framer-motion'
 
 const STORAGE_KEY = 'sidebar-collapsed-sections'
+const WORKSPACE_KEY = 'sidebar-active-workspace'
 
 function loadCollapsedSections() {
     try {
@@ -62,6 +65,9 @@ export default function Sidebar() {
     const location = useLocation()
     const [isCollapsed, setIsCollapsed] = useState(false)
     const [collapsedSections, setCollapsedSections] = useState(loadCollapsedSections)
+    const [activeWorkspace, setActiveWorkspace] = useState(() => {
+        try { return localStorage.getItem(WORKSPACE_KEY) || 'crm' } catch { return 'crm' }
+    })
 
     // Expose sidebar width as CSS variable for fixed-position modals
     useEffect(() => {
@@ -83,6 +89,17 @@ export default function Sidebar() {
 
     const role = profile?.role
     const isPostulante = role === 'postulantes'
+    const isReclutamiento = role === 'reclutamiento'
+    const canSeeRecruitment = ['superadministrador', 'tecnico', 'administracion', 'comercial', 'legal', 'reclutamiento'].includes(role)
+    const canSwitchWorkspace = canSeeRecruitment && !isReclutamiento
+
+    // Force reclutamiento role to always be in recruitment workspace
+    const effectiveWorkspace = isReclutamiento ? 'reclutamiento' : activeWorkspace
+
+    const handleWorkspaceSwitch = (ws) => {
+        setActiveWorkspace(ws)
+        try { localStorage.setItem(WORKSPACE_KEY, ws) } catch { /* ignore */ }
+    }
 
     // ─── Build sections ───────────────────────────────────────────────────────
 
@@ -284,16 +301,38 @@ export default function Sidebar() {
         }
     }
 
-    // Assemble sections based on role
+    // ─── Recruitment section ──────────────────────────────────────────────────
+
+    const recruitmentSection = {
+        title: 'RECLUTAMIENTO',
+        items: [
+            { title: 'Dashboard', icon: Kanban, path: '/recruitment/dashboard' },
+            { title: 'Pipeline Candidatos', icon: Kanban, path: '/recruitment/pipeline' },
+            { title: 'Lista Candidatos', icon: UserPlus, path: '/recruitment/candidates' },
+            { title: 'Tareas', icon: ClipboardList, path: '/recruitment/tasks' },
+            { title: 'Plantillas Email', icon: MessageSquare, path: '/recruitment/templates' },
+            { title: 'Automatización', icon: Kanban, path: '/recruitment/automation' },
+            { title: 'Calendario', icon: Calendar, path: '/recruitment/calendar' },
+            { title: 'Casilla', icon: MessageSquare, path: '/casilla' },
+        ]
+    }
+
+    // Assemble sections based on role & workspace
     let sections
-    if (isPostulante) {
+    if (isReclutamiento) {
+        // Reclutamiento role only sees recruitment
+        sections = [recruitmentSection]
+    } else if (isPostulante) {
         sections = [general, crm, formacionYDocs]
+    } else if (effectiveWorkspace === 'reclutamiento' && canSeeRecruitment) {
+        // Non-agent roles viewing recruitment workspace
+        sections = [recruitmentSection]
     } else {
         sections = [general, indicadores, crm, tools, formacionYDocs]
     }
 
     const adminSection = adminSectionByRole[role]
-    if (adminSection) {
+    if (adminSection && effectiveWorkspace !== 'reclutamiento') {
         sections.push(adminSection)
     }
 
@@ -514,6 +553,48 @@ export default function Sidebar() {
 
             {/* Scrollable Content */}
             <div className="flex-1 overflow-y-auto py-6 px-4 scrollbar-none space-y-6 relative z-10">
+                {/* Workspace Switcher */}
+                {canSwitchWorkspace && !isCollapsed && (
+                    <div className="pb-2">
+                        <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl">
+                            <button
+                                onClick={() => handleWorkspaceSwitch('crm')}
+                                className={cn(
+                                    "flex-1 flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-lg text-xs font-semibold transition-all duration-200",
+                                    effectiveWorkspace === 'crm'
+                                        ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm'
+                                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-700'
+                                )}
+                            >
+                                <LayoutDashboard className="w-3.5 h-3.5" />
+                                CRM
+                            </button>
+                            <button
+                                onClick={() => handleWorkspaceSwitch('reclutamiento')}
+                                className={cn(
+                                    "flex-1 flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-lg text-xs font-semibold transition-all duration-200",
+                                    effectiveWorkspace === 'reclutamiento'
+                                        ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm'
+                                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-700'
+                                )}
+                            >
+                                <UserPlus className="w-3.5 h-3.5" />
+                                Reclutamiento
+                            </button>
+                        </div>
+                    </div>
+                )}
+                {canSwitchWorkspace && isCollapsed && (
+                    <div className="flex justify-center">
+                        <button
+                            onClick={() => handleWorkspaceSwitch(effectiveWorkspace === 'crm' ? 'reclutamiento' : 'crm')}
+                            className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-primary transition-colors"
+                            title={effectiveWorkspace === 'crm' ? 'Ir a Reclutamiento' : 'Ir a CRM'}
+                        >
+                            <ArrowLeftRight className="w-4 h-4" />
+                        </button>
+                    </div>
+                )}
                 {sections.map((section, idx) => renderSection(section, idx))}
             </div>
 
@@ -521,12 +602,13 @@ export default function Sidebar() {
             <div className="p-4 relative z-10">
                 <div
                     className={cn(
-                        "bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:to-slate-800 rounded-2xl flex items-center border border-slate-100 dark:border-slate-800 shadow-sm transition-all duration-300",
+                        "bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:to-slate-800 rounded-2xl flex items-center border border-slate-100 dark:border-slate-800 shadow-sm transition-all duration-300 cursor-pointer hover:shadow-md hover:border-primary/20",
                         isCollapsed ? "p-2 justify-center aspect-square" : "p-3 gap-3"
                     )}
+                    onClick={() => navigate('/profile')}
                 >
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-primary to-blue-400 flex items-center justify-center shrink-0 shadow-lg shadow-blue-500/20 text-white">
-                        <Users className="w-5 h-5" />
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-primary to-blue-400 flex items-center justify-center shrink-0 shadow-lg shadow-blue-500/20 text-white font-bold text-sm">
+                        {profile?.first_name?.charAt(0) || 'U'}
                     </div>
 
                     {!isCollapsed && (
@@ -542,7 +624,7 @@ export default function Sidebar() {
 
                     {!isCollapsed && (
                         <button
-                            onClick={handleSignOut}
+                            onClick={(e) => { e.stopPropagation(); handleSignOut() }}
                             className="p-2 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors"
                         >
                             <LogOut className="w-4 h-4" />
