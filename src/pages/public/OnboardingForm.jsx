@@ -136,24 +136,6 @@ export default function OnboardingForm() {
         </div>
     )
 
-    if (error && !form.full_name) return (
-        <div style={styles.pageWrapper}>
-            <div style={styles.container}>
-                <div style={styles.headerBanner}>
-                    <img src="https://remax-crm-remax-storage.jzuuqr.easypanel.host/public/remax-logo-white.png" alt="RE/MAX" style={styles.logo} onError={e => { e.target.style.display = 'none' }} />
-                    <div style={styles.headerOverlay} />
-                    <div style={styles.headerText}>
-                        <h1 style={styles.headerTitle}>RE/MAX Exclusive</h1>
-                    </div>
-                </div>
-                <div style={{ ...styles.card, textAlign: 'center', padding: 40 }}>
-                    <div style={{ fontSize: 48, marginBottom: 16 }}>⚠️</div>
-                    <h2 style={{ fontSize: 20, fontWeight: 700, color: '#1e293b', marginBottom: 8 }}>Enlace inválido</h2>
-                    <p style={{ color: '#64748b', fontSize: 14 }}>{error}</p>
-                </div>
-            </div>
-        </div>
-    )
 
     if (submitted) return (
         <div style={styles.pageWrapper}>

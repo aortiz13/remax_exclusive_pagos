@@ -485,19 +485,36 @@ export default function Sidebar() {
             {/* Glossy Overlay for extra depth */}
             <div className="absolute inset-0 bg-gradient-to-b from-white/40 to-transparent dark:from-white/5 pointer-events-none" />
 
-            {/* Logo area */}
-            <div className={cn("h-20 flex items-center relative z-10 transition-all duration-300", isCollapsed ? "justify-center px-0" : "px-6")}>
+            {/* Logo area with integrated workspace switcher */}
+            <div className={cn("flex items-center relative z-10 transition-all duration-300", isCollapsed ? "justify-center px-2 py-4" : "px-4 py-4")}>
                 <div className={cn("flex items-center gap-3 overflow-hidden", isCollapsed ? "w-auto" : "w-full")}>
 
                     <motion.div
-                        className="shrink-0 flex items-center justify-center p-2 bg-gradient-to-br from-blue-50 to-white dark:from-slate-800 dark:to-slate-900 rounded-xl shadow-lg border border-white/50"
-                        whileHover={{ scale: 1.05 }}
+                        className={cn(
+                            "shrink-0 flex items-center justify-center p-2 rounded-xl shadow-lg border transition-all duration-200 cursor-pointer relative group",
+                            canSwitchWorkspace
+                                ? 'bg-gradient-to-br from-blue-50 to-white dark:from-slate-800 dark:to-slate-900 border-primary/20 hover:border-primary/40 hover:shadow-primary/10 hover:shadow-xl'
+                                : 'bg-gradient-to-br from-blue-50 to-white dark:from-slate-800 dark:to-slate-900 border-white/50'
+                        )}
+                        whileHover={canSwitchWorkspace ? { scale: 1.08 } : { scale: 1.05 }}
+                        whileTap={canSwitchWorkspace ? { scale: 0.95 } : {}}
+                        onClick={canSwitchWorkspace ? () => handleWorkspaceSwitch(effectiveWorkspace === 'crm' ? 'reclutamiento' : 'crm') : undefined}
+                        title={canSwitchWorkspace ? (effectiveWorkspace === 'crm' ? 'Cambiar a Reclutamiento' : 'Cambiar a CRM') : undefined}
                     >
                         <img
                             src="https://res.cloudinary.com/dhzmkxbek/image/upload/v1770205777/Globo_REMAX_sin_fondo_PNG_xiqr1a.png"
                             alt="RE/MAX Exclusive"
                             className="h-8 w-auto object-contain"
                         />
+                        {/* Swap badge on logo */}
+                        {canSwitchWorkspace && (
+                            <motion.div
+                                className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-primary text-white flex items-center justify-center shadow-md opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                                initial={false}
+                            >
+                                <ArrowLeftRight className="w-3 h-3" />
+                            </motion.div>
+                        )}
                     </motion.div>
 
                     <AnimatePresence>
@@ -507,14 +524,31 @@ export default function Sidebar() {
                                 animate={{ opacity: 1, x: 0 }}
                                 exit={{ opacity: 0, x: -10 }}
                                 transition={{ duration: 0.2 }}
-                                className="flex flex-col"
+                                className="flex flex-col flex-1 min-w-0"
                             >
                                 <span className="font-bold text-slate-900 dark:text-white text-lg tracking-tight leading-none font-display">
                                     Exclusive
                                 </span>
-                                <span className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold tracking-widest uppercase mt-1">
-                                    Workspace
-                                </span>
+                                {canSwitchWorkspace ? (
+                                    <button
+                                        onClick={() => handleWorkspaceSwitch(effectiveWorkspace === 'crm' ? 'reclutamiento' : 'crm')}
+                                        className="flex items-center gap-1 mt-1 group/ws cursor-pointer"
+                                    >
+                                        <span className={cn(
+                                            "text-[10px] font-bold tracking-widest uppercase transition-colors duration-200",
+                                            effectiveWorkspace === 'crm'
+                                                ? 'text-primary'
+                                                : 'text-amber-500'
+                                        )}>
+                                            {effectiveWorkspace === 'crm' ? 'CRM' : 'Reclutamiento'}
+                                        </span>
+                                        <ArrowLeftRight className="w-3 h-3 text-slate-300 group-hover/ws:text-primary transition-colors" />
+                                    </button>
+                                ) : (
+                                    <span className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold tracking-widest uppercase mt-1">
+                                        {effectiveWorkspace === 'reclutamiento' ? 'Reclutamiento' : 'Workspace'}
+                                    </span>
+                                )}
                             </motion.div>
                         )}
                     </AnimatePresence>
@@ -524,7 +558,7 @@ export default function Sidebar() {
                         onClick={() => setIsCollapsed(!isCollapsed)}
                         className={cn(
                             "absolute right-0 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-slate-400 hover:text-primary hover:bg-slate-100 dark:hover:bg-slate-800 transition-all",
-                            isCollapsed && "translate-x-[200%] opacity-0 pointer-events-none" // Hide when collapsed to avoid weird positioning
+                            isCollapsed && "translate-x-[200%] opacity-0 pointer-events-none"
                         )}
                     >
                         <ChevronLeft className="w-5 h-5" />
@@ -553,48 +587,7 @@ export default function Sidebar() {
 
             {/* Scrollable Content */}
             <div className="flex-1 overflow-y-auto py-6 px-4 scrollbar-none space-y-6 relative z-10">
-                {/* Workspace Switcher */}
-                {canSwitchWorkspace && !isCollapsed && (
-                    <div className="pb-2">
-                        <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl">
-                            <button
-                                onClick={() => handleWorkspaceSwitch('crm')}
-                                className={cn(
-                                    "flex-1 flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-lg text-xs font-semibold transition-all duration-200",
-                                    effectiveWorkspace === 'crm'
-                                        ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm'
-                                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-700'
-                                )}
-                            >
-                                <LayoutDashboard className="w-3.5 h-3.5" />
-                                CRM
-                            </button>
-                            <button
-                                onClick={() => handleWorkspaceSwitch('reclutamiento')}
-                                className={cn(
-                                    "flex-1 flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-lg text-xs font-semibold transition-all duration-200",
-                                    effectiveWorkspace === 'reclutamiento'
-                                        ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm'
-                                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-700'
-                                )}
-                            >
-                                <UserPlus className="w-3.5 h-3.5" />
-                                Reclutamiento
-                            </button>
-                        </div>
-                    </div>
-                )}
-                {canSwitchWorkspace && isCollapsed && (
-                    <div className="flex justify-center">
-                        <button
-                            onClick={() => handleWorkspaceSwitch(effectiveWorkspace === 'crm' ? 'reclutamiento' : 'crm')}
-                            className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-primary transition-colors"
-                            title={effectiveWorkspace === 'crm' ? 'Ir a Reclutamiento' : 'Ir a CRM'}
-                        >
-                            <ArrowLeftRight className="w-4 h-4" />
-                        </button>
-                    </div>
-                )}
+
                 {sections.map((section, idx) => renderSection(section, idx))}
             </div>
 
