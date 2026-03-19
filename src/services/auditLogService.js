@@ -179,7 +179,9 @@ export function initGlobalErrorCapture() {
                 .join(' ')
                 .substring(0, 500);
             // Guard: skip audit-log internal errors to prevent infinite loop
-            if (msg && !msg.includes('[AuditLog]') && !msg.includes('console_interceptor')) {
+            // Also skip benign DOM errors caused by browser extensions / Google Translate
+            const isBenignDOMError = msg.includes('removeChild') || msg.includes('insertBefore') || msg.includes('NotFoundError');
+            if (msg && !msg.includes('[AuditLog]') && !msg.includes('console_interceptor') && !isBenignDOMError) {
                 auditLog.error('system', 'console.error', msg, {
                     module: 'console_interceptor',
                 });
@@ -191,6 +193,8 @@ export function initGlobalErrorCapture() {
     window.addEventListener('error', (event) => {
         // Ignore benign browser warnings that are not real errors
         if (event.message?.includes('ResizeObserver loop')) return
+        // Ignore benign DOM errors from browser extensions / Google Translate
+        if (event.message?.includes('removeChild') || event.message?.includes('insertBefore') || event.message?.includes('NotFoundError')) return
 
         auditLog.error('system', 'js.unhandled_error', event.message || 'Unhandled error', {
             details: serializeError(event.error),
