@@ -112,16 +112,17 @@ export default function Sidebar() {
         ]
     }
 
+    const isAgent = role === 'agent'
     const indicadores = {
         title: 'INDICADORES',
         items: [
-            { title: 'Mis KPIs', icon: BarChart3, path: '/kpis/dashboard' },
-            { title: 'Mi Plan de Negocio', icon: Target, path: '/kpis/business-plan' },
+            { title: isAgent ? 'Mis KPIs' : 'Leads', icon: BarChart3, path: '/kpis/dashboard' },
+            ...(isAgent ? [{ title: 'Mi Plan de Negocio', icon: Target, path: '/kpis/business-plan' }] : []),
             ...(['superadministrador', 'legal', 'tecnico', 'comercial'].includes(role) ? [{
                 title: 'Planes de Negocio', icon: Target, path: '/admin/business-plans'
             }] : []),
             ...(['superadministrador', 'legal', 'tecnico'].includes(role) ? [{
-                title: 'Dashboard CEO', icon: FileBarChart, path: '/admin/kpis'
+                title: 'KPIs Agentes', icon: FileBarChart, path: '/admin/kpis'
             }] : [])
         ]
     }

@@ -542,16 +542,31 @@ const UnifiedTimeline = ({ contactId, propertyId }) => {
                                         )}
 
                                         {/* Detail block for activity_log details */}
-                                        {event.type === 'log' && event.meta?.details && Object.keys(event.meta.details).length > 0 && (
-                                            <div className="mt-2 text-[11px] bg-gray-100/80 dark:bg-gray-800/50 p-2.5 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 space-y-1">
-                                                {Object.entries(event.meta.details).filter(([k]) => k !== 'id').map(([key, value]) => (
-                                                    <div key={key} className="flex gap-2">
-                                                        <span className="font-semibold text-gray-500 shrink-0 capitalize">{key}:</span>
-                                                        <span className="truncate">{String(value)}</span>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
+                                        {event.type === 'log' && event.meta?.details && Object.keys(event.meta.details).length > 0 && (() => {
+                                            const DETAIL_LABELS = {
+                                                zone: 'Zona', source: 'Fuente', bedrooms: 'Dormitorios',
+                                                bathrooms: 'Baños', short_id: 'ID Corto', amenities: 'Características',
+                                                max_budget: 'Presupuesto Máx.', property_type: 'Tipo Inmueble',
+                                                operation_type: 'Tipo Operación', address: 'Dirección',
+                                                commune: 'Comuna', region: 'Región', email: 'Correo',
+                                                phone: 'Teléfono', contactId: 'ID Contacto', propertyId: 'ID Propiedad',
+                                                m2_total: 'm² Totales', m2_built: 'm² Construidos',
+                                                parking_spaces: 'Estacionamientos', year_built: 'Año Construcción',
+                                                observations: 'Observaciones',
+                                            }
+                                            return (
+                                                <div className="mt-2 text-[11px] bg-gray-100/80 dark:bg-gray-800/50 p-2.5 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 space-y-1">
+                                                    {Object.entries(event.meta.details).filter(([k]) => k !== 'id').map(([key, value]) => (
+                                                        <div key={key} className="flex gap-2">
+                                                            <span className="font-semibold text-gray-500 shrink-0">
+                                                                {DETAIL_LABELS[key] || key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}:
+                                                            </span>
+                                                            <span className="truncate">{Array.isArray(value) ? value.join(', ') : String(value)}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )
+                                        })()}
 
                                         {/* Click hint */}
                                         <div className="flex items-center gap-1 mt-2.5 text-[10px] text-gray-400 dark:text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity">
