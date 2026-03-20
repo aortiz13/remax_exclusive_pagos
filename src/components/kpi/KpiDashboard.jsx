@@ -2,13 +2,17 @@
 import { useState } from 'react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { BarChart3, ClipboardList, Target, UserCheck } from 'lucide-react'
+import { useAuth } from '../../context/AuthContext'
 import KpiOverview from './KpiOverview'
 import KpiDataEntry from './KpiDataEntry'
 import LeadKpiDashboard from './LeadKpiDashboard'
 
+const LEAD_KPI_ROLES = ['comercial', 'legal', 'superadministrador', 'tecnico']
 
 const KpiDashboard = () => {
+    const { profile } = useAuth()
     const [activeTab, setActiveTab] = useState("overview")
+    const showLeadKpis = LEAD_KPI_ROLES.includes(profile?.role)
 
     return (
         <div className="space-y-6 max-w-7xl mx-auto p-4 md:p-8">
@@ -18,15 +22,17 @@ const KpiDashboard = () => {
             </div>
 
             <Tabs defaultValue="overview" className="w-full" onValueChange={setActiveTab}>
-                <TabsList className="grid w-full max-w-[600px] grid-cols-3">
+                <TabsList className={`grid w-full max-w-[${showLeadKpis ? '600' : '500'}px] grid-cols-${showLeadKpis ? '3' : '2'}`}>
                     <TabsTrigger value="overview" className="flex items-center gap-2">
                         <BarChart3 className="h-4 w-4" />
                         Dashboard
                     </TabsTrigger>
-                    <TabsTrigger value="leads" className="flex items-center gap-2">
-                        <UserCheck className="h-4 w-4" />
-                        Leads Derivados
-                    </TabsTrigger>
+                    {showLeadKpis && (
+                        <TabsTrigger value="leads" className="flex items-center gap-2">
+                            <UserCheck className="h-4 w-4" />
+                            Leads Derivados
+                        </TabsTrigger>
+                    )}
                     <TabsTrigger value="entry" className="flex items-center gap-2">
                         <ClipboardList className="h-4 w-4" />
                         Carga de Datos
@@ -38,9 +44,11 @@ const KpiDashboard = () => {
                     <KpiOverview />
                 </TabsContent>
 
-                <TabsContent value="leads" className="mt-6 border-none p-0 outline-none">
-                    <LeadKpiDashboard />
-                </TabsContent>
+                {showLeadKpis && (
+                    <TabsContent value="leads" className="mt-6 border-none p-0 outline-none">
+                        <LeadKpiDashboard />
+                    </TabsContent>
+                )}
 
                 <TabsContent value="entry" className="mt-6 border-none p-0 outline-none">
                     <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
