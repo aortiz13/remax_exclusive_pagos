@@ -271,23 +271,40 @@ const TimelineEventModal = ({ event, isOpen, onClose }) => {
                         )}
 
                         {/* Activity log details */}
-                        {event.type === 'log' && meta.details && Object.keys(meta.details).length > 0 && (
-                            <div className="py-3 border-b border-gray-100 dark:border-gray-800">
-                                <p className="text-[11px] uppercase tracking-wider text-gray-400 dark:text-gray-500 font-medium mb-2">
-                                    Detalles Adicionales
-                                </p>
-                                <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3 space-y-1.5 text-xs">
-                                    {Object.entries(meta.details)
-                                        .filter(([k]) => k !== 'id')
-                                        .map(([key, value]) => (
-                                            <div key={key} className="flex gap-2">
-                                                <span className="font-semibold text-gray-500 capitalize shrink-0">{key}:</span>
-                                                <span className="text-gray-700 dark:text-gray-300">{String(value)}</span>
-                                            </div>
-                                        ))}
+                        {event.type === 'log' && meta.details && Object.keys(meta.details).length > 0 && (() => {
+                            const DETAIL_LABELS = {
+                                zone: 'Zona', source: 'Fuente', bedrooms: 'Dormitorios',
+                                bathrooms: 'Baños', short_id: 'ID Corto', amenities: 'Características',
+                                max_budget: 'Presupuesto Máx.', property_type: 'Tipo Inmueble',
+                                operation_type: 'Tipo Operación', address: 'Dirección',
+                                commune: 'Comuna', region: 'Región', email: 'Correo',
+                                phone: 'Teléfono', contactId: 'ID Contacto', propertyId: 'ID Propiedad',
+                                m2_total: 'm² Totales', m2_built: 'm² Construidos',
+                                parking_spaces: 'Estacionamientos', year_built: 'Año Construcción',
+                                observations: 'Observaciones',
+                            }
+                            return (
+                                <div className="py-3 border-b border-gray-100 dark:border-gray-800">
+                                    <p className="text-[11px] uppercase tracking-wider text-gray-400 dark:text-gray-500 font-medium mb-2">
+                                        Detalles Adicionales
+                                    </p>
+                                    <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3 space-y-1.5 text-xs">
+                                        {Object.entries(meta.details)
+                                            .filter(([k]) => k !== 'id')
+                                            .map(([key, value]) => (
+                                                <div key={key} className="flex gap-2">
+                                                    <span className="font-semibold text-gray-500 shrink-0">
+                                                        {DETAIL_LABELS[key] || key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}:
+                                                    </span>
+                                                    <span className="text-gray-700 dark:text-gray-300">
+                                                        {Array.isArray(value) ? value.join(', ') : String(value)}
+                                                    </span>
+                                                </div>
+                                            ))}
+                                    </div>
                                 </div>
-                            </div>
-                        )}
+                            )
+                        })()}
 
                         {/* Related entities */}
                         {(meta.contactNames || meta.contactName || meta.propertyAddress) && (
