@@ -42,6 +42,7 @@ export default function LeadKpiDashboard() {
     const [loading, setLoading] = useState(true)
     const [leads, setLeads] = useState([])       // external_leads
     const [guardLeads, setGuardLeads] = useState([]) // shift_guard_leads with joins
+    const [agentProfiles, setAgentProfiles] = useState({}) // id → { first_name, last_name }
     const [activePeriod, setActivePeriod] = useState('all')
 
     const isAdmin = ['superadministrador', 'comercial', 'administracion', 'tecnico'].includes(profile?.role)
@@ -61,14 +62,28 @@ export default function LeadKpiDashboard() {
                         report_2d_sent, report_2d_sent_at,
                         report_15d_sent, report_15d_sent_at,
                         report_30d_sent, report_30d_sent_at,
+                        agent_id,
                         agent:profiles!shift_guard_leads_agent_id_fkey(id, first_name, last_name),
                         external_lead:external_leads!shift_guard_leads_external_lead_id_fkey(id, created_at, status)
                     `)
                     .order('assigned_at', { ascending: false }),
             ])
 
-            setLeads(leadsRes.data || [])
+            const allLeads = leadsRes.data || []
+            setLeads(allLeads)
             setGuardLeads(guardRes.data || [])
+
+            // Fetch agent profiles for all assigned leads
+            const agentIds = [...new Set(allLeads.filter(l => l.assigned_agent_id).map(l => l.assigned_agent_id))]
+            if (agentIds.length > 0) {
+                const { data: profiles } = await supabase
+                    .from('profiles')
+                    .select('id, first_name, last_name')
+                    .in('id', agentIds)
+                const map = {}
+                ;(profiles || []).forEach(p => { map[p.id] = p })
+                setAgentProfiles(map)
+            }
         } catch (err) {
             console.error('Error fetching lead KPIs:', err)
         }
@@ -105,7 +120,7 @@ export default function LeadKpiDashboard() {
     const kpis = useMemo(() => {
         const total = filteredLeads.length
         const pending = filteredLeads.filter(l => l.status === 'pending').length
-        const assigned = filteredLeads.filter(l => l.status === 'assigned').length
+        const assigned = filteredLeads.filter(l => l.status === 'assigned' || l.assigned_agent_id).length
         const assignmentRate = total > 0 ? Math.round((assigned / total) * 100) : 0
 
         // Average response time (assigned_at - external_lead.created_at)
@@ -117,20 +132,20 @@ export default function LeadKpiDashboard() {
             ? responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length
             : 0
 
-        // Leads per agent
+        // Leads per agent — based on external_leads.assigned_agent_id
         const agentMap = {}
-        filteredGuardLeads.forEach(g => {
-            if (g.agent) {
-                const name = `${g.agent.first_name} ${g.agent.last_name}`.trim()
-                const id = g.agent.id
-                if (!agentMap[id]) agentMap[id] = { name, count: 0 }
-                agentMap[id].count++
+        filteredLeads.forEach(l => {
+            if (l.assigned_agent_id && agentProfiles[l.assigned_agent_id]) {
+                const p = agentProfiles[l.assigned_agent_id]
+                const name = `${p.first_name} ${p.last_name}`.trim()
+                if (!agentMap[l.assigned_agent_id]) agentMap[l.assigned_agent_id] = { name, id: l.assigned_agent_id, count: 0 }
+                agentMap[l.assigned_agent_id].count++
             }
         })
         const leadsPerAgent = Object.values(agentMap)
             .sort((a, b) => b.count - a.count)
 
-        // Report compliance
+        // Report compliance (from shift_guard_leads — only source with report flags)
         const totalGL = filteredGuardLeads.length
         const rep2d = filteredGuardLeads.filter(g => g.report_2d_sent).length
         const rep15d = filteredGuardLeads.filter(g => g.report_15d_sent).length
@@ -144,7 +159,7 @@ export default function LeadKpiDashboard() {
             avgResponseTime, leadsPerAgent,
             rep2d, rep2dPct, rep15d, rep15dPct, rep30d, rep30dPct, totalGL
         }
-    }, [filteredLeads, filteredGuardLeads])
+    }, [filteredLeads, filteredGuardLeads, agentProfiles])
 
     // ─── Chart data ───
     const agentChartData = useMemo(() =>
@@ -315,24 +330,14 @@ export default function LeadKpiDashboard() {
                                     </thead>
                                     <tbody>
                                         {kpis.leadsPerAgent.map((ag, i) => {
-                                            const agLeads = filteredGuardLeads.filter(g =>
-                                                g.agent?.id === Object.keys(
-                                                    filteredGuardLeads.reduce((acc, g) => {
-                                                        if (g.agent) acc[g.agent.id] = g.agent
-                                                        return acc
-                                                    }, {})
-                                                ).find(id => {
-                                                    const a = filteredGuardLeads.find(g => g.agent?.id === id)?.agent
-                                                    return a && `${a.first_name} ${a.last_name}`.trim() === ag.name
-                                                })
+                                            // Get report compliance from shift_guard_leads for this agent
+                                            const myGuardLeads = filteredGuardLeads.filter(g =>
+                                                g.agent?.id === ag.id || g.agent_id === ag.id
                                             )
-                                            // Simpler approach: filter by name match
-                                            const myLeads = filteredGuardLeads.filter(g =>
-                                                g.agent && `${g.agent.first_name} ${g.agent.last_name}`.trim() === ag.name
-                                            )
-                                            const r2d = myLeads.filter(g => g.report_2d_sent).length
-                                            const r15d = myLeads.filter(g => g.report_15d_sent).length
-                                            const r30d = myLeads.filter(g => g.report_30d_sent).length
+                                            const r2d = myGuardLeads.filter(g => g.report_2d_sent).length
+                                            const r15d = myGuardLeads.filter(g => g.report_15d_sent).length
+                                            const r30d = myGuardLeads.filter(g => g.report_30d_sent).length
+                                            const glTotal = myGuardLeads.length
                                             return (
                                                 <tr key={i} className="border-t border-slate-50">
                                                     <td className="py-2 font-medium text-slate-700">{ag.name}</td>
@@ -342,13 +347,13 @@ export default function LeadKpiDashboard() {
                                                         </span>
                                                     </td>
                                                     <td className="py-2 text-center">
-                                                        <StatusDot done={r2d} total={myLeads.length} />
+                                                        <StatusDot done={r2d} total={glTotal} />
                                                     </td>
                                                     <td className="py-2 text-center">
-                                                        <StatusDot done={r15d} total={myLeads.length} />
+                                                        <StatusDot done={r15d} total={glTotal} />
                                                     </td>
                                                     <td className="py-2 text-center">
-                                                        <StatusDot done={r30d} total={myLeads.length} />
+                                                        <StatusDot done={r30d} total={glTotal} />
                                                     </td>
                                                 </tr>
                                             )
