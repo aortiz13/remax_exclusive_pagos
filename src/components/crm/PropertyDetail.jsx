@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Button, Badge, Separator, AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui'
-import { ArrowLeft, User, MapPin, Building, Ruler, BedDouble, Bath, Link as LinkIcon, FileText, Briefcase, Plus, Filter, Trash2, History, Star, ChevronLeft, ChevronRight, Upload, X, Camera, Image as ImageIcon, Car, Layers, Calendar, DollarSign, Video, Globe, Landmark, GripVertical } from 'lucide-react'
+import { ArrowLeft, User, MapPin, Building, Ruler, BedDouble, Bath, Link as LinkIcon, FileText, Briefcase, Plus, Filter, Trash2, History, Star, ChevronLeft, ChevronRight, Upload, X, Camera, Image as ImageIcon, Car, Layers, Calendar, DollarSign, Video, Globe, Landmark, GripVertical, ClipboardCheck, Save } from 'lucide-react'
 import { supabase, getCustomPublicUrl } from '../../services/supabase'
 import { useAuth } from '../../context/AuthContext'
 import PropertyForm from './PropertyForm'
@@ -112,6 +112,10 @@ const PropertyDetail = () => {
     // Action Modal State
     const [isActionModalOpen, setIsActionModalOpen] = useState(false)
 
+    // Inspection State
+    const [lastInspectionDate, setLastInspectionDate] = useState('')
+    const [savingInspection, setSavingInspection] = useState(false)
+
     // Photo Gallery State
     const [photos, setPhotos] = useState([])
     const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0)
@@ -187,6 +191,7 @@ const PropertyDetail = () => {
 
             if (error) throw error
             setProperty(data)
+            setLastInspectionDate(data.last_inspection_date || '')
         } catch (error) {
             console.error('Error fetching property:', error)
         } finally {
@@ -431,6 +436,53 @@ const PropertyDetail = () => {
         } finally {
             setNoteLoading(false)
         }
+    }
+
+    // Save last inspection date
+    const handleSaveInspectionDate = async () => {
+        try {
+            setSavingInspection(true)
+            const { error } = await supabase
+                .from('properties')
+                .update({ last_inspection_date: lastInspectionDate || null })
+                .eq('id', id)
+            if (error) throw error
+            setProperty(prev => ({ ...prev, last_inspection_date: lastInspectionDate || null }))
+            toast.success('Fecha de inspección guardada')
+            await logActivity({
+                action: 'Actualizó',
+                entity_type: 'Propiedad',
+                entity_id: id,
+                description: `Última inspección actualizada: ${lastInspectionDate || 'sin fecha'}`,
+                property_id: id
+            })
+        } catch (err) {
+            console.error('Error saving inspection date:', err)
+            toast.error('Error al guardar fecha de inspección')
+        } finally {
+            setSavingInspection(false)
+        }
+    }
+
+    // Calculate next inspection date
+    const getNextInspection = () => {
+        const contractDate = property?.contract_start_date ? new Date(property.contract_start_date + 'T12:00:00') : null
+        const inspectionDate = property?.last_inspection_date ? new Date(property.last_inspection_date + 'T12:00:00') : null
+
+        let baseDate = null
+        if (contractDate && inspectionDate) {
+            baseDate = contractDate > inspectionDate ? contractDate : inspectionDate
+        } else if (inspectionDate) {
+            baseDate = inspectionDate
+        } else if (contractDate) {
+            baseDate = contractDate
+        }
+
+        if (!baseDate) return null
+
+        const next = new Date(baseDate)
+        next.setMonth(next.getMonth() + 6)
+        return next
     }
 
 
@@ -840,6 +892,93 @@ const PropertyDetail = () => {
                                     </div>
                                 </div>
                             )}
+
+                            {/* Última Inspección */}
+                            <div className="bg-white dark:bg-gray-900 rounded-xl border p-4">
+                                <h3 className="font-medium mb-3 flex items-center gap-2">
+                                    <ClipboardCheck className="w-4 h-4 text-teal-500" /> Última Inspección
+                                </h3>
+                                <div className="space-y-4">
+                                    <div className="flex items-end gap-3">
+                                        <div className="flex-1">
+                                            <label className="block text-xs text-muted-foreground mb-1">Fecha de Última Inspección</label>
+                                            <input
+                                                type="date"
+                                                value={lastInspectionDate}
+                                                onChange={(e) => setLastInspectionDate(e.target.value)}
+                                                className="w-full px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-all"
+                                            />
+                                        </div>
+                                        <Button
+                                            size="sm"
+                                            disabled={savingInspection || lastInspectionDate === (property.last_inspection_date || '')}
+                                            onClick={handleSaveInspectionDate}
+                                            className="gap-1.5 bg-teal-600 hover:bg-teal-700 text-white"
+                                        >
+                                            <Save className="w-3.5 h-3.5" />
+                                            {savingInspection ? 'Guardando...' : 'Guardar'}
+                                        </Button>
+                                    </div>
+
+                                    {/* Next Inspection Calculation */}
+                                    {(() => {
+                                        const nextDate = getNextInspection()
+                                        if (!nextDate) {
+                                            return (
+                                                <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+                                                    <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                                                    <p className="text-xs text-amber-700 dark:text-amber-300">
+                                                        Ingrese la fecha de inicio de contrato o última inspección para calcular la próxima inspección.
+                                                    </p>
+                                                </div>
+                                            )
+                                        }
+
+                                        const today = new Date()
+                                        today.setHours(0, 0, 0, 0)
+                                        const diffMs = nextDate.getTime() - today.getTime()
+                                        const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24))
+
+                                        let statusColor, statusBg, statusBorder, statusText, statusDot
+                                        if (diffDays < 0) {
+                                            statusColor = 'text-red-700 dark:text-red-300'
+                                            statusBg = 'bg-red-50 dark:bg-red-900/20'
+                                            statusBorder = 'border-red-200 dark:border-red-800'
+                                            statusText = `Vencida hace ${Math.abs(diffDays)} día(s)`
+                                            statusDot = 'bg-red-500'
+                                        } else if (diffDays <= 30) {
+                                            statusColor = 'text-amber-700 dark:text-amber-300'
+                                            statusBg = 'bg-amber-50 dark:bg-amber-900/20'
+                                            statusBorder = 'border-amber-200 dark:border-amber-800'
+                                            statusText = diffDays === 0 ? '¡Hoy!' : `Faltan ${diffDays} día(s)`
+                                            statusDot = 'bg-amber-400'
+                                        } else {
+                                            statusColor = 'text-emerald-700 dark:text-emerald-300'
+                                            statusBg = 'bg-emerald-50 dark:bg-emerald-900/20'
+                                            statusBorder = 'border-emerald-200 dark:border-emerald-800'
+                                            statusText = `Faltan ${diffDays} día(s)`
+                                            statusDot = 'bg-emerald-500'
+                                        }
+
+                                        return (
+                                            <div className={`flex items-center justify-between p-3 rounded-lg ${statusBg} border ${statusBorder}`}>
+                                                <div className="flex items-center gap-2">
+                                                    <div className={`w-2 h-2 rounded-full ${statusDot} ${diffDays <= 30 ? 'animate-pulse' : ''}`} />
+                                                    <div>
+                                                        <p className={`text-xs font-medium ${statusColor}`}>Próxima Inspección</p>
+                                                        <p className={`text-sm font-semibold ${statusColor}`}>
+                                                            {nextDate.toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusBg} ${statusColor}`}>
+                                                    {statusText}
+                                                </span>
+                                            </div>
+                                        )
+                                    })()}
+                                </div>
+                            </div>
 
                             {/* Precio de Venta y Gastos Comunes */}
                             {(property.sold_price > 0 || property.maintenance_fee > 0) && (

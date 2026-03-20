@@ -139,6 +139,16 @@ export default function LeadDetail() {
 
             if (error) throw error
 
+            // Create report tracking entry (derived lead, not guard)
+            if (!isRemaxChile) {
+                await supabase.from('shift_guard_leads').upsert({
+                    external_lead_id: lead.id,
+                    agent_id: selectedAgent,
+                    assigned_at: new Date().toISOString(),
+                    is_guard: false
+                }, { onConflict: 'external_lead_id' })
+            }
+
             const agent = isRemaxChile ? { first_name: 'Remax', last_name: 'Chile', email: 'regional@remax.cl' } : agents.find(a => a.id === selectedAgent)
 
             if (agent) {

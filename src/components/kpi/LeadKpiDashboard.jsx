@@ -42,8 +42,8 @@ export default function LeadKpiDashboard() {
     const [loading, setLoading] = useState(true)
     const [leads, setLeads] = useState([])       // external_leads
     const [guardLeads, setGuardLeads] = useState([]) // shift_guard_leads with joins
-    const [agentProfiles, setAgentProfiles] = useState({}) // id → { first_name, last_name }
     const [activePeriod, setActivePeriod] = useState('all')
+    const [leadTypeFilter, setLeadTypeFilter] = useState('all') // 'all' | 'guard' | 'derived'
 
     const isAdmin = ['superadministrador', 'comercial', 'administracion', 'tecnico'].includes(profile?.role)
 
@@ -69,21 +69,8 @@ export default function LeadKpiDashboard() {
                     .order('assigned_at', { ascending: false }),
             ])
 
-            const allLeads = leadsRes.data || []
-            setLeads(allLeads)
+            setLeads(leadsRes.data || [])
             setGuardLeads(guardRes.data || [])
-
-            // Fetch agent profiles for all assigned leads
-            const agentIds = [...new Set(allLeads.filter(l => l.assigned_agent_id).map(l => l.assigned_agent_id))]
-            if (agentIds.length > 0) {
-                const { data: profiles } = await supabase
-                    .from('profiles')
-                    .select('id, first_name, last_name')
-                    .in('id', agentIds)
-                const map = {}
-                ;(profiles || []).forEach(p => { map[p.id] = p })
-                setAgentProfiles(map)
-            }
         } catch (err) {
             console.error('Error fetching lead KPIs:', err)
         }
@@ -110,17 +97,23 @@ export default function LeadKpiDashboard() {
         else if (activePeriod === '3months') from = subDays(now, 90)
         else from = new Date(2020, 0, 1)
 
-        return guardLeads.filter(g => {
+        let result = guardLeads.filter(g => {
             const d = g.assigned_at || g.created_at
             return d && new Date(d) >= from
         })
-    }, [guardLeads, activePeriod])
+
+        // Apply lead type filter
+        if (leadTypeFilter === 'guard') result = result.filter(g => g.is_guard === true)
+        else if (leadTypeFilter === 'derived') result = result.filter(g => g.is_guard === false)
+
+        return result
+    }, [guardLeads, activePeriod, leadTypeFilter])
 
     // ─── KPI Calculations ───
     const kpis = useMemo(() => {
         const total = filteredLeads.length
         const pending = filteredLeads.filter(l => l.status === 'pending').length
-        const assigned = filteredLeads.filter(l => l.status === 'assigned' || l.assigned_agent_id).length
+        const assigned = filteredGuardLeads.length
         const assignmentRate = total > 0 ? Math.round((assigned / total) * 100) : 0
 
         // Average response time (assigned_at - external_lead.created_at)
@@ -132,20 +125,20 @@ export default function LeadKpiDashboard() {
             ? responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length
             : 0
 
-        // Leads per agent — based on external_leads.assigned_agent_id
+        // Leads per agent — from shift_guard_leads
         const agentMap = {}
-        filteredLeads.forEach(l => {
-            if (l.assigned_agent_id && agentProfiles[l.assigned_agent_id]) {
-                const p = agentProfiles[l.assigned_agent_id]
-                const name = `${p.first_name} ${p.last_name}`.trim()
-                if (!agentMap[l.assigned_agent_id]) agentMap[l.assigned_agent_id] = { name, id: l.assigned_agent_id, count: 0 }
-                agentMap[l.assigned_agent_id].count++
+        filteredGuardLeads.forEach(g => {
+            if (g.agent) {
+                const name = `${g.agent.first_name} ${g.agent.last_name}`.trim()
+                const id = g.agent.id
+                if (!agentMap[id]) agentMap[id] = { name, id, count: 0 }
+                agentMap[id].count++
             }
         })
         const leadsPerAgent = Object.values(agentMap)
             .sort((a, b) => b.count - a.count)
 
-        // Report compliance (from shift_guard_leads — only source with report flags)
+        // Report compliance
         const totalGL = filteredGuardLeads.length
         const rep2d = filteredGuardLeads.filter(g => g.report_2d_sent).length
         const rep15d = filteredGuardLeads.filter(g => g.report_15d_sent).length
@@ -159,7 +152,7 @@ export default function LeadKpiDashboard() {
             avgResponseTime, leadsPerAgent,
             rep2d, rep2dPct, rep15d, rep15dPct, rep30d, rep30dPct, totalGL
         }
-    }, [filteredLeads, filteredGuardLeads, agentProfiles])
+    }, [filteredLeads, filteredGuardLeads])
 
     // ─── Chart data ───
     const agentChartData = useMemo(() =>
@@ -209,21 +202,43 @@ export default function LeadKpiDashboard() {
                     <h2 className="text-2xl font-bold text-slate-800">Leads Derivados</h2>
                     <p className="text-sm text-slate-500">Seguimiento de leads web asignados a agentes</p>
                 </div>
-                <div className="flex gap-1 bg-slate-100 p-1 rounded-xl">
-                    {PERIOD_OPTIONS.map(p => (
-                        <button
-                            key={p.id}
-                            onClick={() => setActivePeriod(p.id)}
-                            className={cn(
-                                'px-3 py-1.5 rounded-lg text-sm font-medium transition-all',
-                                activePeriod === p.id
-                                    ? 'bg-white shadow-sm text-slate-900'
-                                    : 'text-slate-500 hover:text-slate-700'
-                            )}
-                        >
-                            {p.label}
-                        </button>
-                    ))}
+                <div className="flex flex-col gap-2 items-end">
+                    <div className="flex gap-1 bg-slate-100 p-1 rounded-xl">
+                        {PERIOD_OPTIONS.map(p => (
+                            <button
+                                key={p.id}
+                                onClick={() => setActivePeriod(p.id)}
+                                className={cn(
+                                    'px-3 py-1.5 rounded-lg text-sm font-medium transition-all',
+                                    activePeriod === p.id
+                                        ? 'bg-white shadow-sm text-slate-900'
+                                        : 'text-slate-500 hover:text-slate-700'
+                                )}
+                            >
+                                {p.label}
+                            </button>
+                        ))}
+                    </div>
+                    <div className="flex gap-1 bg-slate-100 p-1 rounded-xl">
+                        {[
+                            { id: 'all', label: 'Todos' },
+                            { id: 'guard', label: '🛡️ Guardia' },
+                            { id: 'derived', label: '📤 Derivados' },
+                        ].map(t => (
+                            <button
+                                key={t.id}
+                                onClick={() => setLeadTypeFilter(t.id)}
+                                className={cn(
+                                    'px-3 py-1.5 rounded-lg text-sm font-medium transition-all',
+                                    leadTypeFilter === t.id
+                                        ? 'bg-white shadow-sm text-slate-900'
+                                        : 'text-slate-500 hover:text-slate-700'
+                                )}
+                            >
+                                {t.label}
+                            </button>
+                        ))}
+                    </div>
                 </div>
             </div>
 

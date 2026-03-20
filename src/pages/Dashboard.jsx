@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext'
 import { supabase } from '../services/supabase'
 import { Button, Separator, AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Card, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui'
 import { useNavigate } from 'react-router-dom'
-import { Trash2, Search, MapPin, Receipt, FileText, ArrowUpRight, UserPlus, BarChart3, ClipboardCheck, AlertTriangle } from 'lucide-react'
+import { Trash2, Search, MapPin, Receipt, FileText, ArrowUpRight, UserPlus, BarChart3, ClipboardCheck, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react'
 import { toast } from 'sonner'
 import { useDashboardTour } from '../hooks/useDashboardTour'
 import { motion } from 'framer-motion'
@@ -35,6 +35,8 @@ export default function Dashboard() {
     const [overdueReports, setOverdueReports] = useState(0)
     const [pendingFollowups, setPendingFollowups] = useState(0)
     const [dueFollowups, setDueFollowups] = useState([]) // For specific overdue/due soon items
+    const [inspectionAlertProps, setInspectionAlertProps] = useState([])
+    const [inspectionAlertExpanded, setInspectionAlertExpanded] = useState(false)
 
     useEffect(() => {
         startTour()
@@ -114,6 +116,30 @@ export default function Dashboard() {
 
         fetchReportCounts()
         fetchFollowupCounts()
+
+        // Fetch Administrada properties missing inspection dates
+        const fetchInspectionAlerts = async () => {
+            try {
+                const isAdminRole = ['superadministrador', 'comercial', 'legal', 'tecnico', 'administracion'].includes(profile?.role)
+                let query = supabase
+                    .from('properties')
+                    .select('id, address, commune, agent_id')
+                    .contains('status', ['Administrada'])
+                    .is('contract_start_date', null)
+                    .is('last_inspection_date', null)
+                    .order('address')
+
+                if (!isAdminRole) {
+                    query = query.eq('agent_id', user.id)
+                }
+
+                const { data } = await withRetry(() => query)
+                if (data) setInspectionAlertProps(data)
+            } catch (err) {
+                console.error('Error fetching inspection alerts:', err)
+            }
+        }
+        fetchInspectionAlerts()
     }, [user, profile])
 
     const fetchRequests = async () => {
@@ -386,6 +412,54 @@ export default function Dashboard() {
                             </div>
                         </div>
                     </div>
+                </motion.div>
+            )}
+
+            {/* Inspection Date Missing Alert */}
+            {inspectionAlertProps.length > 0 && (
+                <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="rounded-xl border bg-gradient-to-r from-teal-50 to-cyan-50 border-teal-200 shadow-sm overflow-hidden"
+                >
+                    <div className="p-4 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 rounded-lg bg-teal-100">
+                                <ClipboardCheck className="w-5 h-5 text-teal-600" />
+                            </div>
+                            <div>
+                                <p className="font-semibold text-sm text-slate-900">
+                                    📝 {inspectionAlertProps.length} propiedad(es) administrada(s) sin fechas de inspección
+                                </p>
+                                <p className="text-xs text-slate-500">Completa la fecha de inicio de contrato o última inspección</p>
+                            </div>
+                        </div>
+                        {inspectionAlertProps.length > 3 && (
+                            <button
+                                onClick={() => setInspectionAlertExpanded(prev => !prev)}
+                                className="flex items-center gap-1 text-xs text-teal-600 hover:text-teal-700 font-medium transition-colors"
+                            >
+                                {inspectionAlertExpanded ? 'Menos' : 'Ver todo'}
+                                {inspectionAlertExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                            </button>
+                        )}
+                    </div>
+                    <div className={`px-4 pb-3 space-y-1.5 ${!inspectionAlertExpanded && inspectionAlertProps.length > 3 ? 'max-h-[120px] overflow-hidden' : ''}`}>
+                        {(inspectionAlertExpanded ? inspectionAlertProps : inspectionAlertProps.slice(0, 3)).map(prop => (
+                            <div
+                                key={prop.id}
+                                onClick={() => navigate(`/crm/property/${prop.id}`)}
+                                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/60 hover:bg-white border border-teal-100 hover:border-teal-200 cursor-pointer transition-all group"
+                            >
+                                <MapPin className="w-3.5 h-3.5 text-teal-500 flex-shrink-0" />
+                                <span className="text-sm text-slate-700 truncate flex-1">{prop.address}{prop.commune ? `, ${prop.commune}` : ''}</span>
+                                <ArrowUpRight className="w-3.5 h-3.5 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </div>
+                        ))}
+                    </div>
+                    {!inspectionAlertExpanded && inspectionAlertProps.length > 3 && (
+                        <div className="h-6 bg-gradient-to-t from-teal-50 to-transparent -mt-6 relative pointer-events-none" />
+                    )}
                 </motion.div>
             )}
 

@@ -273,15 +273,25 @@ export async function generateInspectionSchedule(propertyId) {
     // Fetch property data
     const { data: property, error: pErr } = await supabase
         .from('properties')
-        .select('id, contract_start_date, contract_end_date, agent_id, status')
+        .select('id, contract_start_date, contract_end_date, last_inspection_date, agent_id, status')
         .eq('id', propertyId)
         .single()
 
     if (pErr) throw pErr
     if (!property?.status?.includes('Administrada')) return { created: 0, skipped: 'not_administrada' }
-    if (!property.contract_start_date) return { created: 0, skipped: 'no_start_date' }
+    if (!property.contract_start_date && !property.last_inspection_date) return { created: 0, skipped: 'no_start_date' }
 
-    const start = new Date(property.contract_start_date + 'T12:00:00')
+    // Use the most recent date between contract_start_date and last_inspection_date
+    const contractDate = property.contract_start_date ? new Date(property.contract_start_date + 'T12:00:00') : null
+    const inspectionDate = property.last_inspection_date ? new Date(property.last_inspection_date + 'T12:00:00') : null
+    let baseDate
+    if (contractDate && inspectionDate) {
+        baseDate = contractDate > inspectionDate ? contractDate : inspectionDate
+    } else {
+        baseDate = inspectionDate || contractDate
+    }
+
+    const start = baseDate
     const end = property.contract_end_date
         ? new Date(property.contract_end_date + 'T12:00:00')
         : new Date(start.getTime() + 5 * 365 * 24 * 60 * 60 * 1000) // default: 5 years if no end
@@ -289,7 +299,7 @@ export async function generateInspectionSchedule(propertyId) {
     // Generate dates every 6 months
     const dates = []
     let cursor = new Date(start)
-    cursor.setMonth(cursor.getMonth() + 6) // first inspection is 6 months after start
+    cursor.setMonth(cursor.getMonth() + 6) // first inspection is 6 months after base date
     while (cursor <= end) {
         dates.push(cursor.toISOString().split('T')[0])
         cursor = new Date(cursor)
