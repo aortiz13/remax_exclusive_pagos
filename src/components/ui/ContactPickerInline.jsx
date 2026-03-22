@@ -1,29 +1,36 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '../../services/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { Search, User, Plus } from 'lucide-react'
 import ContactForm from '../crm/ContactForm'
 
+const CONTACT_FIELDS = 'id, first_name, last_name, rut, email, phone, address, barrio_comuna, bank_name, bank_account_type, bank_account_number'
+const RESULTS_LIMIT = 30
+
 export default function ContactPickerInline({ onSelectContact, label = 'Pre-llenar desde CRM', value, disabled = false, showNoneOption = false }) {
     const { user } = useAuth()
     const [contacts, setContacts] = useState([])
     const [loading, setLoading] = useState(true)
+    const [searching, setSearching] = useState(false)
     const [searchTerm, setSearchTerm] = useState('')
     const [isOpen, setIsOpen] = useState(false)
     const [selectedId, setSelectedId] = useState(value || '')
+    const [selectedContact, setSelectedContactState] = useState(null)
     const [isAddingNew, setIsAddingNew] = useState(false)
+    const debounceRef = useRef(null)
 
     useEffect(() => {
         if (value) setSelectedId(value)
     }, [value])
 
-    const fetchContacts = async () => {
+    // Load initial recent contacts (small set)
+    const fetchInitialContacts = async () => {
         if (!user?.id) return
         const { data, error } = await supabase
             .from('contacts')
-            .select('id, first_name, last_name, rut, email, phone, address, barrio_comuna, bank_name, bank_account_type, bank_account_number')
-            .order('first_name')
-            .limit(500)
+            .select(CONTACT_FIELDS)
+            .order('created_at', { ascending: false })
+            .limit(RESULTS_LIMIT)
 
         if (error) {
             console.error('Error fetching contacts from CRM:', error)
@@ -33,22 +40,90 @@ export default function ContactPickerInline({ onSelectContact, label = 'Pre-llen
         setLoading(false)
     }
 
+    // Fetch selected contact by ID so it always shows correctly
+    const fetchSelectedContact = async (contactId) => {
+        if (!contactId || contactId === 'none') return
+        const { data } = await supabase
+            .from('contacts')
+            .select(CONTACT_FIELDS)
+            .eq('id', contactId)
+            .single()
+        if (data) setSelectedContactState(data)
+    }
+
     useEffect(() => {
-        fetchContacts()
+        fetchInitialContacts()
     }, [user])
 
-    const filtered = searchTerm
-        ? contacts.filter(c => {
-            const fullName = `${c.first_name} ${c.last_name}`.toLowerCase()
-            return fullName.includes(searchTerm.toLowerCase()) ||
-                (c.rut && c.rut.toLowerCase().includes(searchTerm.toLowerCase())) ||
-                (c.email && c.email.toLowerCase().includes(searchTerm.toLowerCase()))
-        })
-        : contacts
+    // If we have a value prop, fetch that specific contact
+    useEffect(() => {
+        if (value && value !== 'none') fetchSelectedContact(value)
+    }, [value])
+
+    // Server-side search with debounce
+    const searchContacts = useCallback(async (term) => {
+        if (!term || term.length < 2) {
+            fetchInitialContacts()
+            return
+        }
+        setSearching(true)
+
+        try {
+            const words = term.trim().split(/\s+/).filter(w => w.length >= 2)
+
+            // Build query - each word must match at least one of first_name or last_name
+            let query = supabase
+                .from('contacts')
+                .select(CONTACT_FIELDS)
+
+            if (words.length > 1) {
+                // Multi-word: each word must match first_name or last_name
+                for (const word of words) {
+                    query = query.or(`first_name.ilike.%${word}%,last_name.ilike.%${word}%`)
+                }
+            } else {
+                // Single word: search across all fields
+                const w = words[0] || term.trim()
+                query = query.or(`first_name.ilike.%${w}%,last_name.ilike.%${w}%,rut.ilike.%${w}%,email.ilike.%${w}%`)
+            }
+
+            const { data, error } = await query
+                .order('first_name')
+                .limit(RESULTS_LIMIT)
+
+            if (error) {
+                console.error('Error searching contacts:', error)
+            } else if (data) {
+                setContacts(data)
+            }
+        } catch (err) {
+            console.error('Search error:', err)
+        }
+        setSearching(false)
+    }, [])
+
+    const handleSearchChange = (e) => {
+        const term = e.target.value
+        setSearchTerm(term)
+        if (debounceRef.current) clearTimeout(debounceRef.current)
+        debounceRef.current = setTimeout(() => {
+            searchContacts(term)
+        }, 300)
+    }
+
+    // Clean up debounce on unmount
+    useEffect(() => {
+        return () => {
+            if (debounceRef.current) clearTimeout(debounceRef.current)
+        }
+    }, [])
+
+    const filtered = contacts
 
     const handleSelect = (contactId) => {
         if (!contactId || contactId === 'none') {
             setSelectedId(contactId === 'none' ? 'none' : '')
+            setSelectedContactState(null)
             onSelectContact(null)
             setIsOpen(false)
             return
@@ -56,13 +131,14 @@ export default function ContactPickerInline({ onSelectContact, label = 'Pre-llen
         const contact = contacts.find(c => c.id === contactId)
         if (contact) {
             setSelectedId(contactId)
+            setSelectedContactState(contact)
             onSelectContact(contact)
             setIsOpen(false)
             setSearchTerm('')
+            // Reset to initial contacts for next open
+            fetchInitialContacts()
         }
     }
-
-    const selectedContact = contacts.find(c => c.id === selectedId)
 
     return (
         <div className="mb-4">
@@ -96,11 +172,14 @@ export default function ContactPickerInline({ onSelectContact, label = 'Pre-llen
                                 <input
                                     type="text"
                                     value={searchTerm}
-                                    onChange={e => setSearchTerm(e.target.value)}
-                                    placeholder="Buscar..."
+                                    onChange={handleSearchChange}
+                                    placeholder="Buscar por nombre, RUT o email..."
                                     className="w-full h-8 text-sm bg-transparent border-0 outline-none placeholder:text-muted-foreground"
                                     autoFocus
                                 />
+                                {searching && (
+                                    <div className="w-3.5 h-3.5 border-2 border-primary/30 border-t-primary rounded-full animate-spin flex-shrink-0" />
+                                )}
                             </div>
                         </div>
                         <div className="max-h-48 overflow-y-auto">
@@ -134,9 +213,15 @@ export default function ContactPickerInline({ onSelectContact, label = 'Pre-llen
                                 — Ingresar manualmente —
                             </button>
 
+                            {!searchTerm && (
+                                <div className="px-3 py-1 text-[10px] text-muted-foreground/60 uppercase tracking-wider bg-muted/30">
+                                    Contactos recientes
+                                </div>
+                            )}
+
                             {filtered.length === 0 ? (
                                 <div className="px-3 py-4 text-sm text-muted-foreground text-center">
-                                    No se encontraron contactos
+                                    {searching ? 'Buscando...' : 'No se encontraron contactos'}
                                 </div>
                             ) : (
                                 filtered.map(c => (
@@ -162,7 +247,7 @@ export default function ContactPickerInline({ onSelectContact, label = 'Pre-llen
 
             {/* Backdrop to close */}
             {isOpen && (
-                <div className="fixed inset-0 z-[250]" onClick={() => { setIsOpen(false); setSearchTerm('') }} />
+                <div className="fixed inset-0 z-[250]" onClick={() => { setIsOpen(false); setSearchTerm(''); fetchInitialContacts() }} />
             )}
 
             {isAddingNew && (
@@ -173,8 +258,9 @@ export default function ContactPickerInline({ onSelectContact, label = 'Pre-llen
                         setIsAddingNew(false)
                         if (newContact) {
                             // If it was a successful creation, refresh the list and select it
-                            await fetchContacts()
+                            await fetchInitialContacts()
                             setSelectedId(newContact.id)
+                            setSelectedContactState(newContact)
                             onSelectContact(newContact)
                         }
                     }}
@@ -183,3 +269,4 @@ export default function ContactPickerInline({ onSelectContact, label = 'Pre-llen
         </div>
     )
 }
+
