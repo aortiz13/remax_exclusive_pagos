@@ -394,7 +394,7 @@ function PartyForm({ typeLabel, index, prefix, initialData = {}, onRemove, isRem
                         <Input name={`${prefix}nacionalidad`} value={formData.nacionalidad} onChange={handleInputChange} />
                     </div>
 
-                    {['Vendedor', 'Comprador', 'Arrendador', 'Arrendatario'].includes(typeLabel) && (
+                    {['Vendedor', 'Comprador', 'Arrendador', 'Arrendatario', 'Aval'].includes(typeLabel) && (
                         <div className="space-y-2">
                             <Label htmlFor={`${prefix}civil`} className="text-xs font-semibold uppercase text-slate-500">Estado Civil <span className="text-red-500">*</span></Label>
                             <Select value={formData.civil || undefined} onValueChange={(v) => handleSelectChange('civil', v)}>
@@ -1623,6 +1623,7 @@ function LeaseFormLogic({ user, profile, navigate, initialData = {}, requestId =
 
 
                         <Field label="Documenta con Cheque (SI/NO)" name="documenta_cheque" placeholder="SI/NO" defaultValue={initialData.documenta_cheque} />
+                        <Field label="Días de Garantía" name="dias_garantia" type="number" placeholder="Ej. 30" defaultValue={initialData.dias_garantia} />
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
@@ -1709,6 +1710,7 @@ function LeaseFormLogic({ user, profile, navigate, initialData = {}, requestId =
                     typeLabel="Arrendador"
                     prefixRoot="arrendador"
                     initialData={initialData}
+                    hideLaborData={true}
                 />
 
                 <PartyArraySection

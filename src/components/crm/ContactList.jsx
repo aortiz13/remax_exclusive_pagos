@@ -26,7 +26,7 @@ import {
     SelectValue,
     Label,
 } from "@/components/ui"
-import { Plus, Search, MoreHorizontal, Phone, Mail, MapPin, GripHorizontal, Columns, Users } from 'lucide-react'
+import { Plus, Search, MoreHorizontal, Phone, Mail, MapPin, GripHorizontal, Columns, Users, ChevronLeft, ChevronRight } from 'lucide-react'
 import { supabase } from '../../services/supabase'
 import ContactForm from './ContactForm'
 import ContactImporter from './ContactImporter'
@@ -77,6 +77,7 @@ const SortableHeader = ({ id, children }) => {
 
 
 const PRIVILEGED_ROLES = ['superadministrador', 'comercial', 'legal', 'tecnico']
+const PAGE_SIZE = 20
 
 const ContactList = () => {
     const { user, profile } = useAuth()
@@ -87,6 +88,7 @@ const ContactList = () => {
     const [searchTerm, setSearchTerm] = useState('')
     const [isFormOpen, setIsFormOpen] = useState(false)
     const [selectedContact, setSelectedContact] = useState(null)
+    const [currentPage, setCurrentPage] = useState(1)
     const navigate = useNavigate()
 
     // Agent filter (privileged roles only)
@@ -177,7 +179,7 @@ const ContactList = () => {
         need: 'Necesidad',
         need_other: 'Otra Necesidad',
         rating: 'Clasificación',
-        rating_80_20: 'Clasificación 80/20',
+
         status: 'Estado',
         about: 'Acerca de',
         current_action: 'Acción Actual',
@@ -220,7 +222,6 @@ const ContactList = () => {
     }).filter(contact => {
         if (filters.profession && !contact.profession?.toLowerCase().includes(filters.profession.toLowerCase())) return false
         if (filters.rating && !contact.rating?.toLowerCase().includes(filters.rating.toLowerCase())) return false
-        if (filters.rating_80_20 && !contact.rating_80_20?.toLowerCase().includes(filters.rating_80_20.toLowerCase())) return false
         if (filters.need && !contact.need?.toLowerCase().includes(filters.need.toLowerCase())) return false
         if (filters.comuna && !(contact.barrio_comuna || contact.comuna)?.toLowerCase().includes(filters.comuna.toLowerCase())) return false
         if (filters.address && !contact.address?.toLowerCase().includes(filters.address.toLowerCase())) return false
@@ -230,6 +231,16 @@ const ContactList = () => {
         const dateB = new Date(b.created_at)
         return sortOrder === 'newest' ? dateB - dateA : dateA - dateB
     })
+
+    // Pagination
+    const totalPages = Math.max(1, Math.ceil(filteredContacts.length / PAGE_SIZE))
+    const safePage = Math.min(currentPage, totalPages)
+    const paginatedContacts = filteredContacts.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
+
+    // Reset page when filters/search change
+    useEffect(() => {
+        setCurrentPage(1)
+    }, [searchTerm, agentFilter, sortOrder, filters])
 
     // Memoize match results for rendering
     const getContactMatches = (contact) => {
@@ -353,7 +364,6 @@ const ContactList = () => {
                 return (
                     <>
                         {contact.rating && <span className="badge badge-outline mr-2">{contact.rating}</span>}
-                        {contact.rating_80_20 && <span className="bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded dark:bg-blue-900 dark:text-blue-300">{contact.rating_80_20}</span>}
                     </>
                 )
             case 'actions':
@@ -438,15 +448,7 @@ const ContactList = () => {
                                             className="col-span-2 h-8"
                                         />
                                     </div>
-                                    <div className="grid grid-cols-3 items-center gap-4">
-                                        <Label htmlFor="rating_80_20">Calificación 80/20</Label>
-                                        <Input
-                                            id="rating_80_20"
-                                            value={filters.rating_80_20}
-                                            onChange={(e) => setFilters({ ...filters, rating_80_20: e.target.value })}
-                                            className="col-span-2 h-8"
-                                        />
-                                    </div>
+
                                     <div className="grid grid-cols-3 items-center gap-4">
                                         <Label htmlFor="need">Necesidad</Label>
                                         <Input
@@ -474,7 +476,7 @@ const ContactList = () => {
                                             className="col-span-2 h-8"
                                         />
                                     </div>
-                                    <Button size="sm" variant="ghost" onClick={() => setFilters({ profession: '', rating: '', rating_80_20: '', need: '', comuna: '', address: '' })} className="w-full">
+                                    <Button size="sm" variant="ghost" onClick={() => setFilters({ profession: '', rating: '', need: '', comuna: '', address: '' })} className="w-full">
                                         Limpiar Filtros
                                     </Button>
                                 </div>
@@ -583,7 +585,7 @@ const ContactList = () => {
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                filteredContacts.map((contact) => {
+                                paginatedContacts.map((contact) => {
                                     const matches = getContactMatches(contact)
                                     return (
                                         <React.Fragment key={contact.id}>
@@ -616,6 +618,58 @@ const ContactList = () => {
                     </Table>
                 </DndContext>
             </div>
+
+            {/* Pagination */}
+            {!loading && filteredContacts.length > 0 && (
+                <div className="flex items-center justify-between px-4 py-3 bg-slate-50/50 dark:bg-slate-900/20 rounded-xl border border-slate-100 dark:border-slate-800">
+                    <p className="text-sm text-muted-foreground">
+                        Mostrando <span className="font-medium">{(safePage - 1) * PAGE_SIZE + 1}</span> - <span className="font-medium">{Math.min(safePage * PAGE_SIZE, filteredContacts.length)}</span> de <span className="font-medium">{filteredContacts.length}</span> contactos
+                    </p>
+                    <div className="flex items-center gap-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={safePage <= 1}
+                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                            className="h-8 w-8 p-0"
+                        >
+                            <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        {Array.from({ length: totalPages }, (_, i) => i + 1)
+                            .filter(p => p === 1 || p === totalPages || Math.abs(p - safePage) <= 1)
+                            .reduce((acc, p, i, arr) => {
+                                if (i > 0 && p - arr[i - 1] > 1) acc.push('...')
+                                acc.push(p)
+                                return acc
+                            }, [])
+                            .map((p, i) =>
+                                p === '...' ? (
+                                    <span key={`dots-${i}`} className="text-sm text-muted-foreground px-1">…</span>
+                                ) : (
+                                    <Button
+                                        key={p}
+                                        variant={safePage === p ? 'default' : 'outline'}
+                                        size="sm"
+                                        onClick={() => setCurrentPage(p)}
+                                        className="h-8 w-8 p-0 text-xs"
+                                    >
+                                        {p}
+                                    </Button>
+                                )
+                            )
+                        }
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={safePage >= totalPages}
+                            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                            className="h-8 w-8 p-0"
+                        >
+                            <ChevronRight className="h-4 w-4" />
+                        </Button>
+                    </div>
+                </div>
+            )}
 
             {/* Contact Form Modal/Sheet will go here */}
             {isFormOpen && (

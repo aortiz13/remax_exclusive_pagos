@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils"
 import { logActivity } from '../../services/activityService'
 import { auditLog } from '../../services/auditLogService'
 import { ROLES, ROLE_COLORS } from './AddParticipantModal'
+import PropertyForm from './PropertyForm'
 
 const Section = ({ title, children }) => (
     <div className="mb-6">
@@ -35,6 +36,7 @@ const ContactForm = ({ contact, isOpen, onClose, isSimplified = false, initialEm
     const [newLinkRole, setNewLinkRole] = useState('propietario')
     const [newLinkPropertyId, setNewLinkPropertyId] = useState(null)
     const [openPropertySelect, setOpenPropertySelect] = useState(false)
+    const [isPropertyFormOpen, setIsPropertyFormOpen] = useState(false)
 
     const [formData, setFormData] = useState({
         first_name: '',
@@ -56,7 +58,6 @@ const ContactForm = ({ contact, isOpen, onClose, isSimplified = false, initialEm
         phone: '',
         email: initialEmail || '',
         rating: '',
-        rating_80_20: '',
         status: 'Activo',
         about: '',
         need: 'Comprar', // Initial default as string, but we'll parse it
@@ -209,6 +210,11 @@ const ContactForm = ({ contact, isOpen, onClose, isSimplified = false, initialEm
                 // Save pending property links
                 await savePropertyLinks(newContactData.id)
 
+                // Auto-create follow-up task if next_contact_date is set
+                if (dataToSave.next_contact_date) {
+                    await createFollowUpTask(newContactData.id, dataToSave.next_contact_date)
+                }
+
                 toast.success('Contacto creado')
                 auditLog.info('crm', 'contact.created', `Contacto creado: ${formData.first_name} ${formData.last_name}`, {
                     module: 'ContactForm',
@@ -234,6 +240,11 @@ const ContactForm = ({ contact, isOpen, onClose, isSimplified = false, initialEm
                 // Save pending property links and remove deleted ones
                 await savePropertyLinks(contact.id)
 
+                // Auto-create/update follow-up task if next_contact_date is set
+                if (dataToSave.next_contact_date) {
+                    await createFollowUpTask(contact.id, dataToSave.next_contact_date)
+                }
+
                 toast.success('Contacto actualizado')
                 auditLog.info('crm', 'contact.updated', `Contacto actualizado: ${formData.first_name} ${formData.last_name}`, {
                     module: 'ContactForm',
@@ -251,6 +262,55 @@ const ContactForm = ({ contact, isOpen, onClose, isSimplified = false, initialEm
             })
         } finally {
             setLoading(false)
+        }
+    }
+
+    const createFollowUpTask = async (contactId, nextContactDate) => {
+        const userId = profile?.id || user?.id
+        try {
+            // Build execution date at 09:00 local time
+            const execDate = new Date(`${nextContactDate}T09:00:00`)
+            const contactName = `${formData.first_name} ${formData.last_name}`.trim()
+
+            // Check if a follow-up task already exists for this contact on this date
+            const { data: existing } = await supabase
+                .from('crm_tasks')
+                .select('id')
+                .eq('contact_id', contactId)
+                .eq('agent_id', userId)
+                .eq('completed', false)
+                .ilike('action', '%Seguimiento%')
+                .limit(1)
+
+            if (existing && existing.length > 0) {
+                // Update the existing follow-up task date
+                await supabase.from('crm_tasks').update({
+                    execution_date: execDate.toISOString(),
+                    is_all_day: true
+                }).eq('id', existing[0].id)
+            } else {
+                // Create new follow-up task
+                await supabase.from('crm_tasks').insert({
+                    contact_id: contactId,
+                    agent_id: userId,
+                    action: `Seguimiento: ${contactName}`,
+                    description: `Tarea de seguimiento generada automáticamente desde el formulario de contacto.`,
+                    execution_date: execDate.toISOString(),
+                    task_type: 'task',
+                    is_all_day: true,
+                    completed: false
+                })
+
+                await logActivity({
+                    action: 'Tarea',
+                    entity_type: 'Contacto',
+                    entity_id: contactId,
+                    description: `Tarea de seguimiento creada para ${contactName}`,
+                    contact_id: contactId
+                })
+            }
+        } catch (err) {
+            console.error('Error creating follow-up task:', err)
         }
     }
 
@@ -309,6 +369,7 @@ const ContactForm = ({ contact, isOpen, onClose, isSimplified = false, initialEm
     if (!isOpen) return null
 
     return createPortal(
+        <>
         <AnimatePresence>
             {isOpen && (
                 <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" style={{ pointerEvents: 'auto' }}>
@@ -539,6 +600,16 @@ const ContactForm = ({ contact, isOpen, onClose, isSimplified = false, initialEm
                                                                 <CommandList>
                                                                     <CommandEmpty>No encontrada.</CommandEmpty>
                                                                     <CommandGroup>
+                                                                        <CommandItem
+                                                                            onSelect={() => {
+                                                                                setOpenPropertySelect(false)
+                                                                                setIsPropertyFormOpen(true)
+                                                                            }}
+                                                                            className="font-medium text-primary cursor-pointer border-b mb-1 pb-1"
+                                                                        >
+                                                                            <Plus className="mr-2 h-4 w-4" />
+                                                                            Crear nueva propiedad
+                                                                        </CommandItem>
                                                                         {properties.map((prop) => (
                                                                             <CommandItem
                                                                                 key={prop.id}
@@ -632,18 +703,7 @@ const ContactForm = ({ contact, isOpen, onClose, isSimplified = false, initialEm
                                                     </SelectContent>
                                                 </Select>
                                             </div>
-                                            <div className="space-y-2">
-                                                <Label>Pareto (80/20)</Label>
-                                                <Select value={formData.rating_80_20 || undefined} onValueChange={(val) => setFormData(prev => ({ ...prev, rating_80_20: val }))}>
-                                                    <SelectTrigger className="w-full">
-                                                        <SelectValue placeholder="Seleccionar..." />
-                                                    </SelectTrigger>
-                                                    <SelectContent className="z-[300]">
-                                                        <SelectItem value="20%">20% (Mejores Clientes)</SelectItem>
-                                                        <SelectItem value="80%">80% (Resto)</SelectItem>
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
+
                                             <div className="space-y-2">
                                                 <Label>Último Contacto</Label>
                                                 <Input type="date" name="last_contact_date" value={formData.last_contact_date} onChange={handleChange} />
@@ -737,8 +797,20 @@ const ContactForm = ({ contact, isOpen, onClose, isSimplified = false, initialEm
                     </motion.div>
                 </div>
             )}
-        </AnimatePresence>,
-        document.body
+        </AnimatePresence>
+        {isPropertyFormOpen && (
+            <PropertyForm
+                isOpen={isPropertyFormOpen}
+                onClose={(didSave) => {
+                    setIsPropertyFormOpen(false)
+                    if (didSave) {
+                        fetchProperties()
+                    }
+                }}
+            />
+        )}
+    </>,
+    document.body
     )
 }
 
