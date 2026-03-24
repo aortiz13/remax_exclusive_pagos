@@ -5,11 +5,12 @@ import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
     PieChart, Pie, Cell, Legend
 } from 'recharts'
-import { format, subDays, startOfMonth, endOfMonth } from 'date-fns'
+import { format, subDays, startOfMonth } from 'date-fns'
 import { es } from 'date-fns/locale'
 import {
-    Users, Clock, CheckCircle2, AlertCircle, TrendingUp,
-    Inbox, UserCheck, BarChart3, FileCheck, Calendar, Filter
+    Users, Clock, CheckCircle2, AlertCircle,
+    Inbox, UserCheck, FileCheck, Filter,
+    Smartphone, Globe, MessageCircle, Eye
 } from 'lucide-react'
 import { Progress } from '@/components/ui'
 
@@ -29,7 +30,7 @@ function formatDuration(ms) {
     return `${mins}m`
 }
 
-// ─── Quick Filter Buttons ───
+// ─── Filter Options ───
 const PERIOD_OPTIONS = [
     { id: 'week', label: 'Últimos 7d', days: 7 },
     { id: 'month', label: 'Este mes', days: 0 },
@@ -37,13 +38,20 @@ const PERIOD_OPTIONS = [
     { id: 'all', label: 'Todo', days: 999 },
 ]
 
+const SOURCE_OPTIONS = [
+    { id: 'all', label: 'Todas las fuentes', icon: Filter },
+    { id: 'web', label: '🌐 Web', icon: Globe },
+    { id: 'whatsapp', label: '📱 WhatsApp', icon: Smartphone },
+]
+
 export default function LeadKpiDashboard() {
     const { profile } = useAuth()
     const [loading, setLoading] = useState(true)
-    const [leads, setLeads] = useState([])       // external_leads
-    const [guardLeads, setGuardLeads] = useState([]) // shift_guard_leads with joins
+    const [leads, setLeads] = useState([])
+    const [guardLeads, setGuardLeads] = useState([])
     const [activePeriod, setActivePeriod] = useState('all')
-    const [leadTypeFilter, setLeadTypeFilter] = useState('all') // 'all' | 'guard' | 'derived'
+    const [leadTypeFilter, setLeadTypeFilter] = useState('all')
+    const [sourceFilter, setSourceFilter] = useState('all')
 
     const isAdmin = ['superadministrador', 'comercial', 'administracion', 'tecnico'].includes(profile?.role)
 
@@ -54,7 +62,7 @@ export default function LeadKpiDashboard() {
         try {
             const [leadsRes, guardRes] = await Promise.all([
                 supabase.from('external_leads')
-                    .select('id, status, created_at, short_id, assigned_agent_id')
+                    .select('id, status, created_at, short_id, assigned_agent_id, source, conversation_id')
                     .order('created_at', { ascending: false }),
                 supabase.from('shift_guard_leads')
                     .select(`
@@ -64,7 +72,7 @@ export default function LeadKpiDashboard() {
                         report_30d_sent, report_30d_sent_at,
                         agent_id,
                         agent:profiles!shift_guard_leads_agent_id_fkey(id, first_name, last_name),
-                        external_lead:external_leads!shift_guard_leads_external_lead_id_fkey(id, created_at, status)
+                        external_lead:external_leads!shift_guard_leads_external_lead_id_fkey(id, created_at, status, source)
                     `)
                     .order('assigned_at', { ascending: false }),
             ])
@@ -77,17 +85,24 @@ export default function LeadKpiDashboard() {
         setLoading(false)
     }
 
-    // ─── Filter by period ───
+    // ─── Filter by period + source ───
     const filteredLeads = useMemo(() => {
         const now = new Date()
         let from
         if (activePeriod === 'week') from = subDays(now, 7)
         else if (activePeriod === 'month') from = startOfMonth(now)
         else if (activePeriod === '3months') from = subDays(now, 90)
-        else from = new Date(2020, 0, 1) // all time
+        else from = new Date(2020, 0, 1)
 
-        return leads.filter(l => new Date(l.created_at) >= from)
-    }, [leads, activePeriod])
+        return leads.filter(l => {
+            if (new Date(l.created_at) < from) return false
+
+            // Source filter
+            if (sourceFilter === 'web') return !l.source || l.source === 'Web'
+            if (sourceFilter === 'whatsapp') return l.source?.startsWith('WhatsApp')
+            return true
+        })
+    }, [leads, activePeriod, sourceFilter])
 
     const filteredGuardLeads = useMemo(() => {
         const now = new Date()
@@ -99,15 +114,24 @@ export default function LeadKpiDashboard() {
 
         let result = guardLeads.filter(g => {
             const d = g.assigned_at || g.created_at
-            return d && new Date(d) >= from
+            if (!d || new Date(d) < from) return false
+
+            // Source filter via external_lead
+            if (sourceFilter === 'web') {
+                const src = g.external_lead?.source
+                return !src || src === 'Web'
+            }
+            if (sourceFilter === 'whatsapp') {
+                return g.external_lead?.source?.startsWith('WhatsApp')
+            }
+            return true
         })
 
-        // Apply lead type filter
         if (leadTypeFilter === 'guard') result = result.filter(g => g.is_guard === true)
         else if (leadTypeFilter === 'derived') result = result.filter(g => g.is_guard === false)
 
         return result
-    }, [guardLeads, activePeriod, leadTypeFilter])
+    }, [guardLeads, activePeriod, leadTypeFilter, sourceFilter])
 
     // ─── KPI Calculations ───
     const kpis = useMemo(() => {
@@ -116,7 +140,13 @@ export default function LeadKpiDashboard() {
         const assigned = filteredGuardLeads.length
         const assignmentRate = total > 0 ? Math.round((assigned / total) * 100) : 0
 
-        // Average response time (assigned_at - external_lead.created_at)
+        // WhatsApp specific
+        const whatsappTotal = filteredLeads.filter(l => l.source?.startsWith('WhatsApp')).length
+        const whatsappVerAgente = filteredLeads.filter(l => l.source === 'WhatsApp - Ver Agente').length
+        const whatsappCalificado = filteredLeads.filter(l => l.source === 'WhatsApp - Calificado').length
+        const webTotal = filteredLeads.filter(l => !l.source || l.source === 'Web').length
+
+        // Average response time
         const responseTimes = filteredGuardLeads
             .filter(g => g.assigned_at && g.external_lead?.created_at)
             .map(g => new Date(g.assigned_at) - new Date(g.external_lead.created_at))
@@ -125,7 +155,7 @@ export default function LeadKpiDashboard() {
             ? responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length
             : 0
 
-        // Leads per agent — from shift_guard_leads
+        // Leads per agent
         const agentMap = {}
         filteredGuardLeads.forEach(g => {
             if (g.agent) {
@@ -135,8 +165,7 @@ export default function LeadKpiDashboard() {
                 agentMap[id].count++
             }
         })
-        const leadsPerAgent = Object.values(agentMap)
-            .sort((a, b) => b.count - a.count)
+        const leadsPerAgent = Object.values(agentMap).sort((a, b) => b.count - a.count)
 
         // Report compliance
         const totalGL = filteredGuardLeads.length
@@ -147,10 +176,18 @@ export default function LeadKpiDashboard() {
         const rep15dPct = totalGL > 0 ? Math.round((rep15d / totalGL) * 100) : 0
         const rep30dPct = totalGL > 0 ? Math.round((rep30d / totalGL) * 100) : 0
 
+        // Source distribution for pie chart
+        const sourceDistribution = []
+        if (webTotal > 0) sourceDistribution.push({ name: 'Web', value: webTotal })
+        if (whatsappVerAgente > 0) sourceDistribution.push({ name: 'WA Ver Agente', value: whatsappVerAgente })
+        if (whatsappCalificado > 0) sourceDistribution.push({ name: 'WA Calificado', value: whatsappCalificado })
+
         return {
             total, pending, assigned, assignmentRate,
             avgResponseTime, leadsPerAgent,
-            rep2d, rep2dPct, rep15d, rep15dPct, rep30d, rep30dPct, totalGL
+            rep2d, rep2dPct, rep15d, rep15dPct, rep30d, rep30dPct, totalGL,
+            whatsappTotal, whatsappVerAgente, whatsappCalificado, webTotal,
+            sourceDistribution,
         }
     }, [filteredLeads, filteredGuardLeads])
 
@@ -159,13 +196,8 @@ export default function LeadKpiDashboard() {
         kpis.leadsPerAgent.slice(0, 10).map(a => ({ name: a.name.split(' ')[0], leads: a.count }))
     , [kpis])
 
-    const reportChartData = useMemo(() => [
-        { name: '48h', cumplido: kpis.rep2dPct, pendiente: 100 - kpis.rep2dPct },
-        { name: '15d', cumplido: kpis.rep15dPct, pendiente: 100 - kpis.rep15dPct },
-        { name: '30d', cumplido: kpis.rep30dPct, pendiente: 100 - kpis.rep30dPct },
-    ], [kpis])
-
-    const COLORS = ['#3b82f6', '#8b5cf6', '#f59e0b', '#10b981', '#ef4444', '#ec4899', '#6366f1', '#14b8a6']
+    const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#ec4899', '#6366f1', '#14b8a6']
+    const SOURCE_COLORS = ['#3b82f6', '#f59e0b', '#10b981']
 
     const CustomTooltip = ({ active, payload, label }) => {
         if (active && payload?.length) {
@@ -185,6 +217,18 @@ export default function LeadKpiDashboard() {
         return null
     }
 
+    const PieTooltip = ({ active, payload }) => {
+        if (active && payload?.length) {
+            return (
+                <div className="bg-white/95 backdrop-blur-sm p-3 border border-slate-100 shadow-xl rounded-xl text-sm">
+                    <p className="font-bold text-slate-800">{payload[0].name}</p>
+                    <p className="text-xs text-slate-500">{payload[0].value} leads ({Math.round(payload[0].percent * 100)}%)</p>
+                </div>
+            )
+        }
+        return null
+    }
+
     if (loading) {
         return (
             <div className="flex items-center justify-center h-64">
@@ -196,13 +240,14 @@ export default function LeadKpiDashboard() {
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
 
-            {/* Header with period filter */}
+            {/* Header with filters */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h2 className="text-2xl font-bold text-slate-800">Leads Derivados</h2>
-                    <p className="text-sm text-slate-500">Seguimiento de leads web asignados a agentes</p>
+                    <h2 className="text-2xl font-bold text-slate-800">Leads</h2>
+                    <p className="text-sm text-slate-500">Seguimiento de leads web y WhatsApp</p>
                 </div>
                 <div className="flex flex-col gap-2 items-end">
+                    {/* Period filter */}
                     <div className="flex gap-1 bg-slate-100 p-1 rounded-xl">
                         {PERIOD_OPTIONS.map(p => (
                             <button
@@ -219,6 +264,24 @@ export default function LeadKpiDashboard() {
                             </button>
                         ))}
                     </div>
+                    {/* Source filter */}
+                    <div className="flex gap-1 bg-slate-100 p-1 rounded-xl">
+                        {SOURCE_OPTIONS.map(s => (
+                            <button
+                                key={s.id}
+                                onClick={() => setSourceFilter(s.id)}
+                                className={cn(
+                                    'px-3 py-1.5 rounded-lg text-sm font-medium transition-all',
+                                    sourceFilter === s.id
+                                        ? 'bg-white shadow-sm text-slate-900'
+                                        : 'text-slate-500 hover:text-slate-700'
+                                )}
+                            >
+                                {s.label}
+                            </button>
+                        ))}
+                    </div>
+                    {/* Lead type filter */}
                     <div className="flex gap-1 bg-slate-100 p-1 rounded-xl">
                         {[
                             { id: 'all', label: 'Todos' },
@@ -242,7 +305,7 @@ export default function LeadKpiDashboard() {
                 </div>
             </div>
 
-            {/* ─── Metric Cards Row ─── */}
+            {/* ─── Main Metric Cards ─── */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <MetricCard
                     icon={Inbox} color="blue"
@@ -267,6 +330,27 @@ export default function LeadKpiDashboard() {
                     isText
                 />
             </div>
+
+            {/* ─── WhatsApp Metrics ─── */}
+            {(kpis.whatsappTotal > 0 || sourceFilter === 'whatsapp') && (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <MetricCard
+                        icon={Smartphone} color="teal"
+                        title="WhatsApp Total" value={kpis.whatsappTotal}
+                        subtitle="Leads desde WhatsApp Bot"
+                    />
+                    <MetricCard
+                        icon={Eye} color="orange"
+                        title="Ver Agente" value={kpis.whatsappVerAgente}
+                        subtitle="Consultas de propiedad"
+                    />
+                    <MetricCard
+                        icon={MessageCircle} color="green"
+                        title="Calificados" value={kpis.whatsappCalificado}
+                        subtitle="Leads completamente calificados"
+                    />
+                </div>
+            )}
 
             {/* ─── Charts Row ─── */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -297,89 +381,100 @@ export default function LeadKpiDashboard() {
                     )}
                 </div>
 
-                {/* Cumplimiento de Reportes */}
-                <div className="bg-white p-6 rounded-3xl shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-100">
-                    <div className="flex items-center gap-2 mb-6">
-                        <FileCheck className="w-5 h-5 text-emerald-600" />
-                        <h3 className="text-lg font-bold text-slate-900">Cumplimiento de Reportes</h3>
-                    </div>
-
-                    <div className="space-y-5">
-                        <ReportRow
-                            label="Reporte 48h"
-                            sent={kpis.rep2d}
-                            total={kpis.totalGL}
-                            pct={kpis.rep2dPct}
-                            color="amber"
-                        />
-                        <ReportRow
-                            label="Reporte 15 días"
-                            sent={kpis.rep15d}
-                            total={kpis.totalGL}
-                            pct={kpis.rep15dPct}
-                            color="blue"
-                        />
-                        <ReportRow
-                            label="Reporte 30 días"
-                            sent={kpis.rep30d}
-                            total={kpis.totalGL}
-                            pct={kpis.rep30dPct}
-                            color="emerald"
-                        />
-                    </div>
-
-                    {/* Agent breakdown table */}
-                    {kpis.leadsPerAgent.length > 0 && (
-                        <div className="mt-6 border-t border-slate-100 pt-4">
-                            <h4 className="text-sm font-semibold text-slate-600 mb-3">Detalle por Agente</h4>
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-sm">
-                                    <thead>
-                                        <tr className="text-xs text-slate-400 uppercase tracking-wider">
-                                            <th className="text-left pb-2 font-medium">Agente</th>
-                                            <th className="text-center pb-2 font-medium">Leads</th>
-                                            <th className="text-center pb-2 font-medium">48h</th>
-                                            <th className="text-center pb-2 font-medium">15d</th>
-                                            <th className="text-center pb-2 font-medium">30d</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {kpis.leadsPerAgent.map((ag, i) => {
-                                            // Get report compliance from shift_guard_leads for this agent
-                                            const myGuardLeads = filteredGuardLeads.filter(g =>
-                                                g.agent?.id === ag.id || g.agent_id === ag.id
-                                            )
-                                            const r2d = myGuardLeads.filter(g => g.report_2d_sent).length
-                                            const r15d = myGuardLeads.filter(g => g.report_15d_sent).length
-                                            const r30d = myGuardLeads.filter(g => g.report_30d_sent).length
-                                            const glTotal = myGuardLeads.length
-                                            return (
-                                                <tr key={i} className="border-t border-slate-50">
-                                                    <td className="py-2 font-medium text-slate-700">{ag.name}</td>
-                                                    <td className="py-2 text-center">
-                                                        <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full text-xs font-bold">
-                                                            {ag.count}
-                                                        </span>
-                                                    </td>
-                                                    <td className="py-2 text-center">
-                                                        <StatusDot done={r2d} total={glTotal} />
-                                                    </td>
-                                                    <td className="py-2 text-center">
-                                                        <StatusDot done={r15d} total={glTotal} />
-                                                    </td>
-                                                    <td className="py-2 text-center">
-                                                        <StatusDot done={r30d} total={glTotal} />
-                                                    </td>
-                                                </tr>
-                                            )
-                                        })}
-                                    </tbody>
-                                </table>
+                {/* Source Distribution Pie + Report Compliance */}
+                <div className="space-y-6">
+                    {/* Source Distribution */}
+                    {kpis.sourceDistribution.length > 0 && (
+                        <div className="bg-white p-6 rounded-3xl shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-100">
+                            <div className="flex items-center gap-2 mb-4">
+                                <Globe className="w-5 h-5 text-violet-600" />
+                                <h3 className="text-lg font-bold text-slate-900">Distribución por Fuente</h3>
+                            </div>
+                            <div className="h-[200px]">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart>
+                                        <Pie
+                                            data={kpis.sourceDistribution}
+                                            cx="50%" cy="50%"
+                                            innerRadius={50} outerRadius={80}
+                                            paddingAngle={4}
+                                            dataKey="value"
+                                        >
+                                            {kpis.sourceDistribution.map((_, i) => (
+                                                <Cell key={i} fill={SOURCE_COLORS[i % SOURCE_COLORS.length]} />
+                                            ))}
+                                        </Pie>
+                                        <Tooltip content={<PieTooltip />} />
+                                        <Legend
+                                            verticalAlign="bottom"
+                                            iconType="circle"
+                                            iconSize={8}
+                                            formatter={(value) => <span className="text-xs text-slate-600 font-medium">{value}</span>}
+                                        />
+                                    </PieChart>
+                                </ResponsiveContainer>
                             </div>
                         </div>
                     )}
+
+                    {/* Report Compliance */}
+                    <div className="bg-white p-6 rounded-3xl shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-100">
+                        <div className="flex items-center gap-2 mb-6">
+                            <FileCheck className="w-5 h-5 text-emerald-600" />
+                            <h3 className="text-lg font-bold text-slate-900">Cumplimiento de Reportes</h3>
+                        </div>
+                        <div className="space-y-5">
+                            <ReportRow label="Reporte 48h" sent={kpis.rep2d} total={kpis.totalGL} pct={kpis.rep2dPct} color="amber" />
+                            <ReportRow label="Reporte 15 días" sent={kpis.rep15d} total={kpis.totalGL} pct={kpis.rep15dPct} color="blue" />
+                            <ReportRow label="Reporte 30 días" sent={kpis.rep30d} total={kpis.totalGL} pct={kpis.rep30dPct} color="emerald" />
+                        </div>
+                    </div>
                 </div>
             </div>
+
+            {/* ─── Agent Detail Table ─── */}
+            {kpis.leadsPerAgent.length > 0 && (
+                <div className="bg-white p-6 rounded-3xl shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-100">
+                    <h4 className="text-sm font-semibold text-slate-600 mb-3">Detalle por Agente</h4>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                            <thead>
+                                <tr className="text-xs text-slate-400 uppercase tracking-wider">
+                                    <th className="text-left pb-2 font-medium">Agente</th>
+                                    <th className="text-center pb-2 font-medium">Leads</th>
+                                    <th className="text-center pb-2 font-medium">48h</th>
+                                    <th className="text-center pb-2 font-medium">15d</th>
+                                    <th className="text-center pb-2 font-medium">30d</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {kpis.leadsPerAgent.map((ag, i) => {
+                                    const myGuardLeads = filteredGuardLeads.filter(g =>
+                                        g.agent?.id === ag.id || g.agent_id === ag.id
+                                    )
+                                    const r2d = myGuardLeads.filter(g => g.report_2d_sent).length
+                                    const r15d = myGuardLeads.filter(g => g.report_15d_sent).length
+                                    const r30d = myGuardLeads.filter(g => g.report_30d_sent).length
+                                    const glTotal = myGuardLeads.length
+                                    return (
+                                        <tr key={i} className="border-t border-slate-50">
+                                            <td className="py-2 font-medium text-slate-700">{ag.name}</td>
+                                            <td className="py-2 text-center">
+                                                <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full text-xs font-bold">
+                                                    {ag.count}
+                                                </span>
+                                            </td>
+                                            <td className="py-2 text-center"><StatusDot done={r2d} total={glTotal} /></td>
+                                            <td className="py-2 text-center"><StatusDot done={r15d} total={glTotal} /></td>
+                                            <td className="py-2 text-center"><StatusDot done={r30d} total={glTotal} /></td>
+                                        </tr>
+                                    )
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }
@@ -393,6 +488,9 @@ function MetricCard({ icon: Icon, color, title, value, subtitle, alert = false, 
         amber: { bg: 'bg-amber-50', text: 'text-amber-600', ring: 'ring-amber-100' },
         emerald: { bg: 'bg-emerald-50', text: 'text-emerald-600', ring: 'ring-emerald-100' },
         violet: { bg: 'bg-violet-50', text: 'text-violet-600', ring: 'ring-violet-100' },
+        teal: { bg: 'bg-teal-50', text: 'text-teal-600', ring: 'ring-teal-100' },
+        orange: { bg: 'bg-orange-50', text: 'text-orange-600', ring: 'ring-orange-100' },
+        green: { bg: 'bg-green-50', text: 'text-green-600', ring: 'ring-green-100' },
     }
     const c = colorMap[color] || colorMap.blue
 
