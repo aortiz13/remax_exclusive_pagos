@@ -42,7 +42,7 @@ const SOURCE_OPTIONS = [
     { id: 'all', label: 'Todas' },
     { id: 'web', label: '🌐 Web' },
     { id: 'wa-calificado', label: '📱 WhatsApp' },
-    { id: 'wa-veragente', label: '👁️ Ver Agente' },
+    { id: 'wa-veragente', label: '🏠 TocToc' },
 ]
 
 export default function LeadKpiDashboard() {
@@ -184,7 +184,7 @@ export default function LeadKpiDashboard() {
         // Source distribution for pie chart
         const sourceDistribution = []
         if (webTotal > 0) sourceDistribution.push({ name: 'Web', value: webTotal })
-        if (whatsappVerAgente > 0) sourceDistribution.push({ name: 'WA Ver Agente', value: whatsappVerAgente })
+        if (whatsappVerAgente > 0) sourceDistribution.push({ name: 'TocToc', value: whatsappVerAgente })
         if (whatsappCalificado > 0) sourceDistribution.push({ name: 'WA Calificado', value: whatsappCalificado })
 
         return {
@@ -346,8 +346,8 @@ export default function LeadKpiDashboard() {
                     />
                     <MetricCard
                         icon={Eye} color="orange"
-                        title="Ver Agente" value={kpis.whatsappVerAgente}
-                        subtitle="Consultas de propiedad"
+                        title="TocToc" value={kpis.whatsappVerAgente}
+                        subtitle="Consultas de propiedad TocToc"
                     />
                     <MetricCard
                         icon={MessageCircle} color="green"
