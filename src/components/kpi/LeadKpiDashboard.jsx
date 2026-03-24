@@ -39,9 +39,10 @@ const PERIOD_OPTIONS = [
 ]
 
 const SOURCE_OPTIONS = [
-    { id: 'all', label: 'Todas las fuentes', icon: Filter },
-    { id: 'web', label: '🌐 Web', icon: Globe },
-    { id: 'whatsapp', label: '📱 WhatsApp', icon: Smartphone },
+    { id: 'all', label: 'Todas' },
+    { id: 'web', label: '🌐 Web' },
+    { id: 'wa-calificado', label: '📱 WhatsApp' },
+    { id: 'wa-veragente', label: '👁️ Ver Agente' },
 ]
 
 export default function LeadKpiDashboard() {
@@ -99,7 +100,8 @@ export default function LeadKpiDashboard() {
 
             // Source filter
             if (sourceFilter === 'web') return !l.source || l.source === 'Web'
-            if (sourceFilter === 'whatsapp') return l.source?.startsWith('WhatsApp')
+            if (sourceFilter === 'wa-calificado') return l.source === 'WhatsApp - Calificado'
+            if (sourceFilter === 'wa-veragente') return l.source === 'WhatsApp - Ver Agente'
             return true
         })
     }, [leads, activePeriod, sourceFilter])
@@ -121,8 +123,11 @@ export default function LeadKpiDashboard() {
                 const src = g.external_lead?.source
                 return !src || src === 'Web'
             }
-            if (sourceFilter === 'whatsapp') {
-                return g.external_lead?.source?.startsWith('WhatsApp')
+            if (sourceFilter === 'wa-calificado') {
+                return g.external_lead?.source === 'WhatsApp - Calificado'
+            }
+            if (sourceFilter === 'wa-veragente') {
+                return g.external_lead?.source === 'WhatsApp - Ver Agente'
             }
             return true
         })
