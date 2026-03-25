@@ -161,8 +161,8 @@ export default function AdminCommissionPayment() {
     }
 
     // Valid states helper (mirrors service)
-    const isValid = (e) => ['LIQUIDADO', 'LIQUIDADO MANUAL', 'LIQUIDACION MANUAL', 'LIQUIDACIÓN MANUAL'].includes(e)
-    const isProcessable = (row) => isValid(row.estado) && row.monto_admin > 0
+    const isValid = (e) => ['LIQUIDADO', 'LIQUIDADO MANUAL'].includes(e)
+    const isProcessable = (row) => isValid(row.estado) && row.comision_admin > 0
     const liquidadoCount = rows.filter(r => isProcessable(r)).length
 
     return (
@@ -265,7 +265,7 @@ export default function AdminCommissionPayment() {
                                             <tr>
                                                 <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Fila</th>
                                                 <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Dirección</th>
-                                                <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Monto Admin</th>
+                                                <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Comisión Admin</th>
                                                 <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Estado</th>
                                                 <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Agente</th>
                                                 <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase">%</th>
@@ -277,11 +277,10 @@ export default function AdminCommissionPayment() {
                                                 <tr key={i} className={`hover:bg-gray-50 ${!isProcessable(row) ? 'opacity-40' : ''}`}>
                                                     <td className="px-3 py-2 text-gray-400">{row._row}</td>
                                                     <td className="px-3 py-2 text-gray-800 font-medium max-w-xs truncate">{row.direccion}</td>
-                                                    <td className={`px-3 py-2 ${row.monto_admin < 0 ? 'text-red-500 font-semibold' : 'text-gray-700'}`}>{formatCLP(row.monto_admin)}</td>
+                                                    <td className={`px-3 py-2 ${row.comision_admin < 0 ? 'text-red-500 font-semibold' : 'text-gray-700'}`}>{formatCLP(row.comision_admin)}</td>
                                                     <td className="px-3 py-2">
                                                         <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${
                                                             isValid(row.estado) ? 'bg-green-100 text-green-700' :
-                                                            row.estado === 'EXPIRADO' ? 'bg-red-100 text-red-700' :
                                                             'bg-gray-100 text-gray-600'
                                                         }`}>
                                                             {row.estado || '—'}
@@ -366,21 +365,18 @@ export default function AdminCommissionPayment() {
                     </div>
 
                     {/* Skipped rows info */}
-                    {(skipped.expired?.length > 0 || skipped.noAgent?.length > 0) && (
+                    {(skipped.noAgent?.length > 0 || skipped.otherStatus?.length > 0) && (
                         <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
                             <div className="flex items-center gap-2 text-amber-700 font-medium text-sm mb-2">
                                 <AlertTriangle className="w-4 h-4" />
                                 Filas no procesadas
                             </div>
                             <div className="flex flex-wrap gap-4 text-sm text-amber-600">
-                                {skipped.expired?.length > 0 && (
-                                    <span>{skipped.expired.length} EXPIRADO (ignoradas)</span>
-                                )}
                                 {skipped.noAgent?.length > 0 && (
                                     <span>{skipped.noAgent.length} sin agente/porcentaje</span>
                                 )}
                                 {skipped.otherStatus?.length > 0 && (
-                                    <span>{skipped.otherStatus.length} otros estados</span>
+                                    <span>{skipped.otherStatus.length} otros estados (no liquidados)</span>
                                 )}
                             </div>
                         </div>
@@ -451,9 +447,10 @@ export default function AdminCommissionPayment() {
                                                     <tr>
                                                         <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase">Propiedad</th>
                                                         <th className="px-4 py-2 text-center text-xs font-semibold text-gray-500 uppercase">Match CRM</th>
-                                                        <th className="px-4 py-2 text-right text-xs font-semibold text-gray-500 uppercase">Monto Admin</th>
-                                                        <th className="px-4 py-2 text-right text-xs font-semibold text-gray-500 uppercase">IVA (19%)</th>
-                                                        <th className="px-4 py-2 text-right text-xs font-semibold text-gray-500 uppercase">Neto</th>
+                                                        <th className="px-4 py-2 text-right text-xs font-semibold text-gray-500 uppercase">Monto Arriendo</th>
+                                                        <th className="px-4 py-2 text-right text-xs font-semibold text-gray-500 uppercase">Comisión Admin</th>
+                                                        <th className="px-4 py-2 text-right text-xs font-semibold text-gray-500 uppercase">Suscripción Leasity</th>
+                                                        <th className="px-4 py-2 text-right text-xs font-semibold text-gray-500 uppercase">Base</th>
                                                         <th className="px-4 py-2 text-right text-xs font-semibold text-gray-500 uppercase">% Agente</th>
                                                         <th className="px-4 py-2 text-right text-xs font-semibold text-gray-500 uppercase">Comisión</th>
                                                     </tr>
@@ -487,9 +484,10 @@ export default function AdminCommissionPayment() {
                                                                     </span>
                                                                 )}
                                                             </td>
-                                                            <td className="px-4 py-2.5 text-right text-gray-600">{formatCLP(prop.monto_admin)}</td>
-                                                            <td className="px-4 py-2.5 text-right text-red-500">{formatCLP(prop.iva)}</td>
-                                                            <td className="px-4 py-2.5 text-right text-gray-600">{formatCLP(prop.neto)}</td>
+                                                            <td className="px-4 py-2.5 text-right text-gray-600">{formatCLP(prop.monto_arriendo)}</td>
+                                                            <td className="px-4 py-2.5 text-right text-gray-600">{formatCLP(prop.comision_admin)}</td>
+                                                            <td className="px-4 py-2.5 text-right text-orange-500">{formatCLP(prop.suscripcion_leasity)}</td>
+                                                            <td className="px-4 py-2.5 text-right text-gray-700 font-medium">{formatCLP(prop.base)}</td>
                                                             <td className="px-4 py-2.5 text-right text-blue-600 font-medium">{prop.porcentaje}%</td>
                                                             <td className="px-4 py-2.5 text-right text-green-600 font-bold">{formatCLP(prop.comision)}</td>
                                                         </tr>
@@ -497,7 +495,7 @@ export default function AdminCommissionPayment() {
                                                 </tbody>
                                                 <tfoot className="bg-gray-100">
                                                     <tr>
-                                                        <td className="px-4 py-3 text-sm font-bold text-gray-700" colSpan={6}>
+                                                        <td className="px-4 py-3 text-sm font-bold text-gray-700" colSpan={7}>
                                                             Total a pagar
                                                         </td>
                                                         <td className="px-4 py-3 text-right text-lg font-bold text-green-600">

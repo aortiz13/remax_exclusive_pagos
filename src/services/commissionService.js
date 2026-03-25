@@ -89,7 +89,9 @@ export function parseCommissionExcel(file) {
                         return ''
                     }
 
-                    const montoRaw = pick(['monto administracion', 'monto admin', 'monto de administracion'])
+                    const montoArriendoRaw = pick(['monto arriendo', 'monto de arriendo'])
+                    const comisionAdminRaw = pick(['comision administracion', 'comisión administración', 'comision admin'])
+                    const suscripcionLeasityRaw = pick(['suscripcion leasity', 'suscripción leasity'])
                     const estado = String(pick(['estado']) || '').trim().toUpperCase()
                     const etiquetas = String(pick(['etiquetas', 'etiqueta']) || '').trim()
                     const correoAgente = String(pick(['correo agente', 'correo', 'email agente', 'email']) || '').trim()
@@ -101,8 +103,9 @@ export function parseCommissionExcel(file) {
                         mes: String(pick(['mes']) || '').trim(),
                         codigo: String(pick(['codigo', 'código']) || '').trim(),
                         direccion: String(pick(['direccion', 'dirección']) || '').trim(),
-                        monto_admin: parseMoney(montoRaw),
-                        monto_admin_display: String(montoRaw).trim(),
+                        monto_arriendo: parseMoney(montoArriendoRaw),
+                        comision_admin: parseMoney(comisionAdminRaw),
+                        suscripcion_leasity: parseMoney(suscripcionLeasityRaw),
                         estado,
                         etiquetas,
                         correo_agente: correoAgente,
@@ -232,10 +235,9 @@ export async function matchCommissionProperties(rows) {
 }
 
 // ─── Commission Calculation ────────────────────────────────────
-const IVA_RATE = 0.19
 
-// Valid states for processing
-const VALID_STATES = ['LIQUIDADO', 'LIQUIDADO MANUAL', 'LIQUIDACION MANUAL', 'LIQUIDACIÓN MANUAL']
+// Valid states for processing (only liquidado variants)
+const VALID_STATES = ['LIQUIDADO', 'LIQUIDADO MANUAL']
 function isValidState(estado) {
     return VALID_STATES.includes(estado)
 }
@@ -252,12 +254,11 @@ export function processCommissions(rows, propertyMatches = {}) {
         // Only process valid states
         if (!isValidState(row.estado)) continue
         if (!row.agent_name || row.percentage <= 0) continue
-        // Skip negative amounts
-        if (row.monto_admin <= 0) continue
+        // Skip rows where comision_admin is 0 or negative
+        if (row.comision_admin <= 0) continue
 
-        const iva = Math.round(row.monto_admin * IVA_RATE)
-        const neto = row.monto_admin - iva
-        const comision = Math.round(neto * (row.percentage / 100))
+        const base = row.comision_admin - row.suscripcion_leasity
+        const comision = Math.round(base * (row.percentage / 100))
 
         const key = normalize(row.correo_agente || row.agent_name)
         if (!agentMap[key]) {
@@ -275,9 +276,10 @@ export function processCommissions(rows, propertyMatches = {}) {
             id: row.id,
             codigo: row.codigo,
             direccion: row.direccion,
-            monto_admin: row.monto_admin,
-            iva,
-            neto,
+            monto_arriendo: row.monto_arriendo,
+            comision_admin: row.comision_admin,
+            suscripcion_leasity: row.suscripcion_leasity,
+            base,
             porcentaje: row.percentage,
             comision,
             // Property match info
@@ -299,23 +301,104 @@ export function processCommissions(rows, propertyMatches = {}) {
  * Get summary of rows that won't be processed
  */
 export function getSkippedSummary(rows) {
-    const expired = rows.filter(r => r.estado === 'EXPIRADO')
     const noAgent = rows.filter(r => isValidState(r.estado) && (!r.agent_name || r.percentage <= 0))
-    const negative = rows.filter(r => isValidState(r.estado) && r.monto_admin < 0)
-    const otherStatus = rows.filter(r => !isValidState(r.estado) && r.estado !== 'EXPIRADO' && r.estado)
+    const negative = rows.filter(r => isValidState(r.estado) && r.comision_admin < 0)
+    const otherStatus = rows.filter(r => !isValidState(r.estado) && r.estado)
 
-    return { expired, noAgent, negative, otherStatus }
+    return { noAgent, negative, otherStatus }
+}
+
+// ─── Email HTML Builder ───────────────────────────────────────
+/**
+ * Build a professional HTML email for one agent's commission breakdown
+ */
+function buildCommissionEmailHTML(agent, month) {
+    const fmt = (n) => new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(n)
+
+    const propertyRows = agent.properties.map(p => `
+        <tr>
+            <td style="padding:10px 12px;border-bottom:1px solid #eee;color:#333;font-size:13px;">${p.direccion}</td>
+            <td style="padding:10px 12px;border-bottom:1px solid #eee;text-align:right;color:#555;font-size:13px;">${fmt(p.monto_arriendo)}</td>
+            <td style="padding:10px 12px;border-bottom:1px solid #eee;text-align:right;color:#555;font-size:13px;">${fmt(p.comision_admin)}</td>
+            <td style="padding:10px 12px;border-bottom:1px solid #eee;text-align:right;color:#e67e22;font-size:13px;">${fmt(p.suscripcion_leasity)}</td>
+            <td style="padding:10px 12px;border-bottom:1px solid #eee;text-align:right;color:#2980b9;font-size:13px;font-weight:600;">${p.porcentaje}%</td>
+            <td style="padding:10px 12px;border-bottom:1px solid #eee;text-align:right;color:#27ae60;font-weight:bold;font-size:13px;">${fmt(p.comision)}</td>
+        </tr>
+    `).join('')
+
+    return `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:#f4f6f9;font-family:'Segoe UI',Roboto,Arial,sans-serif;">
+<div style="max-width:680px;margin:20px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08);">
+    <!-- Header -->
+    <div style="background:linear-gradient(135deg,#003DA5,#0056D6);padding:32px 30px;text-align:center;">
+        <h1 style="margin:0;color:#fff;font-size:22px;font-weight:700;">Liquidación de Comisiones</h1>
+        <p style="margin:8px 0 0;color:rgba(255,255,255,0.85);font-size:14px;">${month}</p>
+    </div>
+
+    <!-- Greeting -->
+    <div style="padding:28px 30px 10px;">
+        <p style="margin:0;color:#333;font-size:15px;">Estimado/a <strong>${agent.agentName}</strong>,</p>
+        <p style="margin:10px 0 0;color:#555;font-size:14px;line-height:1.6;">
+            A continuación encontrará el detalle de su liquidación de comisiones correspondiente al periodo <strong>${month}</strong>.
+        </p>
+    </div>
+
+    <!-- Table -->
+    <div style="padding:10px 30px 20px;overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
+            <thead>
+                <tr style="background:#f0f4ff;">
+                    <th style="padding:10px 12px;text-align:left;font-size:11px;text-transform:uppercase;color:#666;font-weight:700;border-bottom:2px solid #d1d5db;">Propiedad</th>
+                    <th style="padding:10px 12px;text-align:right;font-size:11px;text-transform:uppercase;color:#666;font-weight:700;border-bottom:2px solid #d1d5db;">Monto Arriendo</th>
+                    <th style="padding:10px 12px;text-align:right;font-size:11px;text-transform:uppercase;color:#666;font-weight:700;border-bottom:2px solid #d1d5db;">Comisión Admin</th>
+                    <th style="padding:10px 12px;text-align:right;font-size:11px;text-transform:uppercase;color:#666;font-weight:700;border-bottom:2px solid #d1d5db;">Cargo Leasity</th>
+                    <th style="padding:10px 12px;text-align:right;font-size:11px;text-transform:uppercase;color:#666;font-weight:700;border-bottom:2px solid #d1d5db;">% Agente</th>
+                    <th style="padding:10px 12px;text-align:right;font-size:11px;text-transform:uppercase;color:#666;font-weight:700;border-bottom:2px solid #d1d5db;">Comisión</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${propertyRows}
+            </tbody>
+            <tfoot>
+                <tr style="background:#f8fafc;">
+                    <td colspan="5" style="padding:14px 12px;font-weight:bold;color:#333;font-size:14px;border-top:2px solid #d1d5db;">Total a Pagar</td>
+                    <td style="padding:14px 12px;text-align:right;font-weight:bold;color:#27ae60;font-size:16px;border-top:2px solid #d1d5db;">${fmt(agent.total)}</td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+
+    <!-- Footer -->
+    <div style="padding:20px 30px;background:#f8fafc;border-top:1px solid #e5e7eb;text-align:center;">
+        <p style="margin:0;color:#999;font-size:12px;">
+            Este correo fue generado automáticamente. Si tiene alguna consulta, comuníquese con administración.
+        </p>
+        <p style="margin:8px 0 0;color:#bbb;font-size:11px;">RE/MAX Exclusive — Administración de Propiedades</p>
+    </div>
+</div>
+</body>
+</html>`
 }
 
 // ─── Send to n8n ──────────────────────────────────────────────
 /**
  * Send commission data to n8n webhook for email dispatch
+ * Sends pre-built HTML emails so n8n just forwards them
  */
 export async function sendCommissionEmails(agents, month) {
+    // Build payload with pre-rendered HTML per agent
+    const agentsWithHtml = agents.map(agent => ({
+        ...agent,
+        html: buildCommissionEmailHTML(agent, month),
+    }))
+
     const response = await fetch(N8N_WEBHOOK_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ month, agents }),
+        body: JSON.stringify({ month, agents: agentsWithHtml }),
     })
 
     if (!response.ok) {
