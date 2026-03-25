@@ -351,7 +351,7 @@ function buildCommissionEmailHTML(agent, month) {
         <table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
             <thead>
                 <tr style="background:#f0f4ff;">
-                    <th style="padding:10px 12px;text-align:left;font-size:11px;text-transform:uppercase;color:#666;font-weight:700;border-bottom:2px solid #d1d5db;">Dirección</th>
+                    <th style="padding:10px 12px;text-align:left;font-size:11px;text-transform:uppercase;color:#666;font-weight:700;border-bottom:2px solid #d1d5db;">Propiedad</th>
                     <th style="padding:10px 12px;text-align:right;font-size:11px;text-transform:uppercase;color:#666;font-weight:700;border-bottom:2px solid #d1d5db;">Monto Arriendo</th>
                     <th style="padding:10px 12px;text-align:right;font-size:11px;text-transform:uppercase;color:#666;font-weight:700;border-bottom:2px solid #d1d5db;">Comisión Admin</th>
                     <th style="padding:10px 12px;text-align:right;font-size:11px;text-transform:uppercase;color:#666;font-weight:700;border-bottom:2px solid #d1d5db;">Cargo Leasity</th>
