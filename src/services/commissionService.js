@@ -77,6 +77,11 @@ export function parseCommissionExcel(file) {
                 const sheet = wb.Sheets[wb.SheetNames[0]]
                 const raw = XLSX.utils.sheet_to_json(sheet, { defval: '' })
 
+                // Log column headers for debugging
+                if (raw.length > 0) {
+                    console.log('[CommissionParser] Excel columns:', Object.keys(raw[0]))
+                }
+
                 const rows = raw.map((r, idx) => {
                     // Flexible column matching
                     const pick = (keys) => {
@@ -97,12 +102,15 @@ export function parseCommissionExcel(file) {
                     const correoAgente = String(pick(['correo agente', 'correo', 'email agente', 'email']) || '').trim()
                     const { agentName, percentage } = parseEtiquetas(etiquetas)
 
+                    // Address: try multiple column name variations
+                    let direccion = String(pick(['direccion', 'dirección', 'propiedad', 'direccion propiedad', 'dirección propiedad', 'direccion de la propiedad', 'inmueble', 'domicilio']) || '').trim()
+
                     return {
                         _row: idx + 2,
                         id: String(pick(['id']) || '').trim(),
                         mes: String(pick(['mes']) || '').trim(),
                         codigo: String(pick(['codigo', 'código']) || '').trim(),
-                        direccion: String(pick(['direccion', 'dirección']) || '').trim(),
+                        direccion,
                         monto_arriendo: parseMoney(montoArriendoRaw),
                         comision_admin: parseMoney(comisionAdminRaw),
                         suscripcion_leasity: parseMoney(suscripcionLeasityRaw),
@@ -112,7 +120,7 @@ export function parseCommissionExcel(file) {
                         agent_name: agentName,
                         percentage,
                     }
-                }).filter(r => r.direccion)
+                }).filter(r => r.direccion || r.comision_admin > 0)
 
                 resolve(rows)
             } catch (err) {
