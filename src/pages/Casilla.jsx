@@ -3,7 +3,7 @@ import { supabase } from '../services/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useLocation } from 'react-router-dom';
 import Split from 'react-split';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import EmailSidebar from '../components/Casilla/EmailSidebar';
 import EmailList from '../components/Casilla/EmailList';
 import EmailDetail from '../components/Casilla/EmailDetail';
@@ -72,6 +72,23 @@ const Casilla = () => {
   // Draft state — null means new email, object means editing saved draft
   const [activeDraftId, setActiveDraftId] = useState(null);
   const [drafts, setDrafts] = useState(getDrafts);
+  const [emailSyncing, setEmailSyncing] = useState(false);
+  const queryClient = useQueryClient();
+
+  const handleEmailSync = async () => {
+    setEmailSyncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('gmail-sync');
+      if (error) throw new Error(error.message);
+      toast.success(`Correos sincronizados (${data?.messagesQueued || 0} mensajes)`);
+      queryClient.invalidateQueries({ queryKey: ['emailThreads'] });
+    } catch (err) {
+      console.error('Email sync error:', err);
+      toast.error(`Error al sincronizar: ${err.message}`);
+    } finally {
+      setEmailSyncing(false);
+    }
+  };
 
   // Auto-open thread when navigated from TaskModal / ActionModal
   useEffect(() => {
@@ -258,6 +275,8 @@ const Casilla = () => {
               setIsComposerOpen(true);
             }}
             onReconnect={handleLoginGoogle}
+            onSync={handleEmailSync}
+            syncing={emailSyncing}
           />
         </div>
 

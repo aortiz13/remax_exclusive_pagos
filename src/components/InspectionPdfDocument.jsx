@@ -173,30 +173,21 @@ const InspectionPdfDocument = ({ formData, observations, recommendations, photos
                                 <Text style={s.fieldValue}>{formData?.arrendatario || ''}</Text>
                             </View>
                         </View>
-                        <View style={s.fieldRow}>
-                            <View style={s.fieldCol}>
-                                <Text style={s.fieldLabel}>Metraje Informado</Text>
-                                <Text style={s.fieldValue}>{formData?.metraje_informado || '—'} m²</Text>
-                            </View>
-                            <View style={s.fieldCol}>
-                                <Text style={s.fieldLabel}>Metraje Terrazas</Text>
-                                <Text style={s.fieldValue}>{formData?.metraje_terrazas || '—'} m²</Text>
-                            </View>
-                            <View style={s.fieldCol}>
-                                <Text style={s.fieldLabel}>Metraje Total</Text>
-                                <Text style={s.fieldValue}>{formData?.metraje_total || '—'} m²</Text>
-                            </View>
-                        </View>
+
                     </View>
 
-                    {/* Dynamic sections (new format) */}
+                    {/* Dynamic sections (new format) — skip empty items & sections */}
                     {Array.isArray(formData?.sections) ? (
-                        formData.sections.map((section, i) => (
-                            <View key={section.key || i}>
-                                <Section title={section.title} />
-                                <Table items={section.items} />
-                            </View>
-                        ))
+                        formData.sections.map((section, i) => {
+                            const filledItems = (section.items || []).filter(it => it.estado || it.observacion)
+                            if (filledItems.length === 0) return null
+                            return (
+                                <View key={section.key || i}>
+                                    <Section title={section.title} />
+                                    <Table items={filledItems} />
+                                </View>
+                            )
+                        })
                     ) : (
                         <>
                             {/* Legacy format fallback */}

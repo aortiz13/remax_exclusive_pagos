@@ -2,7 +2,7 @@ import React from 'react';
 import { Button } from '@/components/ui';
 import { Inbox, Send, File, Star, Trash2, PenBox, Archive, RefreshCw } from 'lucide-react';
 
-const EmailSidebar = ({ onCompose, currentFolder, onFolderChange, onReconnect }) => {
+const EmailSidebar = ({ onCompose, currentFolder, onFolderChange, onReconnect, onSync, syncing }) => {
     const folders = [
         { id: 'inbox', label: 'Recibidos', icon: Inbox },
         { id: 'starred', label: 'Destacados', icon: Star },
@@ -46,7 +46,18 @@ const EmailSidebar = ({ onCompose, currentFolder, onFolderChange, onReconnect })
                 </div>
             </div>
 
-            <div className="mt-8 border-t border-gray-200 pt-4">
+            <div className="mt-8 border-t border-gray-200 pt-4 space-y-2">
+                {onSync && (
+                    <Button
+                        variant="outline"
+                        className="w-full justify-start gap-2 text-gray-600 hover:text-emerald-600 border-gray-300 hover:border-emerald-300 transition-all h-auto whitespace-normal py-2"
+                        onClick={onSync}
+                        disabled={syncing}
+                    >
+                        <RefreshCw className={`w-4 h-4 shrink-0 ${syncing ? 'animate-spin' : ''}`} />
+                        <span className="text-left">{syncing ? 'Sincronizando...' : 'Sincronizar Correos'}</span>
+                    </Button>
+                )}
                 <Button
                     variant="outline"
                     className="w-full justify-start gap-2 text-gray-600 hover:text-blue-600 border-gray-300 hover:border-blue-300 transition-all h-auto whitespace-normal py-2"

@@ -207,8 +207,6 @@ export default function InspectionDashboard() {
     const fiveDaysAgoStr = fiveDaysAgo.toISOString().split('T')[0]
 
     const filteredInspections = inspections.filter(i => {
-        // Date filter: only show if inspection_date is within last 5 days or future, or if no date (draft)
-        if (i.inspection_date && i.inspection_date < fiveDaysAgoStr) return false
         if (statusFilter && i.status !== statusFilter) return false
         if (searchQuery) {
             const q = searchQuery.toLowerCase()
@@ -273,7 +271,7 @@ export default function InspectionDashboard() {
                     <div>
                         <h1 className="text-2xl font-bold text-slate-900">Inspecciones de Propiedades</h1>
                         <p className="text-sm text-slate-500">
-                            {inspections.length} inspección{inspections.length !== 1 ? 'es' : ''} registrada{inspections.length !== 1 ? 's' : ''}
+                            {filteredInspections.length} inspección{filteredInspections.length !== 1 ? 'es' : ''} registrada{filteredInspections.length !== 1 ? 's' : ''}
                         </p>
                     </div>
                 </div>
@@ -328,7 +326,7 @@ export default function InspectionDashboard() {
                         : 'text-gray-600 hover:bg-gray-50'
                         }`}
                 >
-                    <ClipboardCheck className="w-4 h-4 inline mr-1.5" /> Inspecciones ({inspections.length})
+                    <ClipboardCheck className="w-4 h-4 inline mr-1.5" /> Inspecciones ({filteredInspections.length})
                 </button>
                 <button
                     onClick={() => { setActiveTab('schedule'); setStatusFilter('') }}

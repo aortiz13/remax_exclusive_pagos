@@ -23,7 +23,7 @@ import {
     Bath, FileText, PenTool, Mail, X, Eye, Paperclip, File as FileIcon,
     ChevronDown, Trees, Sun, Waves, Shirt, Warehouse, Car, DoorOpen,
     Monitor, Coffee, Users, Briefcase, Truck, Factory, ClipboardList,
-    Fence
+    Fence, Pencil
 } from 'lucide-react'
 
 const LOGO_SRC = LOGO_BASE64 ? `data:image/png;base64,${LOGO_BASE64}` : '/primerolog.png'
@@ -353,14 +353,6 @@ export default function InspectionFormPage() {
             const bodyHtml = `
                 <div style="font-family: 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #1a1a1a;">
                     ${bodyLines.map(line => `<p style="font-size: 15px; line-height: 1.7; color: #4a4a4a; margin: 0 0 16px 0;">${line}</p>`).join('\n')}
-                    <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #e5e7eb;">
-                        <div style="color: #1a1a1a; font-weight: 700; font-size: 15px;">${agentName}</div>
-                        <div style="color: #003DA5; font-size: 13px; font-weight: 600; margin-top: 2px;">Agente RE/MAX Exclusive</div>
-                        ${agentEmail ? `<div style="color: #6b7280; font-size: 13px; margin-top: 4px;">${agentEmail}</div>` : ''}
-                    </div>
-                    <div style="margin-top: 32px; padding: 16px 0; border-top: 1px solid #e5e7eb; text-align: center;">
-                        <span style="color: #9ca3af; font-size: 11px;">© ${new Date().getFullYear()} RE/MAX Exclusive · Santiago, Chile</span>
-                    </div>
                 </div>
             `
 
@@ -546,6 +538,34 @@ export default function InspectionFormPage() {
         </select>
     )
 
+    const removeItem = (sectionIdx, itemIdx) => {
+        setFormData(prev => {
+            const updated = { ...prev }
+            const sections = [...(updated.sections || [])]
+            const section = { ...sections[sectionIdx] }
+            const items = [...section.items]
+            items.splice(itemIdx, 1)
+            section.items = items
+            sections[sectionIdx] = section
+            updated.sections = sections
+            return updated
+        })
+    }
+
+    const updateItemLabel = (sectionIdx, itemIdx, newLabel) => {
+        setFormData(prev => {
+            const updated = { ...prev }
+            const sections = [...(updated.sections || [])]
+            const sec = { ...sections[sectionIdx] }
+            const items = [...sec.items]
+            items[itemIdx] = { ...items[itemIdx], label: newLabel }
+            sec.items = items
+            sections[sectionIdx] = sec
+            updated.sections = sections
+            return updated
+        })
+    }
+
     const addOtroItem = (sectionIdx) => {
         setFormData(prev => {
             const updated = { ...prev }
@@ -562,25 +582,7 @@ export default function InspectionFormPage() {
     }
 
     const removeOtroItem = (sectionIdx, itemIdx) => {
-        setFormData(prev => {
-            const updated = { ...prev }
-            const sections = [...(updated.sections || [])]
-            const section = { ...sections[sectionIdx] }
-            const items = [...section.items]
-            items.splice(itemIdx, 1)
-            let otroNum = 0
-            items.forEach(item => {
-                if (item.isCustom || item.label.startsWith('Otro')) {
-                    otroNum++
-                    item.label = `Otro ${otroNum}`
-                    item.isCustom = true
-                }
-            })
-            section.items = items
-            sections[sectionIdx] = section
-            updated.sections = sections
-            return updated
-        })
+        removeItem(sectionIdx, itemIdx)
     }
 
     // ─── Icon mapping for section icons ────────────────────
@@ -590,7 +592,7 @@ export default function InspectionFormPage() {
         'warehouse': Warehouse, 'car': Car, 'door-open': DoorOpen, 'monitor': Monitor,
         'coffee': Coffee, 'users': Users, 'briefcase': Briefcase, 'truck': Truck,
         'factory': Factory, 'clipboard-list': ClipboardList, 'fence': Fence,
-        'utensils': UtensilsCrossed, 'home': Home,
+        'utensils': UtensilsCrossed, 'home': Home, 'plus': Plus,
     }
     const getSectionIcon = (iconKey) => {
         const Icon = ICON_MAP[iconKey]
@@ -629,35 +631,48 @@ export default function InspectionFormPage() {
                             <tr key={idx} className={`border-b border-gray-100 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}>
                                 <td className="py-3 px-4 text-sm text-gray-700 font-medium">
                                     <div className="flex items-center gap-2">
-                                        {item.isCustom ? (
+                                        {item.isCustom || item._editing ? (
                                             <input
                                                 type="text"
                                                 value={item.label}
-                                                onChange={e => {
-                                                    const newLabel = e.target.value
+                                                onChange={e => updateItemLabel(sectionIdx, idx, e.target.value)}
+                                                disabled={isReadOnly}
+                                                placeholder="Nombre del ítem..."
+                                                className="flex-1 px-2 py-1 border border-gray-200 rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none disabled:bg-gray-50"
+                                            />
+                                        ) : (
+                                            <span className="flex-1">{item.label}</span>
+                                        )}
+                                        {!isReadOnly && !item.isCustom && !item._editing && (
+                                            <button
+                                                data-hide-pdf
+                                                type="button"
+                                                onClick={() => {
                                                     setFormData(prev => {
                                                         const updated = { ...prev }
                                                         const sections = [...(updated.sections || [])]
                                                         const sec = { ...sections[sectionIdx] }
                                                         const items = [...sec.items]
-                                                        items[idx] = { ...items[idx], label: newLabel }
+                                                        items[idx] = { ...items[idx], _editing: true }
                                                         sec.items = items
                                                         sections[sectionIdx] = sec
                                                         updated.sections = sections
                                                         return updated
                                                     })
                                                 }}
-                                                disabled={isReadOnly}
-                                                placeholder="Nombre del ítem..."
-                                                className="flex-1 px-2 py-1 border border-gray-200 rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none disabled:bg-gray-50"
-                                            />
-                                        ) : item.label}
-                                        {item.isCustom && !isReadOnly && (
+                                                className="text-gray-400 hover:text-blue-600 flex-shrink-0"
+                                                title="Editar nombre"
+                                            >
+                                                <Pencil className="w-3.5 h-3.5" />
+                                            </button>
+                                        )}
+                                        {!isReadOnly && (
                                             <button
                                                 data-hide-pdf
                                                 type="button"
-                                                onClick={() => removeOtroItem(sectionIdx, idx)}
+                                                onClick={() => removeItem(sectionIdx, idx)}
                                                 className="text-red-400 hover:text-red-600 flex-shrink-0"
+                                                title="Eliminar ítem"
                                             >
                                                 <Trash2 className="w-3.5 h-3.5" />
                                             </button>
@@ -908,36 +923,6 @@ export default function InspectionFormPage() {
                                         className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none disabled:bg-gray-50"
                                     />
                                 </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Metraje Informado</label>
-                                    <input
-                                        type="text" value={formData.metraje_informado}
-                                        onChange={e => setFormData(p => ({ ...p, metraje_informado: e.target.value }))}
-                                        disabled={isReadOnly}
-                                        placeholder="m²"
-                                        className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none disabled:bg-gray-50"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Metraje Terrazas</label>
-                                    <input
-                                        type="text" value={formData.metraje_terrazas}
-                                        onChange={e => setFormData(p => ({ ...p, metraje_terrazas: e.target.value }))}
-                                        disabled={isReadOnly}
-                                        placeholder="m²"
-                                        className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none disabled:bg-gray-50"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Metraje Total</label>
-                                    <input
-                                        type="text" value={formData.metraje_total}
-                                        onChange={e => setFormData(p => ({ ...p, metraje_total: e.target.value }))}
-                                        disabled={isReadOnly}
-                                        placeholder="m²"
-                                        className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none disabled:bg-gray-50"
-                                    />
-                                </div>
                             </div>
                         </section>
 
@@ -946,7 +931,26 @@ export default function InspectionFormPage() {
                             <section key={section.key || sectionIdx}>
                                 <div className="flex items-center gap-3 mb-6">
                                     <div className="w-8 h-8 bg-[#003DA5] text-white rounded-lg flex items-center justify-center text-sm font-bold">{sectionIdx + 3}</div>
-                                    <span className="text-lg font-bold text-[#003DA5]">{section.title}</span>
+                                    {section.baseKey === 'otro' && !isReadOnly ? (
+                                        <input
+                                            type="text"
+                                            value={section.title}
+                                            onChange={e => {
+                                                const newTitle = e.target.value
+                                                setFormData(prev => {
+                                                    const updated = { ...prev }
+                                                    const sections = [...(updated.sections || [])]
+                                                    sections[sectionIdx] = { ...sections[sectionIdx], title: newTitle }
+                                                    updated.sections = sections
+                                                    return updated
+                                                })
+                                            }}
+                                            placeholder="Nombre del área..."
+                                            className="text-lg font-bold text-[#003DA5] border-b-2 border-[#003DA5]/30 focus:border-[#003DA5] outline-none bg-transparent px-1 py-0.5 flex-1"
+                                        />
+                                    ) : (
+                                        <span className="text-lg font-bold text-[#003DA5]">{section.title}</span>
+                                    )}
                                 </div>
                                 {renderSectionTable(section, sectionIdx)}
                             </section>

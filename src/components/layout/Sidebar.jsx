@@ -35,7 +35,8 @@ import {
     ScrollText,
     FileSpreadsheet,
     UserPlus,
-    ArrowLeftRight
+    ArrowLeftRight,
+    Receipt
 } from 'lucide-react'
 import { useState, useEffect, useCallback } from 'react'
 import { cn } from '@/lib/utils'
@@ -171,6 +172,7 @@ export default function Sidebar() {
                         { title: 'Importar Propiedades', icon: Download, path: '/admin/import' },
                         { title: 'Importar Administradas', icon: FileSpreadsheet, path: '/admin/import-administradas' },
                         { title: 'Liquidación Comisiones', icon: CreditCard, path: '/admin/comisiones' },
+                        { title: 'Cobranza Cuotas', icon: Receipt, path: '/admin/cuotas-pendientes' },
                     ]
                 },
                 {
@@ -207,6 +209,7 @@ export default function Sidebar() {
                         { title: 'Importar Propiedades', icon: Download, path: '/admin/import' },
                         { title: 'Importar Administradas', icon: FileSpreadsheet, path: '/admin/import-administradas' },
                         { title: 'Liquidación Comisiones', icon: CreditCard, path: '/admin/comisiones' },
+                        { title: 'Cobranza Cuotas', icon: Receipt, path: '/admin/cuotas-pendientes' },
                     ]
                 },
                 {
@@ -249,6 +252,7 @@ export default function Sidebar() {
                         { title: 'Importar Propiedades', icon: Download, path: '/admin/import' },
                         { title: 'Importar Administradas', icon: FileSpreadsheet, path: '/admin/import-administradas' },
                         { title: 'Liquidación Comisiones', icon: CreditCard, path: '/admin/comisiones' },
+                        { title: 'Cobranza Cuotas', icon: Receipt, path: '/admin/cuotas-pendientes' },
                     ]
                 },
                 {
@@ -279,6 +283,7 @@ export default function Sidebar() {
                 { title: 'Captaciones', icon: ClipboardList, path: '/admin/captaciones' },
                 { title: 'Importar Administradas', icon: FileSpreadsheet, path: '/admin/import-administradas' },
                 { title: 'Liquidación Comisiones', icon: CreditCard, path: '/admin/comisiones' },
+                { title: 'Cobranza Cuotas', icon: Receipt, path: '/admin/cuotas-pendientes' },
                 { title: 'Agenda Cámara 360°', icon: Camera, path: '/admin/camera-schedule' },
                 { title: 'Agenda Turnos', icon: Shield, path: '/admin/shift-schedule' },
                 { title: 'Leads Asignados', icon: FileText, path: '/guard-leads' },
@@ -290,6 +295,7 @@ export default function Sidebar() {
                 { title: 'Solicitudes', icon: FileText, path: '/admin/requests' },
                 { title: 'Importar Administradas', icon: FileSpreadsheet, path: '/admin/import-administradas' },
                 { title: 'Liquidación Comisiones', icon: CreditCard, path: '/admin/comisiones' },
+                { title: 'Cobranza Cuotas', icon: Receipt, path: '/admin/cuotas-pendientes' },
                 { title: 'Agenda Turnos', icon: Shield, path: '/admin/shift-schedule' },
                 { title: 'Leads Asignados', icon: FileText, path: '/guard-leads' },
             ]

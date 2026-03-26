@@ -290,6 +290,15 @@ const SECTION_DEFS = {
             'Estado de drenaje',
         ],
     },
+
+    // ── Custom "Otro" section ──
+    otro: {
+        title: 'Otro',
+        icon: 'plus',
+        removable: true,
+        numbered: true,
+        items: [],
+    },
 }
 
 // ─── Base sections per category ─────────────────────────
@@ -306,9 +315,9 @@ const TYPE_EXTRAS = {
 
 // ─── Addable areas per category ─────────────────────────
 const CATEGORY_ADDABLE_AREAS = {
-    residential: ['dormitorio', 'bano', 'jardin', 'terraza', 'piscina', 'logia', 'bodega', 'estacionamiento'],
-    commercial: ['sala_reuniones', 'oficina_privada', 'bano', 'bodega', 'estacionamiento'],
-    industrial: ['bodega', 'patio', 'bano', 'estacionamiento'],
+    residential: ['dormitorio', 'bano', 'jardin', 'terraza', 'piscina', 'logia', 'bodega', 'estacionamiento', 'otro'],
+    commercial: ['sala_reuniones', 'oficina_privada', 'bano', 'bodega', 'estacionamiento', 'otro'],
+    industrial: ['bodega', 'patio', 'bano', 'estacionamiento', 'otro'],
 }
 
 // ─── Public API ─────────────────────────────────────────
@@ -389,9 +398,6 @@ export function getFormDataForPropertyType(propertyType) {
         propietario: '',
         arrendatario: '',
         owner_email: '',
-        metraje_informado: '',
-        metraje_terrazas: '',
-        metraje_total: '',
 
         // Dynamic sections
         sections,

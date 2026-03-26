@@ -1,0 +1,234 @@
+{
+  "name": "Cobranza Cuotas Pendientes Oficina",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "pending-fees",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [-400, 300],
+      "id": "webhook-pending-fees",
+      "name": "Webhook Cuotas",
+      "webhookId": "pending-fees"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst body = items[0].json.body;\nconst agents = body.agents || [];\nconst sendWhatsApp = body.send_whatsapp !== false;\n\nconst result = [];\nfor (const agent of agents) {\n  if (!agent.email && !agent.phone) continue;\n  result.push({\n    json: {\n      name: agent.name,\n      email: agent.email,\n      phone: (agent.phone || '').replace(/[^0-9]/g, ''),\n      html: agent.html,\n      total: agent.total,\n      whatsapp_message: agent.whatsapp_message || '',\n      send_whatsapp: sendWhatsApp && !!agent.phone\n    }\n  });\n}\n\nreturn result;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-160, 300],
+      "id": "split-agents",
+      "name": "Separar Agentes"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.email }}",
+        "subject": "Cuotas Pendientes de Oficina — Recordatorio de Pago",
+        "message": "={{ $json.html }}",
+        "options": {
+          "appendAttribution": false,
+          "senderName": "RE/MAX Exclusive — Administración"
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [80, 300],
+      "id": "send-email",
+      "name": "Enviar Email Cuota",
+      "webhookId": "pending-fees-email"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "check-whatsapp",
+              "leftValue": "={{ $json.send_whatsapp }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [320, 300],
+      "id": "check-whatsapp",
+      "name": "¿Enviar WhatsApp?"
+    },
+    {
+      "parameters": {
+        "resource": "chat-api",
+        "operation": "send-presence",
+        "instanceName": "Remax%20Exclusive",
+        "remoteJid": "={{ $json.phone }}@s.whatsapp.net",
+        "delay": 3000
+      },
+      "type": "n8n-nodes-evolution-api.evolutionApi",
+      "typeVersion": 1,
+      "position": [560, 240],
+      "id": "typing-wa",
+      "name": "Typing WhatsApp",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.remax-exclusive.cl/message/sendText/Remax%20Exclusive",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "A47DF197AC02-4F21-BEB4-9F3485E5E4EB"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "number",
+              "value": "={{ $json.phone }}@s.whatsapp.net"
+            },
+            {
+              "name": "text",
+              "value": "={{ $json.whatsapp_message }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [800, 240],
+      "id": "send-wa",
+      "name": "Enviar WhatsApp Cuota",
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "resource": "chat-api",
+        "operation": "read-messages",
+        "instanceName": "Remax%20Exclusive",
+        "remoteJid": "={{ $json.key.remoteJid }}",
+        "messageId": "={{ $json.key.id }}"
+      },
+      "type": "n8n-nodes-evolution-api.evolutionApi",
+      "typeVersion": 1,
+      "position": [1040, 240],
+      "id": "mark-read-wa",
+      "name": "Marcar Leído WA",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "content": "## COBRANZA CUOTAS PENDIENTES OFICINA\n\nWebhook recibe del frontend el listado de agentes con deuda.\n\n**Flujo por cada agente:**\n1. Envía email con el HTML pre-armado (tabla de meses pendientes + datos bancarios)\n2. Si tiene teléfono y WhatsApp habilitado → Typing → Enviar mensaje WA → Marcar leído\n\n**Webhook:** POST /webhook/pending-fees\n**Payload:** { send_whatsapp: bool, agents: [{ name, email, phone, html, total, whatsapp_message }] }",
+        "height": 320,
+        "width": 600
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [-440, -40],
+      "typeVersion": 1,
+      "id": "sticky-note-info",
+      "name": "Sticky Note"
+    }
+  ],
+  "connections": {
+    "Webhook Cuotas": {
+      "main": [
+        [
+          {
+            "node": "Separar Agentes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Separar Agentes": {
+      "main": [
+        [
+          {
+            "node": "Enviar Email Cuota",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar Email Cuota": {
+      "main": [
+        [
+          {
+            "node": "¿Enviar WhatsApp?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Enviar WhatsApp?": {
+      "main": [
+        [
+          {
+            "node": "Typing WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Typing WhatsApp": {
+      "main": [
+        [
+          {
+            "node": "Enviar WhatsApp Cuota",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar WhatsApp Cuota": {
+      "main": [
+        [
+          {
+            "node": "Marcar Leído WA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Santiago",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}

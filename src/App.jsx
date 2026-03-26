@@ -55,6 +55,7 @@ import InspectionFormPage from './pages/InspectionFormPage'
 import InspectionDashboard from './pages/InspectionDashboard'
 import AdminAdministradaImport from './pages/AdminAdministradaImport'
 import AdminCommissionPayment from './pages/AdminCommissionPayment'
+import AdminPendingFees from './pages/AdminPendingFees'
 import PublicInspectionPage from './pages/PublicInspectionPage'
 import AuthCallback from './pages/AuthCallback'
 import RecruitmentPipeline from './pages/recruitment/RecruitmentPipeline'
@@ -408,6 +409,13 @@ function App() {
                   <Route path="/admin/comisiones" element={
                     <ProtectedRoute>
                       <AdminCommissionPayment />
+                    </ProtectedRoute>
+                  } />
+
+                  {/* ═══ Admin: Pending Fees Collection ═══ */}
+                  <Route path="/admin/cuotas-pendientes" element={
+                    <ProtectedRoute>
+                      <AdminPendingFees />
                     </ProtectedRoute>
                   } />
 

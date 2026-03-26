@@ -9,7 +9,7 @@ import {
 import { toast, Toaster } from 'sonner'
 import {
     ClipboardCheck, MapPin, Save, Send, CheckCircle, AlertTriangle,
-    Plus, Trash2, Loader2, Camera, ChevronDown
+    Plus, Trash2, Loader2, Camera, ChevronDown, Pencil
 } from 'lucide-react'
 
 const LOGO_SRC = '/primerolog.png'
@@ -164,26 +164,36 @@ export default function PublicInspectionPage() {
         })
     }
 
-    const removeOtroItem = (sectionIdx, itemIdx) => {
+    const removeItem = (sectionIdx, itemIdx) => {
         setFormData(prev => {
             const updated = { ...prev }
             const sections = [...(updated.sections || [])]
             const section = { ...sections[sectionIdx] }
             const items = [...section.items]
             items.splice(itemIdx, 1)
-            let otroNum = 0
-            items.forEach(item => {
-                if (item.isCustom || item.label.startsWith('Otro')) {
-                    otroNum++
-                    item.label = `Otro ${otroNum}`
-                    item.isCustom = true
-                }
-            })
             section.items = items
             sections[sectionIdx] = section
             updated.sections = sections
             return updated
         })
+    }
+
+    const updateItemLabel = (sectionIdx, itemIdx, newLabel) => {
+        setFormData(prev => {
+            const updated = { ...prev }
+            const sections = [...(updated.sections || [])]
+            const sec = { ...sections[sectionIdx] }
+            const items = [...sec.items]
+            items[itemIdx] = { ...items[itemIdx], label: newLabel }
+            sec.items = items
+            sections[sectionIdx] = sec
+            updated.sections = sections
+            return updated
+        })
+    }
+
+    const removeOtroItem = (sectionIdx, itemIdx) => {
+        removeItem(sectionIdx, itemIdx)
     }
 
     const [showAddAreaMenu, setShowAddAreaMenu] = useState(false)
@@ -266,9 +276,6 @@ export default function PublicInspectionPage() {
                                 inspection_date: inspDate,
                                 propietario: formData.propietario || '',
                                 arrendatario: formData.arrendatario || '',
-                                metraje_informado: formData.metraje_informado || '',
-                                metraje_terrazas: formData.metraje_terrazas || '',
-                                metraje_total: formData.metraje_total || '',
                             },
                             form_data: {
                                 sections: formData.sections || [],
@@ -333,37 +340,47 @@ export default function PublicInspectionPage() {
                             <tr key={idx} className={`border-b border-gray-100 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}>
                                 <td className="py-3 px-4 text-sm text-gray-700 font-medium">
                                     <div className="flex items-center gap-2">
-                                        {item.isCustom ? (
+                                        {item.isCustom || item._editing ? (
                                             <input
                                                 type="text"
                                                 value={item.label}
-                                                onChange={e => {
-                                                    const newLabel = e.target.value
+                                                onChange={e => updateItemLabel(sectionIdx, idx, e.target.value)}
+                                                placeholder="Nombre del ítem..."
+                                                className="flex-1 px-2 py-1 border border-gray-200 rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                                            />
+                                        ) : (
+                                            <span className="flex-1">{item.label}</span>
+                                        )}
+                                        {!item.isCustom && !item._editing && (
+                                            <button
+                                                type="button"
+                                                onClick={() => {
                                                     setFormData(prev => {
                                                         const updated = { ...prev }
                                                         const sections = [...(updated.sections || [])]
                                                         const sec = { ...sections[sectionIdx] }
                                                         const items = [...sec.items]
-                                                        items[idx] = { ...items[idx], label: newLabel }
+                                                        items[idx] = { ...items[idx], _editing: true }
                                                         sec.items = items
                                                         sections[sectionIdx] = sec
                                                         updated.sections = sections
                                                         return updated
                                                     })
                                                 }}
-                                                placeholder="Nombre del ítem..."
-                                                className="flex-1 px-2 py-1 border border-gray-200 rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                                            />
-                                        ) : item.label}
-                                        {item.isCustom && (
-                                            <button
-                                                type="button"
-                                                onClick={() => removeOtroItem(sectionIdx, idx)}
-                                                className="text-red-400 hover:text-red-600 flex-shrink-0"
+                                                className="text-gray-400 hover:text-blue-600 flex-shrink-0"
+                                                title="Editar nombre"
                                             >
-                                                <Trash2 className="w-3.5 h-3.5" />
+                                                <Pencil className="w-3.5 h-3.5" />
                                             </button>
                                         )}
+                                        <button
+                                            type="button"
+                                            onClick={() => removeItem(sectionIdx, idx)}
+                                            className="text-red-400 hover:text-red-600 flex-shrink-0"
+                                            title="Eliminar ítem"
+                                        >
+                                            <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
                                     </div>
                                 </td>
                                 <td className="py-3 px-4">
@@ -541,33 +558,6 @@ export default function PublicInspectionPage() {
                                         className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                                     />
                                 </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Metraje Informado</label>
-                                    <input
-                                        type="text" value={formData.metraje_informado}
-                                        onChange={e => setFormData(p => ({ ...p, metraje_informado: e.target.value }))}
-                                        placeholder="m²"
-                                        className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Metraje Terrazas</label>
-                                    <input
-                                        type="text" value={formData.metraje_terrazas}
-                                        onChange={e => setFormData(p => ({ ...p, metraje_terrazas: e.target.value }))}
-                                        placeholder="m²"
-                                        className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Metraje Total</label>
-                                    <input
-                                        type="text" value={formData.metraje_total}
-                                        onChange={e => setFormData(p => ({ ...p, metraje_total: e.target.value }))}
-                                        placeholder="m²"
-                                        className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                                    />
-                                </div>
                             </div>
                         </section>
 
@@ -576,7 +566,26 @@ export default function PublicInspectionPage() {
                             <section key={section.key || sectionIdx}>
                                 <div className="flex items-center gap-3 mb-6">
                                     <div className="w-8 h-8 bg-[#003DA5] text-white rounded-lg flex items-center justify-center text-sm font-bold">{sectionIdx + 3}</div>
-                                    <span className="text-lg font-bold text-[#003DA5]">{section.title}</span>
+                                    {section.baseKey === 'otro' ? (
+                                        <input
+                                            type="text"
+                                            value={section.title}
+                                            onChange={e => {
+                                                const newTitle = e.target.value
+                                                setFormData(prev => {
+                                                    const updated = { ...prev }
+                                                    const sections = [...(updated.sections || [])]
+                                                    sections[sectionIdx] = { ...sections[sectionIdx], title: newTitle }
+                                                    updated.sections = sections
+                                                    return updated
+                                                })
+                                            }}
+                                            placeholder="Nombre del área..."
+                                            className="text-lg font-bold text-[#003DA5] border-b-2 border-[#003DA5]/30 focus:border-[#003DA5] outline-none bg-transparent px-1 py-0.5 flex-1"
+                                        />
+                                    ) : (
+                                        <span className="text-lg font-bold text-[#003DA5]">{section.title}</span>
+                                    )}
                                 </div>
                                 {renderSectionTable(section, sectionIdx)}
                             </section>

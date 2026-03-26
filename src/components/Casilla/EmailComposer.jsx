@@ -8,12 +8,13 @@ import {
     Send, X, Paperclip, Trash2,
     Bold, Italic, Underline as UnderlineIcon, Strikethrough,
     List, ListOrdered, Quote, Undo, Redo, Link as LinkIcon,
-    ListTodo, Activity, Users
+    ListTodo, Activity, Users, FileText
 } from 'lucide-react';
 import { supabase } from '../../services/supabase';
 import TaskModal from '../crm/TaskModal';
 import ActionModal from '../crm/ActionModal';
 import ContactPickerInline from '../ui/ContactPickerInline';
+import EmailTemplatePicker from './EmailTemplatePicker';
 
 // Helper component for the Link Popover
 const LinkPopover = ({ editor, isOpen, onClose }) => {
@@ -182,6 +183,15 @@ const EmailComposer = ({ onClose, onSuccess, replyTo = null, userProfile, initia
     const [isActionModalOpen, setIsActionModalOpen] = useState(false);
     const [contactIdForLink, setContactIdForLink] = useState(null);
     const [showContactPicker, setShowContactPicker] = useState(!replyTo && !initialDraft);
+    const [showTemplatePicker, setShowTemplatePicker] = useState(false);
+
+    // Apply selected email template
+    const handleSelectTemplate = (template) => {
+        if (template.subject) setSubject(template.subject);
+        if (template.bodyHtml && editor) {
+            editor.commands.setContent(template.bodyHtml);
+        }
+    };
 
     // Look up contact by 'to' email then open the modal
     const resolveContactAndOpen = async (openFn) => {
@@ -479,6 +489,24 @@ const EmailComposer = ({ onClose, onSuccess, replyTo = null, userProfile, initia
                         >
                             <Paperclip className="w-5 h-5" />
                         </Button>
+
+                        {/* Template Picker */}
+                        <div className="relative">
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className={`text-gray-500 hover:bg-amber-50 hover:text-amber-600 ${showTemplatePicker ? 'bg-amber-50 text-amber-600' : ''}`}
+                                onClick={() => setShowTemplatePicker(!showTemplatePicker)}
+                                title="Usar plantilla de correo"
+                            >
+                                <FileText className="w-5 h-5" />
+                            </Button>
+                            <EmailTemplatePicker
+                                isOpen={showTemplatePicker}
+                                onClose={() => setShowTemplatePicker(false)}
+                                onSelectTemplate={handleSelectTemplate}
+                            />
+                        </div>
                     </div>
                     <Button variant="ghost" size="icon" className="text-gray-400 hover:bg-gray-200" title="Descartar borrador" onClick={() => onClose(null)}>
                         <Trash2 className="w-5 h-5" />

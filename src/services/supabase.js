@@ -20,6 +20,7 @@ const FUNCTION_ROUTES = {
     'gmail-send-recruitment': { path: '/api/gmail/send-recruitment', method: 'POST' },
     'gmail-recruitment-status': { path: '/api/gmail/recruitment-account-status', method: 'GET' },
     'gmail-connect-recruitment': { path: '/api/gmail/connect-recruitment', method: 'POST' },
+    'gmail-sync': { path: '/api/gmail/sync', method: 'POST' },
     'invite-agent': { path: '/api/invite/agent', method: 'POST' },
     'admin-action': { path: '/api/admin/action', method: 'POST' },
     'import-remax-listings': { path: '/api/import/remax-listings', method: 'POST' },
@@ -29,13 +30,17 @@ const FUNCTION_ROUTES = {
     'send-notification': { path: '/api/notifications/send', method: 'POST' },
 }
 
-// Override supabase.functions.invoke to route to Express API
-const originalInvoke = supabase.functions.invoke.bind(supabase.functions)
-supabase.functions.invoke = async (functionName, options = {}) => {
+// Override supabase.functions to route invoke() calls to Express API.
+// IMPORTANT: supabase.functions is a GETTER that returns a NEW FunctionsClient
+// instance each time. We must override the getter itself to return our patched instance.
+const _cachedFunctions = supabase.functions // capture one instance
+const _originalInvoke = _cachedFunctions.invoke.bind(_cachedFunctions)
+
+_cachedFunctions.invoke = async (functionName, options = {}) => {
     const route = FUNCTION_ROUTES[functionName]
     if (!route) {
         console.warn(`[API] Unknown function: ${functionName}, falling back to original invoke`)
-        return originalInvoke(functionName, options)
+        return _originalInvoke(functionName, options)
     }
 
     try {
@@ -97,6 +102,12 @@ supabase.functions.invoke = async (functionName, options = {}) => {
         return { data: null, error: { message: err.message } }
     }
 }
+
+// Override the getter so every access to supabase.functions returns our patched instance
+Object.defineProperty(supabase, 'functions', {
+    get: () => _cachedFunctions,
+    configurable: true,
+})
 
 // MinIO public URL for file access
 const STORAGE_PUBLIC_URL = 'https://remax-crm-remax-storage.jzuuqr.easypanel.host'
