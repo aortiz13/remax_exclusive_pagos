@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { supabase } from '../services/supabase'
 import { Button, Card, CardContent, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction, Badge } from '@/components/ui'
 import { toast } from 'sonner'
-import { Shield, FileText, Clock, CheckCircle2, AlertCircle, Loader2, Send, User, Calendar, MessageSquare, ExternalLink, Filter, Users, Search } from 'lucide-react'
+import { Shield, FileText, Clock, CheckCircle2, AlertCircle, Loader2, Send, User, Calendar, MessageSquare, ExternalLink, Filter, Users, Search, Phone, Mail, MapPin, Home } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { motion } from 'framer-motion'
 
@@ -30,6 +30,11 @@ export default function GuardLeadReportPage() {
     const [notesText, setNotesText] = useState('')
     const [saving, setSaving] = useState(false)
     const [agents, setAgents] = useState([])
+
+    // Derivation modal
+    const [derivingLead, setDerivingLead] = useState(null)
+    const [selectedDeriveAgent, setSelectedDeriveAgent] = useState('')
+    const [deriving, setDeriving] = useState(false)
 
     // Filters
     const [filterType, setFilterType] = useState('all') // all | guard | non-guard
@@ -133,6 +138,82 @@ export default function GuardLeadReportPage() {
         setSaving(false)
         setEditingNotes(null)
         fetchLeads()
+    }
+
+    // ── Derivation logic ──
+    function openDeriveModal(lead) {
+        setDerivingLead(lead)
+        setSelectedDeriveAgent('')
+    }
+
+    function getLeadRawInfo(lead) {
+        const raw = lead.external_lead?.raw_data
+        if (!raw) return null
+        const root = Array.isArray(raw) ? raw[0] : raw
+        return {
+            contacto: root?.['Datos Contacto'] || {},
+            propiedad: root?.['Datos Propiedad'] || root?.['Búsqueda'] || {},
+            fuente: root?.['Fuente'] || lead.contact?.source || '',
+            transaccion: root?.['Tipo de transacción'] || root?.['Datos Propiedad']?.tipo_operacion || '',
+        }
+    }
+
+    async function handleDerive() {
+        if (!selectedDeriveAgent || !derivingLead?.external_lead) return
+        setDeriving(true)
+        try {
+            const extLead = derivingLead.external_lead
+            const isRemaxChile = selectedDeriveAgent === 'remax_chile'
+
+            // 1. Update external_lead
+            await supabase.from('external_leads').update({
+                assigned_agent_id: isRemaxChile ? null : selectedDeriveAgent,
+                status: 'assigned'
+            }).eq('id', extLead.id)
+
+            // 2. Update shift_guard_lead
+            if (!isRemaxChile) {
+                await supabase.from('shift_guard_leads').update({
+                    agent_id: selectedDeriveAgent,
+                    is_guard: false,
+                    assigned_at: new Date().toISOString(),
+                }).eq('external_lead_id', extLead.id)
+
+                // Update contact owner
+                if (derivingLead.contact_id) {
+                    await supabase.from('contacts').update({
+                        agent_id: selectedDeriveAgent,
+                        source: 'Guardia'
+                    }).eq('id', derivingLead.contact_id)
+                }
+            }
+
+            // 3. Fire n8n webhook
+            const agent = isRemaxChile
+                ? { first_name: 'Remax', last_name: 'Chile', email: 'regional@remax.cl' }
+                : agents.find(a => a.id === selectedDeriveAgent)
+            if (agent) {
+                try {
+                    await fetch('https://workflow.remax-exclusive.cl/webhook/recibir_datos', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            agent: { email: agent.email || '' },
+                            lead_data: extLead.raw_data,
+                            lead_link: `https://solicitudes.remax-exclusive.cl/nuevolead/${extLead.short_id || extLead.id}`,
+                        })
+                    })
+                } catch (e) { console.error('n8n webhook error:', e) }
+            }
+
+            toast.success(`Lead derivado a ${agent?.first_name || 'Remax Chile'} exitosamente`)
+            setDerivingLead(null)
+            fetchLeads()
+        } catch (err) {
+            toast.error('Error al derivar: ' + err.message)
+        } finally {
+            setDeriving(false)
+        }
     }
 
     const statusBadge = (status) => {
@@ -349,7 +430,7 @@ export default function GuardLeadReportPage() {
                                                     )}
                                                     {isAdmin && lead.external_lead && lead.external_lead.status === 'pending' && (
                                                         <button
-                                                            onClick={() => navigate(`/busqueda/${lead.external_lead.short_id || lead.external_lead.id}`)}
+                                                            onClick={() => openDeriveModal(lead)}
                                                             className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-300 hover:bg-amber-100 transition-colors cursor-pointer"
                                                         >
                                                             <Users className="w-3 h-3" /> Derivar
@@ -421,6 +502,92 @@ export default function GuardLeadReportPage() {
                         <AlertDialogAction className="bg-violet-600 hover:bg-violet-700" onClick={saveNotes} disabled={saving}>
                             {saving ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Send className="w-4 h-4 mr-1" />}
                             Guardar Nota
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            {/* Derivation Modal */}
+            <AlertDialog open={!!derivingLead} onOpenChange={(open) => { if (!open) setDerivingLead(null) }}>
+                <AlertDialogContent className="max-w-lg">
+                    <AlertDialogHeader>
+                        <AlertDialogTitle className="flex items-center gap-2">
+                            <Users className="w-5 h-5 text-amber-500" />
+                            Derivar Lead
+                        </AlertDialogTitle>
+                    </AlertDialogHeader>
+                    {derivingLead && (() => {
+                        const info = getLeadRawInfo(derivingLead)
+                        return (
+                            <div className="px-6 space-y-4">
+                                {/* Contact info */}
+                                <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-4 space-y-2">
+                                    <h4 className="text-sm font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+                                        <User className="w-4 h-4 text-blue-500" /> {getLeadName(derivingLead)}
+                                    </h4>
+                                    {derivingLead.contact?.phone && (
+                                        <p className="text-xs text-slate-500 flex items-center gap-1.5">
+                                            <Phone className="w-3 h-3" /> {derivingLead.contact.phone}
+                                        </p>
+                                    )}
+                                    {derivingLead.contact?.email && (
+                                        <p className="text-xs text-slate-500 flex items-center gap-1.5">
+                                            <Mail className="w-3 h-3" /> {derivingLead.contact.email}
+                                        </p>
+                                    )}
+                                    {derivingLead.contact?.source && (
+                                        <p className="text-xs text-slate-500 flex items-center gap-1.5">
+                                            <ExternalLink className="w-3 h-3" /> {derivingLead.contact.source}
+                                        </p>
+                                    )}
+                                </div>
+
+                                {/* Property / Search info from raw_data */}
+                                {info && Object.keys(info.propiedad).length > 0 && (
+                                    <div className="bg-amber-50/50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900 rounded-lg p-4 space-y-1.5">
+                                        <h4 className="text-xs font-bold text-amber-700 uppercase tracking-wider flex items-center gap-1.5">
+                                            <Home className="w-3.5 h-3.5" /> Datos Propiedad / Búsqueda
+                                        </h4>
+                                        {Object.entries(info.propiedad).filter(([,v]) => v).map(([k, v]) => (
+                                            <p key={k} className="text-xs text-slate-600 dark:text-slate-400">
+                                                <span className="font-semibold text-slate-700 dark:text-slate-300 capitalize">{k.replace(/_/g, ' ')}:</span> {String(v)}
+                                            </p>
+                                        ))}
+                                        {info.transaccion && (
+                                            <p className="text-xs text-amber-700 font-semibold mt-1">Transacción: {info.transaccion}</p>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* Agent selector */}
+                                <div className="space-y-2">
+                                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Asignar a</label>
+                                    <Select value={selectedDeriveAgent || undefined} onValueChange={setSelectedDeriveAgent}>
+                                        <SelectTrigger className="w-full h-10">
+                                            <SelectValue placeholder="-- Seleccionar agente --" />
+                                        </SelectTrigger>
+                                        <SelectContent className="z-[300]">
+                                            <SelectItem value="remax_chile">🏢 RE/MAX Chile (Regional)</SelectItem>
+                                            {agents.map(a => (
+                                                <SelectItem key={a.id} value={a.id}>
+                                                    {a.first_name} {a.last_name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+                        )
+                    })()}
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction
+                            className="bg-amber-600 hover:bg-amber-700"
+                            onClick={handleDerive}
+                            disabled={!selectedDeriveAgent || deriving}
+                        >
+                            {deriving ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Send className="w-4 h-4 mr-1" />}
+                            Confirmar Derivación
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
