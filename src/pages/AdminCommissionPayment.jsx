@@ -11,7 +11,7 @@ import { useNavigate } from 'react-router-dom'
 import {
     parseCommissionExcel, processCommissions, detectMonth,
     getSkippedSummary, sendCommissionEmails, formatCLP,
-    matchCommissionProperties
+    matchCommissionProperties, matchAgentEmails
 } from '../services/commissionService'
 
 const ALLOWED = ['superadministrador', 'tecnico', 'legal', 'comercial', 'administracion']
@@ -79,9 +79,12 @@ export default function AdminCommissionPayment() {
     const proceedToReview = async () => {
         setMatching(true)
         try {
-            // Match Excel addresses against DB properties
-            const propertyMatches = await matchCommissionProperties(rows)
-            const summaries = processCommissions(rows, propertyMatches)
+            // Match Excel addresses against DB properties + resolve agent emails
+            const [propertyMatches, agentEmails] = await Promise.all([
+                matchCommissionProperties(rows),
+                matchAgentEmails(rows),
+            ])
+            const summaries = processCommissions(rows, propertyMatches, agentEmails)
             const skipSummary = getSkippedSummary(rows)
 
             // Count match stats

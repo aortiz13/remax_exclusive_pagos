@@ -252,6 +252,67 @@ export async function matchCommissionProperties(rows) {
     return matchMap
 }
 
+// ─── Agent Email Lookup ────────────────────────────────────────
+/**
+ * Fetch agent profiles and build a name→email map for matching
+ * Returns Map<normalizedName, { email, fullName }>
+ */
+export async function matchAgentEmails(rows) {
+    const { data: profiles } = await supabase
+        .from('profiles')
+        .select('first_name, last_name, email, role')
+        .eq('role', 'agent')
+
+    if (!profiles || profiles.length === 0) return {}
+
+    const emailMap = {} // key = normalized agent name from Excel
+
+    // Collect unique agent names from rows
+    const uniqueNames = [...new Set(rows.map(r => r.agent_name).filter(Boolean))]
+
+    for (const excelName of uniqueNames) {
+        const normExcel = normalize(excelName)
+        let bestMatch = null
+        let bestScore = 0
+
+        for (const p of profiles) {
+            const fullName = `${p.first_name} ${p.last_name}`.trim()
+            const normFull = normalize(fullName)
+
+            // Exact match
+            if (normFull === normExcel) {
+                bestMatch = p
+                bestScore = 100
+                break
+            }
+
+            // Check if all Excel name words appear in profile name (or vice versa)
+            const excelWords = normExcel.split(/\s+/).filter(w => w.length > 1)
+            const profileWords = normFull.split(/\s+/).filter(w => w.length > 1)
+
+            const matchingWords = excelWords.filter(ew =>
+                profileWords.some(pw => pw.includes(ew) || ew.includes(pw))
+            )
+            const score = matchingWords.length / Math.max(excelWords.length, 1) * 100
+
+            if (score > bestScore && score >= 60) {
+                bestScore = score
+                bestMatch = p
+            }
+        }
+
+        if (bestMatch) {
+            emailMap[normExcel] = {
+                email: bestMatch.email,
+                fullName: `${bestMatch.first_name} ${bestMatch.last_name}`.trim(),
+            }
+        }
+    }
+
+    console.log('[CommissionParser] Agent email matches:', Object.keys(emailMap).length, '/', uniqueNames.length)
+    return emailMap
+}
+
 // ─── Commission Calculation ────────────────────────────────────
 
 // Valid states for processing (only liquidado variants)
@@ -263,9 +324,10 @@ function isValidState(estado) {
 /**
  * Process rows into agent commission summaries
  * propertyMatches is optional Map from matchCommissionProperties()
+ * agentEmails is optional Map from matchAgentEmails()
  * Returns array of { agentName, email, properties: [], total }
  */
-export function processCommissions(rows, propertyMatches = {}) {
+export function processCommissions(rows, propertyMatches = {}, agentEmails = {}) {
     const agentMap = {} // key = agent email (lowercase)
 
     for (const row of rows) {
@@ -278,11 +340,15 @@ export function processCommissions(rows, propertyMatches = {}) {
         const base = row.comision_admin - row.suscripcion_leasity
         const comision = Math.round(base * (row.percentage / 100))
 
-        const key = normalize(row.correo_agente || row.agent_name)
+        // Resolve email: Excel first, then DB lookup
+        const normName = normalize(row.agent_name)
+        const resolvedEmail = row.correo_agente || agentEmails[normName]?.email || ''
+
+        const key = normalize(resolvedEmail || row.agent_name)
         if (!agentMap[key]) {
             agentMap[key] = {
                 agentName: row.agent_name,
-                email: row.correo_agente,
+                email: resolvedEmail,
                 properties: [],
                 total: 0,
             }
