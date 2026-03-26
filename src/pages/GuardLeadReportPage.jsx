@@ -345,6 +345,14 @@ export default function GuardLeadReportPage() {
                                                             <ExternalLink className="w-3 h-3" /> Ver Perfil
                                                         </button>
                                                     )}
+                                                    {isAdmin && lead.external_lead && lead.external_lead.status === 'pending' && (
+                                                        <button
+                                                            onClick={() => navigate(`/busqueda/${lead.external_lead.short_id || lead.external_lead.id}`)}
+                                                            className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-300 hover:bg-amber-100 transition-colors cursor-pointer"
+                                                        >
+                                                            <Users className="w-3 h-3" /> Derivar
+                                                        </button>
+                                                    )}
                                                 </div>
                                             </div>
 
