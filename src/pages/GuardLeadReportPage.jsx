@@ -79,6 +79,7 @@ export default function GuardLeadReportPage() {
             // Type filter
             if (filterType === 'guard' && !lead.is_guard) return false
             if (filterType === 'non-guard' && lead.is_guard) return false
+            if (filterType === 'pending' && lead.external_lead?.status !== 'pending') return false
 
             // Agent filter
             if (filterAgent !== 'all' && lead.agent_id !== filterAgent) return false
@@ -212,6 +213,7 @@ export default function GuardLeadReportPage() {
                                     <SelectItem value="all">Todos</SelectItem>
                                     <SelectItem value="guard">🛡 Guardia</SelectItem>
                                     <SelectItem value="non-guard">📨 Derivado</SelectItem>
+                                    <SelectItem value="pending">⏳ Por Derivar</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
