@@ -460,7 +460,7 @@ export function buildCommissionEmailHTML(agent, month) {
         <p style="margin:0;color:#999;font-size:12px;">
             Este correo fue generado automáticamente. Si tiene alguna consulta, comuníquese con administración.
         </p>
-        <p style="margin:8px 0 0;color:#bbb;font-size:11px;">RE/MAX Exclusive — Administración de Propiedades</p>
+        <p style="margin:8px 0 0;color:#bbb;font-size:11px;">RE/MAX Exclusive — Sistema Automatizado</p>
     </div>
 </div>
 </body>
