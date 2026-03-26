@@ -396,7 +396,7 @@ export function getSkippedSummary(rows) {
 /**
  * Build a professional HTML email for one agent's commission breakdown
  */
-function buildCommissionEmailHTML(agent, month) {
+export function buildCommissionEmailHTML(agent, month) {
     const fmt = (n) => new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(n)
 
     const propertyRows = agent.properties.map(p => `

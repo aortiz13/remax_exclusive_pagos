@@ -5,13 +5,13 @@ import {
     Upload, FileSpreadsheet, Check, X, AlertTriangle, CreditCard,
     ArrowRight, ArrowLeft, CheckCircle, XCircle, ChevronDown, ChevronUp,
     Send, User, Mail, DollarSign, Building, Info, Loader2, RotateCcw,
-    Link2, ExternalLink
+    Link2, ExternalLink, Eye
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import {
     parseCommissionExcel, processCommissions, detectMonth,
     getSkippedSummary, sendCommissionEmails, formatCLP,
-    matchCommissionProperties, matchAgentEmails
+    matchCommissionProperties, matchAgentEmails, buildCommissionEmailHTML
 } from '../services/commissionService'
 
 const ALLOWED = ['superadministrador', 'tecnico', 'legal', 'comercial', 'administracion']
@@ -34,6 +34,9 @@ export default function AdminCommissionPayment() {
     const [expandedAgent, setExpandedAgent] = useState(null)
     const [matching, setMatching] = useState(false)
     const [matchStats, setMatchStats] = useState({ matched: 0, unmatched: 0 })
+
+    // Preview
+    const [previewAgent, setPreviewAgent] = useState(null)
 
     // Step 3
     const [sending, setSending] = useState(false)
@@ -430,6 +433,13 @@ export default function AdminCommissionPayment() {
                                         <div className="text-xs text-gray-400">{agent.properties.length} propiedad{agent.properties.length !== 1 ? 'es' : ''}</div>
                                     </div>
                                     <button
+                                        onClick={() => setPreviewAgent(agent)}
+                                        className="p-2 hover:bg-blue-100 rounded-lg transition-colors"
+                                        title="Previsualizar correo"
+                                    >
+                                        <Eye className="w-5 h-5 text-blue-500" />
+                                    </button>
+                                    <button
                                         onClick={() => setExpandedAgent(expandedAgent === idx ? null : idx)}
                                         className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                                     >
@@ -612,6 +622,34 @@ export default function AdminCommissionPayment() {
                             <RotateCcw className="w-4 h-4" />
                             Nueva Liquidación
                         </button>
+                    </div>
+                </div>
+            )}
+            {/* ═══════ Email Preview Modal ═══════ */}
+            {previewAgent && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setPreviewAgent(null)}>
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-between p-4 border-b border-gray-200">
+                            <div>
+                                <h3 className="font-semibold text-gray-800 flex items-center gap-2">
+                                    <Mail className="w-4 h-4 text-blue-500" />
+                                    Previsualización del correo
+                                </h3>
+                                <p className="text-sm text-gray-500 mt-0.5">
+                                    Para: <strong>{previewAgent.agentName}</strong> — {previewAgent.email || 'Sin email'}
+                                </p>
+                            </div>
+                            <button onClick={() => setPreviewAgent(null)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+                                <X className="w-5 h-5 text-gray-400" />
+                            </button>
+                        </div>
+                        <div className="flex-1 overflow-hidden">
+                            <iframe
+                                srcDoc={buildCommissionEmailHTML(previewAgent, month)}
+                                className="w-full h-full min-h-[500px] border-0"
+                                title="Email preview"
+                            />
+                        </div>
                     </div>
                 </div>
             )}
