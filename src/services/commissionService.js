@@ -83,9 +83,18 @@ export function parseCommissionExcel(file) {
                 }
 
                 const rows = raw.map((r, idx) => {
-                    // Flexible column matching
+                    // Flexible column matching — prefers exact match, falls back to includes
                     const pick = (keys) => {
-                        for (const k of Object.keys(r)) {
+                        const colKeys = Object.keys(r)
+                        // 1) exact match first
+                        for (const k of colKeys) {
+                            const kn = normalize(k)
+                            for (const target of keys) {
+                                if (kn === normalize(target)) return r[k]
+                            }
+                        }
+                        // 2) includes match
+                        for (const k of colKeys) {
                             const kn = normalize(k)
                             for (const target of keys) {
                                 if (kn.includes(normalize(target))) return r[k]
@@ -98,18 +107,19 @@ export function parseCommissionExcel(file) {
                     const comisionAdminRaw = pick(['comision administracion', 'comisión administración', 'comision admin'])
                     const suscripcionLeasityRaw = pick(['suscripcion leasity', 'suscripción leasity'])
                     const estado = String(pick(['estado']) || '').trim().toUpperCase()
-                    const etiquetas = String(pick(['etiquetas', 'etiqueta']) || '').trim()
+                    const etiquetas = String(pick(['etiquetas propiedad', 'etiquetas', 'etiqueta']) || '').trim()
                     const correoAgente = String(pick(['correo agente', 'correo', 'email agente', 'email']) || '').trim()
                     const { agentName, percentage } = parseEtiquetas(etiquetas)
 
-                    // Address: try multiple column name variations
-                    let direccion = String(pick(['direccion', 'dirección', 'propiedad', 'direccion propiedad', 'dirección propiedad', 'direccion de la propiedad', 'inmueble', 'domicilio']) || '').trim()
+                    // Address: exact "Propiedad" match first, then looser fallbacks
+                    const direccion = String(pick(['propiedad', 'direccion', 'dirección', 'direccion propiedad', 'inmueble', 'domicilio']) || '').trim()
 
                     return {
                         _row: idx + 2,
                         id: String(pick(['id']) || '').trim(),
-                        mes: String(pick(['mes']) || '').trim(),
+                        mes: String(pick(['mes', 'periodo', 'período']) || '').trim(),
                         codigo: String(pick(['codigo', 'código']) || '').trim(),
+                        id_propiedad: String(pick(['id propiedad']) || '').trim(),
                         direccion,
                         monto_arriendo: parseMoney(montoArriendoRaw),
                         comision_admin: parseMoney(comisionAdminRaw),
