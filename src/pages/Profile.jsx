@@ -273,14 +273,17 @@ export default function Profile() {
                             </div>
                         )}
 
-                        {/* Firma de Email */}
+                        {/* Firma de Email — Opcional */}
                         <div className="pt-4 border-t border-slate-200 dark:border-slate-800">
-                            <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
+                            <h3 className="text-lg font-medium mb-1 flex items-center gap-2">
                                 <PenTool className="w-5 h-5 text-amber-500" />
                                 Firma de Email
+                                <span className="text-xs font-normal text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">(Opcional)</span>
                             </h3>
                             <p className="text-xs text-muted-foreground mb-3">
                                 Sube la imagen de tu firma profesional. Se incluirá automáticamente en todos los correos que envíes desde la plataforma.
+                                <br />
+                                <span className="text-slate-400 italic">Puedes agregar o cambiar tu firma en cualquier momento desde tu perfil.</span>
                             </p>
 
                             {signatureUrl ? (
