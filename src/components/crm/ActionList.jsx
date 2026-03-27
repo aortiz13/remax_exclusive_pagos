@@ -154,10 +154,10 @@ const ActionList = () => {
             if (!matchedContacts) return false;
         }
 
-        // Filter by Date (YYYY-MM-DD match)
+        // Filter by Date (YYYY-MM-DD match, using local date)
         if (filterDate) {
-            const actionDateOnly = (action.action_date || '').split('T')[0];
-            if (actionDateOnly !== filterDate) return false;
+            const localDate = new Date(action.action_date).toLocaleDateString('sv-SE'); // YYYY-MM-DD in local TZ
+            if (localDate !== filterDate) return false;
         }
 
         return true;

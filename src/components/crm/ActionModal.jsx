@@ -29,7 +29,7 @@ import {
 import { supabase } from '../../services/supabase';
 import { toast } from 'sonner';
 import { Check, ChevronsUpDown, X, Plus, Trash2, Clock, Mail, MapPin, ArrowLeftRight, Search } from "lucide-react";
-import { cn, toISOLocal } from "@/lib/utils";
+import { cn, toISOLocal, localToISO } from "@/lib/utils";
 import { useNavigate } from 'react-router-dom';
 import {
     Command,
@@ -451,7 +451,7 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
                 .insert({
                     agent_id: user.id,
                     action_type: resolvedType,
-                    action_date: actionDate,
+                    action_date: localToISO(actionDate),
                     property_id: selectedPropertyId === 'none' ? null : selectedPropertyId,
                     note: note || null,
                     is_conversation_starter: actionType.includes('(I.C)'),
