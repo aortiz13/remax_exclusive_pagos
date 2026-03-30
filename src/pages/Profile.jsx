@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../services/supabase'
-import { Button, Input, Label, Card, CardHeader, CardTitle, CardContent, CardFooter, CardDescription } from '@/components/ui'
+import { Button, Input, Label, Card, CardHeader, CardTitle, CardContent, CardFooter, CardDescription, Switch } from '@/components/ui'
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom'
-import { Calendar, Upload, Trash2, PenTool } from 'lucide-react'
+import { Calendar, Upload, Trash2, PenTool, Bell } from 'lucide-react'
 
 export default function Profile() {
     const { user, profile, refreshProfile } = useAuth()
@@ -14,6 +14,11 @@ export default function Profile() {
     const [lastName, setLastName] = useState('')
     const [phone, setPhone] = useState('')
     const [signatureUrl, setSignatureUrl] = useState('')
+    const [notificationPreferences, setNotificationPreferences] = useState({
+        email: true,
+        whatsapp: true,
+        daily_summary: true
+    })
     const [uploadingSignature, setUploadingSignature] = useState(false)
     const [isDragging, setIsDragging] = useState(false)
     const [searchParams, setSearchParams] = useSearchParams()
@@ -32,6 +37,13 @@ export default function Profile() {
             setLastName(profile.last_name || '')
             setPhone(profile.phone || '')
             setSignatureUrl(profile.signature_image_url || '')
+            if (profile.notification_preferences) {
+                setNotificationPreferences({
+                    email: profile.notification_preferences.email ?? true,
+                    whatsapp: profile.notification_preferences.whatsapp ?? true,
+                    daily_summary: profile.notification_preferences.daily_summary ?? true
+                })
+            }
         }
     }, [profile])
 
@@ -180,6 +192,7 @@ export default function Profile() {
                 first_name: firstName,
                 last_name: lastName,
                 phone,
+                notification_preferences: notificationPreferences,
                 updated_at: new Date(),
             }
 
@@ -205,6 +218,10 @@ export default function Profile() {
         } finally {
             setLoading(false)
         }
+    }
+
+    const updatePreference = (key, value) => {
+        setNotificationPreferences(prev => ({ ...prev, [key]: value }))
     }
 
     return (
@@ -351,6 +368,53 @@ export default function Profile() {
                                     <p className="text-xs text-slate-400 mt-1">PNG, JPG o WebP — Máx. 5MB</p>
                                 </div>
                             )}
+                        </div>
+
+                        <div className="pt-4 border-t border-slate-200 dark:border-slate-800">
+                            <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
+                                <Bell className="w-5 h-5 text-blue-500" />
+                                Preferencias de Notificaciones
+                            </h3>
+                            <div className="space-y-4">
+                                <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-800">
+                                    <div className="space-y-0.5">
+                                        <Label className="text-base font-medium">Recordatorios por Email</Label>
+                                        <p className="text-sm text-slate-500 dark:text-slate-400">
+                                            Recibe alertas de tus tareas en tu correo.
+                                        </p>
+                                    </div>
+                                    <Switch
+                                        checked={notificationPreferences.email}
+                                        onCheckedChange={(val) => updatePreference('email', val)}
+                                    />
+                                </div>
+                                
+                                <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-800">
+                                    <div className="space-y-0.5">
+                                        <Label className="text-base font-medium">Recordatorios por WhatsApp</Label>
+                                        <p className="text-sm text-slate-500 dark:text-slate-400">
+                                            Recibe alertas de tus tareas mediante mensajes de WhatsApp.
+                                        </p>
+                                    </div>
+                                    <Switch
+                                        checked={notificationPreferences.whatsapp}
+                                        onCheckedChange={(val) => updatePreference('whatsapp', val)}
+                                    />
+                                </div>
+
+                                <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-800">
+                                    <div className="space-y-0.5">
+                                        <Label className="text-base font-medium">Resumen Diario a las 8:00 AM</Label>
+                                        <p className="text-sm text-slate-500 dark:text-slate-400">
+                                            Recibe un resumen con todas tus tareas del día y tareas atrasadas todas las mañanas.
+                                        </p>
+                                    </div>
+                                    <Switch
+                                        checked={notificationPreferences.daily_summary}
+                                        onCheckedChange={(val) => updatePreference('daily_summary', val)}
+                                    />
+                                </div>
+                            </div>
                         </div>
 
                         <div className="pt-4 border-t border-slate-200 dark:border-slate-800">
