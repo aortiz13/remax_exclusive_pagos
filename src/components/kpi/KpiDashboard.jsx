@@ -1,10 +1,11 @@
 
 import { useState } from 'react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { BarChart3, ClipboardList } from 'lucide-react'
+import { BarChart3, ClipboardList, List } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import KpiOverview from './KpiOverview'
 import KpiDataEntry from './KpiDataEntry'
+import AgentKpiRecords from './AgentKpiRecords'
 import LeadKpiDashboard from './LeadKpiDashboard'
 
 const LEAD_KPI_ROLES = ['comercial', 'legal', 'superadministrador', 'tecnico']
@@ -32,10 +33,14 @@ const KpiDashboard = () => {
             </div>
 
             <Tabs defaultValue="overview" className="w-full">
-                <TabsList className="grid w-full max-w-[500px] grid-cols-2">
+                <TabsList className="grid w-full max-w-[680px] grid-cols-3">
                     <TabsTrigger value="overview" className="flex items-center gap-2">
                         <BarChart3 className="h-4 w-4" />
                         Dashboard
+                    </TabsTrigger>
+                    <TabsTrigger value="records" className="flex items-center gap-2">
+                        <List className="h-4 w-4" />
+                        Registros Detallados
                     </TabsTrigger>
                     <TabsTrigger value="entry" className="flex items-center gap-2">
                         <ClipboardList className="h-4 w-4" />
@@ -45,6 +50,10 @@ const KpiDashboard = () => {
 
                 <TabsContent value="overview" className="mt-6 border-none p-0 outline-none">
                     <KpiOverview />
+                </TabsContent>
+
+                <TabsContent value="records" className="mt-6 border-none p-0 outline-none">
+                    <AgentKpiRecords />
                 </TabsContent>
 
                 <TabsContent value="entry" className="mt-6 border-none p-0 outline-none">
