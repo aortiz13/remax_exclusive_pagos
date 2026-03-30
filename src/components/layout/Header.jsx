@@ -12,7 +12,10 @@ import {
     SheetHeader,
     SheetTitle
 } from '@/components/ui'
-import { LogOut, User, FileText, Settings, Menu, PlusCircle, LayoutDashboard } from 'lucide-react'
+import { 
+    LogOut, User, FileText, Settings, Menu, PlusCircle, LayoutDashboard, 
+    ClipboardCheck, Zap, Users, MessageSquare, Calendar
+} from 'lucide-react'
 
 export default function Header() {
     const { user, profile, signOut } = useAuth()
@@ -24,13 +27,32 @@ export default function Header() {
         navigate('/login')
     }
 
+    const role = profile?.role
+    const isPostulante = role === 'postulantes'
+    const isReclutamiento = role === 'reclutamiento'
+
     const menuItems = [
-        { title: 'Mis Solicitudes', icon: LayoutDashboard, path: '/dashboard' },
-        { title: 'Nueva Solicitud', icon: PlusCircle, path: '/new-request' },
-        { title: 'Mi Perfil', icon: User, path: '/profile' },
+        { title: 'Mis Solicitudes / Dashboard', icon: LayoutDashboard, path: '/dashboard' },
     ]
 
-    const role = profile?.role
+    if (isReclutamiento) {
+        menuItems.push(
+            { title: 'Casilla', icon: MessageSquare, path: '/casilla' }
+        )
+    } else if (isPostulante) {
+        // Just the basics for postulantes
+    } else {
+        // Agents and admins
+        menuItems.push(
+            { title: 'Contactos & Tareas', icon: Users, path: '/crm' },
+            { title: 'Calendario', icon: Calendar, path: '/calendar' },
+            { title: 'Casilla', icon: MessageSquare, path: '/casilla' },
+            { title: 'Informes de Gestión', icon: ClipboardCheck, path: '/informes-gestion' },
+            { title: 'Nueva Solicitud', icon: PlusCircle, path: '/new-request' },
+            { title: 'Nueva Captación', icon: Zap, path: '/new-mandate' }
+        )
+    }
+
     if (['superadministrador', 'legal', 'tecnico'].includes(role)) {
         menuItems.push({ title: 'Dashboard CEO', icon: FileText, path: '/admin/kpis' })
         menuItems.push({ title: 'Administración', icon: Settings, path: '/admin/invites' })
@@ -49,8 +71,8 @@ export default function Header() {
                                     <Menu className="h-6 w-6 text-slate-600" />
                                 </Button>
                             </SheetTrigger>
-                            <SheetContent side="left" className="w-[280px] p-0 border-r-0">
-                                <SheetHeader className="p-6 border-b border-slate-100">
+                            <SheetContent side="left" className="w-[280px] p-0 border-r-0 flex flex-col">
+                                <SheetHeader className="p-6 border-b border-slate-100 shrink-0">
                                     <SheetTitle className="flex items-center gap-3">
                                         <div className="shrink-0 flex items-center justify-center p-1.5 bg-gradient-to-br from-blue-50 to-white dark:from-slate-800 dark:to-slate-900 rounded-lg shadow-sm border border-slate-100 dark:border-slate-800">
                                             <img
@@ -65,41 +87,41 @@ export default function Header() {
                                         </div>
                                     </SheetTitle>
                                 </SheetHeader>
-                                <div className="p-4 space-y-2">
-                                    <div className="px-2 py-4">
-                                        <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100 truncate">
-                                            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                                                <span className="font-bold text-primary">{profile?.first_name?.[0]}</span>
-                                            </div>
-                                            <div className="truncate">
-                                                <p className="text-sm font-bold truncate text-slate-900">{profile?.first_name} {profile?.last_name}</p>
-                                                <p className="text-xs text-slate-500 truncate">{user.email}</p>
-                                            </div>
-                                        </div>
+                                <div className="p-4 flex-1 flex flex-col overflow-y-auto">
+                                    <div className="space-y-2">
+                                        {menuItems.map((item) => (
+                                            <Button
+                                                key={item.path}
+                                                variant={location.pathname === item.path ? "secondary" : "ghost"}
+                                                className="w-full justify-start gap-4 h-12 font-medium"
+                                                onClick={() => {
+                                                    navigate(item.path)
+                                                }}
+                                            >
+                                                <item.icon className="h-5 w-5" />
+                                                {item.title}
+                                            </Button>
+                                        ))}
                                     </div>
-
-                                    {menuItems.map((item) => (
+                                    <div className="mt-auto pt-4 pb-2 space-y-2">
                                         <Button
-                                            key={item.path}
-                                            variant={location.pathname === item.path ? "secondary" : "ghost"}
+                                            variant={location.pathname === '/profile' ? "secondary" : "ghost"}
                                             className="w-full justify-start gap-4 h-12 font-medium"
-                                            onClick={() => {
-                                                navigate(item.path)
-                                            }}
+                                            onClick={() => navigate('/profile')}
                                         >
-                                            <item.icon className="h-5 w-5" />
-                                            {item.title}
+                                            <User className="h-5 w-5" />
+                                            Mi Perfil
                                         </Button>
-                                    ))}
-                                    <DropdownMenuSeparator />
-                                    <Button
-                                        variant="ghost"
-                                        className="w-full justify-start gap-4 h-12 text-red-500 hover:text-red-600 hover:bg-red-50"
-                                        onClick={handleSignOut}
-                                    >
-                                        <LogOut className="h-5 w-5" />
-                                        Cerrar Sesión
-                                    </Button>
+                                        <DropdownMenuSeparator />
+                                        <Button
+                                            variant="ghost"
+                                            className="w-full justify-start gap-4 h-12 text-red-500 hover:text-red-600 hover:bg-red-50"
+                                            onClick={handleSignOut}
+                                        >
+                                            <LogOut className="h-5 w-5" />
+                                            Cerrar Sesión
+                                        </Button>
+                                    </div>
                                 </div>
                             </SheetContent>
                         </Sheet>

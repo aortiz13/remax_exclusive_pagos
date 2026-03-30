@@ -330,6 +330,12 @@ export default function Dashboard() {
 
     const quickActions = [
         {
+            label: 'Agregar Acción',
+            icon: Plus,
+            action: () => setIsActionModalOpen(true),
+            color: 'bg-indigo-600 hover:bg-indigo-700 text-white border-transparent'
+        },
+        {
             label: 'Redacción de Contrato',
             icon: FileText,
             path: '/request/contract/new',
@@ -347,22 +353,10 @@ export default function Dashboard() {
             path: '/request/invoice/new',
             color: 'bg-amber-600 hover:bg-amber-700 text-white border-transparent'
         },
-        {
-            label: 'Agregar Acción',
-            icon: Plus,
-            action: () => setIsActionModalOpen(true),
-            color: 'bg-indigo-600 hover:bg-indigo-700 text-white border-transparent'
-        },
-        {
-            label: 'Carga Rápida KPI',
-            icon: Activity,
-            action: () => setIsKpiModalOpen(true),
-            color: 'bg-rose-600 hover:bg-rose-700 text-white border-transparent'
-        },
     ]
 
     return (
-        <div className="p-4 md:p-8 max-w-[1600px] mx-auto space-y-8 bg-slate-50/50 min-h-screen">
+        <div className="p-4 pt-6 md:p-8 max-w-[1600px] mx-auto space-y-6 md:space-y-8 bg-slate-50/50 min-h-screen">
 
             {/* Overdue Reports Banner — only shows when reports are past due */}
             {overdueReports > 0 && (
@@ -370,20 +364,20 @@ export default function Dashboard() {
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
                     onClick={() => navigate('/informes-gestion')}
-                    className="rounded-xl p-4 flex items-center justify-between cursor-pointer transition-all hover:shadow-md border bg-gradient-to-r from-red-50 to-amber-50 border-red-200 hover:border-red-300"
+                    className="rounded-2xl p-4 flex items-start sm:items-center justify-between cursor-pointer transition-all hover:shadow-md border bg-gradient-to-r from-red-50 to-amber-50 border-red-200 hover:border-red-300 gap-3"
                 >
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-lg bg-red-100">
+                    <div className="flex items-start sm:items-center gap-3">
+                        <div className="p-2.5 rounded-xl bg-red-100 shrink-0">
                             <AlertTriangle className="w-5 h-5 text-red-600" />
                         </div>
                         <div>
-                            <p className="font-semibold text-sm text-slate-900">
+                            <p className="font-bold text-sm text-slate-900">
                                 ⚠️ {overdueReports} informe(s) de gestión atrasado(s)
                             </p>
-                            <p className="text-xs text-slate-500">Haz clic para ver y completar tus informes periódicos</p>
+                            <p className="text-xs text-slate-600 mt-0.5">Haz clic para ver y completar tus informes periódicos</p>
                         </div>
                     </div>
-                    <ArrowUpRight className="w-5 h-5 text-slate-400" />
+                    <ArrowUpRight className="w-5 h-5 text-red-400 hidden sm:block shrink-0" />
                 </motion.div>
             )}
 
@@ -392,23 +386,23 @@ export default function Dashboard() {
                 <motion.div
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="rounded-xl p-4 flex items-center justify-between transition-all border bg-gradient-to-r from-emerald-50 to-teal-50 border-emerald-200 shadow-sm"
+                    className="rounded-2xl p-4 flex items-start sm:items-center justify-between transition-all border bg-gradient-to-r from-emerald-50 to-teal-50 border-emerald-200 shadow-sm gap-3"
                 >
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-lg bg-emerald-100">
+                    <div className="flex items-start sm:items-center gap-3">
+                        <div className="p-2.5 rounded-xl bg-emerald-100 shrink-0">
                             <Activity className="w-5 h-5 text-emerald-600" />
                         </div>
                         <div>
-                            <p className="font-semibold text-sm text-slate-900">
+                            <p className="font-bold text-sm text-slate-900">
                                 ✨ Tienes {dueFollowups.length} seguimiento(s) post-transmisión pendiente(s) esta semana
                             </p>
-                            <div className="flex flex-wrap gap-2 mt-1">
+                            <div className="flex flex-wrap gap-2 mt-2">
                                 {dueFollowups.slice(0, 3).map(f => (
-                                    <span key={f.id} className="text-[10px] bg-white/50 border border-emerald-100 px-2 py-0.5 rounded text-emerald-700">
+                                    <span key={f.id} className="text-[10px] bg-white/60 font-medium border border-emerald-200/50 px-2 py-1 rounded-md text-emerald-800 shadow-sm">
                                         {f.milestone === '1month' ? '1 mes' : f.milestone === '6months' ? '6 meses' : '1 año'} - {f.properties?.address?.split(',')[0]}
                                     </span>
                                 ))}
-                                {dueFollowups.length > 3 && <span className="text-[10px] text-slate-500">+{dueFollowups.length - 3} más</span>}
+                                {dueFollowups.length > 3 && <span className="text-[10px] font-medium text-slate-500 self-center">+{dueFollowups.length - 3} más</span>}
                             </div>
                         </div>
                     </div>
@@ -420,45 +414,45 @@ export default function Dashboard() {
                 <motion.div
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="rounded-xl border bg-gradient-to-r from-teal-50 to-cyan-50 border-teal-200 shadow-sm overflow-hidden"
+                    className="rounded-2xl border bg-gradient-to-r from-teal-50 to-cyan-50 border-teal-200 shadow-sm overflow-hidden"
                 >
                     <div className="p-4 flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 rounded-lg bg-teal-100">
+                        <div className="flex items-start sm:items-center gap-3">
+                            <div className="p-2.5 rounded-xl bg-teal-100 shrink-0">
                                 <ClipboardCheck className="w-5 h-5 text-teal-600" />
                             </div>
                             <div>
-                                <p className="font-semibold text-sm text-slate-900">
-                                    📝 {inspectionAlertProps.length} propiedad(es) administrada(s) sin fechas de inspección
+                                <p className="font-bold text-sm text-slate-900">
+                                    📝 {inspectionAlertProps.length} propiedad(es) administrada(s) sin fechas
                                 </p>
-                                <p className="text-xs text-slate-500">Completa la fecha de inicio de contrato o última inspección</p>
+                                <p className="text-xs text-slate-600 mt-0.5">Completa la fecha de inicio de contrato o última inspección</p>
                             </div>
                         </div>
                         {inspectionAlertProps.length > 3 && (
                             <button
                                 onClick={() => setInspectionAlertExpanded(prev => !prev)}
-                                className="flex items-center gap-1 text-xs text-teal-600 hover:text-teal-700 font-medium transition-colors"
+                                className="flex items-center gap-1 text-xs text-teal-700 bg-white/50 px-2.5 py-1.5 rounded-lg hover:bg-white font-bold shadow-sm transition-all shrink-0 ml-2"
                             >
                                 {inspectionAlertExpanded ? 'Menos' : 'Ver todo'}
                                 {inspectionAlertExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                             </button>
                         )}
                     </div>
-                    <div className={`px-4 pb-3 space-y-1.5 ${!inspectionAlertExpanded && inspectionAlertProps.length > 3 ? 'max-h-[120px] overflow-hidden' : ''}`}>
+                    <div className={`px-4 pb-4 pt-1 space-y-2 ${!inspectionAlertExpanded && inspectionAlertProps.length > 3 ? 'max-h-[140px] overflow-hidden' : ''}`}>
                         {(inspectionAlertExpanded ? inspectionAlertProps : inspectionAlertProps.slice(0, 3)).map(prop => (
                             <div
                                 key={prop.id}
                                 onClick={() => navigate(`/crm/property/${prop.id}`)}
-                                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/60 hover:bg-white border border-teal-100 hover:border-teal-200 cursor-pointer transition-all group"
+                                className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-white/70 hover:bg-white border border-teal-100/50 hover:border-teal-200 cursor-pointer shadow-sm hover:shadow transition-all group"
                             >
-                                <MapPin className="w-3.5 h-3.5 text-teal-500 flex-shrink-0" />
-                                <span className="text-sm text-slate-700 truncate flex-1">{prop.address}{prop.commune ? `, ${prop.commune}` : ''}</span>
-                                <ArrowUpRight className="w-3.5 h-3.5 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                <MapPin className="w-4 h-4 text-teal-500 flex-shrink-0" />
+                                <span className="text-sm font-medium text-slate-800 truncate flex-1">{prop.address}{prop.commune ? `, ${prop.commune}` : ''}</span>
+                                <ArrowUpRight className="w-4 h-4 text-slate-300 group-hover:text-teal-500 transition-colors" />
                             </div>
                         ))}
                     </div>
                     {!inspectionAlertExpanded && inspectionAlertProps.length > 3 && (
-                        <div className="h-6 bg-gradient-to-t from-teal-50 to-transparent -mt-6 relative pointer-events-none" />
+                        <div className="h-8 bg-gradient-to-t from-teal-50 to-transparent -mt-8 relative pointer-events-none" />
                     )}
                 </motion.div>
             )}
@@ -466,8 +460,8 @@ export default function Dashboard() {
             {/* Header & Search */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-900">Hola, {user?.user_metadata?.first_name || 'Agente'}</h1>
-                    <p className="text-slate-500">Aquí tienes el resumen de tus solicitudes</p>
+                    <h1 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">Hola, {user?.user_metadata?.first_name || 'Agente'} 👋</h1>
+                    <p className="text-sm md:text-base text-slate-500 font-medium mt-1">Aquí tienes el resumen de tu actividad</p>
                 </div>
 
                 <div className="w-full md:w-96 relative z-50">
@@ -481,50 +475,52 @@ export default function Dashboard() {
                 <div className="space-y-6 lg:col-span-2" data-tour="requests-list">
 
                     {/* Quick Actions — hidden for postulantes */}
-                    {!isPostulante && <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-wrap items-center gap-3" data-tour="quick-actions">
-                        <div className="mr-2 font-medium text-slate-700 text-sm md:text-base">Accesos Rápidos</div>
-                        {quickActions.map((action, index) => (
+                    {!isPostulante && <div className="bg-white p-4 md:p-5 rounded-3xl border border-slate-200/60 shadow-sm flex flex-col gap-3" data-tour="quick-actions">
+                        <div className="font-bold text-slate-800 text-sm md:text-base px-1">Accesos Rápidos</div>
+                        <div className="flex overflow-x-auto pb-2 -mx-2 px-2 md:-mx-0 md:px-0 md:pb-0 gap-3 snap-x snap-mandatory flex-nowrap md:flex-wrap [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                            {quickActions.map((action, index) => (
+                                <Button
+                                    key={index}
+                                    className={cn(
+                                        "snap-start shrink-0 gap-2 shadow-sm hover:shadow-md transition-all rounded-xl md:rounded-lg h-12 md:h-10 text-sm",
+                                        action.color
+                                    )}
+                                    onClick={() => action.action ? action.action() : navigate(action.path)}
+                                >
+                                    <action.icon className="w-4 h-4 md:w-4 md:h-4" />
+                                    {action.label}
+                                </Button>
+                            ))}
+
+                            <div className="h-6 w-px bg-slate-200 mx-2 hidden md:block self-center" />
+
                             <Button
-                                key={index}
-                                className={cn(
-                                    "gap-2 shadow-sm transition-all",
-                                    action.color
-                                )}
-                                onClick={() => action.action ? action.action() : navigate(action.path)}
+                                variant="secondary"
+                                className="snap-start shrink-0 gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl md:rounded-lg h-12 md:h-10 text-sm shadow-sm"
+                                onClick={() => setIsContactModalOpen(true)}
                             >
-                                <action.icon className="w-4 h-4" />
-                                {action.label}
+                                <UserPlus className="w-4 h-4" />
+                                Nuevo Contacto
                             </Button>
-                        ))}
-
-                        <div className="h-6 w-px bg-slate-200 mx-2 hidden md:block" />
-
-                        <Button
-                            variant="secondary"
-                            className="gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700"
-                            onClick={() => setIsContactModalOpen(true)}
-                        >
-                            <UserPlus className="w-4 h-4" />
-                            Nuevo Contacto
-                        </Button>
+                        </div>
                     </div>}
 
                     {/* Solicitudes table — hidden for postulantes */}
                     {!isPostulante && <div>
-                        <div className="flex items-center justify-between mt-8">
-                            <h2 className="text-lg font-semibold text-slate-900">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between mt-8 mb-4 gap-4">
+                            <h2 className="text-xl md:text-2xl font-bold text-slate-900 tracking-tight">
                                 {['legal', 'comercial'].includes(profile?.role) ? 'Solicitudes' : 'Mis Solicitudes'}
                             </h2>
-                            <div className="flex bg-slate-100 p-1 rounded-lg">
+                            <div className="flex overflow-x-auto hide-scrollbar bg-slate-100/90 p-1.5 rounded-2xl snap-x [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden w-full sm:w-auto border border-slate-200/50">
                                 {['all', 'pending', 'finalized', 'draft'].map(status => (
                                     <button
                                         key={status}
                                         onClick={() => setFilterStatus(status)}
                                         className={cn(
-                                            "px-3 py-1.5 text-xs font-medium rounded-md transition-all",
+                                            "px-4 py-2 text-xs md:text-sm font-bold rounded-xl transition-all shrink-0 snap-start flex-1 sm:flex-none text-center",
                                             filterStatus === status
-                                                ? "bg-white text-slate-900 shadow-sm"
-                                                : "text-slate-500 hover:text-slate-700"
+                                                ? "bg-white text-slate-900 shadow-sm border border-slate-200/50"
+                                                : "text-slate-500 hover:text-slate-800"
                                         )}
                                     >
                                         {status === 'all' && 'Todas'}
@@ -536,7 +532,7 @@ export default function Dashboard() {
                             </div>
                         </div>
 
-                        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                        <div className="bg-white rounded-3xl border border-slate-200/60 shadow-sm overflow-hidden">
                             <Table>
                                 <TableHeader>
                                     <TableRow className="bg-slate-50 hover:bg-slate-50">
