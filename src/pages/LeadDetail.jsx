@@ -4,7 +4,7 @@ import { supabase } from '../services/supabase'
 import { Card, CardContent, Button, Badge, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui"
 import {
     Loader2, UserCheck, Phone, Mail, MapPin,
-    Home, DollarSign, CheckCircle2
+    Home, DollarSign, CheckCircle2, ArrowLeft
 } from "lucide-react"
 import { toast } from 'sonner'
 
@@ -81,7 +81,7 @@ const extractPropertyInfo = (data) => {
 
 export default function LeadDetail() {
     const { id } = useParams()
-    // const navigate = useNavigate() // Unused
+    const navigate = useNavigate()
     const [lead, setLead] = useState(null)
     const [loading, setLoading] = useState(true)
     const [agents, setAgents] = useState([])
@@ -195,6 +195,9 @@ export default function LeadDetail() {
             {/* Header */}
             <div className="bg-white border-b sticky top-0 z-20 px-4 py-3 shadow-sm flex items-center justify-between">
                 <div className="flex items-center gap-2">
+                    <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="mr-1">
+                        <ArrowLeft className="w-5 h-5 text-slate-500" />
+                    </Button>
                     <div className="h-8 w-8 bg-slate-900 rounded-full flex items-center justify-center text-white font-bold text-xs">
                         Admin
                     </div>

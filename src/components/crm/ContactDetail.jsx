@@ -253,7 +253,7 @@ const ContactDetail = () => {
         <div className="max-w-7xl mx-auto space-y-6 pb-20">
             {/* Header */}
             <div className="flex items-center justify-between">
-                <Button variant="ghost" onClick={() => navigate('/crm')} className="gap-2 pl-0">
+                <Button variant="ghost" onClick={() => navigate(-1)} className="gap-2 pl-0">
                     <ArrowLeft className="w-4 h-4" /> Volver
                 </Button>
                 <div className="flex items-center gap-2">

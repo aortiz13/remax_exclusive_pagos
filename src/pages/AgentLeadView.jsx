@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../services/supabase'
-import { Card, CardContent, CardHeader, CardTitle, Badge } from "@/components/ui"
+import { Card, CardContent, CardHeader, CardTitle, Badge, Button } from "@/components/ui"
 import {
     Loader2, AlertCircle, Phone, Mail, MessageCircle, MapPin,
-    Home, DollarSign, User, ChevronDown, ChevronUp, Copy, UserCheck
+    Home, DollarSign, User, ChevronDown, ChevronUp, Copy, UserCheck, ArrowLeft
 } from "lucide-react"
 import { toast } from 'sonner'
 
@@ -53,6 +53,7 @@ const JSONViewer = ({ data }) => (
 
 export default function AgentLeadView() {
     const { id } = useParams()
+    const navigate = useNavigate()
     const [lead, setLead] = useState(null)
     const [loading, setLoading] = useState(true)
     const [showRaw, setShowRaw] = useState(false)
@@ -100,6 +101,9 @@ export default function AgentLeadView() {
             {/* Header */}
             <div className="bg-white border-b sticky top-0 z-20 px-4 py-3 shadow-sm flex items-center justify-between">
                 <div className="flex items-center gap-2">
+                    <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="mr-1">
+                        <ArrowLeft className="w-5 h-5 text-slate-500" />
+                    </Button>
                     <div className="h-8 w-8 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
                         RE
                     </div>
