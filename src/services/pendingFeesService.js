@@ -223,6 +223,19 @@ export function buildPendingFeeEmailHTML(agent, months) {
             Por medio de la presente queremos recordarte que tienes pendiente las cuotas de la oficina según detalle, cuotas que deben ser canceladas los primeros cinco días de cada mes y te solicitamos regularizar esta situación lo más pronto posible.
         </p>
 
+        <!-- Importance message -->
+        <div style="margin:24px 0;padding:16px;background-color:#fdf2f2;border-left:4px solid #de350b;border-radius:4px;">
+            <p style="margin:0 0 12px;color:#333;font-size:13px;line-height:1.6;font-weight:bold;">
+                IMPORTANTE:
+            </p>
+            <p style="margin:0 0 12px;color:#444;font-size:13px;line-height:1.6;">
+                El pago de la cuota mensual es una obligación establecida desde el inicio de la asociación con la oficina. Esta cuota permite costear los servicios y herramientas que se ponen a disposición de cada agente para el desarrollo de su negocio, tales como formar parte de la red inmobiliaria más grande de Chile y del mundo, acceso a espacio de trabajo, plataformas tecnológicas, soporte administrativo y comercial, coaching personalizado, implementación de tecnologías de vanguardia para el soporte y automatización de la gestión del agente, capacitaciones, eventos, refrigerios e inversión constante en nuevas herramientas y servicios, entre muchos otros.
+            </p>
+            <p style="margin:0;color:#444;font-size:13px;line-height:1.6;">
+                Mantener esta cuota al día es fundamental para el correcto funcionamiento de la oficina y para asegurar la continuidad de los servicios disponibles para todos los agentes.
+            </p>
+        </div>
+
         <!-- Fees Table -->
         <div style="overflow-x:auto;margin-bottom:24px;">
             <table style="border-collapse:collapse;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
@@ -239,19 +252,6 @@ export function buildPendingFeeEmailHTML(agent, months) {
                     </tr>
                 </tbody>
             </table>
-        </div>
-
-        <!-- Importance message -->
-        <div style="margin:24px 0;padding:16px;background-color:#fdf2f2;border-left:4px solid #de350b;border-radius:4px;">
-            <p style="margin:0 0 12px;color:#333;font-size:13px;line-height:1.6;font-weight:bold;">
-                IMPORTANTE:
-            </p>
-            <p style="margin:0 0 12px;color:#444;font-size:13px;line-height:1.6;">
-                El pago de la cuota mensual es una obligación establecida desde el inicio de la asociación con la oficina. Esta cuota permite costear los servicios y herramientas que se ponen a disposición de cada agente para el desarrollo de su negocio, tales como formar parte de la red inmobiliaria más grande de Chile y del mundo, acceso a espacio de trabajo, plataformas tecnológicas, soporte administrativo y comercial, coaching personalizado, implementación de tecnologías de vanguardia para el soporte y automatización de la gestión del agente, capacitaciones, eventos, refrigerios e inversión constante en nuevas herramientas y servicios, entre muchos otros.
-            </p>
-            <p style="margin:0;color:#444;font-size:13px;line-height:1.6;">
-                Mantener esta cuota al día es fundamental para el correcto funcionamiento de la oficina y para asegurar la continuidad de los servicios disponibles para todos los agentes.
-            </p>
         </div>
 
         <!-- Payment Instructions -->
