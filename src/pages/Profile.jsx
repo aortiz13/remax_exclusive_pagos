@@ -17,7 +17,8 @@ export default function Profile() {
     const [notificationPreferences, setNotificationPreferences] = useState({
         email: true,
         whatsapp: true,
-        daily_summary: true
+        daily_summary: true,
+        birthday_reminders: true
     })
     const [uploadingSignature, setUploadingSignature] = useState(false)
     const [isDragging, setIsDragging] = useState(false)
@@ -41,7 +42,8 @@ export default function Profile() {
                 setNotificationPreferences({
                     email: profile.notification_preferences.email ?? true,
                     whatsapp: profile.notification_preferences.whatsapp ?? true,
-                    daily_summary: profile.notification_preferences.daily_summary ?? true
+                    daily_summary: profile.notification_preferences.daily_summary ?? true,
+                    birthday_reminders: profile.notification_preferences.birthday_reminders ?? true
                 })
             }
         }
@@ -401,7 +403,6 @@ export default function Profile() {
                                         onCheckedChange={(val) => updatePreference('whatsapp', val)}
                                     />
                                 </div>
-
                                 <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-800">
                                     <div className="space-y-0.5">
                                         <Label className="text-base font-medium">Resumen Diario a las 8:00 AM</Label>
@@ -412,6 +413,19 @@ export default function Profile() {
                                     <Switch
                                         checked={notificationPreferences.daily_summary}
                                         onCheckedChange={(val) => updatePreference('daily_summary', val)}
+                                    />
+                                </div>
+
+                                <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-800">
+                                    <div className="space-y-0.5">
+                                        <Label className="text-base font-medium text-amber-600 dark:text-amber-400">Recordatorios de Cumpleaños</Label>
+                                        <p className="text-sm text-slate-500 dark:text-slate-400">
+                                            Recibe un mensaje por WhatsApp cuando uno de tus contactos esté de cumpleaños.
+                                        </p>
+                                    </div>
+                                    <Switch
+                                        checked={notificationPreferences.birthday_reminders}
+                                        onCheckedChange={(val) => updatePreference('birthday_reminders', val)}
                                     />
                                 </div>
                             </div>

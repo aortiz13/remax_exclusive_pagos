@@ -14,6 +14,7 @@ import { logActivity } from '../../services/activityService'
 import { auditLog } from '../../services/auditLogService'
 import { ROLES, ROLE_COLORS } from './AddParticipantModal'
 import PropertyForm from './PropertyForm'
+import { validateEmail, validatePhone, getPhonePlaceholder, COUNTRY_PREFIXES } from '../../utils/validation'
 
 const Section = ({ title, children }) => (
     <div className="mb-6">
@@ -79,6 +80,11 @@ const ContactForm = ({ contact, isOpen, onClose, isSimplified = false, initialEm
     const [portalOption, setPortalOption] = useState('')
     const [customPortal, setCustomPortal] = useState('')
 
+    // Validation and Phone state
+    const [selectedCountry, setSelectedCountry] = useState(COUNTRY_PREFIXES[0]) // Default Chile
+    const [phoneDigits, setPhoneDigits] = useState('')
+    const [validationErrors, setValidationErrors] = useState({})
+
     useEffect(() => {
         if (contact) {
             setFormData({
@@ -110,11 +116,28 @@ const ContactForm = ({ contact, isOpen, onClose, isSimplified = false, initialEm
                 setPortalOption('')
                 setCustomPortal('')
             }
+
+            // Parse phone and prefix
+            if (contact.phone) {
+                const foundPrefix = COUNTRY_PREFIXES.find(p => contact.phone.startsWith(p.prefix))
+                if (foundPrefix) {
+                    setSelectedCountry(foundPrefix)
+                    setPhoneDigits(contact.phone.replace(foundPrefix.prefix, '').trim())
+                } else {
+                    setPhoneDigits(contact.phone)
+                }
+            } else {
+                setPhoneDigits('')
+                setSelectedCountry(COUNTRY_PREFIXES[0])
+            }
         } else {
             // Default for new contact
             setSelectedNeeds(['Comprar'])
             setPortalOption('')
             setCustomPortal('')
+            setPhoneDigits('')
+            setSelectedCountry(COUNTRY_PREFIXES[0])
+            setValidationErrors({})
         }
         fetchProperties()
         if (contact?.id) {
@@ -185,10 +208,57 @@ const ContactForm = ({ contact, isOpen, onClose, isSimplified = false, initialEm
     const handleChange = (e) => {
         const { name, value } = e.target
         setFormData(prev => ({ ...prev, [name]: value }))
+        
+        // Clear error when user types
+        if (validationErrors[name]) {
+            setValidationErrors(prev => {
+                const newErrors = { ...prev }
+                delete newErrors[name]
+                return newErrors
+            })
+        }
+    }
+
+    const handlePhoneDigitsChange = (e) => {
+        const value = e.target.value.replace(/\D/g, '') // Only digits
+        setPhoneDigits(value)
+        setFormData(prev => ({ ...prev, phone: selectedCountry.prefix + value }))
+        
+        if (validationErrors.phone) {
+            setValidationErrors(prev => {
+                const newErrors = { ...prev }
+                delete newErrors.phone
+                return newErrors
+            })
+        }
+    }
+
+    const handleCountryChange = (countryCode) => {
+        const country = COUNTRY_PREFIXES.find(c => c.code === countryCode)
+        setSelectedCountry(country)
+        setFormData(prev => ({ ...prev, phone: country.prefix + phoneDigits }))
     }
 
     const handleSubmit = async (e) => {
         e.preventDefault()
+        
+        // Final Validation
+        const errors = {}
+        if (formData.email && !validateEmail(formData.email)) {
+            errors.email = 'Email inválido'
+        }
+        
+        const fullPhone = selectedCountry.prefix + phoneDigits
+        if (phoneDigits && !validatePhone(fullPhone)) {
+            errors.phone = 'Teléfono inválido para ' + selectedCountry.name
+        }
+
+        if (Object.keys(errors).length > 0) {
+            setValidationErrors(errors)
+            toast.error('Corrige los errores en el formulario')
+            return
+        }
+
         setLoading(true)
 
         try {
@@ -434,11 +504,42 @@ const ContactForm = ({ contact, isOpen, onClose, isSimplified = false, initialEm
                                         </div>
                                         <div className="space-y-2">
                                             <Label>Email</Label>
-                                            <Input type="email" name="email" value={formData.email} onChange={handleChange} placeholder="juan@ejemplo.com" />
+                                            <Input 
+                                                type="email" 
+                                                name="email" 
+                                                value={formData.email} 
+                                                onChange={handleChange} 
+                                                placeholder="juan@ejemplo.com"
+                                                className={validationErrors.email ? "border-red-500 focus-visible:ring-red-500" : ""}
+                                            />
+                                            {validationErrors.email && <p className="text-xs text-red-500">{validationErrors.email}</p>}
                                         </div>
                                         <div className="space-y-2">
                                             <Label>Teléfono</Label>
-                                            <Input type="tel" name="phone" value={formData.phone} onChange={handleChange} placeholder="+56 9 1234 5678" />
+                                            <div className="flex gap-2">
+                                                <Select value={selectedCountry.code} onValueChange={handleCountryChange}>
+                                                    <SelectTrigger className="w-[100px]">
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent className="z-[300]">
+                                                        {COUNTRY_PREFIXES.map(c => (
+                                                            <SelectItem key={c.code} value={c.code}>
+                                                                <span className="flex items-center gap-2">
+                                                                    {c.prefix}
+                                                                </span>
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                                <Input 
+                                                    type="tel" 
+                                                    value={phoneDigits} 
+                                                    onChange={handlePhoneDigitsChange} 
+                                                    placeholder={getPhonePlaceholder(selectedCountry.code)}
+                                                    className={cn("flex-1", validationErrors.phone ? "border-red-500 focus-visible:ring-red-500" : "")}
+                                                />
+                                            </div>
+                                            {validationErrors.phone && <p className="text-xs text-red-500">{validationErrors.phone}</p>}
                                         </div>
                                         <div className="space-y-2">
                                             <Label>RUT</Label>
