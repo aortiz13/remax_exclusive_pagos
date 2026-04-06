@@ -113,6 +113,10 @@ const PropertyMap = () => {
         setActiveFilters(new Set(Object.keys(STATUS_PIN_COLORS)))
     }
 
+    const clearFilters = () => {
+        setActiveFilters(new Set())
+    }
+
     if (loading) {
         return (
             <div className="flex items-center justify-center h-[400px] bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800">
@@ -140,9 +144,14 @@ const PropertyMap = () => {
                 <div className="flex flex-wrap justify-between items-center gap-3">
                     <h3 className="font-semibold text-lg">Mapa de Propiedades</h3>
                     <div className="flex items-center gap-2">
+                        {activeFilters.size > 0 && (
+                            <Button variant="ghost" size="sm" className="h-7 text-xs px-2 text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30" onClick={clearFilters}>
+                                Deseleccionar todos
+                            </Button>
+                        )}
                         {!allActive && (
                             <Button variant="ghost" size="sm" className="h-7 text-xs px-2" onClick={resetFilters}>
-                                Mostrar todas
+                                Seleccionar todos
                             </Button>
                         )}
                         <Badge variant="outline">
