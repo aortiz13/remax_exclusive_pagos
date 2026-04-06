@@ -71,25 +71,29 @@ export function parsePendingFeesExcel(file) {
                     if (!name || /^total/i.test(name)) continue // Skip empty and TOTALES row
 
                     const email = String(row[emailColIdx] || '').trim()
-                    const total = parseMoneyValue(row[totalColIdx])
+                    const totalFromExcel = parseMoneyValue(row[totalColIdx])
 
-                    // Parse monthly amounts
+                    // Parse monthly amounts and calculate a local total
                     const monthlyAmounts = {}
-                    let hasAnyAmount = false
+                    let calculatedTotal = 0
                     for (let m = 0; m < months.length; m++) {
                         const colIdx = monthStartIdx + m
                         const amount = parseMoneyValue(row[colIdx])
                         monthlyAmounts[months[m]] = amount
-                        if (amount > 0) hasAnyAmount = true
+                        calculatedTotal += amount
                     }
+
+                    // Use calculated total if it is > 0, otherwise fallback to excel total
+                    // This fixes cases where the Excel's "Total" column is 0 despite having monthly amounts
+                    const finalTotal = calculatedTotal > 0 ? calculatedTotal : totalFromExcel
 
                     agents.push({
                         _row: i + 1,
                         name,
                         email,
                         months: monthlyAmounts,
-                        total,
-                        hasPendingFees: total > 0 && hasAnyAmount,
+                        total: finalTotal,
+                        hasPendingFees: finalTotal > 0,
                     })
                 }
 
