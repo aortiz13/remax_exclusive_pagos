@@ -50,7 +50,7 @@ export default function InspectionDashboard() {
             const [inspData, schedData, adminProps] = await Promise.all([
                 getInspections(filters),
                 getInspectionSchedule(filters),
-                isAdmin ? getAdministradaProperties() : Promise.resolve([]),
+                getAdministradaProperties(isAdmin ? null : user?.id),
             ])
             setInspections(inspData)
             setSchedule(schedData)
@@ -119,7 +119,7 @@ export default function InspectionDashboard() {
             const { data } = await supabase
                 .from('profiles')
                 .select('id, first_name, last_name, role')
-                .in('role', ['agente', 'superadministrador', 'tecnico', 'comercial', 'legal', 'administracion'])
+                .in('role', ['agent', 'superadministrador', 'tecnico', 'comercial', 'legal', 'administracion'])
                 .order('first_name')
             setAgents(data || [])
         }
@@ -155,6 +155,25 @@ export default function InspectionDashboard() {
                     ? `${showAssignModal.property.address || ''}, ${showAssignModal.property.commune || ''}`.replace(/^,\s*|,\s*$/g, '')
                     : 'Sin dirección'
 
+                // Fetch owner info from the property
+                let ownerName = ''
+                let ownerEmail = ''
+                let ownerPhone = ''
+                try {
+                    const { data: propWithOwner } = await supabase
+                        .from('properties')
+                        .select('owner:contacts!properties_owner_id_fkey(first_name, last_name, email, phone)')
+                        .eq('id', showAssignModal.property_id)
+                        .single()
+                    if (propWithOwner?.owner) {
+                        ownerName = `${propWithOwner.owner.first_name || ''} ${propWithOwner.owner.last_name || ''}`.trim()
+                        ownerEmail = propWithOwner.owner.email || ''
+                        ownerPhone = propWithOwner.owner.phone || ''
+                    }
+                } catch (_) { /* non-blocking */ }
+
+                const inspectionUrl = `${window.location.origin}/inspecciones`
+
                 await fetch('https://workflow.remax-exclusive.cl/webhook/inspection-assigned', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -171,6 +190,12 @@ export default function InspectionDashboard() {
                             property_id: showAssignModal.property_id,
                             address: propertyAddr,
                             scheduled_date: showAssignModal.scheduled_date,
+                            url: inspectionUrl,
+                        },
+                        owner: {
+                            name: ownerName,
+                            email: ownerEmail,
+                            phone: ownerPhone,
                         },
                         assigned_by: `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim(),
                     })
@@ -275,15 +300,13 @@ export default function InspectionDashboard() {
                         </p>
                     </div>
                 </div>
-                {isAdmin && (
-                    <button
-                        onClick={openNewModal}
-                        className="px-5 py-2.5 bg-[#003DA5] text-white rounded-xl text-sm font-bold hover:bg-[#002d7a] transition-colors flex items-center gap-2 shadow-lg shadow-blue-500/20"
-                    >
-                        <Plus className="w-4 h-4" />
-                        Nueva Inspección
-                    </button>
-                )}
+                <button
+                    onClick={openNewModal}
+                    className="px-5 py-2.5 bg-[#003DA5] text-white rounded-xl text-sm font-bold hover:bg-[#002d7a] transition-colors flex items-center gap-2 shadow-lg shadow-blue-500/20"
+                >
+                    <Plus className="w-4 h-4" />
+                    Nueva Inspección
+                </button>
             </div>
 
             {/* Missing contract dates warning */}
@@ -547,7 +570,7 @@ export default function InspectionDashboard() {
                                                             <Link className="w-3 h-3" /> Enlace
                                                         </button>
                                                     )}
-                                                    {sched.property?.is_office_property && isAdmin && (
+                                                    {isAdmin && (
                                                         <button
                                                             onClick={() => openAssignModal(sched)}
                                                             className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-emerald-600 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors"

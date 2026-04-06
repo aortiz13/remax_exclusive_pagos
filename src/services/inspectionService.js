@@ -254,11 +254,17 @@ export function getDefaultFormData() {
 /**
  * Get only Administrada properties (for inspection property picker)
  */
-export async function getAdministradaProperties() {
-    const { data, error } = await supabase
+export async function getAdministradaProperties(agentId = null) {
+    let query = supabase
         .from('properties')
         .select('id, address, commune, unit_number, property_type, contract_start_date, contract_end_date, agent_id, status')
         .contains('status', ['Administrada'])
+
+    if (agentId) {
+        query = query.eq('agent_id', agentId)
+    }
+
+    const { data, error } = await query
         .order('address')
 
     if (error) throw error

@@ -124,6 +124,7 @@ export default function ShiftBookingPage() {
             .select('*')
             .eq('agent_id', profile.id)
             .gte('booking_date', today)
+            .in('status', ['pendiente', 'aprobado'])
             .order('booking_date', { ascending: true })
         setMyBookings(data || [])
     }
@@ -209,10 +210,13 @@ export default function ShiftBookingPage() {
         sendShiftNotification(SHIFT_EVENTS.SHIFT_CANCELLED, booking, profile)
 
         // Remove calendar events for agent + comercial, delete from Google Calendar
-        deleteShiftCalendarEvent(booking, profile.id, comercialId)
+        await deleteShiftCalendarEvent(booking, profile.id, comercialId)
 
         toast.success('Turno cancelado.')
-        await fetchBookings()
+        await Promise.all([
+            fetchBookings(),
+            fetchMyBookings()
+        ])
     }
 
     const isPast = (date) => date < new Date().toISOString().split('T')[0]
@@ -348,18 +352,20 @@ export default function ShiftBookingPage() {
 
                                         if (booking) {
                                             const st = STATUS_CONFIG[booking.status] || STATUS_CONFIG.pendiente
-                                            const agentName = booking.agent
-                                                ? `${booking.agent.first_name || ''} ${booking.agent.last_name || ''}`.trim()
-                                                : agents[booking.agent_id] || 'Agente'
+                                            const agentName = isMine
+                                                ? (booking.agent
+                                                    ? `${booking.agent.first_name || ''} ${booking.agent.last_name || ''}`.trim()
+                                                    : agents[booking.agent_id] || 'Agente')
+                                                : 'No disponible'
 
                                             return (
                                                 <div key={shift} className={cn(
                                                     "rounded-lg p-2.5 border text-xs transition-all",
-                                                    st.color
+                                                    isMine ? st.color : "bg-slate-50 text-slate-400 border-slate-200"
                                                 )}>
                                                     <div className="flex items-center justify-between mb-1">
                                                         <span className="font-bold">{cfg.label}</span>
-                                                        <st.icon className="w-3.5 h-3.5" />
+                                                        {isMine && <st.icon className="w-3.5 h-3.5" />}
                                                     </div>
                                                     <div className="text-[10px] opacity-75">{cfg.time}</div>
                                                     <div className="mt-1.5 font-semibold truncate">{agentName}</div>

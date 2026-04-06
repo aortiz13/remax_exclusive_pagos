@@ -32,8 +32,8 @@ const CRM_FIELDS = [
     // CRM
     { id: 'status', label: 'Estado', required: false, group: 'CRM', hint: 'Activo / Inactivo (def: Activo)' },
     { id: 'source', label: 'Fuente', required: false, group: 'CRM', hint: 'Ej: Referido, Web' },
-    { id: 'need', label: 'Necesidad', required: false, group: 'CRM', hint: 'Comprar / Vender / Arrendar (def: Comprar)' },
-    { id: 'rating', label: 'Clasificación (A+)', required: false, group: 'CRM', hint: 'Ej: A+, B, C' },
+    { id: 'need', label: 'Necesidad', required: false, group: 'CRM', hint: 'Comprar / Vender / Arrendar (propietario / Arrendatario) / Invertir / Proveedor / Colega (def: Comprar)' },
+    { id: 'rating', label: 'Clasificación (A+)', required: false, group: 'CRM', hint: 'Ej: A+, A, B, C, O, D' },
     { id: 'rating_80_20', label: 'Rating 80/20', required: false, group: 'CRM', hint: 'Ej: Estrella, Clave' },
     { id: 'notes', label: 'Notas', required: false, group: 'CRM', hint: 'Observaciones generales' },
 ]

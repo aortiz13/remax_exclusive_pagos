@@ -28,7 +28,7 @@ import {
 } from "@/components/ui";
 import { supabase } from '../../services/supabase';
 import { toast } from 'sonner';
-import { Check, ChevronsUpDown, X, Plus, Trash2, Clock, Mail, MapPin, ArrowLeftRight, Search } from "lucide-react";
+import { Check, ChevronsUpDown, X, Plus, Trash2, Clock, Mail, MapPin, ArrowLeftRight, Search, Calendar, Link2 } from "lucide-react";
 import { cn, toISOLocal, localToISO } from "@/lib/utils";
 import { useNavigate } from 'react-router-dom';
 import {
@@ -161,7 +161,11 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
             delay: '2_business_days',
             customDate: toISOLocal(new Date(Date.now() + 2 * 24 * 60 * 60 * 1000)),
             useSpecificTime: false,
-            specificTime: '09:00'
+            specificTime: '09:00',
+            action: '',
+            description: '',
+            reminder_minutes: 'none',
+            linkedActionType: 'none'
         }
     ]);
 
@@ -240,7 +244,11 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
                     delay: '2_business_days',
                     customDate: toISOLocal(new Date(Date.now() + 2 * 24 * 60 * 60 * 1000)),
                     useSpecificTime: false,
-                    specificTime: '09:00'
+                    specificTime: '09:00',
+                    action: '',
+                    description: '',
+                    reminder_minutes: 'none',
+                    linkedActionType: 'none'
                 }]);
             }
         }
@@ -484,15 +492,50 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
                         followUpDate = new Date(y, m, d, 0, 0, 0);
                     }
 
+                    // Handle linked action if any (parity with TaskModal)
+                    let futureActionId = null;
+                    if (task.linkedActionType && task.linkedActionType !== 'none') {
+                        const { data: futureActionRow, error: futureActionError } = await supabase
+                            .from('crm_actions')
+                            .insert({
+                                agent_id: user.id,
+                                action_type: task.linkedActionType,
+                                action_date: followUpDate.toISOString(),
+                                property_id: selectedPropertyId === 'none' ? null : selectedPropertyId,
+                                note: `Acción vinculada a tarea de seguimiento: ${task.action || `Seguimiento: ${resolvedType}`}`,
+                                is_conversation_starter: task.linkedActionType.includes('(I.C)'),
+                                kpi_deferred: true
+                            })
+                            .select()
+                            .single();
+
+                        if (!futureActionError) {
+                            futureActionId = futureActionRow.id;
+                            // Add contact to future action
+                            if (selectedContactIds.length > 0) {
+                                try {
+                                    await supabase.from('crm_action_contacts').insert({
+                                        action_id: futureActionRow.id,
+                                        contact_id: selectedContactIds[0]
+                                    });
+                                } catch (_) { }
+                            }
+                        } else {
+                            console.error('Error creating future linked action:', futureActionError);
+                        }
+                    }
+
                     const { data: taskRow, error: taskError } = await supabase
                         .from('crm_tasks')
                         .insert({
                             agent_id: user.id,
                             contact_id: selectedContactIds[0] || null,
                             property_id: selectedPropertyId === 'none' ? null : selectedPropertyId,
-                            action: `Seguimiento: ${resolvedType}`,
+                            action: task.action || `Seguimiento: ${resolvedType}`,
+                            description: task.description || null,
+                            reminder_minutes: (task.useSpecificTime && task.reminder_minutes !== 'none') ? parseInt(task.reminder_minutes) : null,
                             execution_date: followUpDate.toISOString(),
-                            action_id: actionRow.id,
+                            action_id: futureActionId || actionRow.id, // Links to future action if exists, else back to this action
                             task_type: 'task',
                             is_all_day: !task.useSpecificTime
                         })
@@ -733,52 +776,70 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
         <>
             <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()} modal={!isCreateContactOpen && !isCreatePropertyOpen}>
                 <DialogContent
-                    className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto"
+                    className="sm:max-w-[700px] max-h-[85vh] overflow-y-auto p-0 flex flex-col"
                     onInteractOutside={(e) => {
                         if (isCreateContactOpen || isCreatePropertyOpen) {
                             e.preventDefault();
                         }
                     }}
                 >
-                    <DialogHeader>
-                        <DialogTitle>{viewOnly ? 'Detalles de Acción' : 'Agregar Acción'}</DialogTitle>
-                        <DialogDescription className="sr-only">
-                            {viewOnly ? 'Detalles de la acción seleccionada' : 'Formulario para agregar una nueva acción al CRM'}
+                    <DialogHeader className="px-6 pt-6 pb-2 shrink-0 border-b">
+                        <DialogTitle className="text-xl font-bold flex items-center gap-2">
+                            {viewOnly ? 'Detalles de Acción' : 'Registrar Nueva Acción'}
+                        </DialogTitle>
+                        <DialogDescription className="text-[11px] text-muted-foreground mt-0.5">
+                            {viewOnly ? 'Información completa de la actividad.' : 'Complete los detalles de la actividad realizada.'}
                         </DialogDescription>
                     </DialogHeader>
 
-                    <div className="space-y-4 py-4">
-                        {/* Action Type */}
-                        <div className="space-y-2">
-                            <Label htmlFor="actionType">Tipo de Acción {viewOnly ? '' : <span className="text-red-500">*</span>}</Label>
-                            {viewOnly ? (
-                                /* In viewOnly, always show the real stored value as plain text */
+                    <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 scrollbar-thin">
+                        {/* Action Type & Date Grid */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-1.5">
+                                <Label htmlFor="actionType" className="text-xs font-bold uppercase text-muted-foreground/80 tracking-wide">Tipo de Acción {viewOnly ? '' : <span className="text-red-500">*</span>}</Label>
+                                {viewOnly ? (
+                                    <Input
+                                        value={actionData?.action_type || ''}
+                                        disabled
+                                        className="bg-muted/40 h-9 text-sm"
+                                    />
+                                ) : (
+                                    <Select value={actionType} onValueChange={setActionType}>
+                                        <SelectTrigger className="h-9 text-sm">
+                                            <SelectValue placeholder="Seleccione una acción" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {ACTION_TYPES.map(type => (
+                                                <SelectItem key={type} value={type}>{type}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                )}
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <Label htmlFor="datetime" className="text-xs font-bold uppercase text-muted-foreground/80 tracking-wide">Fecha y Hora {viewOnly ? '' : <span className="text-red-500">*</span>}</Label>
                                 <Input
-                                    value={actionData?.action_type || ''}
-                                    disabled
-                                    className="bg-muted/40"
+                                    id="datetime"
+                                    type="datetime-local"
+                                    value={actionDate}
+                                    onChange={(e) => setActionDate(e.target.value)}
+                                    disabled={viewOnly}
+                                    className="h-9 text-sm"
                                 />
-                            ) : (
-                                <Select value={actionType} onValueChange={setActionType}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Seleccione una acción" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {ACTION_TYPES.map(type => (
-                                            <SelectItem key={type} value={type}>{type}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            )}
-                            {!viewOnly && actionType === 'Otra (I.C)' && (
+                            </div>
+                        </div>
+
+                        {!viewOnly && actionType === 'Otra (I.C)' && (
+                            <div className="animate-in fade-in slide-in-from-top-1">
                                 <Input
                                     placeholder="Especifique qué otra acción"
                                     value={otherActionType}
                                     onChange={(e) => setOtherActionType(e.target.value)}
-                                    className="mt-2"
+                                    className="h-9 text-sm"
                                 />
-                            )}
-                        </div>
+                            </div>
+                        )}
 
                         {/* Canje toggle — visible only for "Visita Propiedad" */}
                         {actionType === 'Visita Propiedad' && (
@@ -974,25 +1035,21 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
                             </div>
                         )}
 
-                        {/* Property Selector — hidden for "Visita comprador/arrendatario (Canje)" */}
-                        {actionType !== 'Visita comprador/arrendatario (Canje)' && (
-                            <div className="space-y-2">
-                                <Label htmlFor="property">
+                        {/* Property & Contacts Grid */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {/* Property Selector */}
+                            <div className="space-y-1.5">
+                                <Label htmlFor="property" className="text-xs font-bold uppercase text-muted-foreground/80 tracking-wide">
                                     Propiedad Asociada
                                     {['Facturación', 'Evaluación Comercial'].includes(actionType)
                                         ? <span className="text-red-500 ml-1">*</span>
-                                        : <span className="text-muted-foreground text-xs ml-1">(Opcional)</span>
+                                        : <span className="text-muted-foreground text-[10px] ml-1">(Opcional)</span>
                                     }
                                 </Label>
-                                {actionType === 'Evaluación Comercial' && !viewOnly && (
-                                    <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
-                                        Para las evaluaciones comerciales es obligatorio asociarlo a una propiedad para guardar la acción.
-                                    </p>
-                                )}
                                 <div className="relative">
                                     <div
                                         onClick={() => !viewOnly && setPropDropdownOpen(!propDropdownOpen)}
-                                        className={`flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background transition-all ${viewOnly ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-accent/50 hover:border-accent'}`}
+                                        className={`flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background transition-all ${viewOnly ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-accent/50 hover:border-accent'}`}
                                     >
                                         <span className={`truncate flex-1 min-w-0 ${selectedPropertyId && selectedPropertyId !== 'none'
                                             ? 'text-foreground'
@@ -1002,7 +1059,7 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
                                                 if (selectedPropertyId && selectedPropertyId !== 'none') {
                                                     const sp = properties.find(p => p.id === selectedPropertyId);
                                                     return sp
-                                                        ? `${formatPropertyAddress(sp)}${sp.commune ? `, ${sp.commune}` : ''}`
+                                                        ? `${formatPropertyAddress(sp)}`
                                                         : 'Seleccione propiedad';
                                                 }
                                                 return 'Seleccione propiedad';
@@ -1023,42 +1080,26 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
                                                         value={propSearch}
                                                         onChange={e => setPropSearch(e.target.value)}
                                                         onKeyDown={handlePropKeyDown}
-                                                        placeholder="Buscar dirección, comuna, tipo..."
+                                                        placeholder="Buscar..."
                                                         className="w-full h-8 text-sm bg-transparent border-0 outline-none placeholder:text-muted-foreground"
                                                         autoFocus
                                                     />
                                                 </div>
                                             </div>
-                                            {/* Filter chips */}
-                                            <div className="px-2 py-1.5 border-b border-border flex gap-1 flex-wrap">
-                                                {PROP_TYPES.map(type => {
-                                                    const count = propTypeCounts[type.key] || 0;
-                                                    if (type.key !== 'all' && count === 0) return null;
-                                                    const isActive = propTypeFilter === type.key;
-                                                    return (
-                                                        <button key={type.key} type="button" onClick={() => setPropTypeFilter(type.key)}
-                                                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium transition-all ${isActive ? 'bg-primary text-primary-foreground shadow-sm' : 'bg-muted/70 text-muted-foreground hover:bg-muted hover:text-foreground'
-                                                                }`}>
-                                                            {type.label}
-                                                            <span className={`text-[10px] ${isActive ? 'opacity-80' : 'opacity-60'}`}>{count}</span>
-                                                        </button>
-                                                    );
-                                                })}
-                                            </div>
                                             {/* Items */}
-                                            <div className="max-h-52 overflow-y-auto">
+                                            <div className="max-h-40 overflow-y-auto">
                                                 <button ref={el => propItemRefs.current[0] = el} type="button"
                                                     onClick={() => { setIsCreatePropertyOpen(true); setPropDropdownOpen(false); }}
-                                                    className={`w-full text-left px-3 py-2.5 text-sm text-primary font-medium hover:bg-primary/5 transition-colors flex items-center gap-2 border-b border-border/50 sticky top-0 bg-popover z-10 ${propHighlight === 0 ? 'bg-accent' : ''}`}>
-                                                    <Plus className="w-4 h-4" /> Crear nueva propiedad
+                                                    className={`w-full text-left px-3 py-2 text-sm text-primary font-medium hover:bg-primary/5 transition-colors flex items-center gap-2 border-b border-border/50 sticky top-0 bg-popover z-10 ${propHighlight === 0 ? 'bg-accent' : ''}`}>
+                                                    <Plus className="w-4 h-4" /> Nueva
                                                 </button>
                                                 <button ref={el => propItemRefs.current[1] = el} type="button"
                                                     onClick={() => { setSelectedPropertyId('none'); setPropDropdownOpen(false); setPropSearch(''); setPropTypeFilter('all'); }}
-                                                    className={`w-full text-left px-3 py-2 text-sm text-muted-foreground hover:bg-accent transition-colors ${propHighlight === 1 ? 'bg-accent' : ''}`}>
+                                                    className={`w-full text-left px-3 py-1.5 text-xs text-muted-foreground hover:bg-accent transition-colors ${propHighlight === 1 ? 'bg-accent' : ''}`}>
                                                     — Ninguna —
                                                 </button>
                                                 {filteredProperties.length === 0 ? (
-                                                    <div className="px-3 py-4 text-sm text-muted-foreground text-center">No se encontraron propiedades</div>
+                                                    <div className="px-3 py-4 text-xs text-muted-foreground text-center">No encontrado</div>
                                                 ) : (
                                                     <>
                                                         {visibleProperties.map((p, idx) => {
@@ -1066,24 +1107,16 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
                                                             return (
                                                                 <button key={p.id} ref={el => propItemRefs.current[itemIdx] = el} type="button"
                                                                     onClick={() => { setSelectedPropertyId(p.id); setPropDropdownOpen(false); setPropSearch(''); setPropTypeFilter('all'); }}
-                                                                    className={`w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors flex items-center justify-between gap-2 ${selectedPropertyId === p.id ? 'bg-accent/70 font-medium' : ''
+                                                                    className={`w-full text-left px-3 py-1.5 text-xs hover:bg-accent transition-colors flex items-center justify-between gap-2 ${selectedPropertyId === p.id ? 'bg-accent/70 font-medium' : ''
                                                                         } ${propHighlight === itemIdx ? 'bg-accent' : ''}`}>
                                                                     <div className="min-w-0 flex-1">
                                                                         <div className="font-medium truncate">
-                                                                            <PropHighlightText text={formatPropertyAddress(p)} words={propSearchWords} />
-                                                                        </div>
-                                                                        <div className="text-xs text-muted-foreground truncate">
-                                                                            <PropHighlightText text={[p.property_type, p.commune].filter(Boolean).join(' · ')} words={propSearchWords} />
+                                                                            {formatPropertyAddress(p)}
                                                                         </div>
                                                                     </div>
                                                                 </button>
                                                             );
                                                         })}
-                                                        {filteredProperties.length > MAX_PROP_VISIBLE && (
-                                                            <div className="px-3 py-2 text-xs text-muted-foreground text-center border-t border-border/50 bg-muted/30">
-                                                                Mostrando {MAX_PROP_VISIBLE} de {filteredProperties.length} — escribe para filtrar más
-                                                            </div>
-                                                        )}
                                                     </>
                                                 )}
                                             </div>
@@ -1093,124 +1126,100 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
                                         <div className="fixed inset-0 z-40" onClick={() => { setPropDropdownOpen(false); setPropSearch(''); setPropTypeFilter('all'); }} />
                                     )}
                                 </div>
+                                {actionType === 'Evaluación Comercial' && !viewOnly && (
+                                    <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1">
+                                        Asociación obligatoria.
+                                    </p>
+                                )}
                             </div>
-                        )}
 
-                        {/* Contact Selector (Multi) */}
-                        <div className="space-y-2">
-                            <Label>Contactos Asociados {viewOnly ? '' : <span className="text-red-500">*</span>}</Label>
-                            <Popover open={openContactCombo} onOpenChange={(open) => {
-                                if (!viewOnly) setOpenContactCombo(open);
-                            }} modal={false}>
-                                <PopoverTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        role="combobox"
-                                        aria-expanded={openContactCombo}
-                                        className={cn("w-full justify-between min-h-[40px] h-auto p-2", viewOnly && "opacity-70 cursor-not-allowed hidden-caret")}
-                                        disabled={viewOnly}
-                                    >
-                                        <div className="flex flex-wrap gap-1 items-center">
-                                            {selectedContactIds.length === 0
-                                                ? (hasSelectedNone ? "Ningún contacto seleccionado" : "Seleccionar contactos...")
-                                                : null}
-                                            {selectedContactIds.map(id => {
-                                                const contact = contacts.find(c => c.id === id);
-                                                const role = propertyContactsRoles[id];
-                                                if (!contact) return null;
-                                                return (
-                                                    <span key={contact.id} className="bg-primary/10 text-primary text-xs flex items-center gap-1 rounded px-2 py-1">
-                                                        {contact.first_name} {contact.last_name}
-                                                        {role && <span className="text-[10px] text-muted-foreground ml-1">({role})</span>}
-                                                        {!viewOnly && (
-                                                            <span
-                                                                className="hover:bg-primary/20 rounded-full cursor-pointer p-0.5 ml-1"
-                                                                onClick={(e) => removeContact(contact.id, e)}
-                                                            >
-                                                                <X className="h-3 w-3" />
-                                                            </span>
-                                                        )}
-                                                    </span>
-                                                )
-                                            })}
-                                        </div>
-                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-[--radix-popover-trigger-width] p-0 pointer-events-auto" align="start" onWheel={(e) => e.stopPropagation()}>
-                                    <Command>
-                                        <CommandInput placeholder="Buscar contacto..." />
-                                        <CommandList className="max-h-[200px]" onWheel={(e) => e.stopPropagation()}>
-                                            <CommandEmpty>No se encontraron contactos.</CommandEmpty>
-                                            <CommandGroup>
-                                                <CommandItem
-                                                    value="new_contact"
-                                                    onSelect={() => {
-                                                        setIsCreateContactOpen(true);
-                                                        setOpenContactCombo(false);
-                                                    }}
-                                                    className="text-primary font-medium cursor-pointer"
-                                                >
-                                                    + Crear nuevo contacto
-                                                </CommandItem>
-                                                <CommandItem
-                                                    value="none"
-                                                    onSelect={() => {
-                                                        setSelectedContactIds([]);
-                                                        setHasSelectedNone(true);
-                                                        setOpenContactCombo(false);
-                                                    }}
-                                                    className="text-muted-foreground italic cursor-pointer"
-                                                >
-                                                    Ningún contacto
-                                                </CommandItem>
-                                                {contacts.map((contact) => (
-                                                    <CommandItem
-                                                        key={contact.id}
-                                                        value={`${contact.first_name} ${contact.last_name} ${contact.email}`}
-                                                        onSelect={() => {
-                                                            toggleContactSelect(contact.id);
-                                                        }}
-                                                    >
-                                                        <Check
-                                                            className={cn(
-                                                                "mr-2 h-4 w-4",
-                                                                selectedContactIds.includes(contact.id) ? "opacity-100" : "opacity-0"
+                            {/* Contact Selector */}
+                            <div className="space-y-1.5">
+                                <Label className="text-xs font-bold uppercase text-muted-foreground/80 tracking-wide">Contactos Asociados {viewOnly ? '' : <span className="text-red-500">*</span>}</Label>
+                                <Popover open={openContactCombo} onOpenChange={(open) => {
+                                    if (!viewOnly) setOpenContactCombo(open);
+                                }} modal={false}>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            role="combobox"
+                                            aria-expanded={openContactCombo}
+                                            className={cn("w-full justify-between min-h-[36px] h-auto p-2", viewOnly && "opacity-70 cursor-not-allowed hidden-caret")}
+                                            disabled={viewOnly}
+                                        >
+                                            <div className="flex flex-wrap gap-1 items-center">
+                                                {selectedContactIds.length === 0
+                                                    ? <span className="text-xs text-muted-foreground">Seleccionar...</span>
+                                                    : null}
+                                                {selectedContactIds.map(id => {
+                                                    const contact = contacts.find(c => c.id === id);
+                                                    if (!contact) return null;
+                                                    return (
+                                                        <span key={contact.id} className="bg-primary/10 text-primary text-[10px] flex items-center gap-1 rounded px-1.5 py-0.5">
+                                                            {contact.first_name} {contact.last_name.charAt(0)}.
+                                                            {!viewOnly && (
+                                                                <span
+                                                                    className="hover:bg-primary/20 rounded-full cursor-pointer p-0.5 ml-0.5"
+                                                                    onClick={(e) => removeContact(contact.id, e)}
+                                                                >
+                                                                    <X className="h-2 w-2" />
+                                                                </span>
                                                             )}
-                                                        />
-                                                        {contact.first_name} {contact.last_name}
-                                                        <span className="text-muted-foreground ml-2 text-xs">{contact.email}</span>
-                                                        {propertyContactsRoles[contact.id] && (
-                                                            <span className="ml-auto text-[10px] bg-secondary px-1.5 py-0.5 rounded capitalize">
-                                                                {propertyContactsRoles[contact.id]}
-                                                            </span>
-                                                        )}
+                                                        </span>
+                                                    )
+                                                })}
+                                            </div>
+                                            <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0 pointer-events-auto" align="start" onWheel={(e) => e.stopPropagation()}>
+                                        <Command>
+                                            <CommandInput placeholder="Buscar..." className="h-8 text-xs" />
+                                            <CommandList className="max-h-[150px]" onWheel={(e) => e.stopPropagation()}>
+                                                <CommandEmpty className="py-2 px-4 text-xs">No encontrado</CommandEmpty>
+                                                <CommandGroup>
+                                                    <CommandItem
+                                                        value="new_contact"
+                                                        onSelect={() => {
+                                                            setIsCreateContactOpen(true);
+                                                            setOpenContactCombo(false);
+                                                        }}
+                                                        className="text-primary font-medium cursor-pointer text-xs"
+                                                    >
+                                                        + Crear nuevo
                                                     </CommandItem>
-                                                ))}
-                                            </CommandGroup>
-                                        </CommandList>
-                                    </Command>
-                                </PopoverContent>
-                            </Popover>
+                                                    {contacts.map((contact) => (
+                                                        <CommandItem
+                                                            key={contact.id}
+                                                            value={`${contact.first_name} ${contact.last_name}`}
+                                                            onSelect={() => {
+                                                                toggleContactSelect(contact.id);
+                                                            }}
+                                                            className="text-xs"
+                                                        >
+                                                            <Check
+                                                                className={cn(
+                                                                    "mr-2 h-3 w-3",
+                                                                    selectedContactIds.includes(contact.id) ? "opacity-100" : "opacity-0"
+                                                                )}
+                                                            />
+                                                            {contact.first_name} {contact.last_name}
+                                                        </CommandItem>
+                                                    ))}
+                                                </CommandGroup>
+                                            </CommandList>
+                                        </Command>
+                                    </PopoverContent>
+                                </Popover>
+                            </div>
                         </div>
 
-                        {/* Date and Time */}
-                        <div className="space-y-2">
-                            <Label htmlFor="datetime">Fecha y Hora {viewOnly ? '' : <span className="text-red-500">*</span>}</Label>
-                            <Input
-                                id="datetime"
-                                type="datetime-local"
-                                value={actionDate}
-                                onChange={(e) => setActionDate(e.target.value)}
-                                disabled={viewOnly}
-                            />
-                        </div>
 
                         {/* Note */}
-                        <div className="space-y-2">
-                            <Label htmlFor="note">Nota (Opcional)</Label>
+                        <div className="space-y-1.5">
+                            <Label htmlFor="note" className="text-xs font-bold uppercase text-muted-foreground/80 tracking-wide">Nota (Opcional)</Label>
                             {viewOnly ? (
-                                <div className="min-h-[60px] rounded-md border border-input bg-muted/40 px-3 py-2 text-sm leading-relaxed">
+                                <div className="min-h-[40px] rounded-md border border-input bg-muted/20 px-3 py-2 text-sm leading-relaxed">
                                     {renderTextWithLinks(note) || <span className="text-muted-foreground italic">Sin nota</span>}
                                 </div>
                             ) : (
@@ -1218,14 +1227,14 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
                                     id="note"
                                     placeholder={
                                         actionType === 'Visita comprador/arrendatario (Canje)'
-                                            ? 'Ej: Nombre del corredor colega, Link de la publicación de la propiedad visitada...'
+                                            ? 'Ej: Nombre del corredor colega, Link...'
                                             : (actionType === 'Visita Propiedad' && isCanje)
-                                                ? 'Ej: Nombre del corredor colega que trajo la visita, oficina, teléfono o email de contacto...'
-                                                : 'Detalles de la acción...'
+                                                ? 'Ej: Datos del corredor colega...'
+                                                : 'Detalles...'
                                     }
                                     value={note}
                                     onChange={(e) => setNote(e.target.value)}
-                                    className="min-h-[100px]"
+                                    className="min-h-[80px] text-sm"
                                 />
                             )}
                         </div>
@@ -1257,7 +1266,11 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
                                                     delay: '2_business_days',
                                                     customDate: toISOLocal(new Date(Date.now() + 2 * 24 * 60 * 60 * 1000)),
                                                     useSpecificTime: false,
-                                                    specificTime: '09:00'
+                                                    specificTime: '09:00',
+                                                    action: '',
+                                                    description: '',
+                                                    reminder_minutes: 'none',
+                                                    linkedActionType: 'none'
                                                 }
                                             ])}
                                         >
@@ -1269,58 +1282,64 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
                                 {createFollowUp && (
                                     <div className="space-y-4 ml-6">
                                         {followUpTasks.map((task, index) => (
-                                            <div key={task.id} className="p-3 bg-muted/30 rounded-lg space-y-3 relative border border-muted/50">
-                                                <div className="flex flex-wrap items-center gap-2 pr-8">
-                                                    <span className="text-sm">Hacer seguimiento en</span>
-                                                    <Popover>
-                                                        <PopoverTrigger asChild>
-                                                            <span
-                                                                className="text-primary hover:underline underline-offset-4 font-bold cursor-pointer text-sm"
-                                                                onClick={(e) => e.stopPropagation()}
-                                                            >
-                                                                {getFollowUpLabel(task.delay, task.customDate).toLowerCase()}
-                                                            </span>
-                                                        </PopoverTrigger>
-                                                        <PopoverContent className="w-56 p-0" align="start">
-                                                            <div className="flex flex-col">
-                                                                {FOLLOW_UP_DELAYS.map((delay) => (
-                                                                    <Button
-                                                                        key={delay.value}
-                                                                        variant="ghost"
-                                                                        className="justify-start font-normal h-9 px-4 rounded-none border-b last:border-0"
-                                                                        onClick={() => {
-                                                                            const updatedTasks = [...followUpTasks];
-                                                                            updatedTasks[index].delay = delay.value;
-                                                                            setFollowUpTasks(updatedTasks);
-                                                                        }}
-                                                                    >
-                                                                        {getFollowUpLabel(delay.value)}
-                                                                    </Button>
-                                                                ))}
-                                                            </div>
-                                                        </PopoverContent>
-                                                    </Popover>
+                                            <div key={task.id} className="p-4 bg-muted/30 rounded-xl space-y-4 relative border border-muted/50 shadow-sm animate-in fade-in slide-in-from-left-2 duration-300">
+                                                {/* Header row with Date/Delay and Time Toggle */}
+                                                <div className="flex flex-wrap items-center justify-between gap-3 pr-8">
+                                                    <div className="flex items-center gap-2">
+                                                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                                                        <span className="text-sm font-medium">Seguimiento</span>
+                                                        <Popover>
+                                                            <PopoverTrigger asChild>
+                                                                <span
+                                                                    className="text-primary hover:underline underline-offset-4 font-bold cursor-pointer text-sm"
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                >
+                                                                    {getFollowUpLabel(task.delay, task.customDate).toLowerCase()}
+                                                                </span>
+                                                            </PopoverTrigger>
+                                                            <PopoverContent className="w-56 p-0" align="start">
+                                                                <div className="flex flex-col">
+                                                                    {FOLLOW_UP_DELAYS.map((delay) => (
+                                                                        <Button
+                                                                            key={delay.value}
+                                                                            variant="ghost"
+                                                                            className="justify-start font-normal h-9 px-4 rounded-none border-b last:border-0"
+                                                                            onClick={() => {
+                                                                                const updatedTasks = [...followUpTasks];
+                                                                                updatedTasks[index].delay = delay.value;
+                                                                                setFollowUpTasks(updatedTasks);
+                                                                            }}
+                                                                        >
+                                                                            {getFollowUpLabel(delay.value)}
+                                                                        </Button>
+                                                                    ))}
+                                                                </div>
+                                                            </PopoverContent>
+                                                        </Popover>
+                                                    </div>
 
-                                                    <div className="flex items-center gap-1 ml-auto">
+                                                    <div className="flex items-center gap-2">
                                                         <Button
                                                             variant="ghost"
-                                                            size="icon"
-                                                            className={cn("h-7 w-7", task.useSpecificTime ? "text-primary bg-primary/10" : "text-muted-foreground")}
+                                                            size="sm"
+                                                            className={cn("h-8 gap-2 px-3 rounded-full border transition-all", task.useSpecificTime ? "text-primary bg-primary/10 border-primary/20 shadow-sm" : "text-muted-foreground border-transparent hover:bg-muted")}
                                                             onClick={() => {
                                                                 const updatedTasks = [...followUpTasks];
                                                                 updatedTasks[index].useSpecificTime = !task.useSpecificTime;
                                                                 setFollowUpTasks(updatedTasks);
                                                             }}
-                                                            title="A la hora..."
                                                         >
-                                                            <Clock className="h-4 w-4" />
+                                                            <Clock className="h-3.5 w-3.5" />
+                                                            <span className="text-xs uppercase font-bold tracking-wider">
+                                                                {task.useSpecificTime ? task.specificTime : 'Todo el día'}
+                                                            </span>
                                                         </Button>
 
                                                         {followUpTasks.length > 1 && (
                                                             <Button
                                                                 variant="ghost"
                                                                 size="icon"
-                                                                className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                                                className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10 rounded-full"
                                                                 onClick={() => setFollowUpTasks(prev => prev.filter(t => t.id !== task.id))}
                                                             >
                                                                 <Trash2 className="h-4 w-4" />
@@ -1329,10 +1348,68 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
                                                     </div>
                                                 </div>
 
-                                                <div className="flex flex-wrap gap-4 items-end">
+                                                {/* Action title and Linked action grid */}
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                    <div className="space-y-1.5">
+                                                        <Label className="text-[11px] font-bold uppercase text-muted-foreground/70 tracking-widest px-1">Título de la Tarea</Label>
+                                                        <Input
+                                                            placeholder={`Ej: Llamar seguimiento: ${actionType === 'Otra (I.C)' ? otherActionType : actionType}`}
+                                                            value={task.action}
+                                                            onChange={(e) => {
+                                                                const updatedTasks = [...followUpTasks];
+                                                                updatedTasks[index].action = e.target.value;
+                                                                setFollowUpTasks(updatedTasks);
+                                                            }}
+                                                            className="h-9 bg-background/50 border-muted-foreground/20 focus:border-primary/50 transition-all text-sm"
+                                                        />
+                                                    </div>
+
+                                                    <div className="space-y-1.5">
+                                                        <Label className="text-[11px] font-bold uppercase text-muted-foreground/70 tracking-widest px-1 flex items-center gap-2">
+                                                            <Link2 className="h-3 w-3" />
+                                                            Vincular Acción Futura
+                                                        </Label>
+                                                        <Select
+                                                            value={task.linkedActionType}
+                                                            onValueChange={(val) => {
+                                                                const updatedTasks = [...followUpTasks];
+                                                                updatedTasks[index].linkedActionType = val;
+                                                                setFollowUpTasks(updatedTasks);
+                                                            }}
+                                                        >
+                                                            <SelectTrigger className="h-9 bg-background/50 border-muted-foreground/20 text-sm">
+                                                                <SelectValue placeholder="Sin acción vinculada" />
+                                                            </SelectTrigger>
+                                                            <SelectContent className="z-[300]">
+                                                                <SelectItem value="none">Sin acción vinculada</SelectItem>
+                                                                {ACTION_TYPES.map(type => (
+                                                                    <SelectItem key={type} value={type}>{type}</SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
+                                                </div>
+
+                                                {/* Description Field */}
+                                                <div className="space-y-1.5">
+                                                    <Label className="text-[11px] font-bold uppercase text-muted-foreground/70 tracking-widest px-1">Descripción (Opcional)</Label>
+                                                    <Textarea
+                                                        placeholder="Detalles adicionales para esta tarea de seguimiento..."
+                                                        value={task.description}
+                                                        onChange={(e) => {
+                                                            const updatedTasks = [...followUpTasks];
+                                                            updatedTasks[index].description = e.target.value;
+                                                            setFollowUpTasks(updatedTasks);
+                                                        }}
+                                                        className="min-h-[60px] max-h-[120px] bg-background/50 border-muted-foreground/20 focus:border-primary/50 transition-all text-sm"
+                                                    />
+                                                </div>
+
+                                                {/* Date/Time detail row */}
+                                                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 items-end">
                                                     {task.delay === 'custom' && (
-                                                        <div className="space-y-1">
-                                                            <Label className="text-[10px] uppercase text-muted-foreground">Fecha personalizada</Label>
+                                                        <div className="space-y-1.5">
+                                                            <Label className="text-[11px] font-bold uppercase text-muted-foreground/70 tracking-widest px-1">Fecha específica</Label>
                                                             <Input
                                                                 type="datetime-local"
                                                                 value={task.customDate}
@@ -1341,14 +1418,14 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
                                                                     updatedTasks[index].customDate = e.target.value;
                                                                     setFollowUpTasks(updatedTasks);
                                                                 }}
-                                                                className="h-8 py-1 text-sm bg-background"
+                                                                className="h-9 bg-background/50 border-muted-foreground/20 text-xs"
                                                             />
                                                         </div>
                                                     )}
 
                                                     {task.useSpecificTime && (
-                                                        <div className="space-y-1 animate-in fade-in slide-in-from-left-2 duration-200">
-                                                            <Label className="text-[10px] uppercase text-muted-foreground">A la hora...</Label>
+                                                        <div className="space-y-1.5 animate-in fade-in slide-in-from-left-2 duration-200">
+                                                            <Label className="text-[11px] font-bold uppercase text-muted-foreground/70 tracking-widest px-1">Hora inicio</Label>
                                                             <Input
                                                                 type="time"
                                                                 value={task.specificTime}
@@ -1357,8 +1434,38 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
                                                                     updatedTasks[index].specificTime = e.target.value;
                                                                     setFollowUpTasks(updatedTasks);
                                                                 }}
-                                                                className="h-8 py-1 text-sm bg-background w-[110px]"
+                                                                className="h-9 bg-background/50 border-muted-foreground/20 text-xs"
                                                             />
+                                                        </div>
+                                                    )}
+
+                                                    {task.useSpecificTime && (
+                                                        <div className="space-y-1.5 col-span-1 animate-in fade-in slide-in-from-left-1 duration-200">
+                                                            <Label className="text-[11px] font-bold uppercase text-muted-foreground/70 tracking-widest px-1 flex items-center gap-2">
+                                                                <Clock className="h-3 w-3" />
+                                                                Recordatorio
+                                                            </Label>
+                                                            <Select
+                                                                value={task.reminder_minutes}
+                                                                onValueChange={(val) => {
+                                                                    const updatedTasks = [...followUpTasks];
+                                                                    updatedTasks[index].reminder_minutes = val;
+                                                                    setFollowUpTasks(updatedTasks);
+                                                                }}
+                                                            >
+                                                                <SelectTrigger className="h-9 bg-background/50 border-muted-foreground/20 text-sm">
+                                                                    <SelectValue />
+                                                                </SelectTrigger>
+                                                                <SelectContent className="z-[300]">
+                                                                    <SelectItem value="none">Sin aviso</SelectItem>
+                                                                    <SelectItem value="10">10 min antes</SelectItem>
+                                                                    <SelectItem value="20">20 min antes</SelectItem>
+                                                                    <SelectItem value="30">30 min antes</SelectItem>
+                                                                    <SelectItem value="40">40 min antes</SelectItem>
+                                                                    <SelectItem value="50">50 min antes</SelectItem>
+                                                                    <SelectItem value="60">1 hora antes</SelectItem>
+                                                                </SelectContent>
+                                                            </Select>
                                                         </div>
                                                     )}
                                                 </div>
@@ -1457,7 +1564,7 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
                         )}
                     </div>
 
-                    <DialogFooter>
+                    <DialogFooter className="px-6 py-3 bg-muted/20 border-t shrink-0">
                         <Button variant={viewOnly ? "default" : "outline"} onClick={onClose}>
                             {viewOnly ? 'Cerrar' : 'Cancelar'}
                         </Button>

@@ -440,7 +440,7 @@ const ContactList = () => {
                                         />
                                     </div>
                                     <div className="grid grid-cols-3 items-center gap-4">
-                                        <Label htmlFor="rating">Calificación (A+)</Label>
+                                        <Label htmlFor="rating">Clasificación (A+, O, ...)</Label>
                                         <Input
                                             id="rating"
                                             value={filters.rating}

@@ -41,6 +41,7 @@ export default function KpiOverview() {
             billing: 0,
             honorarios_brutos: 0,
             cierre_operacion: 0,
+            visits: 0,
         },
         annual: { billing: 0, listings: 0, honorarios: 0, cierres_valor: 0 }
     })
@@ -121,6 +122,7 @@ export default function KpiOverview() {
                     billing: summaryData.billing || 0,
                     honorarios_brutos: summaryData.billing_primary || 0,
                     cierre_operacion: summaryData.billing_secondary || 0,
+                    visits: summaryData.total_visits || 0,
                 },
                 annual: {
                     billing: annualData?.billing || 0,
@@ -181,11 +183,12 @@ export default function KpiOverview() {
                 : dateKey
 
             if (!map[key]) {
-                map[key] = { conversations: 0, interviews: 0, listings: 0 }
+                map[key] = { conversations: 0, interviews: 0, listings: 0, visits: 0 }
             }
             map[key].conversations += (r.conversations_started || 0)
             map[key].interviews += (r.sales_interviews || 0) + (r.buying_interviews || 0)
             map[key].listings += (r.new_listings || 0)
+            map[key].visits += (r.portfolio_visits || 0) + (r.buyer_visits || 0)
         })
 
         return Object.entries(map)
@@ -285,6 +288,15 @@ export default function KpiOverview() {
                     </div>
                     <div>
                         <div className="flex justify-between items-center mb-1">
+                            <span className="text-sm font-medium text-slate-500">Visitas</span>
+                            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                                {stats.summary.visits}
+                            </span>
+                        </div>
+                        {/* No progress bar for visits as requested */}
+                    </div>
+                    <div>
+                        <div className="flex justify-between items-center mb-1">
                             <span className="text-sm font-medium text-slate-500">Cierres</span>
                             <span className={cn("text-xs font-bold px-2 py-0.5 rounded-full", stats.summary.closings >= targets.monthly_closing ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600")}>
                                 {stats.summary.closings}
@@ -328,6 +340,7 @@ export default function KpiOverview() {
                                 <Bar dataKey="conversations" name="Conversaciones" fill="#8b5cf6" radius={[4, 4, 0, 0]} maxBarSize={40} />
                                 <Bar dataKey="interviews" name="Entrevistas" fill="#6366f1" radius={[4, 4, 0, 0]} maxBarSize={40} />
                                 <Bar dataKey="listings" name="Captaciones" fill="#3b82f6" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                                <Bar dataKey="visits" name="Visitas" fill="#f59e0b" radius={[4, 4, 0, 0]} maxBarSize={40} />
                             </BarChart>
                         </ResponsiveContainer>
                     </div>

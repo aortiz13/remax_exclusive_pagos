@@ -68,11 +68,16 @@ const ContactForm = ({ contact, isOpen, onClose, isSimplified = false, initialEm
         observations: '',
         bank_name: '',
         bank_account_type: '',
-        bank_account_number: ''
+        bank_account_number: '',
+        portal: ''
     })
 
     // Internal state for multi-select need
     const [selectedNeeds, setSelectedNeeds] = useState(['Comprar'])
+
+    const portalOptions = ["Portal Remax", "Portal Inmobiliario", "Grupo Proppit", "Yapo", "TocToc"]
+    const [portalOption, setPortalOption] = useState('')
+    const [customPortal, setCustomPortal] = useState('')
 
     useEffect(() => {
         if (contact) {
@@ -80,7 +85,9 @@ const ContactForm = ({ contact, isOpen, onClose, isSimplified = false, initialEm
                 ...contact,
                 dob: contact.dob || '',
                 last_contact_date: contact.last_contact_date ? contact.last_contact_date.split('T')[0] : '',
-                next_contact_date: contact.next_contact_date ? contact.next_contact_date.split('T')[0] : ''
+                next_contact_date: contact.next_contact_date ? contact.next_contact_date.split('T')[0] : '',
+                portalOption: ['Portal Remax', 'Portal Inmobiliario', 'Grupo Proppit', 'Yapo', 'TocToc'].includes(contact.portal) ? contact.portal : (contact.portal ? 'Otro' : 'Portal Remax'),
+                customPortal: !['Portal Remax', 'Portal Inmobiliario', 'Grupo Proppit', 'Yapo', 'TocToc'].includes(contact.portal) ? (contact.portal || '') : ''
             })
             // Parse existing needs (comma separated)
             if (contact.need) {
@@ -89,9 +96,25 @@ const ContactForm = ({ contact, isOpen, onClose, isSimplified = false, initialEm
             } else {
                 setSelectedNeeds([])
             }
+
+            // Portal logic
+            if (contact.portal) {
+                if (portalOptions.includes(contact.portal)) {
+                    setPortalOption(contact.portal)
+                    setCustomPortal('')
+                } else {
+                    setPortalOption('Otro')
+                    setCustomPortal(contact.portal)
+                }
+            } else {
+                setPortalOption('')
+                setCustomPortal('')
+            }
         } else {
             // Default for new contact
             setSelectedNeeds(['Comprar'])
+            setPortalOption('')
+            setCustomPortal('')
         }
         fetchProperties()
         if (contact?.id) {
@@ -174,17 +197,18 @@ const ContactForm = ({ contact, isOpen, onClose, isSimplified = false, initialEm
                 ? (formData.bank_name_custom || 'Otro')
                 : formData.bank_name
 
-            const { bank_name_custom, ...restFormData } = formData
+            const { bank_name_custom, portalOption, customPortal, ...restFormData } = formData
 
             const dataToSave = {
                 ...restFormData,
                 bank_name: resolvedBankName,
+                portal: formData.portalOption === 'Otro' ? formData.customPortal : formData.portalOption,
                 need: selectedNeeds.join(', '), // Save as comma separated string
                 agent_id: profile?.id || user?.id,
                 updated_at: new Date().toISOString()
             }
 
-            // Clean up empty dates
+            // Clean up empty dates and ensured types
             if (!dataToSave.dob) dataToSave.dob = null;
             if (!dataToSave.last_contact_date) dataToSave.last_contact_date = null;
             if (!dataToSave.next_contact_date) dataToSave.next_contact_date = null;
@@ -425,6 +449,70 @@ const ContactForm = ({ contact, isOpen, onClose, isSimplified = false, initialEm
 
                                 {!isSimplified && (
                                     <>
+                                        <Section title="Detalles Personales">
+                                            <div className="space-y-2">
+                                                <Label>Sexo</Label>
+                                                <Select value={formData.sex || ''} onValueChange={(val) => setFormData(prev => ({ ...prev, sex: val }))}>
+                                                    <SelectTrigger className="w-full">
+                                                        <SelectValue placeholder="Seleccionar..." />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="Hombre">Hombre</SelectItem>
+                                                        <SelectItem value="Mujer">Mujer</SelectItem>
+                                                        <SelectItem value="Otro">Otro</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label>Fecha de Nacimiento</Label>
+                                                <Input type="date" name="dob" value={formData.dob || ''} onChange={handleChange} />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label>Profesión</Label>
+                                                <Input name="profession" value={formData.profession || ''} onChange={handleChange} />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label>Ocupación</Label>
+                                                <Input name="occupation" value={formData.occupation || ''} onChange={handleChange} />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label>Religión</Label>
+                                                <Input name="religion" value={formData.religion || ''} onChange={handleChange} placeholder="Ej: Católico, Judío..." />
+                                            </div>
+                                            <div className="space-y-2 col-span-2 md:col-span-1">
+                                                <Label>Sobre la persona/intereses</Label>
+                                                <Textarea 
+                                                    name="about" 
+                                                    value={formData.about || ''} 
+                                                    onChange={handleChange} 
+                                                    placeholder="Gustos, personalidad, datos clave..."
+                                                    className="min-h-[40px]"
+                                                />
+                                            </div>
+                                        </Section>
+
+                                        <Section title="Información Familiar">
+                                            <div className="space-y-2">
+                                                <Label>¿Es Padre/Madre?</Label>
+                                                <Select value={formData.parent_status || undefined} onValueChange={(val) => setFormData(prev => ({ ...prev, parent_status: val }))}>
+                                                    <SelectTrigger className="w-full">
+                                                        <SelectValue placeholder="Seleccionar..." />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="Padre/madre">Padre/madre</SelectItem>
+                                                        <SelectItem value="Sin hijos">Sin hijos</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label>Notas/Edades Hijos</Label>
+                                                <Input name="parent_notes" value={formData.parent_notes || ''} onChange={handleChange} placeholder="Ej: 2 hijos (5 y 8 años)" />
+                                            </div>
+                                            <div className="space-y-2 col-span-2">
+                                                <Label>Grupo Familiar (Viven con...)</Label>
+                                                <Input name="family_group" value={formData.family_group || ''} onChange={handleChange} placeholder="Ej: Esposa y 2 hijos" />
+                                            </div>
+                                        </Section>
                                         <Section title="Información Detallada">
                                             <div className="space-y-2">
                                                 <Label>Fuente (Origen)</Label>
@@ -440,7 +528,7 @@ const ContactForm = ({ contact, isOpen, onClose, isSimplified = false, initialEm
                                                         <SelectTrigger className="w-full">
                                                             <SelectValue placeholder="Seleccionar..." />
                                                         </SelectTrigger>
-                                                        <SelectContent className="z-[300]">
+                                                        <SelectContent>
                                                             <SelectItem value="Referido">Referido</SelectItem>
                                                             <SelectItem value="Portal">Portal Inmobiliario</SelectItem>
                                                             <SelectItem value="Redes Sociales">Redes Sociales</SelectItem>
@@ -453,13 +541,60 @@ const ContactForm = ({ contact, isOpen, onClose, isSimplified = false, initialEm
                                                     </Select>
                                                 )}
                                             </div>
+
+                                            {/* Portal Selector */}
+                                            <div className="space-y-2">
+                                                <Label>Portal de Origen</Label>
+                                                <Select value={portalOption || undefined} onValueChange={(val) => {
+                                                    setPortalOption(val)
+                                                    if (val !== 'Otro') {
+                                                        setFormData(prev => ({ ...prev, portal: val }))
+                                                        setCustomPortal('')
+                                                    }
+                                                }}>
+                                                    <SelectTrigger className="w-full">
+                                                        <SelectValue placeholder="Seleccionar portal..." />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {portalOptions.map(opt => (
+                                                            <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                                                        ))}
+                                                        <SelectItem value="Otro">Otro</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+
+                                            {portalOption === 'Otro' && (
+                                                <div className="space-y-2">
+                                                    <Label>¿Qué portal? (Manual)</Label>
+                                                    <Input
+                                                        value={customPortal}
+                                                        onChange={(e) => {
+                                                            const val = e.target.value
+                                                            setCustomPortal(val)
+                                                            setFormData(prev => ({ ...prev, portal: val }))
+                                                        }}
+                                                        placeholder="Nombre del portal..."
+                                                    />
+                                                </div>
+                                            )}
+
+                                            <div className="space-y-2 col-span-2">
+                                                <Label>Detalle de la fuente</Label>
+                                                <Input
+                                                    name="source_detail"
+                                                    value={formData.source_detail || ''}
+                                                    onChange={handleChange}
+                                                    placeholder="Ej: Recomendado por Juan Pérez, Referido de campaña X..."
+                                                />
+                                            </div>
                                             <div className="space-y-2">
                                                 <Label>Estado</Label>
                                                 <Select value={formData.status} onValueChange={(val) => setFormData(prev => ({ ...prev, status: val }))}>
                                                     <SelectTrigger className="w-full">
                                                         <SelectValue />
                                                     </SelectTrigger>
-                                                    <SelectContent className="z-[300]">
+                                                    <SelectContent>
                                                         <SelectItem value="Activo">Activo</SelectItem>
                                                         <SelectItem value="Inactivo">Inactivo</SelectItem>
                                                         <SelectItem value="Archivado">Archivado</SelectItem>
@@ -471,11 +606,20 @@ const ContactForm = ({ contact, isOpen, onClose, isSimplified = false, initialEm
                                             <div className="space-y-2 col-span-2">
                                                 <Label>Necesidad</Label>
                                                 <div className="flex flex-wrap gap-2 mt-2">
-                                                    {['Comprar', 'Vender', 'Arrendar', 'Invertir', 'Otra'].map((option) => (
+                                                    {[...new Set([
+                                                        'Comprar', 
+                                                        'Vender', 
+                                                        'Arrendar (propietario)', 
+                                                        'Arrendar (Arrendatario)', 
+                                                        'Invertir', 
+                                                        'Proveedor de servicio', 
+                                                        'Colega de la red', 
+                                                        'Otra'
+                                                    ].concat(selectedNeeds))].map((option) => (
                                                         <Badge
                                                             key={option}
                                                             variant={selectedNeeds.includes(option) ? "default" : "outline"}
-                                                            className="cursor-pointer hover:opacity-80 px-4 py-1.5 text-sm"
+                                                            className={`cursor-pointer hover:opacity-80 px-4 py-1.5 text-sm ${!['Comprar', 'Vender', 'Arrendar (propietario)', 'Arrendar (Arrendatario)', 'Invertir', 'Proveedor de servicio', 'Colega de la red', 'Otra'].includes(option) ? 'border-amber-200 bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400' : ''}`}
                                                             onClick={() => {
                                                                 if (selectedNeeds.includes(option)) {
                                                                     setSelectedNeeds(prev => prev.filter(p => p !== option))
@@ -638,7 +782,7 @@ const ContactForm = ({ contact, isOpen, onClose, isSimplified = false, initialEm
                                                         <SelectTrigger className="w-full h-9 text-sm">
                                                             <SelectValue />
                                                         </SelectTrigger>
-                                                        <SelectContent className="z-[300]">
+                                                        <SelectContent>
                                                             {ROLES.map(r => (
                                                                 <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
                                                             ))}
@@ -657,34 +801,6 @@ const ContactForm = ({ contact, isOpen, onClose, isSimplified = false, initialEm
                                             </div>
                                         </div>
 
-                                        {/* Section: Detalles Personales */}
-                                        <Section title="Detalles Personales">
-                                            <div className="space-y-2">
-                                                <Label>Fecha Nacimiento</Label>
-                                                <Input type="date" name="dob" value={formData.dob} onChange={handleChange} />
-                                            </div>
-                                            <div className="space-y-2">
-                                                <Label>Profesión</Label>
-                                                <Input name="profession" value={formData.profession} onChange={handleChange} />
-                                            </div>
-                                            <div className="space-y-2">
-                                                <Label>Ocupación</Label>
-                                                <Input name="occupation" value={formData.occupation} onChange={handleChange} />
-                                            </div>
-                                            <div className="space-y-2">
-                                                <Label>Sexo</Label>
-                                                <Select value={formData.sex || undefined} onValueChange={(val) => setFormData(prev => ({ ...prev, sex: val }))}>
-                                                    <SelectTrigger className="w-full">
-                                                        <SelectValue placeholder="Seleccionar..." />
-                                                    </SelectTrigger>
-                                                    <SelectContent className="z-[300]">
-                                                        <SelectItem value="Masculino">Masculino</SelectItem>
-                                                        <SelectItem value="Femenino">Femenino</SelectItem>
-                                                        <SelectItem value="Otro">Otro</SelectItem>
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
-                                        </Section>
 
                                         {/* Section: Clasificación y Seguimiento */}
                                         <Section title="Clasificación">
@@ -694,12 +810,13 @@ const ContactForm = ({ contact, isOpen, onClose, isSimplified = false, initialEm
                                                     <SelectTrigger className="w-full">
                                                         <SelectValue placeholder="Seleccionar..." />
                                                     </SelectTrigger>
-                                                    <SelectContent className="z-[300]">
-                                                        <SelectItem value="A+">A+ (Listo para comprar/vender)</SelectItem>
-                                                        <SelectItem value="A">A (30-60 días)</SelectItem>
-                                                        <SelectItem value="B">B (60-90 días)</SelectItem>
-                                                        <SelectItem value="C">C (Largo plazo)</SelectItem>
-                                                        <SelectItem value="D">D (Descartado/Frío)</SelectItem>
+                                                    <SelectContent>
+                                                        <SelectItem value="A+">A+ (Cliente repetido o que refiere mucho)</SelectItem>
+                                                        <SelectItem value="A">A (Cliente pasado o que refiere ocasionalmente)</SelectItem>
+                                                        <SelectItem value="B">B (Persona que recomienda si se les pide y muestra como)</SelectItem>
+                                                        <SelectItem value="C">C (Nueva adición a la base de datos)</SelectItem>
+                                                        <SelectItem value="O">O (Contactos en línea)</SelectItem>
+                                                        <SelectItem value="D">D (Contacto que debe eliminarse)</SelectItem>
                                                     </SelectContent>
                                                 </Select>
                                             </div>
@@ -713,8 +830,12 @@ const ContactForm = ({ contact, isOpen, onClose, isSimplified = false, initialEm
                                                 <Input type="date" name="next_contact_date" value={formData.next_contact_date} onChange={handleChange} />
                                             </div>
                                             <div className="col-span-2 space-y-2">
+                                                <Label>Sobre la persona (Información General)</Label>
+                                                <Textarea name="about" value={formData.about || ''} onChange={handleChange} placeholder="Ej: Inversionista con experiencia, muy reservado..." rows={3} />
+                                            </div>
+                                            <div className="col-span-2 space-y-2">
                                                 <Label>Observaciones</Label>
-                                                <Textarea name="observations" value={formData.observations} onChange={handleChange} rows={3} />
+                                                <Textarea name="observations" value={formData.observations || ''} onChange={handleChange} rows={3} />
                                             </div>
                                         </Section>
 
@@ -726,7 +847,7 @@ const ContactForm = ({ contact, isOpen, onClose, isSimplified = false, initialEm
                                                     <SelectTrigger className="w-full">
                                                         <SelectValue placeholder="Seleccionar banco..." />
                                                     </SelectTrigger>
-                                                    <SelectContent className="z-[300]">
+                                                    <SelectContent>
                                                         <SelectItem value="Banco de Chile">Banco de Chile</SelectItem>
                                                         <SelectItem value="Banco Estado">Banco Estado</SelectItem>
                                                         <SelectItem value="Banco Santander">Banco Santander</SelectItem>
@@ -765,7 +886,7 @@ const ContactForm = ({ contact, isOpen, onClose, isSimplified = false, initialEm
                                                     <SelectTrigger className="w-full">
                                                         <SelectValue placeholder="Seleccionar..." />
                                                     </SelectTrigger>
-                                                    <SelectContent className="z-[300]">
+                                                    <SelectContent>
                                                         <SelectItem value="Cuenta Corriente">Cuenta Corriente</SelectItem>
                                                         <SelectItem value="Cuenta Vista">Cuenta Vista</SelectItem>
                                                         <SelectItem value="Cuenta de Ahorro">Cuenta de Ahorro</SelectItem>

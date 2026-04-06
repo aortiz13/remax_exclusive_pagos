@@ -415,7 +415,7 @@ const ContactDetail = () => {
                                     <div>
                                         <h3 className="font-medium text-gray-900 dark:text-white border-b pb-2 mb-3">Familiar</h3>
                                         <dl className="space-y-2 text-sm">
-                                            <div className="grid grid-cols-2"><dt className="text-gray-500">Padre/Madre:</dt><dd>{contact.parent_status} {contact.parent_notes ? `(${contact.parent_notes})` : ''}</dd></div>
+                                            <div className="grid grid-cols-2"><dt className="text-gray-500">¿Es Padre/Madre?:</dt><dd>{contact.parent_status || '-'} {contact.parent_notes ? `(${contact.parent_notes})` : ''}</dd></div>
                                             <div className="grid grid-cols-2"><dt className="text-gray-500">Grupo Familiar:</dt><dd>{contact.family_group || '-'}</dd></div>
                                         </dl>
                                     </div>
@@ -429,6 +429,7 @@ const ContactDetail = () => {
                                     <div>
                                         <h3 className="font-medium text-gray-900 dark:text-white border-b pb-2 mb-3">Otros</h3>
                                         <dl className="space-y-2 text-sm">
+                                            <div className="grid grid-cols-2"><dt className="text-gray-500">Portal de Origen:</dt><dd className="font-medium text-orange-600 dark:text-orange-400">{contact.portal || '-'}</dd></div>
                                             <div className="grid grid-cols-2"><dt className="text-gray-500">Fuente Detalle:</dt><dd>{contact.source_detail || '-'}</dd></div>
                                             <div className="grid grid-cols-2"><dt className="text-gray-500">Sobre la persona:</dt><dd>{contact.about || '-'}</dd></div>
                                             <div className="grid grid-cols-2"><dt className="text-gray-500">Observaciones:</dt><dd>{contact.observations || '-'}</dd></div>

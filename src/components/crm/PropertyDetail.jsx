@@ -184,7 +184,7 @@ const PropertyDetail = () => {
                 .from('properties')
                 .select(`
                     *,
-                    contacts (id, first_name, last_name, phone, email)
+                    contacts (id, first_name, last_name, phone, email, portal)
                 `)
                 .eq('id', id)
                 .single()
@@ -214,7 +214,7 @@ const PropertyDetail = () => {
             .from('property_contacts')
             .select(`
                 *,
-                contacts (first_name, last_name, email, phone)
+                contacts (first_name, last_name, email, phone, portal)
             `)
             .eq('property_id', id)
 
@@ -1151,7 +1151,14 @@ const PropertyDetail = () => {
                                                 <div className="font-medium truncate hover:text-primary transition-colors">
                                                     {part.contacts?.first_name} {part.contacts?.last_name}
                                                 </div>
-                                                <div className="text-xs"><span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium capitalize ${ROLE_COLORS[part.role] || 'bg-gray-100 text-gray-800'}`}>{part.role}</span></div>
+                                                <div className="text-xs flex items-center gap-1.5 flex-wrap">
+                                                    <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium capitalize ${ROLE_COLORS[part.role] || 'bg-gray-100 text-gray-800'}`}>{part.role}</span>
+                                                    {part.contacts?.portal && (
+                                                        <span className="text-[10px] text-muted-foreground bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 px-1 rounded italic">
+                                                            {part.contacts.portal}
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
                                         {isOwner && (

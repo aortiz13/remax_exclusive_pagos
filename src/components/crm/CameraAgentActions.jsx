@@ -6,27 +6,19 @@ import { toast } from 'sonner'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import {
-    Camera, CheckCircle2, UploadCloud, Battery, ShieldCheck,
-    AlertTriangle, Package, RotateCcw, X, Loader2
+    Camera, CheckCircle2, RotateCcw, X, Loader2
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { sendCameraNotification, CAMERA_EVENTS } from '../../services/cameraNotifications'
 import { logActivity } from '../../services/activityService'
 
-const CONDITION_ITEMS = [
-    { key: 'battery', label: 'Batería cargada (>50%)', icon: Battery },
-    { key: 'physical', label: 'Sin daño físico visible', icon: ShieldCheck },
-    { key: 'accessories', label: 'Trípode y funda incluidos', icon: Package },
-    { key: 'memory', label: 'Tarjeta SD presente', icon: UploadCloud },
-]
 
 export default function CameraAgentActions() {
     const { user, profile } = useAuth()
     const [activeBookings, setActiveBookings] = useState([])
     const [loading, setLoading] = useState(true)
     const [actionModal, setActionModal] = useState(null) // { booking, type: 'pickup'|'return' }
-    const [condition, setCondition] = useState({})
     const [conditionNotes, setConditionNotes] = useState('')
     const [submitting, setSubmitting] = useState(false)
     const [minimized, setMinimized] = useState(false)
@@ -70,18 +62,13 @@ export default function CameraAgentActions() {
 
     const handlePickupConfirm = async () => {
         if (!actionModal) return
-        const checkedItems = CONDITION_ITEMS.filter(i => condition[i.key])
-        if (checkedItems.length < CONDITION_ITEMS.length) {
-            toast.error('Verifica todos los ítems del checklist antes de confirmar')
-            return
-        }
         setSubmitting(true)
         try {
             const now = new Date().toISOString()
             const { error } = await supabase.from('camera_bookings')
                 .update({
                     pickup_confirmed_at: now,
-                    pickup_condition: { ...condition, notes: conditionNotes, confirmed_at: now },
+                    pickup_condition: { notes: conditionNotes, confirmed_at: now },
                     updated_at: now,
                 })
                 .eq('id', actionModal.booking.id)
@@ -110,7 +97,6 @@ export default function CameraAgentActions() {
 
             toast.success('✅ Retiro confirmado. Recuerda devolver la cámara a tiempo.')
             setActionModal(null)
-            setCondition({})
             setConditionNotes('')
             fetchActiveBookings()
         } catch (err) {
@@ -121,18 +107,13 @@ export default function CameraAgentActions() {
 
     const handleReturnConfirm = async (isEarly = false) => {
         if (!actionModal) return
-        const checkedItems = CONDITION_ITEMS.filter(i => condition[i.key])
-        if (checkedItems.length < CONDITION_ITEMS.length) {
-            toast.error('Verifica todos los ítems del checklist antes de confirmar')
-            return
-        }
         setSubmitting(true)
         try {
             const now = new Date().toISOString()
             const { error } = await supabase.from('camera_bookings')
                 .update({
                     return_confirmed_at: now,
-                    return_condition: { ...condition, notes: conditionNotes, confirmed_at: now, is_early: isEarly },
+                    return_condition: { notes: conditionNotes, confirmed_at: now, is_early: isEarly },
                     status: 'completada',
                     updated_at: now,
                 })
@@ -169,7 +150,6 @@ export default function CameraAgentActions() {
                 : '✅ Devolución confirmada. ¡Gracias!'
             )
             setActionModal(null)
-            setCondition({})
             setConditionNotes('')
             fetchActiveBookings()
         } catch (err) {
@@ -180,7 +160,16 @@ export default function CameraAgentActions() {
 
     if (loading || activeBookings.length === 0) return null
 
-    const visibleBookings = activeBookings.filter(b => !dismissedIds.has(b.id))
+    const todayStr = new Date().toISOString().split('T')[0]
+    const visibleBookings = activeBookings.filter(b => {
+        if (dismissedIds.has(b.id)) return false
+        if (needsPickup(b)) {
+            // Solo mostrar retiros de hoy o futuro. Los del pasado sin confirmar son "stale"
+            return b.booking_date >= todayStr
+        }
+        // Las devoluciones se muestran siempre hasta que se confirmen (porque el agente tiene la cámara)
+        return needsReturn(b)
+    })
     const hiddenCount = dismissedIds.size
 
     return (
@@ -261,14 +250,14 @@ export default function CameraAgentActions() {
                                 </div>
 
                                 {needsPickup(b) && (
-                                    <Button onClick={() => { setActionModal({ booking: b, type: 'pickup' }); setCondition({}) }}
+                                    <Button onClick={() => { setActionModal({ booking: b, type: 'pickup' }) }}
                                         className="w-full bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl h-10 text-sm font-bold">
                                         <CheckCircle2 className="w-4 h-4 mr-2" /> Confirmar Retiro
                                     </Button>
                                 )}
                                 {needsReturn(b) && (
                                     <div className="flex gap-2">
-                                        <Button onClick={() => { setActionModal({ booking: b, type: 'return' }); setCondition({}) }}
+                                        <Button onClick={() => { setActionModal({ booking: b, type: 'return' }) }}
                                             className={cn("flex-1 text-white rounded-xl h-10 text-sm font-bold",
                                                 isOverdue ? "bg-red-600 hover:bg-red-700" : "bg-blue-600 hover:bg-blue-700")}>
                                             <RotateCcw className="w-4 h-4 mr-2" />
@@ -311,27 +300,6 @@ export default function CameraAgentActions() {
                                 Cámara {actionModal.booking.camera_unit} — {format(parseISO(actionModal.booking.booking_date), "d MMM yyyy", { locale: es })}
                             </p>
 
-                            <p className="text-xs font-bold text-slate-700 mb-3">Checklist de estado:</p>
-                            <div className="space-y-2 mb-4">
-                                {CONDITION_ITEMS.map(item => {
-                                    const Icon = item.icon
-                                    return (
-                                        <button key={item.key} onClick={() => setCondition(p => ({ ...p, [item.key]: !p[item.key] }))}
-                                            className={cn(
-                                                "w-full flex items-center gap-3 p-3 rounded-xl border-2 transition-all text-left",
-                                                condition[item.key]
-                                                    ? "border-emerald-400 bg-emerald-50 dark:bg-emerald-900/20"
-                                                    : "border-slate-200 dark:border-slate-700 hover:border-slate-300"
-                                            )}>
-                                            <div className={cn("p-1.5 rounded-lg", condition[item.key] ? "bg-emerald-100" : "bg-slate-100")}>
-                                                <Icon className={cn("w-4 h-4", condition[item.key] ? "text-emerald-600" : "text-slate-400")} />
-                                            </div>
-                                            <span className={cn("text-sm font-medium", condition[item.key] ? "text-emerald-700" : "text-slate-600")}>{item.label}</span>
-                                            {condition[item.key] && <CheckCircle2 className="w-4 h-4 text-emerald-500 ml-auto" />}
-                                        </button>
-                                    )
-                                })}
-                            </div>
 
                             <div className="space-y-2 mb-4">
                                 <Label className="text-xs font-bold text-slate-600">Observaciones (opcional)</Label>
