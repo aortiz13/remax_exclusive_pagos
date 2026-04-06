@@ -55,11 +55,6 @@ export default function CameraAgentActions() {
         setDismissedIds(prev => new Set([...prev, id]))
     }
 
-    const restoreAll = () => {
-        setDismissedIds(new Set())
-        setMinimized(false)
-    }
-
     const handlePickupConfirm = async () => {
         if (!actionModal) return
         setSubmitting(true)
@@ -161,8 +156,7 @@ export default function CameraAgentActions() {
     if (loading || activeBookings.length === 0) return null
 
     const todayStr = new Date().toISOString().split('T')[0]
-    const visibleBookings = activeBookings.filter(b => {
-        if (dismissedIds.has(b.id)) return false
+    const activeRelevantBookings = activeBookings.filter(b => {
         if (needsPickup(b)) {
             // Solo mostrar retiros de hoy o futuro. Los del pasado sin confirmar son "stale"
             return b.booking_date >= todayStr
@@ -170,23 +164,24 @@ export default function CameraAgentActions() {
         // Las devoluciones se muestran siempre hasta que se confirmen (porque el agente tiene la cámara)
         return needsReturn(b)
     })
-    const hiddenCount = dismissedIds.size
+    
+    const visibleBookings = activeRelevantBookings.filter(b => !dismissedIds.has(b.id))
 
     return (
         <>
             {/* Minimized floating toggle button */}
-            {(minimized || visibleBookings.length === 0) && activeBookings.length > 0 && (
+            {minimized && visibleBookings.length > 0 && (
                 <motion.button
                     initial={{ opacity: 0, scale: 0.8 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    onClick={restoreAll}
+                    onClick={() => setMinimized(false)}
                     className="fixed bottom-6 right-6 z-40 p-3 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-2xl transition-colors"
                     title="Mostrar notificaciones de cámara"
                 >
                     <Camera className="w-5 h-5" />
-                    {activeBookings.length > 0 && (
+                    {visibleBookings.length > 0 && (
                         <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center">
-                            {activeBookings.length}
+                            {visibleBookings.length}
                         </span>
                     )}
                 </motion.button>
@@ -197,12 +192,6 @@ export default function CameraAgentActions() {
                 <div className="fixed bottom-6 right-6 z-40 space-y-3" style={{ maxWidth: '380px' }}>
                     {/* Minimize all button */}
                     <div className="flex justify-end gap-1">
-                        {hiddenCount > 0 && (
-                            <button onClick={restoreAll}
-                                className="text-xs text-blue-600 hover:text-blue-800 bg-white/90 rounded-full px-2 py-0.5 shadow border border-blue-200">
-                                Mostrar {hiddenCount} oculta{hiddenCount > 1 ? 's' : ''}
-                            </button>
-                        )}
                         <button onClick={() => setMinimized(true)}
                             className="text-xs text-slate-500 hover:text-slate-700 bg-white/90 rounded-full px-2 py-0.5 shadow border border-slate-200"
                             title="Minimizar todo">

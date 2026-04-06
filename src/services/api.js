@@ -39,23 +39,20 @@ export const triggerWebhook = async (payload) => {
   }
 }
 
-export const triggerLegalWebhook = async (formData) => {
-  console.log('Sending formData to legal webhook:', N8N_LEGAL_WEBHOOK_URL)
+export const triggerLegalWebhook = async (payload) => {
+  console.log('Sending payload to legal webhook:', payload)
 
   try {
+    const isFormData = payload instanceof FormData
     const response = await fetch(N8N_LEGAL_WEBHOOK_URL, {
       method: 'POST',
-      body: formData
+      headers: isFormData ? {} : { 'Content-Type': 'application/json' },
+      body: isFormData ? payload : JSON.stringify(payload)
     })
 
     if (!response.ok) {
-      const errMsg = `Legal Webhook Failed: ${response.statusText}`
-      auditLog.error('api', 'webhook.legal.failed', errMsg, {
-        module: 'api.triggerLegalWebhook',
-        error_code: String(response.status),
-        details: { url: N8N_LEGAL_WEBHOOK_URL, status: response.status }
-      })
-      throw new Error(errMsg)
+      const errorText = await response.text()
+      throw new Error(`Webhook Error: ${response.status} - ${errorText}`)
     }
 
     auditLog.info('api', 'webhook.legal.sent', 'Webhook legal enviado exitosamente', {

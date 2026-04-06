@@ -903,32 +903,21 @@ function BuySellFormLogic({ user, profile, navigate, initialData = {}, requestId
             formData.append('moneda_reserva', reservationCurrency)
 
 
-            // Prepare Webhook Payload — fetch files from storage URLs and attach as blobs
-            const webhookData = new FormData()
-            // Append all string fields
+            // Prepare Webhook Payload — send URLs instead of blobs to avoid memory issues
+            const webhookPayload = {}
             formData.forEach((value, key) => {
                 if (typeof value === 'string') {
-                    webhookData.append(key, value)
+                    webhookPayload[key] = value
                 }
             })
-            // Fetch and append files from storage URLs
-            const fetchAndAppendFiles = async (fileList, fieldName) => {
-                for (const f of fileList) {
-                    try {
-                        const resp = await fetch(f.url)
-                        const blob = await resp.blob()
-                        webhookData.append(fieldName, new File([blob], f.name, { type: blob.type }))
-                    } catch (err) {
-                        console.warn(`Could not fetch file ${f.name} for webhook:`, err)
-                    }
-                }
-            }
-            await fetchAndAppendFiles(dominioFiles, 'dominio_vigente[]')
-            await fetchAndAppendFiles(gpFiles, 'gp_certificado[]')
-            await fetchAndAppendFiles(otrosFiles, 'otros_documentos[]')
+
+            // Add file URLs
+            webhookPayload.dominio_vigente = dominioFiles.map(f => f.url)
+            webhookPayload.gp_certificado = gpFiles.map(f => f.url)
+            webhookPayload.otros_documentos = otrosFiles.map(f => f.url)
 
             // Trigger Webhook
-            await triggerLegalWebhook(webhookData)
+            await triggerLegalWebhook(webhookPayload)
 
             // Save JSON to Supabase (Audit / Backup)
             const jsonData = {}
@@ -1391,33 +1380,20 @@ function LeaseFormLogic({ user, profile, navigate, initialData = {}, requestId =
             // Actually, we will construct the webhook payload carefully.
 
 
-            // Prepare Webhook Payload
-            const webhookData = new FormData()
-
-            // Copy all non-file data
-            for (const [key, value] of formData.entries()) {
-                if (!(value instanceof File)) {
-                    webhookData.append(key, value)
+            // Prepare Webhook Payload — send URLs instead of blobs
+            const webhookPayload = {}
+            formData.forEach((value, key) => {
+                if (typeof value === 'string') {
+                    webhookPayload[key] = value
                 }
-            }
+            })
 
-            // Fetch and append files from storage URLs
-            const fetchAndAppendFiles = async (fileList, fieldName) => {
-                for (const f of fileList) {
-                    try {
-                        const resp = await fetch(f.url)
-                        const blob = await resp.blob()
-                        webhookData.append(fieldName, new File([blob], f.name, { type: blob.type }))
-                    } catch (err) {
-                        console.warn(`Could not fetch file ${f.name} for webhook:`, err)
-                    }
-                }
-            }
-            await fetchAndAppendFiles(dominioFiles, 'dominio_vigente[]')
-            await fetchAndAppendFiles(otrosFiles, 'otros_documentos[]')
+            // Add file URLs
+            webhookPayload.dominio_vigente = dominioFiles.map(f => f.url)
+            webhookPayload.otros_documentos = otrosFiles.map(f => f.url)
 
             // Trigger Webhook
-            await triggerLegalWebhook(webhookData)
+            await triggerLegalWebhook(webhookPayload)
 
             // Save to Supabase (JSON doesn't support files, so we strip them)
             const jsonData = {}
@@ -1909,33 +1885,20 @@ function AnnexFormLogic({ user, profile, navigate, initialData = {}, requestId =
             formData.append('agente_telefono', profile?.phone || '')
             formData.append('tipo_solicitud', 'anexo')
 
-            // Prepare Webhook Payload
-            const webhookData = new FormData()
-
-            // Append all string data
-            for (const [key, value] of formData.entries()) {
+            // Prepare Webhook Payload — send URLs instead of blobs
+            const webhookPayload = {}
+            formData.forEach((value, key) => {
                 if (typeof value === 'string') {
-                    webhookData.append(key, value)
+                    webhookPayload[key] = value
                 }
-            }
+            })
 
-            // Fetch and append files from storage URLs
-            const fetchAndAppendFiles = async (fileList, fieldName) => {
-                for (const f of fileList) {
-                    try {
-                        const resp = await fetch(f.url)
-                        const blob = await resp.blob()
-                        webhookData.append(fieldName, new File([blob], f.name, { type: blob.type }))
-                    } catch (err) {
-                        console.warn(`Could not fetch file ${f.name} for webhook:`, err)
-                    }
-                }
-            }
-            await fetchAndAppendFiles(contratoFiles, 'contrato_original[]')
-            await fetchAndAppendFiles(docAdicionalesFiles, 'documentos_adicionales[]')
+            // Add file URLs
+            webhookPayload.contrato_original = contratoFiles.map(f => f.url)
+            webhookPayload.documentos_adicionales = docAdicionalesFiles.map(f => f.url)
 
             // Trigger Webhook
-            await triggerLegalWebhook(webhookData)
+            await triggerLegalWebhook(webhookPayload)
 
             // Save JSON to Supabase
             const jsonData = {}

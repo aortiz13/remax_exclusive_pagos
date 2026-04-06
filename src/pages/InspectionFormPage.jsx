@@ -279,6 +279,38 @@ export default function InspectionFormPage() {
         }
     }
 
+    // ─── Enviar a Revisión (Agent) ───
+    const handleSendForReview = async () => {
+        setSubmitting(true)
+        try {
+            // Save signature if drawn
+            let sigUrl = signatureUrl
+            if (signaturePadRef.current && !signaturePadRef.current.isEmpty()) {
+                const base64 = signaturePadRef.current.toDataURL('image/png')
+                sigUrl = await uploadSignature(base64, inspectionId)
+                setSignatureUrl(sigUrl)
+            }
+
+            await saveInspection(inspectionId, {
+                form_data: formData,
+                photos,
+                signature_url: sigUrl,
+                observations,
+                recommendations,
+            })
+            
+            // submitInspection marks it as 'completed', which shows as 'En Revisión' in Dashboard
+            await submitInspection(inspectionId)
+            toast.success('Inspección enviada a revisión')
+            navigate('/inspecciones')
+        } catch (err) {
+            console.error('Submit error:', err)
+            toast.error('Error enviando la inspección a revisión')
+        } finally {
+            setSubmitting(false)
+        }
+    }
+
     // ─── Open Send Preview Modal ───
     const openSendPreview = async () => {
         // Check Gmail account
@@ -519,9 +551,10 @@ export default function InspectionFormPage() {
     }
 
     // ─── Render helpers ────────────────────────────────────
+    const isAdmin = ['superadministrador', 'tecnico', 'legal', 'comercial', 'administracion'].includes(profile?.role)
     const isSent = inspection?.status === 'sent'
     const isCompleted = inspection?.status === 'completed'
-    const isReadOnly = isSent || isCompleted
+    const isReadOnly = isAdmin ? false : (isSent || isCompleted)
 
     // NOTE: These are render FUNCTIONS (not Components) to avoid React unmount/remount
     // on every re-render, which would cause inputs to lose focus.
@@ -770,6 +803,11 @@ export default function InspectionFormPage() {
                                 <CheckCircle2 className="w-4 h-4" /> Enviado {inspection.sent_at ? `el ${new Date(inspection.sent_at).toLocaleDateString('es-CL')}` : ''}
                             </div>
                         )}
+                        {isCompleted && !isSent && (
+                            <div className="flex items-center gap-2 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg px-3 py-1.5 text-sm font-medium">
+                                <Eye className="w-4 h-4" /> En Revisión
+                            </div>
+                        )}
                         {!isReadOnly && (
                             <>
                                 <button
@@ -779,13 +817,23 @@ export default function InspectionFormPage() {
                                 >
                                     {saving ? <><Loader2 className="w-4 h-4 animate-spin" /> Guardando...</> : <><Save className="w-4 h-4" /> Guardar</>}
                                 </button>
-                                <button
-                                    onClick={openSendPreview}
-                                    disabled={submitting}
-                                    className="px-6 py-2 bg-[#003DA5] text-white rounded-lg text-sm font-semibold hover:bg-[#002d7a] transition-colors disabled:opacity-50 flex items-center gap-1.5"
-                                >
-                                    <Send className="w-4 h-4" /> Enviar Informe
-                                </button>
+                                {isAdmin ? (
+                                    <button
+                                        onClick={openSendPreview}
+                                        disabled={submitting}
+                                        className="px-6 py-2 bg-[#003DA5] text-white rounded-lg text-sm font-semibold hover:bg-[#002d7a] transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                                    >
+                                        <Send className="w-4 h-4" /> Enviar al Propietario
+                                    </button>
+                                ) : (
+                                    <button
+                                        onClick={handleSendForReview}
+                                        disabled={submitting}
+                                        className="px-6 py-2 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                                    >
+                                        <Send className="w-4 h-4" /> Enviar a Revisión
+                                    </button>
+                                )}
                             </>
                         )}
                     </div>
@@ -1061,7 +1109,19 @@ export default function InspectionFormPage() {
                                 <div className="space-y-4">
                                     {photos.map((photo, idx) => (
                                         <div key={idx} className="relative group rounded-xl overflow-hidden border border-gray-200 shadow-sm">
-                                            <img src={photo.url} alt={`Foto ${idx + 1}`} className="w-full object-contain max-h-[600px] bg-gray-50" />
+                                            <img 
+                                                src={`https://wsrv.nl/?url=${encodeURIComponent(photo.url)}&output=jpg&w=800&fit=contain`} 
+                                                alt={`Foto ${idx + 1}`} 
+                                                className="w-full object-contain max-h-[600px] bg-gray-50 bg-black/5 rounded-lg" 
+                                                loading="lazy"
+                                                onError={(e) => {
+                                                    // Fallback to original url if proxy fails
+                                                    if (!e.target.dataset.failed) {
+                                                        e.target.dataset.failed = true;
+                                                        e.target.src = photo.url;
+                                                    }
+                                                }}
+                                            />
                                             {!isReadOnly && (
                                                 <button
                                                     data-hide-pdf

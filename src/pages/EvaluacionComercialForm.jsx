@@ -221,30 +221,12 @@ export default function EvaluacionComercialForm() {
         return null;
     };
 
-    const fileToBase64 = (file) => {
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.readAsDataURL(file);
-            reader.onload = () => resolve(reader.result);
-            reader.onerror = error => reject(error);
-        });
-    };
 
     const submitRequest = async () => {
         setShowConfirm(false);
         setIsSubmitting(true);
 
         try {
-            const base64Files = await Promise.all(
-                files.map(async (file) => {
-                    const base64String = await fileToBase64(file);
-                    return {
-                        nombre: file.name,
-                        tipo: file.type,
-                        base64: base64String
-                    };
-                })
-            );
 
             // Upload files to Supabase Storage
             const uploadFiles = async (filesArray) => {
@@ -319,7 +301,10 @@ export default function EvaluacionComercialForm() {
             // Webhook is non-blocking: DB record is already saved, so don't fail the form if webhook fails
             const webhookPayload = {
                 ...payloadData,
-                documentos: base64Files
+                documentos: allFiles.map(f => ({
+                    nombre: f.name,
+                    url: f.url
+                }))
             };
 
             triggerEvaluacionComercialWebhook(webhookPayload).catch((webhookErr) => {
@@ -572,7 +557,7 @@ export default function EvaluacionComercialForm() {
                                     <p className="mb-2 text-sm text-slate-700 dark:text-slate-300">
                                         <span className="font-bold text-[#003aad] dark:text-blue-400">Haz clic para subir</span> o arrastra y suelta
                                     </p>
-                                    <p className="text-xs text-slate-500 italic">Soportado: PDF, JPG, PNG (Max. 10MB)</p>
+                                    <p className="text-xs text-slate-500 italic">Soportado: PDF, JPG, PNG</p>
                                 </div>
                                 <input
                                     ref={fileInputRef}

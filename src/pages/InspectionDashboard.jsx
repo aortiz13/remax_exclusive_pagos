@@ -13,7 +13,7 @@ import {
 const STATUS_MAP = {
     draft: { label: 'Borrador', color: 'bg-gray-100 text-gray-700', icon: Clock },
     pending: { label: 'Pendiente', color: 'bg-amber-100 text-amber-700', icon: Clock },
-    completed: { label: 'Completada', color: 'bg-emerald-100 text-emerald-700', icon: CheckCircle },
+    completed: { label: 'En Revisión', color: 'bg-indigo-100 text-indigo-700', icon: Eye },
     sent: { label: 'Enviado', color: 'bg-blue-100 text-blue-700', icon: CheckCircle },
     overdue: { label: 'Vencida', color: 'bg-red-100 text-red-700', icon: AlertTriangle },
     cancelled: { label: 'Cancelada', color: 'bg-gray-100 text-gray-500', icon: Clock },
@@ -115,14 +115,14 @@ export default function InspectionDashboard() {
     const openAssignModal = async (schedItem) => {
         setShowAssignModal(schedItem)
         setSelectedAgentId('')
-        if (agents.length === 0) {
-            const { data } = await supabase
-                .from('profiles')
-                .select('id, first_name, last_name, role')
-                .in('role', ['agent', 'superadministrador', 'tecnico', 'comercial', 'legal', 'administracion'])
-                .order('first_name')
-            setAgents(data || [])
-        }
+        
+        // Fetch all active users to be assigned (bypassing local state cache for hot reloads)
+        const { data } = await supabase
+            .from('profiles')
+            .select('id, first_name, last_name, role')
+            .order('first_name')
+            
+        setAgents(data || [])
     }
 
     const handleAssignAgent = async () => {
@@ -488,7 +488,7 @@ export default function InspectionDashboard() {
                                                 className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-[#003DA5] hover:text-white text-gray-700 rounded-lg text-xs font-semibold transition-colors"
                                             >
                                                 <Eye className="w-3.5 h-3.5" />
-                                                {insp.status === 'draft' ? 'Editar' : 'Ver'}
+                                                {(insp.status === 'draft' || isAdmin) ? 'Editar' : 'Ver'}
                                             </button>
                                         </td>
                                     </tr>

@@ -1,0 +1,50 @@
+{
+  "name": "Notificación de Inspección Derivada",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "inspection-assigned",
+        "options": {}
+      },
+      "id": "8c5e9bc6-34ca-4a0b-ae9b-2ff831ab00db",
+      "name": "Webhook Recept",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        250,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.body.agent.email }}",
+        "subject": "=🏠 Se te ha derivado una nueva inspección: {{ $json.body.inspection.address }}",
+        "message": "=<!DOCTYPE html>\n<html lang=\"es\">\n<head>\n    <meta charset=\"UTF-8\">\n    <title>Nueva Inspección Asignada</title>\n</head>\n<body style=\"font-family: Arial, sans-serif; color: #333; line-height: 1.6;\">\n    <div style=\"max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 8px;\">\n        <h2 style=\"color: #003DA5;\">Nueva Inspección Asignada</h2>\n        <p>Hola <strong>{{ $json.body.agent.name }}</strong>,</p>\n        <p><strong>{{ $json.body.assigned_by }}</strong> te ha derivado una inspección de propiedad.</p>\n        \n        <div style=\"background-color: #f9f9f9; padding: 15px; border-radius: 6px; margin: 20px 0;\">\n            <h3 style=\"margin-top: 0; color: #E11B22; font-size: 16px;\">🏠 Detalles de la Propiedad</h3>\n            <p style=\"margin: 5px 0;\"><strong>Dirección:</strong> {{ $json.body.inspection.address }}</p>\n            <p style=\"margin: 5px 0;\"><strong>Fecha Programada:</strong> {{ $json.body.inspection.scheduled_date ? $json.body.inspection.scheduled_date : 'Por definir' }}</p>\n            \n            <h3 style=\"margin-top: 20px; color: #E11B22; font-size: 16px;\">👤 Propietario</h3>\n            <p style=\"margin: 5px 0;\"><strong>Nombre:</strong> {{ $json.body.owner.name ? $json.body.owner.name : 'No registrado' }}</p>\n            <p style=\"margin: 5px 0;\"><strong>Email:</strong> {{ $json.body.owner.email ? $json.body.owner.email : 'No registrado' }}</p>\n            <p style=\"margin: 5px 0;\"><strong>Teléfono:</strong> {{ $json.body.owner.phone ? $json.body.owner.phone : 'No registrado' }}</p>\n        </div>\n\n        <p style=\"text-align: center; margin-top: 30px;\">\n            <a href=\"{{ $json.body.inspection.url }}\" style=\"background-color: #003DA5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;\">Ir a Inspecciones</a>\n        </p>\n        \n        <p style=\"margin-top: 30px; font-size: 12px; color: #888;\">\n            Este es un correo generado automáticamente por el sistema de RE/MAX Exclusive.\n        </p>\n    </div>\n</body>\n</html>",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "e3f2g1a2-543e-5678-0e8b-2b3c4d5e6f7g",
+      "name": "Enviar a Agente",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        550,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook Recept": {
+      "main": [
+        [
+          {
+            "node": "Enviar a Agente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
