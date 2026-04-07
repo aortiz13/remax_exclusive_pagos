@@ -489,6 +489,20 @@ const UnifiedTimeline = ({ contactId, propertyId }) => {
                                             </p>
                                         )}
 
+                                        {/* Email Tracking Metrics */}
+                                        {event.type === 'correo' && event.meta?.tracking && (
+                                            <div className="mt-3 flex flex-wrap gap-3">
+                                                <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-600 dark:text-slate-400">
+                                                    <div className={`w-1.5 h-1.5 rounded-full ${event.meta.tracking.opens_count > 0 ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'}`} />
+                                                    Aperturas: <span className="text-slate-900 dark:text-slate-200">{event.meta.tracking.opens_count}</span>
+                                                </div>
+                                                <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-600 dark:text-slate-400">
+                                                    <div className={`w-1.5 h-1.5 rounded-full ${event.meta.tracking.clicks_count > 0 ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'}`} />
+                                                    Clics: <span className="text-slate-900 dark:text-slate-200">{event.meta.tracking.clicks_count}</span>
+                                                </div>
+                                            </div>
+                                        )}
+
                                         {/* Meta tags row */}
                                         <div className="flex flex-wrap gap-1.5 mt-2">
                                             {event.meta?.contactNames && (

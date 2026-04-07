@@ -191,6 +191,31 @@ const TimelineEventModal = ({ event, isOpen, onClose }) => {
                             <>
                                 {meta.from && <DetailRow icon={Mail} label="De" value={meta.from} />}
                                 {meta.to && <DetailRow icon={ArrowUpRight} label="Para" value={meta.to} />}
+                                {meta.tracking && (
+                                    <>
+                                        <div className="flex flex-col sm:flex-row gap-4 mt-6 p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+                                            <div className="flex-1 space-y-1">
+                                                <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                                                    <Eye className="w-3.5 h-3.5" />
+                                                    Aperturas
+                                                </div>
+                                                <p className="text-xl font-bold text-slate-800 dark:text-slate-200">
+                                                    {meta.tracking.opens_count}
+                                                </p>
+                                            </div>
+                                            <div className="w-px bg-slate-200 dark:bg-slate-700 hidden sm:block"></div>
+                                            <div className="flex-1 space-y-1">
+                                                <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                                                    <MousePointerClick className="w-3.5 h-3.5" />
+                                                    Clics en enlaces
+                                                </div>
+                                                <p className="text-xl font-bold text-slate-800 dark:text-slate-200">
+                                                    {meta.tracking.clicks_count}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
                             </>
                         )}
 
@@ -272,8 +297,8 @@ const TimelineEventModal = ({ event, isOpen, onClose }) => {
                             </>
                         )}
 
-                        {/* Activity log details (also used for email tracking details) */}
-                        {(event.type === 'log' || event.type === 'email_open' || event.type === 'email_click') && meta.details && Object.keys(meta.details).length > 0 && (() => {
+                        {/* Activity log details */}
+                        {event.type === 'log' && meta.details && Object.keys(meta.details).length > 0 && (() => {
                             const DETAIL_LABELS = {
                                 zone: 'Zona', source: 'Fuente', bedrooms: 'Dormitorios',
                                 bathrooms: 'Baños', short_id: 'ID Corto', amenities: 'Características',

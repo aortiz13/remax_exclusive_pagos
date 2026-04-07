@@ -9,7 +9,7 @@ import {
 import { toast, Toaster } from 'sonner'
 import {
     ClipboardCheck, MapPin, Save, Send, CheckCircle, AlertTriangle,
-    Plus, Trash2, Loader2, Camera, ChevronDown, Pencil
+    Plus, Trash2, Loader2, Camera, ChevronDown, Pencil, ImagePlus
 } from 'lucide-react'
 
 const LOGO_SRC = '/primerolog.png'
@@ -46,6 +46,7 @@ export default function PublicInspectionPage() {
     const [inspectorName, setInspectorName] = useState('')
     const [photos, setPhotos] = useState([])
     const photoInputRef = useRef(null)
+    const cameraInputRef = useRef(null)
 
     useEffect(() => {
         loadInspection()
@@ -90,12 +91,32 @@ export default function PublicInspectionPage() {
                     ? data.form_data
                     : convertLegacyFormData(data.form_data)
                 if (!saved.direccion && propertyAddress) saved.direccion = propertyAddress
+
+                // ── Migrate legacy propietario (string) → propietarios (array) ──
+                if (!Array.isArray(saved.propietarios)) {
+                    if (saved.propietario) {
+                        saved.propietarios = [{ nombre: saved.propietario, email: saved.owner_email || '' }]
+                    } else {
+                        saved.propietarios = []
+                    }
+                }
+                // ── Migrate legacy arrendatario (string) → arrendatarios (array) ──
+                if (!Array.isArray(saved.arrendatarios)) {
+                    if (saved.arrendatario) {
+                        saved.arrendatarios = [{ nombre: saved.arrendatario }]
+                    } else {
+                        saved.arrendatarios = []
+                    }
+                }
+
                 setFormData(saved)
             } else {
                 setFormData(prev => ({
                     ...prev,
                     direccion: propertyAddress,
                     fecha_inspeccion: new Date().toISOString().split('T')[0],
+                    propietarios: [],
+                    arrendatarios: [],
                 }))
             }
 
@@ -664,13 +685,31 @@ export default function PublicInspectionPage() {
                                     <div className="w-8 h-8 bg-[#003DA5] text-white rounded-lg flex items-center justify-center text-sm font-bold">8</div>
                                     <span className="text-lg font-bold text-[#003DA5]">Registro Fotográfico</span>
                                 </div>
-                                <button
-                                    onClick={() => photoInputRef.current?.click()}
-                                    className="px-4 py-2 bg-[#003DA5] text-white text-sm font-semibold rounded-lg hover:bg-[#002d7a] transition-colors flex items-center gap-1"
-                                >
-                                    <Camera className="w-4 h-4" /> Subir Fotos
-                                </button>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => cameraInputRef.current?.click()}
+                                        className="px-4 py-2 bg-emerald-600 text-white text-sm font-semibold rounded-lg hover:bg-emerald-700 transition-colors flex items-center gap-1.5"
+                                    >
+                                        <Camera className="w-4 h-4" /> Tomar Foto
+                                    </button>
+                                    <button
+                                        onClick={() => photoInputRef.current?.click()}
+                                        className="px-4 py-2 bg-[#003DA5] text-white text-sm font-semibold rounded-lg hover:bg-[#002d7a] transition-colors flex items-center gap-1.5"
+                                    >
+                                        <ImagePlus className="w-4 h-4" /> Subir desde Galería
+                                    </button>
+                                </div>
                             </div>
+                            {/* Hidden file input for camera capture (single photo, opens camera on mobile) */}
+                            <input
+                                ref={cameraInputRef}
+                                type="file"
+                                accept="image/*"
+                                capture="environment"
+                                className="hidden"
+                                onChange={handlePhotoUpload}
+                            />
+                            {/* Hidden file input for gallery/file picker (multiple photos) */}
                             <input
                                 ref={photoInputRef}
                                 type="file"
@@ -680,9 +719,13 @@ export default function PublicInspectionPage() {
                                 onChange={handlePhotoUpload}
                             />
                             {photos.length === 0 ? (
-                                <div className="border-2 border-dashed border-gray-300 rounded-xl p-12 text-center">
+                                <div
+                                    className="border-2 border-dashed border-gray-300 rounded-xl p-12 text-center cursor-pointer hover:border-[#003DA5]/40 hover:bg-blue-50/30 transition-colors"
+                                    onClick={() => photoInputRef.current?.click()}
+                                >
                                     <Camera className="w-10 h-10 text-gray-300 mx-auto mb-2" />
-                                    <p className="text-gray-400 text-sm">Haga click en "Subir Fotos" para agregar imágenes</p>
+                                    <p className="text-gray-400 text-sm">Toque aquí o use los botones de arriba para agregar fotos</p>
+                                    <p className="text-gray-300 text-xs mt-1">En dispositivos móviles puede usar la cámara directamente</p>
                                 </div>
                             ) : (
                                 <div className="space-y-4">

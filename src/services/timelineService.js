@@ -156,6 +156,13 @@ async function fetchEmails(contactId, propertyId) {
 
     if (msgError) { console.error('Timeline: emails error', msgError); return [] }
 
+    // Fetch tracking logs to augment emails with open/click data
+    const { data: trackings } = await withRetry(() => supabase
+        .from('email_tracking_logs')
+        .select('id, subject, opens_count, clicks_count, created_at, last_opened_at, last_clicked_at')
+        .eq('contact_id', contactId)
+    )
+
     // Group by thread, keep only latest per thread
     const seenThreads = new Set()
     const uniqueMessages = []
@@ -166,20 +173,57 @@ async function fetchEmails(contactId, propertyId) {
         }
     }
 
-    return uniqueMessages.map(m => ({
-        id: `email-${m.id}`,
-        type: 'correo',
-        typeLabel: 'Correo',
-        date: m.received_at,
-        title: m.subject || threadMap[m.thread_id]?.subject || '(Sin asunto)',
-        description: m.snippet || '',
-        color: 'rose',
-        meta: {
-            from: m.from_address,
-            to: m.to_address,
-            threadId: m.thread_id,
+    const emailEvents = uniqueMessages.map(m => {
+        const title = m.subject || threadMap[m.thread_id]?.subject || '(Sin asunto)'
+        const tracking = trackings?.find(t => t.subject === title && Math.abs(new Date(t.created_at) - new Date(m.received_at)) < 3600000)
+        
+        return {
+            id: `email-${m.id}`,
+            type: 'correo',
+            typeLabel: 'Correo',
+            date: m.received_at,
+            title,
+            description: m.snippet || '',
+            color: 'rose',
+            meta: {
+                from: m.from_address,
+                to: m.to_address,
+                threadId: m.thread_id,
+                tracking: tracking ? {
+                    opens_count: tracking.opens_count,
+                    clicks_count: tracking.clicks_count
+                } : null
+            }
         }
-    }))
+    })
+
+    // Also include tracking logs that haven't synced via webhook yet
+    if (trackings) {
+        const syncedSubjects = new Set(emailEvents.map(e => e.title));
+        for (const t of trackings) {
+            if (!syncedSubjects.has(t.subject)) {
+                emailEvents.push({
+                    id: `tracking-only-${t.id}`,
+                    type: 'correo',
+                    typeLabel: 'Correo',
+                    date: t.created_at,
+                    title: t.subject || '(Sin asunto)',
+                    description: 'Enviado desde el CRM',
+                    color: 'rose',
+                    meta: {
+                        from: 'CRM',
+                        to: '',
+                        tracking: {
+                            opens_count: t.opens_count,
+                            clicks_count: t.clicks_count
+                        }
+                    }
+                })
+            }
+        }
+    }
+
+    return emailEvents;
 }
 
 async function fetchMandates(contactId, propertyId) {
@@ -275,21 +319,20 @@ async function fetchActivityLogs(contactId, propertyId) {
     if (propertyId) query = query.eq('property_id', propertyId)
     else if (contactId) query = query.eq('contact_id', contactId)
 
-    const { data, error } = await withRetry(() => query)
+    const { data: unfilteredData, error } = await withRetry(() => query)
     if (error) { console.error('Timeline: activity_logs error', error); return [] }
 
-    return (data || []).map(l => {
+    // Filter out Email Opened and Email Link Clicked logs since they are now embedded in the Email event
+    const data = (unfilteredData || []).filter(l => l.action !== 'Email Opened' && l.action !== 'Email Link Clicked');
+
+    return data.map(l => {
         const isNote = l.action === 'Nota'
-        const isEmailOpen = l.action === 'Email Opened'
-        const isEmailClick = l.action === 'Email Link Clicked'
         
         let type = 'log'
         let typeLabel = 'Registro'
         let color = 'slate'
         
         if (isNote) { type = 'nota'; typeLabel = 'Nota'; color = 'amber' }
-        if (isEmailOpen) { type = 'email_open'; typeLabel = 'Correo Leído'; color = 'indigo' }
-        if (isEmailClick) { type = 'email_click'; typeLabel = 'Clic en Enlace'; color = 'emerald' }
 
         return {
             id: `log-${l.id}`,
