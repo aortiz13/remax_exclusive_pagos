@@ -102,6 +102,8 @@ const CALL_RESULTS = [
 ];
 
 const FOLLOW_UP_DELAYS = [
+    { label: "Hoy", value: "today" },
+    { label: "Mañana", value: "tomorrow" },
     { label: "En 2 días laborables", value: "2_business_days" },
     { label: "En 3 días laborables", value: "3_business_days" },
     { label: "En 2 semanas", value: "2_weeks" },
@@ -373,6 +375,12 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
     const calculateFollowUpDate = (delay, baseDate = new Date(), customDateStr = null) => {
         let date = new Date(baseDate);
         switch (delay) {
+            case 'today':
+                // no change needed, baseDate is today/now
+                break;
+            case 'tomorrow':
+                date.setDate(date.getDate() + 1);
+                break;
             case '2_business_days':
                 date = addBusinessDays(date, 2);
                 break;
@@ -1457,7 +1465,8 @@ const ActionModal = ({ isOpen, onClose, defaultContactId = null, defaultProperty
                                                                     <SelectValue />
                                                                 </SelectTrigger>
                                                                 <SelectContent className="z-[300]">
-                                                                    <SelectItem value="none">Sin aviso</SelectItem>
+                                                                    <SelectItem value="none">Sin recordatorio</SelectItem>
+                                                                    <SelectItem value="0">A la hora del vencimiento de la tarea</SelectItem>
                                                                     <SelectItem value="10">10 min antes</SelectItem>
                                                                     <SelectItem value="20">20 min antes</SelectItem>
                                                                     <SelectItem value="30">30 min antes</SelectItem>

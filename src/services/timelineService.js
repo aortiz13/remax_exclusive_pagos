@@ -280,14 +280,25 @@ async function fetchActivityLogs(contactId, propertyId) {
 
     return (data || []).map(l => {
         const isNote = l.action === 'Nota'
+        const isEmailOpen = l.action === 'Email Opened'
+        const isEmailClick = l.action === 'Email Link Clicked'
+        
+        let type = 'log'
+        let typeLabel = 'Registro'
+        let color = 'slate'
+        
+        if (isNote) { type = 'nota'; typeLabel = 'Nota'; color = 'amber' }
+        if (isEmailOpen) { type = 'email_open'; typeLabel = 'Correo Leído'; color = 'indigo' }
+        if (isEmailClick) { type = 'email_click'; typeLabel = 'Clic en Enlace'; color = 'emerald' }
+
         return {
             id: `log-${l.id}`,
-            type: isNote ? 'nota' : 'log',
-            typeLabel: isNote ? 'Nota' : 'Registro',
+            type,
+            typeLabel,
             date: l.created_at,
             title: isNote ? 'Nota' : (l.action || 'Actividad'),
             description: l.description || '',
-            color: isNote ? 'amber' : 'slate',
+            color,
             meta: {
                 entityType: l.entity_type,
                 details: l.details,
@@ -389,6 +400,8 @@ export const EVENT_TYPES = [
     { key: 'nota', label: 'Notas', color: 'amber' },
     { key: 'actividad', label: 'Actividades', color: 'slate' },
     { key: 'correo', label: 'Correos', color: 'slate' },
+    { key: 'email_open', label: 'Correos Leídos', color: 'indigo' },
+    { key: 'email_click', label: 'Clics en Correos', color: 'emerald' },
     { key: 'mandato', label: 'Mandatos', color: 'blue' },
     { key: 'evaluacion', label: 'Evaluaciones', color: 'slate' },
     { key: 'inspeccion', label: 'Inspecciones', color: 'teal' },

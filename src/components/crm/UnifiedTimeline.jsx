@@ -100,6 +100,24 @@ const TYPE_CONFIG = {
         chipBg: 'bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-400 border-teal-100 dark:border-teal-900',
         dot: 'bg-teal-500',
     },
+    email_open: {
+        icon: Eye,
+        accent: 'border-l-indigo-400',
+        bg: 'bg-white dark:bg-slate-900/60',
+        border: 'border-slate-200 dark:border-slate-800',
+        text: 'text-indigo-600 dark:text-indigo-400',
+        chipBg: 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-400 border-indigo-100 dark:border-indigo-900',
+        dot: 'bg-indigo-400',
+    },
+    email_click: {
+        icon: ArrowUpRight,
+        accent: 'border-l-emerald-500',
+        bg: 'bg-white dark:bg-slate-900/60',
+        border: 'border-slate-200 dark:border-slate-800',
+        text: 'text-emerald-600 dark:text-emerald-400',
+        chipBg: 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border-emerald-100 dark:border-emerald-900',
+        dot: 'bg-emerald-500',
+    },
 }
 
 // ── Helpers ────────────────────────────────────────────────────

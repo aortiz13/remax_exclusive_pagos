@@ -1,12 +1,13 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { motion } from 'framer-motion'
 import { Button, Label, Textarea, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui'
-import { X, Activity, Loader2, CheckCircle2 } from 'lucide-react'
+import { X, Activity, Loader2, CheckCircle2, AlertTriangle } from 'lucide-react'
 import { supabase } from '../../services/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { toast } from 'sonner'
 import { toISOLocal } from '@/lib/utils'
+import { logActivity } from '../../services/activityService'
 
 const ACTION_TYPES = [
   "Café relacional",
@@ -39,13 +40,25 @@ export default function BulkActionModal({ isOpen, onClose, contacts = [] }) {
   const { profile, user } = useAuth()
   const [loading, setLoading] = useState(false)
   const [complete, setComplete] = useState(false)
-  const [progress, setProgress] = useState({ done: 0, total: 0, errors: 0 })
+  const [progress, setProgress] = useState({ done: 0, total: 0, errors: 0, errorDetails: [] })
 
   const [formData, setFormData] = useState({
     action_type: '',
-    notes: '',
+    note: '',
     action_date: toISOLocal().split('T')[0],
   })
+
+  useEffect(() => {
+    if (isOpen) {
+      setComplete(false)
+      setProgress({ done: 0, total: 0, errors: 0, errorDetails: [] })
+      setFormData({
+        action_type: '',
+        note: '',
+        action_date: toISOLocal().split('T')[0],
+      })
+    }
+  }, [isOpen])
 
   const handleSubmit = async () => {
     if (!formData.action_type) {
@@ -57,44 +70,69 @@ export default function BulkActionModal({ isOpen, onClose, contacts = [] }) {
     setComplete(false)
     const total = contacts.length
     let done = 0
-    let errors = 0
+    let errorsList = []
     const agentId = profile?.id || user?.id
 
     for (const contact of contacts) {
       try {
+        let dateTime
+        try {
+          dateTime = new Date(`${formData.action_date}T12:00:00Z`).toISOString()
+        } catch (err) {
+          dateTime = new Date().toISOString()
+        }
+
         // Create the CRM action
-        const { data: action, error: actionError } = await supabase
+        const { data: actionRow, error: actionError } = await supabase
           .from('crm_actions')
           .insert({
             agent_id: agentId,
             action_type: formData.action_type,
-            notes: formData.notes || null,
-            action_date: formData.action_date,
+            note: formData.note || null,
+            action_date: dateTime,
+            is_conversation_starter: formData.action_type.includes('(I.C)'),
+            kpi_deferred: false
           })
           .select('id')
           .single()
 
-        if (actionError) throw actionError
+        if (actionError) throw new Error(`[crm_actions]: ${actionError.message}`)
 
         // Link to contact via junction table
         const { error: linkError } = await supabase
           .from('crm_action_contacts')
           .insert({
-            action_id: action.id,
+            action_id: actionRow.id,
             contact_id: contact.id,
           })
 
-        if (linkError) throw linkError
-      } catch {
-        errors++
+        if (linkError) throw new Error(`[crm_action_contacts]: ${linkError.message}`)
+
+        // Log Activity to Timeline
+        try {
+            await logActivity({
+            action: 'Acción Masiva',
+            entity_type: 'Actividad', 
+            entity_id: actionRow.id,
+            description: `Acción registrada: ${formData.action_type}`,
+            details: { date: dateTime, note: formData.note },
+            contact_id: contact.id
+            })
+        } catch (logErr) {
+            console.error('Error logging activity but action created', logErr)
+        }
+
+      } catch (err) {
+        console.error('Error creating bulk action:', err)
+        errorsList.push({ contact: `${contact.first_name || ''} ${contact.last_name || ''}`, error: err.message || JSON.stringify(err) })
       }
       done++
-      setProgress({ done, total, errors })
+      setProgress({ done, total, errors: errorsList.length, errorDetails: errorsList })
     }
 
     setComplete(true)
     setLoading(false)
-    toast.success(`${done - errors} acción${done - errors > 1 ? 'es' : ''} registrada${done - errors > 1 ? 's' : ''}`)
+    toast.success(`${done - errorsList.length} acción${done - errorsList.length > 1 ? 'es' : ''} registrada${done - errorsList.length > 1 ? 's' : ''}`)
   }
 
   if (!isOpen) return null
@@ -128,16 +166,32 @@ export default function BulkActionModal({ isOpen, onClose, contacts = [] }) {
         </div>
 
         {complete ? (
-          <div className="flex-1 flex flex-col items-center justify-center p-8 gap-4">
-            <div className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+          <div className="flex-1 flex flex-col items-center justify-center p-8 gap-4 overflow-y-auto">
+            <div className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center shrink-0">
               <CheckCircle2 className="w-8 h-8 text-green-600" />
             </div>
-            <h3 className="text-xl font-bold">¡Acciones registradas!</h3>
-            <p className="text-sm text-slate-500">
+            <h3 className="text-xl font-bold shrink-0">¡Acciones registradas!</h3>
+            <p className="text-sm text-slate-500 shrink-0">
               {progress.done - progress.errors} de {progress.total} acciones registradas
               {progress.errors > 0 && <span className="text-red-500 ml-1">({progress.errors} errores)</span>}
             </p>
-            <Button onClick={onClose} className="mt-4">Cerrar</Button>
+
+            {progress.errors > 0 && progress.errorDetails && (
+              <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-lg p-3 max-w-md w-full shrink-0">
+                <p className="text-xs font-bold text-red-700 dark:text-red-400 mb-2 flex items-center gap-1">
+                  <AlertTriangle className="w-3.5 h-3.5" /> Errores detallados
+                </p>
+                <div className="max-h-32 overflow-y-auto pr-2">
+                  {progress.errorDetails.map((err, i) => (
+                    <p key={i} className="text-xs text-red-600 dark:text-red-400 mb-1 leading-tight border-b border-red-100 last:border-0 pb-1">
+                      <span className="font-semibold">{err.contact}:</span> {err.error}
+                    </p>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <Button onClick={onClose} className="mt-4 shrink-0">Cerrar</Button>
           </div>
         ) : (
           <>
@@ -148,7 +202,7 @@ export default function BulkActionModal({ isOpen, onClose, contacts = [] }) {
                   value={formData.action_type}
                   onValueChange={(val) => setFormData(prev => ({ ...prev, action_type: val }))}
                 >
-                  <SelectTrigger className="h-10"><SelectValue placeholder="Seleccionar acción..." /></SelectTrigger>
+                  <SelectTrigger className="h-10 border-orange-200 focus:ring-orange-500"><SelectValue placeholder="Seleccionar acción..." /></SelectTrigger>
                   <SelectContent className="z-[300] max-h-[300px]">
                     {ACTION_TYPES.map(type => (
                       <SelectItem key={type} value={type}>{type}</SelectItem>
@@ -163,17 +217,17 @@ export default function BulkActionModal({ isOpen, onClose, contacts = [] }) {
                   type="date"
                   value={formData.action_date}
                   onChange={(e) => setFormData(prev => ({ ...prev, action_date: e.target.value }))}
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 disabled:cursor-not-allowed disabled:opacity-50"
                 />
               </div>
 
               <div className="space-y-1.5">
                 <Label className="text-sm font-medium">Nota <span className="text-slate-400 font-normal">(opcional)</span></Label>
                 <Textarea
-                  value={formData.notes}
-                  onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                  value={formData.note}
+                  onChange={(e) => setFormData(prev => ({ ...prev, note: e.target.value }))}
                   placeholder="Detalles de la acción..."
-                  className="resize-none h-24"
+                  className="resize-none h-24 focus-visible:ring-orange-500"
                 />
               </div>
             </div>

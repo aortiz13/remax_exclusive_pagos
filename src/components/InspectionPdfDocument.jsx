@@ -165,12 +165,35 @@ const InspectionPdfDocument = ({ formData, observations, recommendations, photos
                         </View>
                         <View style={s.fieldRow}>
                             <View style={s.fieldCol}>
-                                <Text style={s.fieldLabel}>Propietario</Text>
-                                <Text style={s.fieldValue}>{formData?.propietario || ''}</Text>
+                                <Text style={s.fieldLabel}>
+                                    {Array.isArray(formData?.propietarios) && formData.propietarios.length > 1 ? 'Propietarios' : 'Propietario'}
+                                </Text>
+                                {Array.isArray(formData?.propietarios) && formData.propietarios.length > 0 ? (
+                                    formData.propietarios.map((p, i) => (
+                                        <View key={i} style={{ marginBottom: 2 }}>
+                                            <Text style={s.fieldValue}>
+                                                {formData.propietarios.length > 1 ? `${i + 1}. ` : ''}{p.nombre || ''}
+                                            </Text>
+                                            {p.email ? <Text style={{ fontSize: 7, color: '#6B7280' }}>   {p.email}</Text> : null}
+                                        </View>
+                                    ))
+                                ) : (
+                                    <Text style={s.fieldValue}>{formData?.propietario || ''}</Text>
+                                )}
                             </View>
                             <View style={s.fieldCol}>
-                                <Text style={s.fieldLabel}>Arrendatario</Text>
-                                <Text style={s.fieldValue}>{formData?.arrendatario || ''}</Text>
+                                <Text style={s.fieldLabel}>
+                                    {Array.isArray(formData?.arrendatarios) && formData.arrendatarios.length > 1 ? 'Arrendatarios' : 'Arrendatario'}
+                                </Text>
+                                {Array.isArray(formData?.arrendatarios) && formData.arrendatarios.length > 0 ? (
+                                    formData.arrendatarios.map((a, i) => (
+                                        <Text key={i} style={s.fieldValue}>
+                                            {formData.arrendatarios.length > 1 ? `${i + 1}. ` : ''}{a.nombre || ''}
+                                        </Text>
+                                    ))
+                                ) : (
+                                    <Text style={s.fieldValue}>{formData?.arrendatario || ''}</Text>
+                                )}
                             </View>
                         </View>
 

@@ -23,7 +23,7 @@ import {
     Bath, FileText, PenTool, Mail, X, Eye, Paperclip, File as FileIcon,
     ChevronDown, Trees, Sun, Waves, Shirt, Warehouse, Car, DoorOpen,
     Monitor, Coffee, Users, Briefcase, Truck, Factory, ClipboardList,
-    Fence, Pencil
+    Fence, Pencil, ImagePlus, FolderOpen
 } from 'lucide-react'
 
 const LOGO_SRC = LOGO_BASE64 ? `data:image/png;base64,${LOGO_BASE64}` : '/primerolog.png'
@@ -64,6 +64,7 @@ export default function InspectionFormPage() {
     const signatureCanvasRef = useRef(null)
     const signaturePadRef = useRef(null)
     const photoInputRef = useRef(null)
+    const cameraInputRef = useRef(null)
     const saveTimeoutRef = useRef(null)
     const formContainerRef = useRef(null)
 
@@ -117,19 +118,25 @@ export default function InspectionFormPage() {
                 propertyAddress = data.address || ''
             }
 
-            const ownerName = data.property?.owner
-                ? `${data.property.owner.first_name || ''} ${data.property.owner.last_name || ''}`.trim()
-                : (data.owner_name || '')
+            // Build propietarios array from DB relation (fallback to legacy fields)
+            let defaultPropietarios = []
+            if (data.property?.owner) {
+                const nombre = `${data.property.owner.first_name || ''} ${data.property.owner.last_name || ''}`.trim()
+                if (nombre) defaultPropietarios.push({ nombre, email: data.property.owner.email || '' })
+            } else if (data.owner_name) {
+                defaultPropietarios.push({ nombre: data.owner_name, email: '' })
+            }
 
-            const ownerEmail = data.property?.owner?.email || ''
+            let defaultArrendatarios = []
+            if (data.tenant_name) {
+                defaultArrendatarios.push({ nombre: data.tenant_name })
+            }
 
             const autoFields = {
                 agente_nombre: agentName,
                 fecha_inspeccion: data.inspection_date || new Date().toISOString().split('T')[0],
                 direccion: propertyAddress,
-                propietario: ownerName,
-                owner_email: ownerEmail,
-                arrendatario: data.tenant_name || '',
+                owner_email: data.property?.owner?.email || '',
             }
 
             if (data.form_data && Object.keys(data.form_data).length > 0) {
@@ -142,9 +149,49 @@ export default function InspectionFormPage() {
                 Object.entries(autoFields).forEach(([key, val]) => {
                     if (!saved[key] && val) saved[key] = val
                 })
+
+                // ── Migrate legacy propietario (string) → propietarios (array) ──
+                if (!Array.isArray(saved.propietarios)) {
+                    if (saved.propietario) {
+                        saved.propietarios = [{ nombre: saved.propietario, email: saved.owner_email || '' }]
+                    } else if (defaultPropietarios.length > 0) {
+                        saved.propietarios = defaultPropietarios
+                    } else {
+                        saved.propietarios = []
+                    }
+                }
+                if (saved.propietarios.length === 0 && defaultPropietarios.length > 0) {
+                    saved.propietarios = defaultPropietarios
+                }
+
+                // ── Migrate legacy arrendatario (string) → arrendatarios (array) ──
+                if (!Array.isArray(saved.arrendatarios)) {
+                    if (saved.arrendatario) {
+                        saved.arrendatarios = [{ nombre: saved.arrendatario }]
+                    } else if (defaultArrendatarios.length > 0) {
+                        saved.arrendatarios = defaultArrendatarios
+                    } else {
+                        saved.arrendatarios = []
+                    }
+                }
+                if (saved.arrendatarios.length === 0 && defaultArrendatarios.length > 0) {
+                    saved.arrendatarios = defaultArrendatarios
+                }
+
+                // Keep owner_email in sync with first propietario
+                if (!saved.owner_email && saved.propietarios.length > 0 && saved.propietarios[0].email) {
+                    saved.owner_email = saved.propietarios[0].email
+                }
+
                 setFormData(saved)
             } else {
-                setFormData(prev => ({ ...prev, ...autoFields }))
+                setFormData(prev => ({
+                    ...prev,
+                    ...autoFields,
+                    propietarios: defaultPropietarios,
+                    arrendatarios: defaultArrendatarios,
+                    owner_email: defaultPropietarios[0]?.email || '',
+                }))
             }
 
             setPhotos(data.photos || [])
@@ -325,7 +372,8 @@ export default function InspectionFormPage() {
         }
 
         // Check owner email — use formData.owner_email (editable) or fall back to property relation
-        const ownerEmail = formData.owner_email || inspection?.property?.owner?.email
+        // Check owner email — use first propietario's email or fallback
+        const ownerEmail = (formData.propietarios?.[0]?.email) || formData.owner_email || inspection?.property?.owner?.email
         if (!ownerEmail) {
             toast.error('El propietario no tiene un correo electrónico registrado. Ingresa el email en la sección "Datos de la Propiedad".')
             return
@@ -340,10 +388,10 @@ export default function InspectionFormPage() {
         })
 
         // Build preview HTML
-        // Pre-fill email
-        const ownerName = `${inspection?.property?.owner?.first_name || ''}`.trim()
+        // Pre-fill email — use first propietario name
+        const firstOwnerName = formData.propietarios?.[0]?.nombre || `${inspection?.property?.owner?.first_name || ''}`.trim()
         const propertyAddr = formData.direccion || ''
-        const defaultBody = `Estimado/a ${ownerName || 'Propietario/a'},\n\nJunto con saludar, adjunto el informe de inspección correspondiente a su propiedad ubicada en ${propertyAddr}.\n\nEn el archivo adjunto encontrará el detalle completo de la inspección realizada, incluyendo el estado de cada área, observaciones relevantes, registro fotográfico y recomendaciones.\n\nQuedo atento/a a cualquier comentario o consulta.\n\nSaludos cordiales,`
+        const defaultBody = `Estimado/a ${firstOwnerName || 'Propietario/a'},\n\nJunto con saludar, adjunto el informe de inspección correspondiente a su propiedad ubicada en ${propertyAddr}.\n\nEn el archivo adjunto encontrará el detalle completo de la inspección realizada, incluyendo el estado de cada área, observaciones relevantes, registro fotográfico y recomendaciones.\n\nQuedo atento/a a cualquier comentario o consulta.\n\nSaludos cordiales,`
 
         setEmailDraft({
             to: ownerEmail,
@@ -898,8 +946,9 @@ export default function InspectionFormPage() {
                                 <div className="w-8 h-8 bg-[#003DA5] text-white rounded-lg flex items-center justify-center text-sm font-bold">2</div>
                                 <h3 className="text-lg font-bold text-[#003DA5]">Datos de la Propiedad</h3>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="md:col-span-2">
+                            <div className="space-y-6">
+                                {/* Dirección */}
+                                <div>
                                     <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Dirección (incluir comuna)</label>
                                     <input
                                         type="text" value={formData.direccion}
@@ -908,68 +957,163 @@ export default function InspectionFormPage() {
                                         className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none disabled:bg-gray-50"
                                     />
                                 </div>
+
+                                {/* ── Propietarios (múltiples) ── */}
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Nombre del Propietario</label>
-                                    {!isReadOnly && !formData.propietario && (
-                                        <div data-hide-pdf>
-                                            <ContactPickerInline
-                                                label="Buscar propietario en CRM"
-                                                onSelectContact={(contact) => {
-                                                    if (contact) {
-                                                        setFormData(p => ({
-                                                            ...p,
-                                                            propietario: `${contact.first_name || ''} ${contact.last_name || ''}`.trim(),
-                                                            owner_email: contact.email || p.owner_email || '',
-                                                        }))
-                                                    }
-                                                }}
-                                            />
+                                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Propietario(s)</label>
+                                    <div className="space-y-3">
+                                        {(formData.propietarios || []).map((prop, idx) => (
+                                            <div key={idx} className="flex gap-3 items-start bg-gray-50 p-3 rounded-xl border border-gray-200">
+                                                <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                    <div>
+                                                        <label className="block text-[10px] font-semibold text-gray-400 uppercase mb-1">Nombre</label>
+                                                        <input
+                                                            type="text"
+                                                            value={prop.nombre || ''}
+                                                            onChange={e => {
+                                                                const val = e.target.value
+                                                                setFormData(p => {
+                                                                    const arr = [...(p.propietarios || [])]
+                                                                    arr[idx] = { ...arr[idx], nombre: val }
+                                                                    return { ...p, propietarios: arr }
+                                                                })
+                                                            }}
+                                                            disabled={isReadOnly}
+                                                            placeholder="Nombre del propietario..."
+                                                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none disabled:bg-gray-100"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-[10px] font-semibold text-gray-400 uppercase mb-1 flex items-center gap-1">
+                                                            <Mail className="w-3 h-3" /> Email
+                                                        </label>
+                                                        <input
+                                                            type="email"
+                                                            value={prop.email || ''}
+                                                            onChange={e => {
+                                                                const val = e.target.value
+                                                                setFormData(p => {
+                                                                    const arr = [...(p.propietarios || [])]
+                                                                    arr[idx] = { ...arr[idx], email: val }
+                                                                    // Keep owner_email synced with first propietario
+                                                                    const updates = { ...p, propietarios: arr }
+                                                                    if (idx === 0) updates.owner_email = val
+                                                                    return updates
+                                                                })
+                                                            }}
+                                                            disabled={isReadOnly}
+                                                            placeholder="correo@ejemplo.cl"
+                                                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none disabled:bg-gray-100"
+                                                        />
+                                                        {idx === 0 && !prop.email && !isReadOnly && (
+                                                            <p className="text-[10px] text-amber-600 mt-1">⚠️ Requerido para enviar el informe</p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                {!isReadOnly && (formData.propietarios || []).length > 1 && (
+                                                    <button
+                                                        type="button" data-hide-pdf
+                                                        onClick={() => setFormData(p => ({ ...p, propietarios: p.propietarios.filter((_, i) => i !== idx), owner_email: idx === 0 ? (p.propietarios[1]?.email || '') : p.owner_email }))}
+                                                        className="mt-6 text-red-400 hover:text-red-600 transition-colors p-1 flex-shrink-0"
+                                                        title="Eliminar propietario"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                    {!isReadOnly && (
+                                        <div className="mt-2 flex items-center gap-3" data-hide-pdf>
+                                            <button
+                                                type="button"
+                                                onClick={() => setFormData(p => ({ ...p, propietarios: [...(p.propietarios || []), { nombre: '', email: '' }] }))}
+                                                className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-[#003DA5] text-xs font-semibold rounded-lg transition-colors flex items-center gap-1"
+                                            >
+                                                <Plus className="w-3.5 h-3.5" /> Agregar Propietario
+                                            </button>
+                                            {(formData.propietarios || []).length === 0 && (
+                                                <div className="flex-1">
+                                                    <ContactPickerInline
+                                                        label="Buscar propietario en CRM"
+                                                        onSelectContact={(contact) => {
+                                                            if (contact) {
+                                                                setFormData(p => ({
+                                                                    ...p,
+                                                                    propietarios: [{ nombre: `${contact.first_name || ''} ${contact.last_name || ''}`.trim(), email: contact.email || '' }],
+                                                                    owner_email: contact.email || p.owner_email || '',
+                                                                }))
+                                                            }
+                                                        }}
+                                                    />
+                                                </div>
+                                            )}
                                         </div>
                                     )}
-                                    <input
-                                        type="text" value={formData.propietario}
-                                        onChange={e => setFormData(p => ({ ...p, propietario: e.target.value }))}
-                                        disabled={isReadOnly}
-                                        placeholder="Nombre del propietario..."
-                                        className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none disabled:bg-gray-50"
-                                    />
                                 </div>
+
+                                {/* ── Arrendatarios (múltiples) ── */}
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">
-                                        <span className="flex items-center gap-1.5"><Mail className="w-3.5 h-3.5" /> Email del Propietario</span>
-                                    </label>
-                                    <input
-                                        type="email" value={formData.owner_email || ''}
-                                        onChange={e => setFormData(p => ({ ...p, owner_email: e.target.value }))}
-                                        disabled={isReadOnly}
-                                        placeholder="correo@ejemplo.cl"
-                                        className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none disabled:bg-gray-50"
-                                    />
-                                    {!formData.owner_email && !isReadOnly && (
-                                        <p className="text-xs text-amber-600 mt-1">⚠️ Requerido para enviar el informe al propietario</p>
-                                    )}
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Arrendatario</label>
-                                    {!isReadOnly && !formData.arrendatario && (
-                                        <div data-hide-pdf>
-                                            <ContactPickerInline
-                                                label="Buscar arrendatario en CRM"
-                                                onSelectContact={(contact) => {
-                                                    if (contact) {
-                                                        setFormData(p => ({ ...p, arrendatario: `${contact.first_name || ''} ${contact.last_name || ''}`.trim() }))
-                                                    }
-                                                }}
-                                            />
+                                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Arrendatario(s)</label>
+                                    <div className="space-y-3">
+                                        {(formData.arrendatarios || []).map((arr, idx) => (
+                                            <div key={idx} className="flex gap-3 items-center bg-gray-50 p-3 rounded-xl border border-gray-200">
+                                                <div className="flex-1">
+                                                    <input
+                                                        type="text"
+                                                        value={arr.nombre || ''}
+                                                        onChange={e => {
+                                                            const val = e.target.value
+                                                            setFormData(p => {
+                                                                const a = [...(p.arrendatarios || [])]
+                                                                a[idx] = { ...a[idx], nombre: val }
+                                                                return { ...p, arrendatarios: a }
+                                                            })
+                                                        }}
+                                                        disabled={isReadOnly}
+                                                        placeholder="Nombre del arrendatario..."
+                                                        className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none disabled:bg-gray-100"
+                                                    />
+                                                </div>
+                                                {!isReadOnly && (formData.arrendatarios || []).length > 1 && (
+                                                    <button
+                                                        type="button" data-hide-pdf
+                                                        onClick={() => setFormData(p => ({ ...p, arrendatarios: p.arrendatarios.filter((_, i) => i !== idx) }))}
+                                                        className="text-red-400 hover:text-red-600 transition-colors p-1 flex-shrink-0"
+                                                        title="Eliminar arrendatario"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                    {!isReadOnly && (
+                                        <div className="mt-2 flex items-center gap-3" data-hide-pdf>
+                                            <button
+                                                type="button"
+                                                onClick={() => setFormData(p => ({ ...p, arrendatarios: [...(p.arrendatarios || []), { nombre: '' }] }))}
+                                                className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-[#003DA5] text-xs font-semibold rounded-lg transition-colors flex items-center gap-1"
+                                            >
+                                                <Plus className="w-3.5 h-3.5" /> Agregar Arrendatario
+                                            </button>
+                                            {(formData.arrendatarios || []).length === 0 && (
+                                                <div className="flex-1">
+                                                    <ContactPickerInline
+                                                        label="Buscar arrendatario en CRM"
+                                                        onSelectContact={(contact) => {
+                                                            if (contact) {
+                                                                setFormData(p => ({
+                                                                    ...p,
+                                                                    arrendatarios: [{ nombre: `${contact.first_name || ''} ${contact.last_name || ''}`.trim() }],
+                                                                }))
+                                                            }
+                                                        }}
+                                                    />
+                                                </div>
+                                            )}
                                         </div>
                                     )}
-                                    <input
-                                        type="text" value={formData.arrendatario}
-                                        onChange={e => setFormData(p => ({ ...p, arrendatario: e.target.value }))}
-                                        disabled={isReadOnly}
-                                        placeholder="Nombre del arrendatario..."
-                                        className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none disabled:bg-gray-50"
-                                    />
                                 </div>
                             </div>
                         </section>
@@ -1082,15 +1226,32 @@ export default function InspectionFormPage() {
                             <div className="flex items-center justify-between mb-6">
                                 <h3 className="text-xl font-bold text-[#003DA5] uppercase tracking-wider">Registro Fotográfico</h3>
                                 {!isReadOnly && (
-                                    <button
-                                        data-hide-pdf
-                                        onClick={() => photoInputRef.current?.click()}
-                                        className="px-4 py-2 bg-[#003DA5] text-white text-sm font-semibold rounded-lg hover:bg-[#002d7a] transition-colors"
-                                    >
-                                        <Camera className="w-4 h-4 inline mr-1" /> Subir Fotos
-                                    </button>
+                                    <div className="flex items-center gap-2" data-hide-pdf>
+                                        <button
+                                            onClick={() => cameraInputRef.current?.click()}
+                                            className="px-4 py-2 bg-emerald-600 text-white text-sm font-semibold rounded-lg hover:bg-emerald-700 transition-colors flex items-center gap-1.5"
+                                        >
+                                            <Camera className="w-4 h-4" /> Tomar Foto
+                                        </button>
+                                        <button
+                                            onClick={() => photoInputRef.current?.click()}
+                                            className="px-4 py-2 bg-[#003DA5] text-white text-sm font-semibold rounded-lg hover:bg-[#002d7a] transition-colors flex items-center gap-1.5"
+                                        >
+                                            <ImagePlus className="w-4 h-4" /> Subir desde Galería
+                                        </button>
+                                    </div>
                                 )}
                             </div>
+                            {/* Hidden file input for camera capture (single photo, opens camera on mobile) */}
+                            <input
+                                ref={cameraInputRef}
+                                type="file"
+                                accept="image/*"
+                                capture="environment"
+                                className="hidden"
+                                onChange={handlePhotoUpload}
+                            />
+                            {/* Hidden file input for gallery/file picker (multiple photos) */}
                             <input
                                 ref={photoInputRef}
                                 type="file"
@@ -1100,10 +1261,17 @@ export default function InspectionFormPage() {
                                 onChange={handlePhotoUpload}
                             />
                             {photos.length === 0 ? (
-                                <div className={`border-2 border-dashed rounded-xl p-12 text-center ${isReadOnly ? 'border-gray-200' : 'border-gray-300'}`}>
+                                <div
+                                    className={`border-2 border-dashed rounded-xl p-12 text-center ${isReadOnly ? 'border-gray-200' : 'border-gray-300 cursor-pointer hover:border-[#003DA5]/40 hover:bg-blue-50/30 transition-colors'}`}
+                                    onClick={() => !isReadOnly && photoInputRef.current?.click()}
+                                >
+                                    <Camera className="w-10 h-10 text-gray-300 mx-auto mb-2" />
                                     <p className="text-gray-400 text-sm">
-                                        {isReadOnly ? 'Sin registro fotográfico' : 'Haga click en "Subir Fotos" para agregar imágenes'}
+                                        {isReadOnly ? 'Sin registro fotográfico' : 'Toque aquí o use los botones de arriba para agregar fotos'}
                                     </p>
+                                    {!isReadOnly && (
+                                        <p className="text-gray-300 text-xs mt-1">En dispositivos móviles puede usar la cámara directamente</p>
+                                    )}
                                 </div>
                             ) : (
                                 <div className="space-y-4">

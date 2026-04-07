@@ -395,9 +395,9 @@ export function getFormDataForPropertyType(propertyType) {
         agente_nombre: '',
         fecha_inspeccion: new Date().toISOString().split('T')[0],
         direccion: '',
-        propietario: '',
-        arrendatario: '',
-        owner_email: '',
+        propietarios: [],   // [{ nombre, email }]
+        arrendatarios: [],  // [{ nombre }]
+        owner_email: '',     // legacy compat — prefer propietarios[0].email
 
         // Dynamic sections
         sections,

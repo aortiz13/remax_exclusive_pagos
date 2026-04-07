@@ -20,6 +20,8 @@ const TYPE_HEADERS = {
     nota: { icon: StickyNote, label: 'Detalle de Nota', gradient: 'from-amber-500 to-amber-600' },
     log: { icon: ScrollText, label: 'Detalle del Registro', gradient: 'from-slate-500 to-slate-600' },
     inspeccion: { icon: ClipboardCheck, label: 'Detalle de Inspección', gradient: 'from-teal-500 to-teal-600' },
+    email_open: { icon: Eye, label: 'Apertura de Correo', gradient: 'from-indigo-500 to-indigo-600' },
+    email_click: { icon: ArrowUpRight, label: 'Clic en Correo', gradient: 'from-emerald-500 to-emerald-600' },
 }
 
 function formatDate(iso) {
@@ -270,8 +272,8 @@ const TimelineEventModal = ({ event, isOpen, onClose }) => {
                             </>
                         )}
 
-                        {/* Activity log details */}
-                        {event.type === 'log' && meta.details && Object.keys(meta.details).length > 0 && (() => {
+                        {/* Activity log details (also used for email tracking details) */}
+                        {(event.type === 'log' || event.type === 'email_open' || event.type === 'email_click') && meta.details && Object.keys(meta.details).length > 0 && (() => {
                             const DETAIL_LABELS = {
                                 zone: 'Zona', source: 'Fuente', bedrooms: 'Dormitorios',
                                 bathrooms: 'Baños', short_id: 'ID Corto', amenities: 'Características',
@@ -281,7 +283,8 @@ const TimelineEventModal = ({ event, isOpen, onClose }) => {
                                 phone: 'Teléfono', contactId: 'ID Contacto', propertyId: 'ID Propiedad',
                                 m2_total: 'm² Totales', m2_built: 'm² Construidos',
                                 parking_spaces: 'Estacionamientos', year_built: 'Año Construcción',
-                                observations: 'Observaciones',
+                                observations: 'Observaciones', tracking_id: 'ID de Rastreo', clicked_url: 'URL Visitada',
+                                is_real_open: 'Apertura Verificada'
                             }
                             return (
                                 <div className="py-3 border-b border-gray-100 dark:border-gray-800">

@@ -352,20 +352,25 @@ export default function ShiftBookingPage() {
 
                                         if (booking) {
                                             const st = STATUS_CONFIG[booking.status] || STATUS_CONFIG.pendiente
+                                            const isPending = booking.status === 'pendiente'
                                             const agentName = isMine
                                                 ? (booking.agent
                                                     ? `${booking.agent.first_name || ''} ${booking.agent.last_name || ''}`.trim()
                                                     : agents[booking.agent_id] || 'Agente')
-                                                : 'No disponible'
+                                                : isPending ? 'Reservado' : 'No disponible'
 
                                             return (
                                                 <div key={shift} className={cn(
                                                     "rounded-lg p-2.5 border text-xs transition-all",
-                                                    isMine ? st.color : "bg-slate-50 text-slate-400 border-slate-200"
+                                                    isMine
+                                                        ? st.color
+                                                        : isPending
+                                                            ? "bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-800"
+                                                            : "bg-slate-50 text-slate-400 border-slate-200 dark:bg-slate-900 dark:text-slate-500 dark:border-slate-700"
                                                 )}>
                                                     <div className="flex items-center justify-between mb-1">
                                                         <span className="font-bold">{cfg.label}</span>
-                                                        {isMine && <st.icon className="w-3.5 h-3.5" />}
+                                                        {isMine ? <st.icon className="w-3.5 h-3.5" /> : isPending ? <Clock className="w-3.5 h-3.5 text-amber-500" /> : null}
                                                     </div>
                                                     <div className="text-[10px] opacity-75">{cfg.time}</div>
                                                     <div className="mt-1.5 font-semibold truncate">{agentName}</div>

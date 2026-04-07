@@ -333,9 +333,23 @@ export default function BulkEmailModal({ isOpen, onClose, contacts = [] }) {
                   </button>
                 </div>
                 {mode === 'individual' && (
-                  <span className="text-[10px] text-amber-600 dark:text-amber-400">
-                    Usa {'{{nombre}}'} y {'{{apellido}}'} para personalizar
-                  </span>
+                  <div className="flex items-center gap-2 ml-auto">
+                    <span className="text-[10px] text-slate-500 font-medium">Insertar en texto:</span>
+                    <button
+                      onClick={() => editor?.commands.insertContent('{{nombre}}')}
+                      className="px-2 py-1 text-[10px] font-medium bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-200 dark:border-amber-800 rounded transition-colors"
+                      title="Insertar {{nombre}} en el correo"
+                    >
+                      + Nombre
+                    </button>
+                    <button
+                      onClick={() => editor?.commands.insertContent('{{apellido}}')}
+                      className="px-2 py-1 text-[10px] font-medium bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-200 dark:border-amber-800 rounded transition-colors"
+                      title="Insertar {{apellido}} en el correo"
+                    >
+                      + Apellido
+                    </button>
+                  </div>
                 )}
               </div>
 

@@ -484,9 +484,10 @@ function TaskModal({ task, profileId, onClose, onSave }) {
                         </div>
                         <div>
                             <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1 block">Recordatorio</label>
-                            <select value={form.reminder_minutes} onChange={e => set('reminder_minutes', parseInt(e.target.value))}
+                            <select value={form.reminder_minutes === null ? 'none' : form.reminder_minutes} onChange={e => set('reminder_minutes', e.target.value === 'none' ? null : parseInt(e.target.value))}
                                 className="w-full px-2.5 py-2 rounded-lg border border-slate-200 bg-white text-sm focus:ring-2 focus:ring-primary outline-none">
-                                <option value={0}>Sin recordatorio</option>
+                                <option value="none">Sin recordatorio</option>
+                                <option value={0}>A la hora del vencimiento de la tarea</option>
                                 <option value={15}>15 min antes</option>
                                 <option value={30}>30 min antes</option>
                                 <option value={60}>1 hora antes</option>

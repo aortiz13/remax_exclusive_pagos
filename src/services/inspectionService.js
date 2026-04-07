@@ -44,26 +44,62 @@ export async function createInspection({ propertyId, scheduleId, agentId }) {
         throw new Error('Solo las propiedades con estado "Administrada" pueden tener inspecciones')
     }
 
-    // Get tenant from property_contacts
-    const { data: tenantContact } = await supabase
+    // Get ALL tenants from property_contacts
+    const { data: tenantContacts } = await supabase
         .from('property_contacts')
         .select('contact:contacts(first_name, last_name)')
         .eq('property_id', propertyId)
         .eq('role', 'arrendatario_residente')
-        .limit(1)
-        .maybeSingle()
 
-    const ownerName = property?.owner
-        ? `${property.owner.first_name || ''} ${property.owner.last_name || ''}`.trim()
-        : ''
-    const tenantName = tenantContact?.contact
-        ? `${tenantContact.contact.first_name || ''} ${tenantContact.contact.last_name || ''}`.trim()
-        : ''
+    // Get additional propietario contacts from property_contacts
+    const { data: ownerContacts } = await supabase
+        .from('property_contacts')
+        .select('contact:contacts(first_name, last_name, email)')
+        .eq('property_id', propertyId)
+        .eq('role', 'propietario')
+
+    // Build propietarios array — start with properties.owner
+    const propietarios = []
+    if (property?.owner) {
+        const nombre = `${property.owner.first_name || ''} ${property.owner.last_name || ''}`.trim()
+        if (nombre) propietarios.push({ nombre, email: property.owner.email || '' })
+    }
+    // Add extra propietarios from property_contacts (avoid duplicates by name)
+    const existingNames = new Set(propietarios.map(p => p.nombre.toLowerCase()))
+    for (const oc of (ownerContacts || [])) {
+        if (oc.contact) {
+            const nombre = `${oc.contact.first_name || ''} ${oc.contact.last_name || ''}`.trim()
+            if (nombre && !existingNames.has(nombre.toLowerCase())) {
+                propietarios.push({ nombre, email: oc.contact.email || '' })
+                existingNames.add(nombre.toLowerCase())
+            }
+        }
+    }
+
+    // Build arrendatarios array
+    const arrendatarios = []
+    for (const tc of (tenantContacts || [])) {
+        if (tc.contact) {
+            const nombre = `${tc.contact.first_name || ''} ${tc.contact.last_name || ''}`.trim()
+            if (nombre) arrendatarios.push({ nombre })
+        }
+    }
+
+    // Legacy compat fields (snapshot strings)
+    const ownerName = propietarios.length > 0 ? propietarios[0].nombre : ''
+    const tenantName = arrendatarios.length > 0 ? arrendatarios[0].nombre : ''
     const address = property ? `${property.address || ''}${property.commune ? `, ${property.commune}` : ''}` : ''
 
     // Generate form_data based on property type
     const propertyType = property?.property_type || 'Departamento'
     const formData = getFormDataForPropertyType(propertyType) || getDefaultFormData()
+
+    // Inject propietarios and arrendatarios into form_data
+    formData.propietarios = propietarios
+    formData.arrendatarios = arrendatarios
+    if (propietarios.length > 0 && propietarios[0].email) {
+        formData.owner_email = propietarios[0].email
+    }
 
     const { data, error } = await supabase
         .from('property_inspections')

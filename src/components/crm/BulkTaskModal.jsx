@@ -411,6 +411,7 @@ export default function BulkTaskModal({ isOpen, onClose, contacts = [] }) {
                     <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
                     <SelectContent className="z-[300]">
                       <SelectItem value="none">Sin recordatorio</SelectItem>
+                      <SelectItem value="0">A la hora del vencimiento de la tarea</SelectItem>
                       <SelectItem value="10">10 min antes</SelectItem>
                       <SelectItem value="30">30 min antes</SelectItem>
                       <SelectItem value="60">1 hora antes</SelectItem>
