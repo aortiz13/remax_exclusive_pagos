@@ -35,7 +35,6 @@ import BulkActionsBar from './BulkActionsBar'
 import BulkEmailModal from './BulkEmailModal'
 import BulkTaskModal from './BulkTaskModal'
 import BulkActionModal from './BulkActionModal'
-import ContactPropertyMatcher from './ContactPropertyMatcher'
 import { CONTACT_FILTER_CONFIG } from './filterConfigs'
 import useAdvancedFilters from '../../hooks/useAdvancedFilters'
 import useRowSelection from '../../hooks/useRowSelection'
@@ -143,7 +142,6 @@ const ContactList = () => {
     const [isBulkTaskOpen, setIsBulkTaskOpen] = useState(false)
     const [isBulkActionOpen, setIsBulkActionOpen] = useState(false)
     const [isSaveViewOpen, setIsSaveViewOpen] = useState(false)
-    const [isMatcherOpen, setIsMatcherOpen] = useState(false)
 
     const sensors = useSensors(
         useSensor(PointerSensor),
@@ -723,7 +721,6 @@ const ContactList = () => {
                 onBulkTask={() => setIsBulkTaskOpen(true)}
                 onBulkAction={() => setIsBulkActionOpen(true)}
                 onSaveView={() => setIsSaveViewOpen(true)}
-                onMatching={() => setIsMatcherOpen(true)}
             />
 
             {/* Bulk Email Modal */}
@@ -756,14 +753,6 @@ const ContactList = () => {
                 sortOrder={sortOrder}
                 columnConfig={columns}
                 onSaved={() => {}}
-            />
-
-            {/* Contact-Property Matcher */}
-            <ContactPropertyMatcher
-                isOpen={isMatcherOpen}
-                onClose={() => setIsMatcherOpen(false)}
-                mode="contacts"
-                selected={getSelectedContacts()}
             />
         </div>
     )

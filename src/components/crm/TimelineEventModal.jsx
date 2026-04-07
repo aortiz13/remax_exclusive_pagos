@@ -18,7 +18,7 @@ const TYPE_HEADERS = {
     mandato: { icon: FileSignature, label: 'Detalle de Mandato', gradient: 'from-[#003aad] to-blue-700' },
     evaluacion: { icon: ClipboardCheck, label: 'Detalle de Evaluación', gradient: 'from-slate-500 to-slate-600' },
     nota: { icon: StickyNote, label: 'Detalle de Nota', gradient: 'from-amber-500 to-amber-600' },
-    log: { icon: ScrollText, label: 'Detalle del Registro', gradient: 'from-slate-500 to-slate-600' },
+    log: { icon: Activity, label: 'Detalle de Registro', gradient: 'from-slate-500 to-slate-600' },
     inspeccion: { icon: ClipboardCheck, label: 'Detalle de Inspección', gradient: 'from-teal-500 to-teal-600' },
     email_open: { icon: Eye, label: 'Apertura de Correo', gradient: 'from-indigo-500 to-indigo-600' },
     email_click: { icon: ArrowUpRight, label: 'Clic en Correo', gradient: 'from-emerald-500 to-emerald-600' },

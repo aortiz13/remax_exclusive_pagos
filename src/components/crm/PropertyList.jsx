@@ -41,7 +41,6 @@ import ActiveFilterPills from './ActiveFilterPills'
 import SavedViewsTabs from './SavedViewsTabs'
 import SaveViewModal from './SaveViewModal'
 import BulkActionsBar from './BulkActionsBar'
-import ContactPropertyMatcher from './ContactPropertyMatcher'
 import { PROPERTY_FILTER_CONFIG } from './filterConfigs'
 import useAdvancedFilters from '../../hooks/useAdvancedFilters'
 import useRowSelection from '../../hooks/useRowSelection'
@@ -143,7 +142,6 @@ const PropertyList = () => {
 
     // Bulk action modals
     const [isSaveViewOpen, setIsSaveViewOpen] = useState(false)
-    const [isMatcherOpen, setIsMatcherOpen] = useState(false)
 
     const sensors = useSensors(
         useSensor(PointerSensor),
@@ -785,7 +783,6 @@ const PropertyList = () => {
                 onDeselectAll={selection.deselectAll}
                 onExport={handleExport}
                 onSaveView={() => setIsSaveViewOpen(true)}
-                onMatching={() => setIsMatcherOpen(true)}
             />
 
             {/* Save View Modal */}
@@ -797,14 +794,6 @@ const PropertyList = () => {
                 sortOrder={sortOrder}
                 columnConfig={columns}
                 onSaved={() => {}}
-            />
-
-            {/* Property-Contact Matcher */}
-            <ContactPropertyMatcher
-                isOpen={isMatcherOpen}
-                onClose={() => setIsMatcherOpen(false)}
-                mode="properties"
-                selected={getSelectedProperties()}
             />
         </div>
     )

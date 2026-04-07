@@ -15,7 +15,6 @@ import {
  * @param {Function} onBulkTask     - open bulk task modal (null to hide)
  * @param {Function} onBulkAction   - open bulk action modal (null to hide)
  * @param {Function} onSaveView     - open save view modal (null to hide)
- * @param {Function} onMatching     - open matching drawer (null to hide)
  */
 export default function BulkActionsBar({
   count = 0,
@@ -25,7 +24,6 @@ export default function BulkActionsBar({
   onBulkTask,
   onBulkAction,
   onSaveView,
-  onMatching,
 }) {
   if (count === 0) return null
 
@@ -35,7 +33,6 @@ export default function BulkActionsBar({
     onBulkTask && { icon: ListTodo, label: 'Tarea Masiva', onClick: onBulkTask, color: 'text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-950/30' },
     onBulkAction && { icon: Activity, label: 'Acción Masiva', onClick: onBulkAction, color: 'text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-950/30' },
     onSaveView && { icon: Bookmark, label: 'Guardar Vista', onClick: onSaveView, color: 'text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30' },
-    onMatching && { icon: Shuffle, label: 'Matching', onClick: onMatching, color: 'text-pink-600 hover:bg-pink-50 dark:hover:bg-pink-950/30' },
   ].filter(Boolean)
 
   return (
