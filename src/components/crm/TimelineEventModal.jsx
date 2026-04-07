@@ -4,7 +4,7 @@ import {
     X, Zap, CheckCircle2, Circle, Mail, FileSignature, ClipboardCheck,
     ScrollText, Activity, Home, User, Calendar, MapPin, DollarSign,
     Briefcase, MessageSquare, FileText, ExternalLink, Clock,
-    ArrowUpRight, Tag, Phone, StickyNote, Eye
+    ArrowUpRight, Tag, Phone, StickyNote, Eye, MousePointerClick
 } from 'lucide-react'
 import { Button } from '@/components/ui'
 import { format } from 'date-fns'
