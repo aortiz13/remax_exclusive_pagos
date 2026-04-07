@@ -132,6 +132,9 @@ export default function GuardLeadReportPage() {
         setSaving(true)
         const updateData = {}
         updateData[`report_${editingNotes.milestone}_agent_notes`] = notesText
+        // Mark milestone as sent when agent saves a note
+        updateData[`report_${editingNotes.milestone}_sent`] = true
+        updateData[`report_${editingNotes.milestone}_sent_at`] = new Date().toISOString()
         const { error } = await supabase.from('shift_guard_leads').update(updateData).eq('id', editingNotes.leadId)
         if (error) { toast.error('Error: ' + error.message) }
         else { toast.success('Notas guardadas correctamente.') }

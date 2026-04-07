@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext'
 import { supabase } from '../services/supabase'
 import { Button, Card, CardContent, Label, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui'
 import { toast } from 'sonner'
-import { motion, AnimatePresence } from 'framer-motion'
+import { AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import {
     Camera, ChevronLeft, ChevronRight, Clock, CalendarDays,
@@ -11,7 +11,7 @@ import {
     Filter, Zap, AlertTriangle, Wrench, Package, RotateCcw,
     UserCheck, MapPin, Eye, X, ChevronDown, Ban, ArrowRightLeft
 } from 'lucide-react'
-import { format, addDays, startOfWeek, isToday, parseISO, isBefore } from 'date-fns'
+import { format, addDays, startOfWeek, isToday, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { sendCameraNotification, CAMERA_EVENTS } from '../services/cameraNotifications'
 import { createCameraCalendarEvents, updateCameraCalendarEvents, deleteCameraCalendarEvents, completeCameraCalendarEvents } from '../services/cameraCalendarSync'
@@ -44,7 +44,9 @@ export default function AdminCameraSchedule() {
     const [rescheduleData, setRescheduleData] = useState({})
     const [handoffData, setHandoffData] = useState({ agent_id: '', location: '' })
     const [maintenanceNotes, setMaintenanceNotes] = useState('')
+    const [unitActiveBookings, setUnitActiveBookings] = useState({})
     const [submitting, setSubmitting] = useState(false)
+    const [staleBookings, setStaleBookings] = useState([])
 
     // Late cancellation stats
     const [lateCancelStats, setLateCancelStats] = useState({})
@@ -56,7 +58,7 @@ export default function AdminCameraSchedule() {
 
     const fetchAll = async () => {
         setLoading(true)
-        await Promise.all([fetchBookings(), fetchAgents(), fetchCameraUnits(), fetchLateCancelStats()])
+        await Promise.all([fetchBookings(), fetchAgents(), fetchCameraUnits(), fetchLateCancelStats(), fetchStaleBookings()])
         setLoading(false)
     }
 
@@ -79,8 +81,19 @@ export default function AdminCameraSchedule() {
     }
 
     const fetchCameraUnits = async () => {
-        const { data } = await supabase.from('camera_units').select('*')
-        setCameraUnits(data || [])
+        const { data: units } = await supabase.from('camera_units').select('*')
+        setCameraUnits(units || [])
+
+        // Fetch active booking details for units that are 'en_uso'
+        const inUseBookingIds = (units || []).filter(u => u.status === 'en_uso' && u.current_booking_id).map(u => u.current_booking_id)
+        if (inUseBookingIds.length > 0) {
+            const { data: activeBookings } = await supabase.from('camera_bookings')
+                .select('*')
+                .in('id', inUseBookingIds)
+            const map = {}
+            ; (activeBookings || []).forEach(b => { map[b.id] = b })
+            setUnitActiveBookings(map)
+        }
     }
 
     const fetchLateCancelStats = async () => {
@@ -89,6 +102,16 @@ export default function AdminCameraSchedule() {
         const stats = {}
             ; (data || []).forEach(b => { stats[b.agent_id] = (stats[b.agent_id] || 0) + 1 })
         setLateCancelStats(stats)
+    }
+
+    const fetchStaleBookings = async () => {
+        const today = format(new Date(), 'yyyy-MM-dd')
+        const { data } = await supabase.from('camera_bookings')
+            .select('*')
+            .eq('status', 'aprobada')
+            .lt('return_date', today)
+            .order('booking_date', { ascending: false })
+        setStaleBookings(data || [])
     }
 
     const getBookingsForDayCamera = (date, camera) => {
@@ -120,7 +143,7 @@ export default function AdminCameraSchedule() {
             setActionModal(null)
             setAdminNotes('')
             fetchAll()
-        } catch (err) { toast.error('Error al aprobar') }
+        } catch (err) { console.error(err); toast.error('Error al aprobar') }
         finally { setSubmitting(false) }
     }
 
@@ -144,7 +167,7 @@ export default function AdminCameraSchedule() {
             setActionModal(null)
             setAdminNotes('')
             fetchAll()
-        } catch (err) { toast.error('Error al rechazar') }
+        } catch (err) { console.error(err); toast.error('Error al rechazar') }
         finally { setSubmitting(false) }
     }
 
@@ -180,7 +203,7 @@ export default function AdminCameraSchedule() {
             setAdminNotes('')
             setRescheduleData({})
             fetchAll()
-        } catch (err) { toast.error('Error al reprogramar') }
+        } catch (err) { console.error(err); toast.error('Error al reprogramar') }
         finally { setSubmitting(false) }
     }
 
@@ -236,7 +259,7 @@ export default function AdminCameraSchedule() {
             setActionModal(null)
             setAdminNotes('')
             fetchAll()
-        } catch (err) { toast.error('Error al anular la reserva') }
+        } catch (err) { console.error(err); toast.error('Error al anular la reserva') }
         finally { setSubmitting(false) }
     }
 
@@ -286,20 +309,21 @@ export default function AdminCameraSchedule() {
             setAdminNotes('')
             setTransferData({ agent_id: '', booking_date: '', return_date: '', start_time: '', end_time: '', camera_unit: '' })
             fetchAll()
-        } catch (err) { toast.error('Error al transferir la reserva') }
+        } catch (err) { console.error(err); toast.error('Error al transferir la reserva') }
         finally { setSubmitting(false) }
     }
 
     const handleComplete = async (booking) => {
         setSubmitting(true)
         try {
+            const now = new Date().toISOString()
             const { error } = await supabase.from('camera_bookings')
-                .update({ status: 'completada', return_confirmed_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+                .update({ status: 'completada', return_confirmed_at: now, updated_at: now })
                 .eq('id', booking.id)
             if (error) throw error
 
             await supabase.from('camera_units')
-                .update({ status: 'disponible', current_booking_id: null, updated_at: new Date().toISOString() })
+                .update({ status: 'disponible', current_booking_id: null, updated_at: now })
                 .eq('id', booking.camera_unit)
 
             // Mark calendar events as completed
@@ -310,8 +334,35 @@ export default function AdminCameraSchedule() {
             const agent = agents[booking.agent_id] || {}
             sendCameraNotification(CAMERA_EVENTS.RETURN_CONFIRMED, { ...booking, status: 'completada' }, agent)
             toast.success('✅ Completada — calendarios actualizados')
+            setActionModal(null)
             fetchAll()
-        } catch (err) { toast.error('Error al completar') }
+        } catch (err) { console.error(err); toast.error('Error al completar') }
+        finally { setSubmitting(false) }
+    }
+
+    const handleBulkCleanStale = async () => {
+        if (!window.confirm(`¿Marcar ${staleBookings.length} reserva(s) vencida(s) como completadas? Esto liberará las cámaras y permitirá nuevas solicitudes.`)) return
+        setSubmitting(true)
+        try {
+            const now = new Date().toISOString()
+            const ids = staleBookings.map(b => b.id)
+            const { error } = await supabase.from('camera_bookings')
+                .update({ status: 'completada', return_confirmed_at: now, admin_notes: 'Limpieza automática — reserva vencida sin devolución registrada', updated_at: now })
+                .in('id', ids)
+            if (error) throw error
+
+            // Free any cameras that might be stuck
+            const cameraIds = [...new Set(staleBookings.map(b => b.camera_unit))]
+            for (const camId of cameraIds) {
+                await supabase.from('camera_units')
+                    .update({ status: 'disponible', current_booking_id: null, updated_at: now })
+                    .eq('id', camId)
+                    .eq('status', 'en_uso')
+            }
+
+            toast.success(`✅ ${ids.length} reserva(s) vencida(s) limpiadas`)
+            fetchAll()
+        } catch (err) { console.error(err); toast.error('Error al limpiar reservas') }
         finally { setSubmitting(false) }
     }
 
@@ -326,7 +377,7 @@ export default function AdminCameraSchedule() {
             toast.success('✅ Traspaso configurado')
             setHandoffData({ agent_id: '', location: '' })
             fetchAll()
-        } catch (err) { toast.error('Error') }
+        } catch (err) { console.error(err); toast.error('Error') }
         finally { setSubmitting(false) }
     }
 
@@ -342,7 +393,22 @@ export default function AdminCameraSchedule() {
             toast.success(newStatus === 'mantenimiento' ? '🔧 Cámara en mantenimiento' : '✅ Cámara disponible')
             setMaintenanceNotes('')
             fetchCameraUnits()
-        } catch (err) { toast.error('Error') }
+        } catch (err) { console.error(err); toast.error('Error') }
+    }
+
+    const handleForceRelease = async (unitId) => {
+        if (!window.confirm('¿Estás seguro de liberar esta cámara manualmente? Esto reseteará su estado a Disponible sin completar ninguna reserva.')) return
+        setSubmitting(true)
+        try {
+            const now = new Date().toISOString()
+            const { error } = await supabase.from('camera_units')
+                .update({ status: 'disponible', current_booking_id: null, updated_at: now })
+                .eq('id', unitId)
+            if (error) throw error
+            toast.success('✅ Cámara liberada forzosamente')
+            fetchCameraUnits()
+        } catch (err) { console.error(err); toast.error('Error al liberar') }
+        finally { setSubmitting(false) }
     }
 
     // Check overdue returns
@@ -607,7 +673,6 @@ export default function AdminCameraSchedule() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {[1, 2].map(unitId => {
                         const unit = cameraUnits.find(u => u.id === unitId) || { id: unitId, status: 'disponible' }
-                        const activeBooking = bookings.find(b => b.camera_unit === unitId && b.status === 'aprobada' && b.pickup_confirmed_at && !b.return_confirmed_at)
                         return (
                             <Card key={unitId} className={cn("border-2",
                                 unit.status === 'mantenimiento' ? "border-amber-300 bg-amber-50/30" :
@@ -635,16 +700,40 @@ export default function AdminCameraSchedule() {
                                         </div>
                                     </div>
 
-                                    {activeBooking && (
-                                        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                                            <p className="text-xs font-bold text-blue-700">En uso por: {agents[activeBooking.agent_id]?.name || 'Agente'}</p>
-                                            <p className="text-xs text-blue-600">Devolver antes de: {activeBooking.end_time?.slice(0, 5)} el {format(parseISO(activeBooking.return_date || activeBooking.booking_date), "d MMM", { locale: es })}</p>
-                                        </div>
-                                    )}
+                                    {unit.status === 'en_uso' && (
+                                        <div className="space-y-3">
+                                            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                                                <div className="flex items-center justify-between mb-1">
+                                                    <p className="text-xs font-bold text-blue-700">Reserva Activa:</p>
+                                                    <span className="text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded font-bold">En Uso</span>
+                                                </div>
+                                                {unit.current_booking_id && unitActiveBookings[unit.current_booking_id] ? (
+                                                    <>
+                                                        <p className="text-xs text-blue-900 font-medium">Agente: {agents[unitActiveBookings[unit.current_booking_id].agent_id]?.name || 'Cargando...'}</p>
+                                                        <p className="text-[10px] text-blue-600 truncate mt-0.5">📍 {unitActiveBookings[unit.current_booking_id].property_address}</p>
+                                                        <p className="text-[10px] text-blue-600 bg-blue-100/50 p-1 rounded mt-1">
+                                                            Retiro: {format(parseISO(unitActiveBookings[unit.current_booking_id].booking_date), "d MMM", { locale: es })} · {unitActiveBookings[unit.current_booking_id].start_time?.slice(0, 5)}
+                                                        </p>
+                                                    </>
+                                                ) : (
+                                                    <p className="text-xs text-blue-600 italic">No se encontró detalle de la reserva actual en esta vista.</p>
+                                                )}
+                                            </div>
 
-                                    {unit.maintenance_notes && (
-                                        <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                                            <p className="text-xs text-amber-700">📝 {unit.maintenance_notes}</p>
+                                            <div className="grid grid-cols-1 gap-2">
+                                                {unit.current_booking_id && unitActiveBookings[unit.current_booking_id] ? (
+                                                    <Button onClick={() => handleComplete(unitActiveBookings[unit.current_booking_id])} disabled={submitting}
+                                                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl h-11">
+                                                        {submitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <RotateCcw className="w-4 h-4 mr-2" />}
+                                                        Confirmar Devolución
+                                                    </Button>
+                                                ) : (
+                                                    <Button onClick={() => handleForceRelease(unitId)} variant="outline"
+                                                        className="w-full border-red-200 text-red-600 hover:bg-red-50 font-bold rounded-xl h-11">
+                                                        <XCircle className="w-4 h-4 mr-2" /> Liberar Cámara (Forzar)
+                                                    </Button>
+                                                )}
+                                            </div>
                                         </div>
                                     )}
 
@@ -674,6 +763,52 @@ export default function AdminCameraSchedule() {
                             </Card>
                         )
                     })}
+
+                    {/* Stale Bookings Cleanup */}
+                    {staleBookings.length > 0 && (
+                        <Card className="md:col-span-2 border-2 border-red-200 bg-red-50/30">
+                            <CardContent className="pt-6">
+                                <div className="flex items-center justify-between mb-4">
+                                    <h3 className="text-sm font-bold text-red-700 flex items-center gap-2">
+                                        <AlertTriangle className="w-4 h-4 text-red-500" />
+                                        Reservas Vencidas sin Devolución ({staleBookings.length})
+                                    </h3>
+                                    <Button onClick={handleBulkCleanStale} disabled={submitting}
+                                        className="bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl h-9 px-4">
+                                        {submitting ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <RotateCcw className="w-3.5 h-3.5 mr-1.5" />}
+                                        Limpiar Todas
+                                    </Button>
+                                </div>
+                                <p className="text-xs text-red-600 mb-3">
+                                    Estas reservas ya pasaron su fecha de devolución pero nunca se confirmó la devolución en el sistema.
+                                    Esto puede bloquear nuevas solicitudes para estos agentes.
+                                </p>
+                                <div className="space-y-2 max-h-60 overflow-y-auto">
+                                    {staleBookings.map(b => (
+                                        <div key={b.id} className="flex items-center gap-3 p-3 bg-white rounded-lg border border-red-100">
+                                            <div className="w-1.5 h-10 rounded-full bg-red-400" />
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-bold text-slate-800">{agents[b.agent_id]?.name || 'Agente'}</p>
+                                                <p className="text-xs text-slate-500">
+                                                    📷 Cámara {b.camera_unit} · {format(parseISO(b.booking_date), "d MMM", { locale: es })}
+                                                    {b.return_date && b.return_date !== b.booking_date ? ` → ${format(parseISO(b.return_date), "d MMM", { locale: es })}` : ''}
+                                                    {' · '}{b.start_time?.slice(0, 5)}—{b.end_time?.slice(0, 5)}
+                                                </p>
+                                                <p className="text-[10px] text-slate-400 truncate">📍 {b.property_address}</p>
+                                            </div>
+                                            <span className="text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-bold whitespace-nowrap">
+                                                {b.pickup_confirmed_at ? '🔑 Sin devolver' : '⏳ Sin retirar'}
+                                            </span>
+                                            <Button onClick={() => handleComplete(b)} disabled={submitting}
+                                                size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg h-8 px-3">
+                                                <CheckCircle2 className="w-3.5 h-3.5 mr-1" /> Completar
+                                            </Button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
 
                     {/* Late Cancellation Stats */}
                     <Card className="md:col-span-2 border-2 border-slate-200">
@@ -786,9 +921,11 @@ export default function AdminCameraSchedule() {
                                     )}
                                     {actionModal.booking.status === 'aprobada' && (
                                         <div className="space-y-3">
-                                            {actionModal.booking.pickup_confirmed_at && !actionModal.booking.return_confirmed_at && (
-                                                <Button onClick={() => handleComplete(actionModal.booking)} className="w-full bg-blue-600 hover:bg-blue-700 text-white">
-                                                    <CheckCircle2 className="w-4 h-4 mr-1" /> Marcar como Completada
+                                            {!actionModal.booking.return_confirmed_at && (
+                                                <Button onClick={() => handleComplete(actionModal.booking)} disabled={submitting}
+                                                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl h-11">
+                                                    {submitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <RotateCcw className="w-4 h-4 mr-2" />}
+                                                    Confirmar Devolución
                                                 </Button>
                                             )}
                                             {/* Admin actions for approved bookings */}

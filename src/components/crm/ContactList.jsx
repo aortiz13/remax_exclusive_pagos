@@ -26,7 +26,7 @@ import {
     SelectValue,
     Label,
 } from "@/components/ui"
-import { Plus, Search, MoreHorizontal, Phone, Mail, MapPin, GripHorizontal, Columns, Users, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Plus, Search, MoreHorizontal, Phone, Mail, MapPin, GripHorizontal, Columns, Users, ChevronLeft, ChevronRight, MessageCircle } from 'lucide-react'
 import { supabase } from '../../services/supabase'
 import ContactForm from './ContactForm'
 import ContactImporter from './ContactImporter'
@@ -89,7 +89,14 @@ const ContactList = () => {
     const [isFormOpen, setIsFormOpen] = useState(false)
     const [selectedContact, setSelectedContact] = useState(null)
     const [currentPage, setCurrentPage] = useState(1)
+    const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
     const navigate = useNavigate()
+
+    useEffect(() => {
+        const handleResize = () => setIsMobile(window.innerWidth < 768)
+        window.addEventListener('resize', handleResize)
+        return () => window.removeEventListener('resize', handleResize)
+    }, [])
 
     // Agent filter (privileged roles only)
     const [agents, setAgents] = useState([])
@@ -386,11 +393,22 @@ const ContactList = () => {
                         {/* Quick Call Action */}
                         {
                             contact.phone && (
-                                <Button variant="ghost" size="icon" className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50" onClick={(e) => {
-                                    e.stopPropagation()
-                                    window.location.href = `tel:${contact.phone}`
-                                }}>
-                                    <Phone className="h-4 w-4" />
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50"
+                                    onClick={(e) => {
+                                        e.stopPropagation()
+                                        if (isMobile) {
+                                            window.location.href = `tel:${contact.phone}`
+                                        } else {
+                                            const cleanPhone = contact.phone.replace(/[^0-9]/g, '')
+                                            window.open(`https://wa.me/${cleanPhone}`, '_blank')
+                                        }
+                                    }}
+                                    title={isMobile ? "Llamar" : "WhatsApp"}
+                                >
+                                    {isMobile ? <Phone className="h-4 w-4" /> : <MessageCircle className="h-4 w-4" />}
                                 </Button>
                             )
                         }

@@ -38,7 +38,7 @@ const ACTION_TYPES = [
     "Visita Comprador",
     "Carta Oferta",
     "Baja de Precio",
-    "Cierre de negocio",
+    "Facturación",
     "Contrato de arriendo firmado",
     "Promesa Firmada",
     "Llamada en frío (I.C)",
@@ -140,7 +140,7 @@ const ActionList = () => {
     const filteredActions = actions.filter(action => {
         // Filter by Type
         if (filterType !== 'all') {
-            const matchesType = action.action_type === filterType || (filterType === 'Other' && !ACTION_TYPES.includes(action.action_type));
+            const matchesType = action.action_type === filterType;
             if (!matchesType) return false;
         }
 
@@ -209,7 +209,6 @@ const ActionList = () => {
                                     {ACTION_TYPES.map(type => (
                                         <SelectItem key={type} value={type}>{type}</SelectItem>
                                     ))}
-                                    <SelectItem value="Other">Otra</SelectItem>
                                 </SelectContent>
                             </Select>
 
@@ -369,7 +368,7 @@ const ActionList = () => {
                                                                             // (function sync_action_to_kpi) — no frontend decrement needed here.
 
                                                                             // Special: Cierre de negocio - subtract actual billing amounts from kpi_records
-                                                                            if (action.action_type === 'Cierre de negocio') {
+                                                                            if (action.action_type === 'Cierre de negocio' || action.action_type === 'Facturación') {
                                                                                 const feesToRemove = parseFloat(action.gross_fees) || 0;
                                                                                 const closingToRemove = parseFloat(action.closing_value) || 0;
                                                                                 const todayLocal = new Date().toLocaleDateString('sv-SE');

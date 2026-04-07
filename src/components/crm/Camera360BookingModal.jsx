@@ -81,7 +81,7 @@ export default function Camera360BookingModal({ open, onClose, propertyAddress, 
             const { data, error } = await supabase
                 .from('camera_bookings').select('*')
                 .gte('booking_date', from).lte('booking_date', to)
-                .not('status', 'in', '("cancelada","rechazada")')
+                .not('status', 'in', '("cancelada","rechazada","completada")')
             if (error) throw error
             setBookings(data || [])
             const agentIds = [...new Set((data || []).map(b => b.agent_id))]
