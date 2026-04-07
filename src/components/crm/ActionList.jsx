@@ -372,6 +372,7 @@ const ActionList = () => {
                                                                                 const feesToRemove = parseFloat(action.gross_fees) || 0;
                                                                                 const closingToRemove = parseFloat(action.closing_value) || 0;
                                                                                 const todayLocal = new Date().toLocaleDateString('sv-SE');
+                                                                                const actionDateStr = action.action_date ? new Date(action.action_date).toLocaleDateString('sv-SE') : null;
                                                                                 const datesToSearch = [...new Set([actionDateStr, todayLocal])].filter(Boolean);
                                                                                 const { data: kpiRowsB } = await supabase
                                                                                     .from('kpi_records')

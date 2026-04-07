@@ -16,6 +16,7 @@ import {
     ASSOCIATION_PLANS, getPlanPercentage, DEFAULT_INVESTMENTS, DEFAULT_CHANNELS,
     DEFAULT_ACTIVITIES, INVESTMENT_CATEGORIES, CHANNEL_CONFIG, fmtCLP, fmtNum
 } from './businessPlanDefaults'
+import { fetchUFValue } from '../../services/ufService'
 
 const COLORS = ['#f59e0b', '#3b82f6', '#8b5cf6', '#10b981']
 const CHANNEL_ICONS = { Prospección: Search, Marketing: Megaphone, Seguimiento: Eye, Fidelización: Heart }
@@ -120,17 +121,41 @@ export default function BusinessPlan({ agentId: externalAgentId, readOnly = fals
             if (kpi) setKpiData({ billing: kpi.billing_primary || 0 })
 
             // Fetch real ticket data from properties (infer operation from status when operation_type is null)
-            const { data: allProps } = await supabase.from('properties').select('price, operation_type, status').eq('agent_id', targetAgentId).not('price', 'is', null).gt('price', 0)
+            const { data: allProps } = await supabase.from('properties')
+                .select('price, operation_type, status, currency')
+                .eq('agent_id', targetAgentId)
+                .not('price', 'is', null)
+                .gt('price', 0)
+
+            // Get current UF value for conversion
+            const ufResult = await fetchUFValue()
+            const ufValue = ufResult ? ufResult.valor : 38500 // fallback
+
             const salePrices = [], rentalPrices = []
+            const inactiveStatuses = ['retirada', 'vendida', 'arrendada', 'suspendida']
+
             for (const p of (allProps || [])) {
-                const price = Number(p.price)
+                let price = Number(p.price)
                 if (price <= 0) continue
+
+                // Exclude inactive properties from the projected business plan ticket
+                if (Array.isArray(p.status)) {
+                    const s = p.status.map(t => t.toLowerCase())
+                    if (s.some(t => inactiveStatuses.includes(t))) continue
+                }
+
+                // Convert UF/CLF to CLP
+                if (p.currency === 'UF' || p.currency === 'CLF') {
+                    price = price * ufValue
+                }
+
                 let opType = p.operation_type
                 if (!opType && Array.isArray(p.status)) {
                     const s = p.status.map(t => t.toLowerCase())
-                    if (s.some(t => t.includes('venta') || t.includes('vendida'))) opType = 'venta'
-                    else if (s.some(t => t.includes('arriendo') || t.includes('arrendada'))) opType = 'arriendo'
+                    if (s.some(t => t.includes('venta'))) opType = 'venta'
+                    else if (s.some(t => t.includes('arriendo'))) opType = 'arriendo'
                 }
+                
                 if (opType === 'venta') salePrices.push(price)
                 else if (opType === 'arriendo') rentalPrices.push(price)
             }

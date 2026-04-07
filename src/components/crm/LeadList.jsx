@@ -2,11 +2,20 @@ import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../services/supabase'
-import { Button, Card, CardContent, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction, Badge } from '@/components/ui'
+import { Button, Card, CardContent, Input, Checkbox, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction, Badge } from '@/components/ui'
 import { toast } from 'sonner'
 import { Shield, FileText, Clock, CheckCircle2, AlertCircle, Loader2, Send, User, Calendar, MessageSquare, ExternalLink, Filter, Users, Search, Phone, Mail, MapPin, Home } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { motion } from 'framer-motion'
+import AdvancedFilterBuilder from './AdvancedFilterBuilder'
+import ActiveFilterPills from './ActiveFilterPills'
+import SavedViewsTabs from './SavedViewsTabs'
+import SaveViewModal from './SaveViewModal'
+import BulkActionsBar from './BulkActionsBar'
+import { LEAD_FILTER_CONFIG } from './filterConfigs'
+import useAdvancedFilters from '../../hooks/useAdvancedFilters'
+import useRowSelection from '../../hooks/useRowSelection'
+import ExcelJS from 'exceljs'
 
 // Milestones for reports
 const MILESTONES = [
@@ -47,8 +56,19 @@ export default function LeadList() {
     const [deriving, setDeriving] = useState(false)
 
     // Filters
-    const [filterType, setFilterType] = useState('all') // all | guard | non-guard
     const [filterAgent, setFilterAgent] = useState('all')
+
+    // HubSpot-style advanced filters
+    const {
+        filterGroups, setFilterGroups, activeFilterCount, hasActiveFilters,
+        addFilter: addAdvFilter, removeFilter: removeAdvFilter, updateFilter,
+        addGroup, removeGroup, clearAll, applyFilters, activeFilters,
+    } = useAdvancedFilters(LEAD_FILTER_CONFIG)
+
+    // Row selection
+    const selection = useRowSelection()
+    const [isSaveViewOpen, setIsSaveViewOpen] = useState(false)
+    const [sortOrder, setSortOrder] = useState('newest')
 
     const isAdmin = ['superadministrador', 'comercial', 'legal', 'administracion', 'tecnico'].includes(profile?.role)
 
@@ -96,22 +116,19 @@ export default function LeadList() {
     }
 
     const filteredLeads = useMemo(() => {
-        return allLeads.filter(lead => {
-            // Search filter
-            const name = getLeadName(lead).toLowerCase()
-            if (searchTerm && !name.includes(searchTerm.toLowerCase())) return false
+        return applyFilters(
+            allLeads.filter(lead => {
+                // Search filter
+                const name = getLeadName(lead).toLowerCase()
+                if (searchTerm && !name.includes(searchTerm.toLowerCase())) return false
 
-            // Type filter
-            if (filterType === 'guard' && !lead.is_guard) return false
-            if (filterType === 'non-guard' && lead.is_guard) return false
-            if (filterType === 'pending' && lead.external_lead?.status !== 'pending') return false
+                // Agent filter
+                if (filterAgent !== 'all' && lead.agent_id !== filterAgent) return false
 
-            // Agent filter
-            if (filterAgent !== 'all' && lead.agent_id !== filterAgent) return false
-
-            return true
-        })
-    }, [allLeads, filterType, filterAgent, searchTerm])
+                return true
+            })
+        )
+    }, [allLeads, filterAgent, searchTerm, filterGroups, applyFilters])
 
     function getLeadName(lead) {
         if (lead.contact) return `${lead.contact.first_name || ''} ${lead.contact.last_name || ''}`.trim()
@@ -162,11 +179,56 @@ export default function LeadList() {
         return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"><Clock className="w-3 h-3" /> Próximo</span>
     }
 
+    /** Handle loading a saved view */
+    const handleLoadView = (filterGroupsData, savedSortOrder) => {
+        if (!filterGroupsData) {
+            clearAll()
+            return
+        }
+        setFilterGroups(filterGroupsData)
+    }
+
+    /** Export leads to Excel */
+    const handleExport = async () => {
+        const workbook = new ExcelJS.Workbook()
+        const worksheet = workbook.addWorksheet('Leads')
+        worksheet.columns = [
+            { header: 'Nombre', key: 'name', width: 25 },
+            { header: 'Teléfono', key: 'phone', width: 15 },
+            { header: 'Email', key: 'email', width: 25 },
+            { header: 'Fuente', key: 'source', width: 15 },
+            { header: 'Agente', key: 'agent', width: 20 },
+            { header: 'Fecha Asignado', key: 'assigned_at', width: 15 },
+            { header: 'Tipo', key: 'type', width: 10 },
+        ]
+        const toExport = selection.count > 0
+            ? filteredLeads.filter(l => selection.isSelected(l.id))
+            : filteredLeads
+        toExport.forEach(lead => {
+            worksheet.addRow({
+                name: getLeadName(lead),
+                phone: lead.contact?.phone || '',
+                email: lead.contact?.email || '',
+                source: lead.contact?.source || '',
+                agent: lead.agent ? `${lead.agent.first_name} ${lead.agent.last_name}` : '',
+                assigned_at: new Date(lead.assigned_at).toLocaleDateString('es-CL'),
+                type: lead.is_guard ? 'Guardia' : 'Derivado',
+            })
+        })
+        const buffer = await workbook.xlsx.writeBuffer()
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `leads_remax_${new Date().toISOString().split('T')[0]}.xlsx`
+        a.click()
+    }
+
     return (
         <div className="space-y-4">
             {/* Toolbar */}
             <div className="flex flex-col md:flex-row gap-4 items-end bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-                <div className="flex-1 space-y-1 w-full">
+                <div className="w-full md:max-w-xs space-y-1">
                     <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Buscar Lead</label>
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -179,35 +241,52 @@ export default function LeadList() {
                     </div>
                 </div>
 
-                <div className="w-full md:w-48 space-y-1">
-                    <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Tipo</label>
-                    <Select value={filterType} onValueChange={setFilterType}>
-                        <SelectTrigger className="h-10 border-slate-200 dark:border-slate-800">
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">Todos</SelectItem>
-                            <SelectItem value="guard">🛡 Guardia</SelectItem>
-                            <SelectItem value="non-guard">📨 Derivado</SelectItem>
-                        </SelectContent>
-                    </Select>
-                </div>
+                <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+                    <AdvancedFilterBuilder
+                        filterConfig={LEAD_FILTER_CONFIG}
+                        filterGroups={filterGroups}
+                        addFilter={addAdvFilter}
+                        removeFilter={removeAdvFilter}
+                        updateFilter={updateFilter}
+                        addGroup={addGroup}
+                        removeGroup={removeGroup}
+                        clearAll={clearAll}
+                        activeFilterCount={activeFilterCount}
+                    />
 
-                {isAdmin && (
-                    <div className="w-full md:w-64 space-y-1">
-                        <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Agente</label>
-                        <Select value={filterAgent} onValueChange={setFilterAgent}>
-                            <SelectTrigger className="h-10 border-slate-200 dark:border-slate-800">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">Todos los agentes</SelectItem>
-                                {agents.map(a => (
-                                    <SelectItem key={a.id} value={a.id}>{a.first_name} {a.last_name}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
+                    {isAdmin && (
+                        <div className="w-full md:w-64 space-y-1">
+                            <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Agente</label>
+                            <Select value={filterAgent} onValueChange={setFilterAgent}>
+                                <SelectTrigger className="h-10 border-slate-200 dark:border-slate-800">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">Todos los agentes</SelectItem>
+                                    {agents.map(a => (
+                                        <SelectItem key={a.id} value={a.id}>{a.first_name} {a.last_name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Saved Views + Active Filter Pills */}
+            <div className="flex flex-wrap items-center gap-3">
+                <SavedViewsTabs
+                    module="leads"
+                    onLoadView={handleLoadView}
+                    onSaveView={() => setIsSaveViewOpen(true)}
+                    hasActiveFilters={hasActiveFilters}
+                />
+                {hasActiveFilters && (
+                    <ActiveFilterPills
+                        activeFilters={activeFilters}
+                        onRemove={removeAdvFilter}
+                        onClearAll={clearAll}
+                    />
                 )}
             </div>
 
@@ -238,9 +317,19 @@ export default function LeadList() {
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: i * 0.05 }}
                         >
-                            <Card className="hover:border-blue-300 dark:hover:border-blue-900 transition-all group overflow-hidden border-slate-200 dark:border-slate-800">
+                            <Card className={cn(
+                                "hover:border-blue-300 dark:hover:border-blue-900 transition-all group overflow-hidden border-slate-200 dark:border-slate-800",
+                                selection.isSelected(lead.id) && "ring-2 ring-blue-400 border-blue-300 dark:border-blue-700"
+                            )}>
                                 <CardContent className="p-0">
                                     <div className="flex flex-col md:flex-row items-stretch">
+                                        {/* Checkbox */}
+                                        <div className="flex items-center px-3 border-b md:border-b-0 md:border-r border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
+                                            <Checkbox
+                                                checked={selection.isSelected(lead.id)}
+                                                onCheckedChange={() => selection.toggle(lead.id)}
+                                            />
+                                        </div>
                                         {/* Lead Info Section */}
                                         <div className="flex-1 p-5 border-b md:border-b-0 md:border-r border-slate-100 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-900/30">
                                             <div className="flex items-start justify-between mb-4">
@@ -401,6 +490,24 @@ export default function LeadList() {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+
+            {/* Bulk Actions Bar */}
+            <BulkActionsBar
+                count={selection.count}
+                onDeselectAll={selection.deselectAll}
+                onExport={handleExport}
+                onSaveView={() => setIsSaveViewOpen(true)}
+            />
+
+            {/* Save View Modal */}
+            <SaveViewModal
+                isOpen={isSaveViewOpen}
+                onClose={() => setIsSaveViewOpen(false)}
+                module="leads"
+                filterGroups={filterGroups}
+                sortOrder={sortOrder}
+                onSaved={() => {}}
+            />
         </div>
     )
 }

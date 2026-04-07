@@ -16,6 +16,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
     DropdownMenuCheckboxItem,
+    Checkbox,
     Select,
     SelectContent,
     SelectItem,
@@ -35,6 +36,16 @@ import { Plus, Search, MoreHorizontal, Home, MapPin, GripHorizontal, Columns, Ex
 import { supabase } from '../../services/supabase'
 import PropertyQuickView from './PropertyQuickView'
 import PropertyForm from './PropertyForm'
+import AdvancedFilterBuilder from './AdvancedFilterBuilder'
+import ActiveFilterPills from './ActiveFilterPills'
+import SavedViewsTabs from './SavedViewsTabs'
+import SaveViewModal from './SaveViewModal'
+import BulkActionsBar from './BulkActionsBar'
+import ContactPropertyMatcher from './ContactPropertyMatcher'
+import { PROPERTY_FILTER_CONFIG } from './filterConfigs'
+import useAdvancedFilters from '../../hooks/useAdvancedFilters'
+import useRowSelection from '../../hooks/useRowSelection'
+import ExcelJS from 'exceljs'
 import { toast } from 'sonner'
 import { logActivity } from '../../services/activityService'
 import {
@@ -119,6 +130,20 @@ const PropertyList = () => {
     ])
 
     const [sortOrder, setSortOrder] = useState('newest')
+
+    // HubSpot-style advanced filters
+    const {
+        filterGroups, setFilterGroups, activeFilterCount, hasActiveFilters,
+        addFilter, removeFilter, updateFilter,
+        addGroup, removeGroup, clearAll, applyFilters, activeFilters,
+    } = useAdvancedFilters(PROPERTY_FILTER_CONFIG)
+
+    // Row selection
+    const selection = useRowSelection()
+
+    // Bulk action modals
+    const [isSaveViewOpen, setIsSaveViewOpen] = useState(false)
+    const [isMatcherOpen, setIsMatcherOpen] = useState(false)
 
     const sensors = useSensors(
         useSensor(PointerSensor),
@@ -218,14 +243,16 @@ const PropertyList = () => {
         return matches
     }
 
-    const filteredProperties = properties.filter(property => {
-        // Agent filter
-        if (agentFilter !== 'all' && property.agent_id !== agentFilter) return false
-        // Text search
-        if (!searchTerm) return true
-        const term = searchTerm.toLowerCase()
-        return searchPropertyFields(property, term).length > 0
-    }).sort((a, b) => {
+    const filteredProperties = applyFilters(
+        properties.filter(property => {
+            // Agent filter
+            if (agentFilter !== 'all' && property.agent_id !== agentFilter) return false
+            // Text search
+            if (!searchTerm) return true
+            const term = searchTerm.toLowerCase()
+            return searchPropertyFields(property, term).length > 0
+        })
+    ).sort((a, b) => {
         const dateA = new Date(a.created_at)
         const dateB = new Date(b.created_at)
         return sortOrder === 'newest' ? dateB - dateA : dateA - dateB
@@ -240,6 +267,49 @@ const PropertyList = () => {
     const handleRowClick = (property) => {
         setSelectedProperty(property)
         setIsQuickViewOpen(true)
+    }
+
+    /** Get selected property objects */
+    const getSelectedProperties = () => filteredProperties.filter(p => selection.isSelected(p.id))
+
+    /** Handle loading a saved view */
+    const handleLoadView = (filterGroupsData, savedSortOrder) => {
+        if (!filterGroupsData) {
+            clearAll()
+            setSortOrder('newest')
+            return
+        }
+        setFilterGroups(filterGroupsData)
+        if (savedSortOrder) setSortOrder(savedSortOrder)
+    }
+
+    /** Export to Excel */
+    const handleExport = async () => {
+        const workbook = new ExcelJS.Workbook()
+        const worksheet = workbook.addWorksheet('Propiedades')
+        worksheet.columns = [
+            { header: 'Dirección', key: 'address', width: 30 },
+            { header: 'Comuna', key: 'commune', width: 15 },
+            { header: 'Tipo', key: 'property_type', width: 15 },
+            { header: 'Operación', key: 'operation_type', width: 12 },
+            { header: 'Precio', key: 'price', width: 15 },
+            { header: 'Moneda', key: 'currency', width: 8 },
+            { header: 'Dormitorios', key: 'bedrooms', width: 12 },
+            { header: 'Baños', key: 'bathrooms', width: 8 },
+            { header: 'M² Total', key: 'm2_total', width: 10 },
+            { header: 'M² Construidos', key: 'm2_built', width: 14 },
+        ]
+        const toExport = selection.count > 0
+            ? filteredProperties.filter(p => selection.isSelected(p.id))
+            : filteredProperties
+        toExport.forEach(p => worksheet.addRow(p))
+        const buffer = await workbook.xlsx.writeBuffer()
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `propiedades_remax_${new Date().toISOString().split('T')[0]}.xlsx`
+        a.click()
     }
 
     const handleCreate = () => {
@@ -478,6 +548,18 @@ const PropertyList = () => {
                         />
                     </div>
 
+                    <AdvancedFilterBuilder
+                        filterConfig={PROPERTY_FILTER_CONFIG}
+                        filterGroups={filterGroups}
+                        addFilter={addFilter}
+                        removeFilter={removeFilter}
+                        updateFilter={updateFilter}
+                        addGroup={addGroup}
+                        removeGroup={removeGroup}
+                        clearAll={clearAll}
+                        activeFilterCount={activeFilterCount}
+                    />
+
                     <Select value={sortOrder} onValueChange={setSortOrder}>
                         <SelectTrigger className="w-[140px] bg-white dark:bg-slate-950">
                             <SelectValue placeholder="Orden" />
@@ -537,6 +619,23 @@ const PropertyList = () => {
                 </div>
             </div>
 
+            {/* Saved Views + Active Filter Pills */}
+            <div className="flex flex-wrap items-center gap-3">
+                <SavedViewsTabs
+                    module="properties"
+                    onLoadView={handleLoadView}
+                    onSaveView={() => setIsSaveViewOpen(true)}
+                    hasActiveFilters={hasActiveFilters}
+                />
+                {hasActiveFilters && (
+                    <ActiveFilterPills
+                        activeFilters={activeFilters}
+                        onRemove={removeFilter}
+                        onClearAll={clearAll}
+                    />
+                )}
+            </div>
+
             <div className="rounded-md border bg-white dark:bg-gray-900 overflow-hidden">
                 <DndContext
                     sensors={sensors}
@@ -546,6 +645,12 @@ const PropertyList = () => {
                     <Table>
                         <TableHeader>
                             <TableRow>
+                                <TableHead className="w-10 px-3">
+                                    <Checkbox
+                                        checked={selection.isAllSelected(filteredProperties.map(p => p.id))}
+                                        onCheckedChange={() => selection.toggleAll(filteredProperties.map(p => p.id))}
+                                    />
+                                </TableHead>
                                 <SortableContext
                                     items={visibleColumns.map(c => c.id)}
                                     strategy={horizontalListSortingStrategy}
@@ -561,13 +666,13 @@ const PropertyList = () => {
                         <TableBody>
                             {loading ? (
                                 <TableRow>
-                                    <TableCell colSpan={visibleColumns.length} className="text-center h-24 text-center">
+                                    <TableCell colSpan={visibleColumns.length + 1} className="text-center h-24">
                                         Cargando propiedades...
                                     </TableCell>
                                 </TableRow>
                             ) : filteredProperties.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={visibleColumns.length} className="text-center h-24 text-center">
+                                    <TableCell colSpan={visibleColumns.length + 1} className="text-center h-24">
                                         No se encontraron propiedades.
                                     </TableCell>
                                 </TableRow>
@@ -576,7 +681,13 @@ const PropertyList = () => {
                                     const matches = getPropertyMatches(property)
                                     return (
                                         <React.Fragment key={property.id}>
-                                            <TableRow className="cursor-pointer hover:bg-muted/50" onClick={() => handleRowClick(property)}>
+                                            <TableRow className={`cursor-pointer hover:bg-muted/50 ${selection.isSelected(property.id) ? 'bg-blue-50/50 dark:bg-blue-950/20' : ''}`} onClick={() => handleRowClick(property)}>
+                                                <TableCell className="px-3" onClick={(e) => e.stopPropagation()}>
+                                                    <Checkbox
+                                                        checked={selection.isSelected(property.id)}
+                                                        onCheckedChange={() => selection.toggle(property.id)}
+                                                    />
+                                                </TableCell>
                                                 {visibleColumns.map((col) => (
                                                     <TableCell key={col.id} className="text-left">
                                                         {renderCellContent(col.id, property)}
@@ -585,7 +696,7 @@ const PropertyList = () => {
                                             </TableRow>
                                             {searchTerm && matches.length > 0 && (
                                                 <TableRow className="border-0 hover:bg-transparent">
-                                                    <TableCell colSpan={visibleColumns.length} className="py-1 px-4 border-0 border-b">
+                                                    <TableCell colSpan={visibleColumns.length + 1} className="py-1 px-4 border-0 border-b">
                                                         <div className="flex items-center gap-1.5 flex-wrap">
                                                             <span className="text-[11px] text-muted-foreground italic">Encontrado en:</span>
                                                             {matches.map((match, i) => (
@@ -667,6 +778,34 @@ const PropertyList = () => {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+
+            {/* Bulk Actions Bar */}
+            <BulkActionsBar
+                count={selection.count}
+                onDeselectAll={selection.deselectAll}
+                onExport={handleExport}
+                onSaveView={() => setIsSaveViewOpen(true)}
+                onMatching={() => setIsMatcherOpen(true)}
+            />
+
+            {/* Save View Modal */}
+            <SaveViewModal
+                isOpen={isSaveViewOpen}
+                onClose={() => setIsSaveViewOpen(false)}
+                module="properties"
+                filterGroups={filterGroups}
+                sortOrder={sortOrder}
+                columnConfig={columns}
+                onSaved={() => {}}
+            />
+
+            {/* Property-Contact Matcher */}
+            <ContactPropertyMatcher
+                isOpen={isMatcherOpen}
+                onClose={() => setIsMatcherOpen(false)}
+                mode="properties"
+                selected={getSelectedProperties()}
+            />
         </div>
     )
 }

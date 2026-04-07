@@ -16,20 +16,29 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
     DropdownMenuCheckboxItem,
-    Popover,
-    PopoverContent,
-    PopoverTrigger,
+    Checkbox,
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-    Label,
 } from "@/components/ui"
 import { Plus, Search, MoreHorizontal, Phone, Mail, MapPin, GripHorizontal, Columns, Users, ChevronLeft, ChevronRight, MessageCircle } from 'lucide-react'
 import { supabase } from '../../services/supabase'
 import ContactForm from './ContactForm'
 import ContactImporter from './ContactImporter'
+import AdvancedFilterBuilder from './AdvancedFilterBuilder'
+import ActiveFilterPills from './ActiveFilterPills'
+import SavedViewsTabs from './SavedViewsTabs'
+import SaveViewModal from './SaveViewModal'
+import BulkActionsBar from './BulkActionsBar'
+import BulkEmailModal from './BulkEmailModal'
+import BulkTaskModal from './BulkTaskModal'
+import BulkActionModal from './BulkActionModal'
+import ContactPropertyMatcher from './ContactPropertyMatcher'
+import { CONTACT_FILTER_CONFIG } from './filterConfigs'
+import useAdvancedFilters from '../../hooks/useAdvancedFilters'
+import useRowSelection from '../../hooks/useRowSelection'
 import ExcelJS from 'exceljs'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -118,13 +127,23 @@ const ContactList = () => {
     // Advanced Filters & Sort
     const [isImporterOpen, setIsImporterOpen] = useState(false)
     const [sortOrder, setSortOrder] = useState('newest') // newest, oldest
-    const [filters, setFilters] = useState({
-        profession: '',
-        rating: '',
-        need: '',
-        comuna: '',
-        address: ''
-    })
+
+    // HubSpot-style advanced filters
+    const {
+        filterGroups, setFilterGroups, activeFilterCount, hasActiveFilters,
+        addFilter, removeFilter, updateFilter,
+        addGroup, removeGroup, clearAll, applyFilters, activeFilters,
+    } = useAdvancedFilters(CONTACT_FILTER_CONFIG)
+
+    // Row selection
+    const selection = useRowSelection()
+
+    // Bulk action modals
+    const [isBulkEmailOpen, setIsBulkEmailOpen] = useState(false)
+    const [isBulkTaskOpen, setIsBulkTaskOpen] = useState(false)
+    const [isBulkActionOpen, setIsBulkActionOpen] = useState(false)
+    const [isSaveViewOpen, setIsSaveViewOpen] = useState(false)
+    const [isMatcherOpen, setIsMatcherOpen] = useState(false)
 
     const sensors = useSensors(
         useSensor(PointerSensor),
@@ -219,21 +238,16 @@ const ContactList = () => {
         return matches
     }
 
-    const filteredContacts = contacts.filter(contact => {
-        // Agent filter
-        if (agentFilter !== 'all' && contact.agent_id !== agentFilter) return false
-        // Text search
-        if (!searchTerm) return true
-        const term = searchTerm.toLowerCase()
-        return searchContactFields(contact, term).length > 0
-    }).filter(contact => {
-        if (filters.profession && !contact.profession?.toLowerCase().includes(filters.profession.toLowerCase())) return false
-        if (filters.rating && !contact.rating?.toLowerCase().includes(filters.rating.toLowerCase())) return false
-        if (filters.need && !contact.need?.toLowerCase().includes(filters.need.toLowerCase())) return false
-        if (filters.comuna && !(contact.barrio_comuna || contact.comuna)?.toLowerCase().includes(filters.comuna.toLowerCase())) return false
-        if (filters.address && !contact.address?.toLowerCase().includes(filters.address.toLowerCase())) return false
-        return true
-    }).sort((a, b) => {
+    const filteredContacts = applyFilters(
+        contacts.filter(contact => {
+            // Agent filter
+            if (agentFilter !== 'all' && contact.agent_id !== agentFilter) return false
+            // Text search
+            if (!searchTerm) return true
+            const term = searchTerm.toLowerCase()
+            return searchContactFields(contact, term).length > 0
+        })
+    ).sort((a, b) => {
         const dateA = new Date(a.created_at)
         const dateB = new Date(b.created_at)
         return sortOrder === 'newest' ? dateB - dateA : dateA - dateB
@@ -247,7 +261,7 @@ const ContactList = () => {
     // Reset page when filters/search change
     useEffect(() => {
         setCurrentPage(1)
-    }, [searchTerm, agentFilter, sortOrder, filters])
+    }, [searchTerm, agentFilter, sortOrder, filterGroups])
 
     // Memoize match results for rendering
     const getContactMatches = (contact) => {
@@ -290,7 +304,12 @@ const ContactList = () => {
             { header: 'Estado', key: 'status', width: 10 },
         ]
 
-        filteredContacts.forEach(contact => {
+        // Export selected or all filtered
+        const toExport = selection.count > 0
+            ? filteredContacts.filter(c => selection.isSelected(c.id))
+            : filteredContacts
+
+        toExport.forEach(contact => {
             worksheet.addRow(contact)
         })
 
@@ -301,6 +320,20 @@ const ContactList = () => {
         a.href = url
         a.download = `contactos_remax_${new Date().toISOString().split('T')[0]}.xlsx`
         a.click()
+    }
+
+    /** Get selected contact objects */
+    const getSelectedContacts = () => filteredContacts.filter(c => selection.isSelected(c.id))
+
+    /** Handle loading a saved view */
+    const handleLoadView = (filterGroupsData, savedSortOrder) => {
+        if (!filterGroupsData) {
+            clearAll()
+            setSortOrder('newest')
+            return
+        }
+        setFilterGroups(filterGroupsData)
+        if (savedSortOrder) setSortOrder(savedSortOrder)
     }
 
     const handleDragEnd = (event) => {
@@ -435,72 +468,17 @@ const ContactList = () => {
                         />
                     </div>
 
-                    <Popover>
-                        <PopoverTrigger asChild>
-                            <Button variant="outline" className="border-dashed bg-white dark:bg-slate-950">
-                                <Plus className="mr-2 h-4 w-4" /> Filtros Avanzados
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-80" align="start">
-                            <div className="grid gap-4">
-                                <div className="space-y-2">
-                                    <h4 className="font-medium leading-none">Filtros</h4>
-                                    <p className="text-sm text-muted-foreground">Filtra tu lista de contactos.</p>
-                                </div>
-                                <div className="grid gap-2">
-                                    <div className="grid grid-cols-3 items-center gap-4">
-                                        <Label htmlFor="profession">Profesión</Label>
-                                        <Input
-                                            id="profession"
-                                            value={filters.profession}
-                                            onChange={(e) => setFilters({ ...filters, profession: e.target.value })}
-                                            className="col-span-2 h-8"
-                                        />
-                                    </div>
-                                    <div className="grid grid-cols-3 items-center gap-4">
-                                        <Label htmlFor="rating">Clasificación (A+, O, ...)</Label>
-                                        <Input
-                                            id="rating"
-                                            value={filters.rating}
-                                            onChange={(e) => setFilters({ ...filters, rating: e.target.value })}
-                                            className="col-span-2 h-8"
-                                        />
-                                    </div>
-
-                                    <div className="grid grid-cols-3 items-center gap-4">
-                                        <Label htmlFor="need">Necesidad</Label>
-                                        <Input
-                                            id="need"
-                                            value={filters.need}
-                                            onChange={(e) => setFilters({ ...filters, need: e.target.value })}
-                                            className="col-span-2 h-8"
-                                        />
-                                    </div>
-                                    <div className="grid grid-cols-3 items-center gap-4">
-                                        <Label htmlFor="comuna">Comuna</Label>
-                                        <Input
-                                            id="comuna"
-                                            value={filters.comuna}
-                                            onChange={(e) => setFilters({ ...filters, comuna: e.target.value })}
-                                            className="col-span-2 h-8"
-                                        />
-                                    </div>
-                                    <div className="grid grid-cols-3 items-center gap-4">
-                                        <Label htmlFor="address">Dirección</Label>
-                                        <Input
-                                            id="address"
-                                            value={filters.address}
-                                            onChange={(e) => setFilters({ ...filters, address: e.target.value })}
-                                            className="col-span-2 h-8"
-                                        />
-                                    </div>
-                                    <Button size="sm" variant="ghost" onClick={() => setFilters({ profession: '', rating: '', need: '', comuna: '', address: '' })} className="w-full">
-                                        Limpiar Filtros
-                                    </Button>
-                                </div>
-                            </div>
-                        </PopoverContent>
-                    </Popover>
+                    <AdvancedFilterBuilder
+                        filterConfig={CONTACT_FILTER_CONFIG}
+                        filterGroups={filterGroups}
+                        addFilter={addFilter}
+                        removeFilter={removeFilter}
+                        updateFilter={updateFilter}
+                        addGroup={addGroup}
+                        removeGroup={removeGroup}
+                        clearAll={clearAll}
+                        activeFilterCount={activeFilterCount}
+                    />
 
                     <Select value={sortOrder} onValueChange={setSortOrder}>
                         <SelectTrigger className="w-[140px] bg-white dark:bg-slate-950">
@@ -568,6 +546,23 @@ const ContactList = () => {
                 </div>
             </div>
 
+            {/* Saved Views + Active Filter Pills */}
+            <div className="flex flex-wrap items-center gap-3">
+                <SavedViewsTabs
+                    module="contacts"
+                    onLoadView={handleLoadView}
+                    onSaveView={() => setIsSaveViewOpen(true)}
+                    hasActiveFilters={hasActiveFilters}
+                />
+                {hasActiveFilters && (
+                    <ActiveFilterPills
+                        activeFilters={activeFilters}
+                        onRemove={removeFilter}
+                        onClearAll={clearAll}
+                    />
+                )}
+            </div>
+
             <div className="rounded-md border bg-white dark:bg-gray-900 overflow-hidden">
                 <DndContext
                     sensors={sensors}
@@ -577,6 +572,12 @@ const ContactList = () => {
                     <Table>
                         <TableHeader>
                             <TableRow>
+                                <TableHead className="w-10 px-3">
+                                    <Checkbox
+                                        checked={selection.isAllSelected(paginatedContacts.map(c => c.id))}
+                                        onCheckedChange={() => selection.toggleAll(paginatedContacts.map(c => c.id))}
+                                    />
+                                </TableHead>
                                 <SortableContext
                                     items={visibleColumns.map(c => c.id)}
                                     strategy={horizontalListSortingStrategy}
@@ -592,13 +593,13 @@ const ContactList = () => {
                         <TableBody>
                             {loading ? (
                                 <TableRow>
-                                    <TableCell colSpan={visibleColumns.length} className="text-center h-24 text-center">
+                                    <TableCell colSpan={visibleColumns.length + 1} className="text-center h-24 text-center">
                                         Cargando contactos...
                                     </TableCell>
                                 </TableRow>
                             ) : filteredContacts.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={visibleColumns.length} className="text-center h-24 text-center">
+                                    <TableCell colSpan={visibleColumns.length + 1} className="text-center h-24 text-center">
                                         No se encontraron contactos.
                                     </TableCell>
                                 </TableRow>
@@ -607,7 +608,13 @@ const ContactList = () => {
                                     const matches = getContactMatches(contact)
                                     return (
                                         <React.Fragment key={contact.id}>
-                                            <TableRow className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/crm/contact/${contact.id}`)}>
+                                            <TableRow className={`cursor-pointer hover:bg-muted/50 ${selection.isSelected(contact.id) ? 'bg-blue-50/50 dark:bg-blue-950/20' : ''}`} onClick={() => navigate(`/crm/contact/${contact.id}`)}>
+                                                <TableCell className="px-3" onClick={(e) => e.stopPropagation()}>
+                                                    <Checkbox
+                                                        checked={selection.isSelected(contact.id)}
+                                                        onCheckedChange={() => selection.toggle(contact.id)}
+                                                    />
+                                                </TableCell>
                                                 {visibleColumns.map((col) => (
                                                     <TableCell key={col.id} className="text-left">
                                                         {renderCellContent(col.id, contact)}
@@ -616,7 +623,7 @@ const ContactList = () => {
                                             </TableRow>
                                             {searchTerm && matches.length > 0 && (
                                                 <TableRow className="border-0 hover:bg-transparent">
-                                                    <TableCell colSpan={visibleColumns.length} className="py-1 px-4 border-0 border-b">
+                                                    <TableCell colSpan={visibleColumns.length + 1} className="py-1 px-4 border-0 border-b">
                                                         <div className="flex items-center gap-1.5 flex-wrap">
                                                             <span className="text-[11px] text-muted-foreground italic">Encontrado en:</span>
                                                             {matches.map((match, i) => (
@@ -705,6 +712,58 @@ const ContactList = () => {
                     setIsImporterOpen(false)
                     fetchContacts()
                 }}
+            />
+
+            {/* Bulk Actions Bar */}
+            <BulkActionsBar
+                count={selection.count}
+                onDeselectAll={selection.deselectAll}
+                onExport={handleExport}
+                onBulkEmail={() => setIsBulkEmailOpen(true)}
+                onBulkTask={() => setIsBulkTaskOpen(true)}
+                onBulkAction={() => setIsBulkActionOpen(true)}
+                onSaveView={() => setIsSaveViewOpen(true)}
+                onMatching={() => setIsMatcherOpen(true)}
+            />
+
+            {/* Bulk Email Modal */}
+            <BulkEmailModal
+                isOpen={isBulkEmailOpen}
+                onClose={() => setIsBulkEmailOpen(false)}
+                contacts={getSelectedContacts()}
+            />
+
+            {/* Bulk Task Modal */}
+            <BulkTaskModal
+                isOpen={isBulkTaskOpen}
+                onClose={() => setIsBulkTaskOpen(false)}
+                contacts={getSelectedContacts()}
+            />
+
+            {/* Bulk Action Modal */}
+            <BulkActionModal
+                isOpen={isBulkActionOpen}
+                onClose={() => setIsBulkActionOpen(false)}
+                contacts={getSelectedContacts()}
+            />
+
+            {/* Save View Modal */}
+            <SaveViewModal
+                isOpen={isSaveViewOpen}
+                onClose={() => setIsSaveViewOpen(false)}
+                module="contacts"
+                filterGroups={filterGroups}
+                sortOrder={sortOrder}
+                columnConfig={columns}
+                onSaved={() => {}}
+            />
+
+            {/* Contact-Property Matcher */}
+            <ContactPropertyMatcher
+                isOpen={isMatcherOpen}
+                onClose={() => setIsMatcherOpen(false)}
+                mode="contacts"
+                selected={getSelectedContacts()}
             />
         </div>
     )
