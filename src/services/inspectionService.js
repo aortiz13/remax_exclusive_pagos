@@ -47,7 +47,7 @@ export async function createInspection({ propertyId, scheduleId, agentId }) {
     // Get ALL tenants from property_contacts
     const { data: tenantContacts } = await supabase
         .from('property_contacts')
-        .select('contact:contacts(first_name, last_name)')
+        .select('contact:contacts(first_name, last_name, email)')
         .eq('property_id', propertyId)
         .eq('role', 'arrendatario_residente')
 
@@ -81,7 +81,7 @@ export async function createInspection({ propertyId, scheduleId, agentId }) {
     for (const tc of (tenantContacts || [])) {
         if (tc.contact) {
             const nombre = `${tc.contact.first_name || ''} ${tc.contact.last_name || ''}`.trim()
-            if (nombre) arrendatarios.push({ nombre })
+            if (nombre) arrendatarios.push({ nombre, email: tc.contact.email || '' })
         }
     }
 

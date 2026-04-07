@@ -9,7 +9,8 @@ import {
 import { toast, Toaster } from 'sonner'
 import {
     ClipboardCheck, MapPin, Save, Send, CheckCircle, AlertTriangle,
-    Plus, Trash2, Loader2, Camera, ChevronDown, Pencil, ImagePlus
+    Plus, Trash2, Loader2, Camera, ChevronDown, Pencil, ImagePlus,
+    Download, FileText, Eye
 } from 'lucide-react'
 
 const LOGO_SRC = '/primerolog.png'
@@ -45,6 +46,7 @@ export default function PublicInspectionPage() {
     const [recommendations, setRecommendations] = useState('')
     const [inspectorName, setInspectorName] = useState('')
     const [photos, setPhotos] = useState([])
+    const [preGeneratedPdf, setPreGeneratedPdf] = useState({ blob: null, blobUrl: null, filename: '', generating: false })
     const photoInputRef = useRef(null)
     const cameraInputRef = useRef(null)
 
@@ -103,11 +105,15 @@ export default function PublicInspectionPage() {
                 // ── Migrate legacy arrendatario (string) → arrendatarios (array) ──
                 if (!Array.isArray(saved.arrendatarios)) {
                     if (saved.arrendatario) {
-                        saved.arrendatarios = [{ nombre: saved.arrendatario }]
+                        saved.arrendatarios = [{ nombre: saved.arrendatario, email: '' }]
                     } else {
                         saved.arrendatarios = []
                     }
                 }
+
+                // Ensure all entries have email field
+                saved.propietarios = (saved.propietarios || []).map(p => ({ ...p, email: p.email || '' }))
+                saved.arrendatarios = (saved.arrendatarios || []).map(a => ({ ...a, email: a.email || '' }))
 
                 setFormData(saved)
             } else {
@@ -321,6 +327,99 @@ export default function PublicInspectionPage() {
         }
     }
 
+    // ─── PDF Builder (React-PDF) ───
+    const buildInspectionPdf = async () => {
+        // Polyfill Buffer
+        if (!window.Buffer) {
+            const { Buffer } = await import('buffer')
+            window.Buffer = Buffer
+        }
+
+        const { pdf } = await import('@react-pdf/renderer')
+        const { default: InspectionPdfDocument } = await import('../components/InspectionPdfDocument')
+
+        const blobToJpegBase64 = (blob) => new Promise((resolve, reject) => {
+            const img = new window.Image()
+            img.onload = () => {
+                const MAX_W = 1200
+                let w = img.width, h = img.height
+                if (w > MAX_W) { h = Math.round(h * MAX_W / w); w = MAX_W }
+                const canvas = document.createElement('canvas')
+                canvas.width = w; canvas.height = h
+                canvas.getContext('2d').drawImage(img, 0, 0, w, h)
+                resolve(canvas.toDataURL('image/jpeg', 0.85))
+                URL.revokeObjectURL(img.src)
+            }
+            img.onerror = reject
+            img.src = URL.createObjectURL(blob)
+        })
+
+        const processedPhotos = []
+        for (const photo of photos) {
+            if (photo.url) {
+                try {
+                    const resp = await fetch(photo.url)
+                    if (!resp.ok) continue
+                    const blob = await resp.blob()
+                    const base64 = await blobToJpegBase64(blob)
+                    processedPhotos.push({ ...photo, base64 })
+                } catch (e) {
+                    console.warn('Could not process photo for PDF:', e)
+                }
+            }
+        }
+
+        const doc = (
+            <InspectionPdfDocument
+                formData={formData}
+                observations={observations}
+                recommendations={recommendations}
+                photos={processedPhotos}
+                logoBase64={LOGO_SRC}
+            />
+        )
+
+        const pdfBlob = await pdf(doc).toBlob()
+        const blobUrl = URL.createObjectURL(pdfBlob)
+        const filenamePre = (formData.direccion || 'Informe').replace(/[^a-zA-Z0-9]/g, '_')
+        const filename = `Inspeccion_${filenamePre}.pdf`
+
+        return { blob: pdfBlob, blobUrl, filename }
+    }
+
+    const handleDownloadPdf = async () => {
+        try {
+            let blob = preGeneratedPdf.blob
+            let filename = preGeneratedPdf.filename
+
+            if (!blob) {
+                setPreGeneratedPdf(p => ({ ...p, generating: true }))
+                toast.loading('Generando PDF del informe...', { id: 'public-pdf' })
+                const result = await buildInspectionPdf()
+                blob = result.blob
+                filename = result.filename
+                setPreGeneratedPdf({ ...result, generating: false })
+                toast.dismiss('public-pdf')
+            }
+
+            const url = URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = url
+            a.download = filename
+            document.body.appendChild(a)
+            a.click()
+            document.body.removeChild(a)
+            URL.revokeObjectURL(url)
+
+            toast.success('Descarga iniciada')
+        } catch (err) {
+            console.error('Error downloading PDF:', err)
+            toast.error('Error al generar el PDF')
+            setPreGeneratedPdf(p => ({ ...p, generating: false }))
+            toast.dismiss('public-pdf')
+        }
+    }
+
     // ── Render helpers (same style as InspectionFormPage) ──
     const renderEstadoSelect = (value, onChange) => (
         <select
@@ -474,6 +573,20 @@ export default function PublicInspectionPage() {
                             {formData.direccion}
                         </p>
                     )}
+                    <div className="mt-8">
+                        <button
+                            onClick={handleDownloadPdf}
+                            disabled={preGeneratedPdf.generating}
+                            className="inline-flex items-center gap-2 px-6 py-3 bg-[#003DA5] text-white rounded-xl font-bold hover:bg-[#002d7a] transition-all shadow-lg active:scale-95 disabled:opacity-50"
+                        >
+                            {preGeneratedPdf.generating ? (
+                                <Loader2 className="w-5 h-5 animate-spin" />
+                            ) : (
+                                <Download className="w-5 h-5" />
+                            )}
+                            Descargar Informe PDF
+                        </button>
+                    </div>
                 </div>
             </div>
         )
@@ -578,6 +691,124 @@ export default function PublicInspectionPage() {
                                         onChange={e => setFormData(p => ({ ...p, direccion: e.target.value }))}
                                         className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                                     />
+                                </div>
+
+                                {/* Propietarios */}
+                                <div className="md:col-span-1">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider">Propietario(s)</label>
+                                        <button
+                                            type="button"
+                                            onClick={() => setFormData(p => ({ ...p, propietarios: [...(p.propietarios || []), { nombre: '', email: '' }] }))}
+                                            className="text-[10px] bg-blue-50 text-[#003DA5] px-2 py-0.5 rounded font-bold hover:bg-blue-100 transition-colors"
+                                        >
+                                            + AGREGAR
+                                        </button>
+                                    </div>
+                                    <div className="space-y-2">
+                                        {(formData.propietarios || []).map((p, i) => (
+                                            <div key={i} className="space-y-1 p-2 bg-gray-50/50 rounded-lg border border-gray-100">
+                                                <div className="flex gap-2">
+                                                    <input
+                                                        type="text"
+                                                        value={p.nombre}
+                                                        onChange={e => {
+                                                            const updated = [...formData.propietarios]
+                                                            updated[i].nombre = e.target.value
+                                                            setFormData(prev => ({ ...prev, propietarios: updated }))
+                                                        }}
+                                                        placeholder="Nombre..."
+                                                        className="flex-1 px-2 py-1.5 text-xs border border-gray-200 rounded focus:ring-1 focus:ring-blue-500 outline-none"
+                                                    />
+                                                    {formData.propietarios.length > 1 && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                const updated = formData.propietarios.filter((_, idx) => idx !== i)
+                                                                setFormData(prev => ({ ...prev, propietarios: updated }))
+                                                            }}
+                                                            className="text-red-400 hover:text-red-600 px-1"
+                                                        >
+                                                            <Trash2 className="w-3 h-3" />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                <input
+                                                    type="email"
+                                                    value={p.email}
+                                                    onChange={e => {
+                                                        const updated = [...formData.propietarios]
+                                                        updated[i].email = e.target.value
+                                                        setFormData(prev => ({ ...prev, propietarios: updated }))
+                                                    }}
+                                                    placeholder="Correo..."
+                                                    className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded focus:ring-1 focus:ring-blue-500 outline-none"
+                                                />
+                                            </div>
+                                        ))}
+                                        {(formData.propietarios || []).length === 0 && (
+                                            <p className="text-[10px] text-gray-400 italic">No se han registrado propietarios</p>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Arrendatarios */}
+                                <div className="md:col-span-1">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider">Arrendatario(s)</label>
+                                        <button
+                                            type="button"
+                                            onClick={() => setFormData(p => ({ ...p, arrendatarios: [...(p.arrendatarios || []), { nombre: '', email: '' }] }))}
+                                            className="text-[10px] bg-blue-50 text-[#003DA5] px-2 py-0.5 rounded font-bold hover:bg-blue-100 transition-colors"
+                                        >
+                                            + AGREGAR
+                                        </button>
+                                    </div>
+                                    <div className="space-y-2">
+                                        {(formData.arrendatarios || []).map((a, i) => (
+                                            <div key={i} className="space-y-1 p-2 bg-gray-50/50 rounded-lg border border-gray-100">
+                                                <div className="flex gap-2">
+                                                    <input
+                                                        type="text"
+                                                        value={a.nombre}
+                                                        onChange={e => {
+                                                            const updated = [...formData.arrendatarios]
+                                                            updated[i].nombre = e.target.value
+                                                            setFormData(prev => ({ ...prev, arrendatarios: updated }))
+                                                        }}
+                                                        placeholder="Nombre..."
+                                                        className="flex-1 px-2 py-1.5 text-xs border border-gray-200 rounded focus:ring-1 focus:ring-blue-500 outline-none"
+                                                    />
+                                                    {formData.arrendatarios.length > 1 && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                const updated = formData.arrendatarios.filter((_, idx) => idx !== i)
+                                                                setFormData(prev => ({ ...prev, arrendatarios: updated }))
+                                                            }}
+                                                            className="text-red-400 hover:text-red-600 px-1"
+                                                        >
+                                                            <Trash2 className="w-3 h-3" />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                <input
+                                                    type="email"
+                                                    value={a.email}
+                                                    onChange={e => {
+                                                        const updated = [...formData.arrendatarios]
+                                                        updated[i].email = e.target.value
+                                                        setFormData(prev => ({ ...prev, arrendatarios: updated }))
+                                                    }}
+                                                    placeholder="Correo..."
+                                                    className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded focus:ring-1 focus:ring-blue-500 outline-none"
+                                                />
+                                            </div>
+                                        ))}
+                                        {(formData.arrendatarios || []).length === 0 && (
+                                            <p className="text-[10px] text-gray-400 italic">No se han registrado arrendatarios</p>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         </section>

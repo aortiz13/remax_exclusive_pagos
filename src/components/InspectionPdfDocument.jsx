@@ -187,9 +187,12 @@ const InspectionPdfDocument = ({ formData, observations, recommendations, photos
                                 </Text>
                                 {Array.isArray(formData?.arrendatarios) && formData.arrendatarios.length > 0 ? (
                                     formData.arrendatarios.map((a, i) => (
-                                        <Text key={i} style={s.fieldValue}>
-                                            {formData.arrendatarios.length > 1 ? `${i + 1}. ` : ''}{a.nombre || ''}
-                                        </Text>
+                                        <View key={i} style={{ marginBottom: 2 }}>
+                                            <Text style={s.fieldValue}>
+                                                {formData.arrendatarios.length > 1 ? `${i + 1}. ` : ''}{a.nombre || ''}
+                                            </Text>
+                                            {a.email ? <Text style={{ fontSize: 7, color: '#6B7280' }}>   {a.email}</Text> : null}
+                                        </View>
                                     ))
                                 ) : (
                                     <Text style={s.fieldValue}>{formData?.arrendatario || ''}</Text>

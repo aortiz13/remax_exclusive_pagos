@@ -23,7 +23,7 @@ import {
     Bath, FileText, PenTool, Mail, X, Eye, Paperclip, File as FileIcon,
     ChevronDown, Trees, Sun, Waves, Shirt, Warehouse, Car, DoorOpen,
     Monitor, Coffee, Users, Briefcase, Truck, Factory, ClipboardList,
-    Fence, Pencil, ImagePlus, FolderOpen
+    Fence, Pencil, ImagePlus, FolderOpen, Download
 } from 'lucide-react'
 
 const LOGO_SRC = LOGO_BASE64 ? `data:image/png;base64,${LOGO_BASE64}` : '/primerolog.png'
@@ -129,7 +129,7 @@ export default function InspectionFormPage() {
 
             let defaultArrendatarios = []
             if (data.tenant_name) {
-                defaultArrendatarios.push({ nombre: data.tenant_name })
+                defaultArrendatarios.push({ nombre: data.tenant_name, email: '' })
             }
 
             const autoFields = {
@@ -167,7 +167,7 @@ export default function InspectionFormPage() {
                 // ── Migrate legacy arrendatario (string) → arrendatarios (array) ──
                 if (!Array.isArray(saved.arrendatarios)) {
                     if (saved.arrendatario) {
-                        saved.arrendatarios = [{ nombre: saved.arrendatario }]
+                        saved.arrendatarios = [{ nombre: saved.arrendatario, email: '' }]
                     } else if (defaultArrendatarios.length > 0) {
                         saved.arrendatarios = defaultArrendatarios
                     } else {
@@ -323,6 +323,37 @@ export default function InspectionFormPage() {
             toast.error('Error guardando la inspección')
         } finally {
             setSaving(false)
+        }
+    }
+
+    const handleDownloadPdf = async () => {
+        try {
+            let blob = preGeneratedPdf.blob
+            let filename = preGeneratedPdf.filename || `Inspeccion_${formData.direccion || 'Sin_Direccion'}.pdf`
+
+            if (!blob) {
+                toast.loading('Generando PDF para descarga...', { id: 'pdf-download' })
+                const result = await buildInspectionPdf()
+                blob = result.blob
+                filename = result.filename || filename
+                setPreGeneratedPdf(p => ({ ...p, ...result }))
+                toast.dismiss('pdf-download')
+            }
+
+            const url = URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = url
+            a.download = filename
+            document.body.appendChild(a)
+            a.click()
+            document.body.removeChild(a)
+            URL.revokeObjectURL(url)
+
+            toast.success('Descarga iniciada')
+        } catch (err) {
+            console.error('Error downloading PDF:', err)
+            toast.error('Error al generar el PDF para descarga')
+            toast.dismiss('pdf-download')
         }
     }
 
@@ -529,7 +560,6 @@ export default function InspectionFormPage() {
             setSending(false)
         }
     }
-
     // ─── PDF Builder (React-PDF) ───────────────────────────
     const buildInspectionPdf = async () => {
         // Polyfill Buffer for React-PDF (needs Node.js Buffer in browser)
@@ -963,68 +993,91 @@ export default function InspectionFormPage() {
                                     <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Propietario(s)</label>
                                     <div className="space-y-3">
                                         {(formData.propietarios || []).map((prop, idx) => (
-                                            <div key={idx} className="flex gap-3 items-start bg-gray-50 p-3 rounded-xl border border-gray-200">
-                                                <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3">
-                                                    <div>
-                                                        <label className="block text-[10px] font-semibold text-gray-400 uppercase mb-1">Nombre</label>
-                                                        <input
-                                                            type="text"
-                                                            value={prop.nombre || ''}
-                                                            onChange={e => {
-                                                                const val = e.target.value
-                                                                setFormData(p => {
-                                                                    const arr = [...(p.propietarios || [])]
-                                                                    arr[idx] = { ...arr[idx], nombre: val }
-                                                                    return { ...p, propietarios: arr }
-                                                                })
+                                            <div key={idx} className="bg-gray-50 p-3 rounded-xl border border-gray-200">
+                                                {/* CRM Picker per row */}
+                                                {!isReadOnly && (
+                                                    <div className="mb-2" data-hide-pdf>
+                                                        <ContactPickerInline
+                                                            label={`Buscar propietario ${idx + 1} en CRM`}
+                                                            onSelectContact={(contact) => {
+                                                                if (contact) {
+                                                                    setFormData(p => {
+                                                                        const arr = [...(p.propietarios || [])]
+                                                                        arr[idx] = {
+                                                                            nombre: `${contact.first_name || ''} ${contact.last_name || ''}`.trim(),
+                                                                            email: contact.email || ''
+                                                                        }
+                                                                        const updates = { ...p, propietarios: arr }
+                                                                        if (idx === 0) updates.owner_email = contact.email || ''
+                                                                        return updates
+                                                                    })
+                                                                }
                                                             }}
-                                                            disabled={isReadOnly}
-                                                            placeholder="Nombre del propietario..."
-                                                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none disabled:bg-gray-100"
                                                         />
                                                     </div>
-                                                    <div>
-                                                        <label className="block text-[10px] font-semibold text-gray-400 uppercase mb-1 flex items-center gap-1">
-                                                            <Mail className="w-3 h-3" /> Email
-                                                        </label>
-                                                        <input
-                                                            type="email"
-                                                            value={prop.email || ''}
-                                                            onChange={e => {
-                                                                const val = e.target.value
-                                                                setFormData(p => {
-                                                                    const arr = [...(p.propietarios || [])]
-                                                                    arr[idx] = { ...arr[idx], email: val }
-                                                                    // Keep owner_email synced with first propietario
-                                                                    const updates = { ...p, propietarios: arr }
-                                                                    if (idx === 0) updates.owner_email = val
-                                                                    return updates
-                                                                })
-                                                            }}
-                                                            disabled={isReadOnly}
-                                                            placeholder="correo@ejemplo.cl"
-                                                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none disabled:bg-gray-100"
-                                                        />
-                                                        {idx === 0 && !prop.email && !isReadOnly && (
-                                                            <p className="text-[10px] text-amber-600 mt-1">⚠️ Requerido para enviar el informe</p>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                                {!isReadOnly && (formData.propietarios || []).length > 1 && (
-                                                    <button
-                                                        type="button" data-hide-pdf
-                                                        onClick={() => setFormData(p => ({ ...p, propietarios: p.propietarios.filter((_, i) => i !== idx), owner_email: idx === 0 ? (p.propietarios[1]?.email || '') : p.owner_email }))}
-                                                        className="mt-6 text-red-400 hover:text-red-600 transition-colors p-1 flex-shrink-0"
-                                                        title="Eliminar propietario"
-                                                    >
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </button>
                                                 )}
+                                                <div className="flex gap-3 items-start">
+                                                    <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                        <div>
+                                                            <label className="block text-[10px] font-semibold text-gray-400 uppercase mb-1">Nombre</label>
+                                                            <input
+                                                                type="text"
+                                                                value={prop.nombre || ''}
+                                                                onChange={e => {
+                                                                    const val = e.target.value
+                                                                    setFormData(p => {
+                                                                        const arr = [...(p.propietarios || [])]
+                                                                        arr[idx] = { ...arr[idx], nombre: val }
+                                                                        return { ...p, propietarios: arr }
+                                                                    })
+                                                                }}
+                                                                disabled={isReadOnly}
+                                                                placeholder="Nombre del propietario..."
+                                                                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none disabled:bg-gray-100"
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="block text-[10px] font-semibold text-gray-400 uppercase mb-1 flex items-center gap-1">
+                                                                <Mail className="w-3 h-3" /> Email
+                                                            </label>
+                                                            <input
+                                                                type="email"
+                                                                value={prop.email || ''}
+                                                                onChange={e => {
+                                                                    const val = e.target.value
+                                                                    setFormData(p => {
+                                                                        const arr = [...(p.propietarios || [])]
+                                                                        arr[idx] = { ...arr[idx], email: val }
+                                                                        const updates = { ...p, propietarios: arr }
+                                                                        if (idx === 0) updates.owner_email = val
+                                                                        return updates
+                                                                    })
+                                                                }}
+                                                                disabled={isReadOnly}
+                                                                placeholder="correo@ejemplo.cl"
+                                                                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none disabled:bg-gray-100"
+                                                            />
+                                                            {idx === 0 && !prop.email && !isReadOnly && (
+                                                                <p className="text-[10px] text-amber-600 mt-1">⚠️ Requerido para enviar el informe</p>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    {!isReadOnly && (formData.propietarios || []).length > 1 && (
+                                                        <button
+                                                            type="button" data-hide-pdf
+                                                            onClick={() => setFormData(p => ({ ...p, propietarios: p.propietarios.filter((_, i) => i !== idx), owner_email: idx === 0 ? (p.propietarios[1]?.email || '') : p.owner_email }))}
+                                                            className="mt-6 text-red-400 hover:text-red-600 transition-colors p-1 flex-shrink-0"
+                                                            title="Eliminar propietario"
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </button>
+                                                    )}
+                                                </div>
                                             </div>
                                         ))}
                                     </div>
                                     {!isReadOnly && (
-                                        <div className="mt-2 flex items-center gap-3" data-hide-pdf>
+                                        <div className="mt-2 flex flex-wrap items-center gap-3" data-hide-pdf>
                                             <button
                                                 type="button"
                                                 onClick={() => setFormData(p => ({ ...p, propietarios: [...(p.propietarios || []), { nombre: '', email: '' }] }))}
@@ -1032,22 +1085,6 @@ export default function InspectionFormPage() {
                                             >
                                                 <Plus className="w-3.5 h-3.5" /> Agregar Propietario
                                             </button>
-                                            {(formData.propietarios || []).length === 0 && (
-                                                <div className="flex-1">
-                                                    <ContactPickerInline
-                                                        label="Buscar propietario en CRM"
-                                                        onSelectContact={(contact) => {
-                                                            if (contact) {
-                                                                setFormData(p => ({
-                                                                    ...p,
-                                                                    propietarios: [{ nombre: `${contact.first_name || ''} ${contact.last_name || ''}`.trim(), email: contact.email || '' }],
-                                                                    owner_email: contact.email || p.owner_email || '',
-                                                                }))
-                                                            }
-                                                        }}
-                                                    />
-                                                </div>
-                                            )}
                                         </div>
                                     )}
                                 </div>
@@ -1057,61 +1094,91 @@ export default function InspectionFormPage() {
                                     <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Arrendatario(s)</label>
                                     <div className="space-y-3">
                                         {(formData.arrendatarios || []).map((arr, idx) => (
-                                            <div key={idx} className="flex gap-3 items-center bg-gray-50 p-3 rounded-xl border border-gray-200">
-                                                <div className="flex-1">
-                                                    <input
-                                                        type="text"
-                                                        value={arr.nombre || ''}
-                                                        onChange={e => {
-                                                            const val = e.target.value
-                                                            setFormData(p => {
-                                                                const a = [...(p.arrendatarios || [])]
-                                                                a[idx] = { ...a[idx], nombre: val }
-                                                                return { ...p, arrendatarios: a }
-                                                            })
-                                                        }}
-                                                        disabled={isReadOnly}
-                                                        placeholder="Nombre del arrendatario..."
-                                                        className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none disabled:bg-gray-100"
-                                                    />
-                                                </div>
-                                                {!isReadOnly && (formData.arrendatarios || []).length > 1 && (
-                                                    <button
-                                                        type="button" data-hide-pdf
-                                                        onClick={() => setFormData(p => ({ ...p, arrendatarios: p.arrendatarios.filter((_, i) => i !== idx) }))}
-                                                        className="text-red-400 hover:text-red-600 transition-colors p-1 flex-shrink-0"
-                                                        title="Eliminar arrendatario"
-                                                    >
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </button>
+                                            <div key={idx} className="bg-gray-50 p-3 rounded-xl border border-gray-200">
+                                                {/* CRM Picker per row */}
+                                                {!isReadOnly && (
+                                                    <div className="mb-2" data-hide-pdf>
+                                                        <ContactPickerInline
+                                                            label={`Buscar arrendatario ${idx + 1} en CRM`}
+                                                            onSelectContact={(contact) => {
+                                                                if (contact) {
+                                                                    setFormData(p => {
+                                                                        const a = [...(p.arrendatarios || [])]
+                                                                        a[idx] = {
+                                                                            nombre: `${contact.first_name || ''} ${contact.last_name || ''}`.trim(),
+                                                                            email: contact.email || ''
+                                                                        }
+                                                                        return { ...p, arrendatarios: a }
+                                                                    })
+                                                                }
+                                                            }}
+                                                        />
+                                                    </div>
                                                 )}
+                                                <div className="flex gap-3 items-start">
+                                                    <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                        <div>
+                                                            <label className="block text-[10px] font-semibold text-gray-400 uppercase mb-1">Nombre</label>
+                                                            <input
+                                                                type="text"
+                                                                value={arr.nombre || ''}
+                                                                onChange={e => {
+                                                                    const val = e.target.value
+                                                                    setFormData(p => {
+                                                                        const a = [...(p.arrendatarios || [])]
+                                                                        a[idx] = { ...a[idx], nombre: val }
+                                                                        return { ...p, arrendatarios: a }
+                                                                    })
+                                                                }}
+                                                                disabled={isReadOnly}
+                                                                placeholder="Nombre del arrendatario..."
+                                                                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none disabled:bg-gray-100"
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="block text-[10px] font-semibold text-gray-400 uppercase mb-1 flex items-center gap-1">
+                                                                <Mail className="w-3 h-3" /> Email
+                                                            </label>
+                                                            <input
+                                                                type="email"
+                                                                value={arr.email || ''}
+                                                                onChange={e => {
+                                                                    const val = e.target.value
+                                                                    setFormData(p => {
+                                                                        const a = [...(p.arrendatarios || [])]
+                                                                        a[idx] = { ...a[idx], email: val }
+                                                                        return { ...p, arrendatarios: a }
+                                                                    })
+                                                                }}
+                                                                disabled={isReadOnly}
+                                                                placeholder="correo@ejemplo.cl"
+                                                                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none disabled:bg-gray-100"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                    {!isReadOnly && (formData.arrendatarios || []).length > 1 && (
+                                                        <button
+                                                            type="button" data-hide-pdf
+                                                            onClick={() => setFormData(p => ({ ...p, arrendatarios: p.arrendatarios.filter((_, i) => i !== idx) }))}
+                                                            className="mt-6 text-red-400 hover:text-red-600 transition-colors p-1 flex-shrink-0"
+                                                            title="Eliminar arrendatario"
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </button>
+                                                    )}
+                                                </div>
                                             </div>
                                         ))}
                                     </div>
                                     {!isReadOnly && (
-                                        <div className="mt-2 flex items-center gap-3" data-hide-pdf>
+                                        <div className="mt-2 flex flex-wrap items-center gap-3" data-hide-pdf>
                                             <button
                                                 type="button"
-                                                onClick={() => setFormData(p => ({ ...p, arrendatarios: [...(p.arrendatarios || []), { nombre: '' }] }))}
+                                                onClick={() => setFormData(p => ({ ...p, arrendatarios: [...(p.arrendatarios || []), { nombre: '', email: '' }] }))}
                                                 className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-[#003DA5] text-xs font-semibold rounded-lg transition-colors flex items-center gap-1"
                                             >
                                                 <Plus className="w-3.5 h-3.5" /> Agregar Arrendatario
                                             </button>
-                                            {(formData.arrendatarios || []).length === 0 && (
-                                                <div className="flex-1">
-                                                    <ContactPickerInline
-                                                        label="Buscar arrendatario en CRM"
-                                                        onSelectContact={(contact) => {
-                                                            if (contact) {
-                                                                setFormData(p => ({
-                                                                    ...p,
-                                                                    arrendatarios: [{ nombre: `${contact.first_name || ''} ${contact.last_name || ''}`.trim() }],
-                                                                }))
-                                                            }
-                                                        }}
-                                                    />
-                                                </div>
-                                            )}
                                         </div>
                                     )}
                                 </div>
@@ -1317,24 +1384,40 @@ export default function InspectionFormPage() {
                 </div>
 
                 {/* Bottom action bar */}
-                {!isReadOnly && (
-                    <div className="flex justify-end gap-3 mt-6 pb-12" data-hide-pdf>
+                <div className="flex justify-end gap-3 mt-6 pb-12" data-hide-pdf>
+                    {isReadOnly ? (
                         <button
-                            onClick={handleManualSave}
-                            disabled={saving}
-                            className="px-8 py-3 bg-white border-2 border-gray-300 text-gray-700 rounded-xl font-bold hover:bg-gray-50 transition-colors disabled:opacity-50 shadow-sm flex items-center gap-2"
+                            onClick={handleDownloadPdf}
+                            className="px-8 py-3 bg-[#003DA5] text-white rounded-xl font-bold hover:bg-[#002d7a] transition-colors shadow-lg flex items-center gap-2"
                         >
-                            {saving ? <><Loader2 className="w-4 h-4 animate-spin" /> Guardando...</> : <><Save className="w-4 h-4" /> Guardar Borrador</>}
+                            <Download className="w-5 h-5" /> Descargar Informe PDF
                         </button>
-                        <button
-                            onClick={openSendPreview}
-                            disabled={submitting}
-                            className="px-8 py-3 bg-[#003DA5] text-white rounded-xl font-bold hover:bg-[#002d7a] transition-colors disabled:opacity-50 shadow-lg flex items-center gap-2"
-                        >
-                            <Send className="w-4 h-4" /> Enviar Informe
-                        </button>
-                    </div>
-                )}
+                    ) : (
+                        <>
+                            <button
+                                onClick={handleDownloadPdf}
+                                className="px-6 py-3 bg-white border-2 border-[#003DA5] text-[#003DA5] rounded-xl font-bold hover:bg-blue-50 transition-colors shadow-sm flex items-center gap-2"
+                                title="Descargar copia del borrador actual"
+                            >
+                                <Download className="w-4 h-4" /> PDF
+                            </button>
+                            <button
+                                onClick={handleManualSave}
+                                disabled={saving}
+                                className="px-8 py-3 bg-white border-2 border-gray-300 text-gray-700 rounded-xl font-bold hover:bg-gray-50 transition-colors disabled:opacity-50 shadow-sm flex items-center gap-2"
+                            >
+                                {saving ? <><Loader2 className="w-4 h-4 animate-spin" /> Guardando...</> : <><Save className="w-4 h-4" /> Guardar Borrador</>}
+                            </button>
+                            <button
+                                onClick={openSendPreview}
+                                disabled={submitting}
+                                className="px-8 py-3 bg-[#003DA5] text-white rounded-xl font-bold hover:bg-[#002d7a] transition-colors disabled:opacity-50 shadow-lg flex items-center gap-2"
+                            >
+                                <Send className="w-4 h-4" /> Enviar Informe
+                            </button>
+                        </>
+                    )}
+                </div>
             </div>
 
             {/* ═══ SEND PREVIEW MODAL ═══ */}
@@ -1343,9 +1426,18 @@ export default function InspectionFormPage() {
                     <div className="flex w-full h-full" onClick={(e) => e.stopPropagation()}>
                         {/* Left: PDF Preview */}
                         <div className="flex-1 bg-gray-100 flex flex-col min-w-0">
-                            <div className="flex items-center gap-3 px-6 py-3 bg-white border-b border-gray-200 shadow-sm">
-                                <FileText className="w-5 h-5 text-[#003DA5]" />
-                                <h3 className="font-bold text-gray-900">Vista previa del Informe</h3>
+                            <div className="flex items-center justify-between px-6 py-3 bg-white border-b border-gray-200 shadow-sm">
+                                <div className="flex items-center gap-3">
+                                    <FileText className="w-5 h-5 text-[#003DA5]" />
+                                    <h3 className="font-bold text-gray-900">Vista previa del Informe</h3>
+                                </div>
+                                <button
+                                    onClick={handleDownloadPdf}
+                                    className="p-2 text-gray-400 hover:text-[#003DA5] hover:bg-blue-50 rounded-lg transition-colors"
+                                    title="Descargar PDF"
+                                >
+                                    <Download className="w-5 h-5" />
+                                </button>
                             </div>
                             <div className="flex-1 overflow-auto p-4">
                                 {preGeneratedPdf?.generating ? (

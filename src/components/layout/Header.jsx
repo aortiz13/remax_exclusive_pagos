@@ -14,7 +14,7 @@ import {
 } from '@/components/ui'
 import { 
     LogOut, User, FileText, Settings, Menu, PlusCircle, LayoutDashboard, 
-    ClipboardCheck, Zap, Users, MessageSquare, Calendar
+    ClipboardCheck, Zap, Users, MessageSquare, Calendar, ClipboardList
 } from 'lucide-react'
 
 export default function Header() {
@@ -48,6 +48,7 @@ export default function Header() {
             { title: 'Calendario', icon: Calendar, path: '/calendar' },
             { title: 'Casilla', icon: MessageSquare, path: '/casilla' },
             { title: 'Informes de Gestión', icon: ClipboardCheck, path: '/informes-gestion' },
+            { title: 'Inspecciones', icon: ClipboardList, path: '/inspecciones' },
             { title: 'Nueva Solicitud', icon: PlusCircle, path: '/new-request' },
             { title: 'Nueva Captación', icon: Zap, path: '/new-mandate' }
         )
