@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext'
 import { supabase } from '../services/supabase'
 import { Button, Card, CardContent, Label, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui'
 import { toast } from 'sonner'
-import { AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import {
     Camera, ChevronLeft, ChevronRight, Clock, CalendarDays,

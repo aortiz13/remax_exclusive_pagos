@@ -167,6 +167,20 @@ export default function AgentLeadView() {
                     </div>
                 )}
 
+                {/* Admin Assignment Action */}
+                <div className="bg-slate-900 rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between shadow-lg gap-4">
+                    <div>
+                        <p className="text-sm font-bold text-white">Administración</p>
+                        <p className="text-xs text-slate-300">Este lead puede ser derivado a un agente</p>
+                    </div>
+                    <Button 
+                        className="w-full sm:w-auto bg-white text-slate-900 hover:bg-slate-100 font-bold"
+                        onClick={() => navigate(`/busqueda/${id}`)}
+                    >
+                        Ir a Asignación
+                    </Button>
+                </div>
+
                 {/* Contact Details */}
                 <Card className="border-0 shadow-sm">
                     <CardHeader className="pb-2">
