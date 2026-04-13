@@ -371,8 +371,12 @@ export async function joinGoogleMeet(page, meetingUrl, botName = config.BOT_DISP
         // === Wait to be admitted ===
         const joinTimeout = config.BOT_JOIN_TIMEOUT * 1000;
         const startWait = Date.now();
+        let diagDone10 = false;
+        let diagDone30 = false;
 
         while (Date.now() - startWait < joinTimeout) {
+            const elapsed = Math.round((Date.now() - startWait) / 1000);
+
             const inMeeting = await findElement(page, SELECTORS.inMeeting, 3000);
             if (inMeeting) {
                 console.log('[GoogleMeet] ✅ Successfully joined the meeting!');
@@ -384,9 +388,28 @@ export async function joinGoogleMeet(page, meetingUrl, botName = config.BOT_DISP
                 return { success: false, error: 'Meeting has ended or request was denied' };
             }
 
-            // Log every 30 seconds
-            const elapsed = Math.round((Date.now() - startWait) / 1000);
-            if (elapsed % 30 === 0 && elapsed > 0) {
+            // Check if Google showed a "blocked" or "can't join" message
+            try {
+                const pageText = await page.evaluate(() => document.body?.innerText?.substring(0, 300) || '');
+                if (pageText.includes('no puedes unirte') || pageText.includes("can't join") || 
+                    pageText.includes('no se puede') || pageText.includes('blocked')) {
+                    console.log(`[GoogleMeet] ❌ Blocked by Google: ${pageText.substring(0, 200)}`);
+                    return { success: false, error: `Blocked: ${pageText.substring(0, 200)}` };
+                }
+            } catch { }
+
+            // Detailed diagnostics at 10s and 30s
+            if (elapsed >= 10 && !diagDone10) {
+                diagDone10 = true;
+                await logPageState(page, 'waiting_10s');
+            }
+            if (elapsed >= 30 && !diagDone30) {
+                diagDone30 = true;
+                await logPageState(page, 'waiting_30s');
+            }
+
+            // Log every 60 seconds
+            if (elapsed % 60 === 0 && elapsed > 0) {
                 console.log(`[GoogleMeet] Still waiting... (${elapsed}s)`);
             }
 
