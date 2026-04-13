@@ -1,8 +1,9 @@
-const { app, BrowserWindow, ipcMain, desktopCapturer, systemPreferences, Tray, Menu, nativeImage } = require('electron');
+const { app, BrowserWindow, ipcMain, desktopCapturer, systemPreferences, session, Tray, Menu, nativeImage } = require('electron');
 const path = require('path');
 
 let mainWindow = null;
 let tray = null;
+let selectedSourceId = null; // Stored when user picks a source
 
 // ─── Create Main Window ──────────────────────────────────────────
 function createWindow() {
@@ -40,13 +41,45 @@ function createWindow() {
     mainWindow.webContents.on('will-navigate', (e) => e.preventDefault());
 }
 
+// ─── Display Media Handler (system audio capture on macOS) ───────
+function setupDisplayMediaHandler() {
+    session.defaultSession.setDisplayMediaRequestHandler(async (request, callback) => {
+        try {
+            const sources = await desktopCapturer.getSources({
+                types: ['window', 'screen'],
+            });
+
+            // Use the pre-selected source, or fall back to first screen
+            let source = null;
+            if (selectedSourceId) {
+                source = sources.find(s => s.id === selectedSourceId);
+            }
+            if (!source) {
+                source = sources.find(s => s.id.startsWith('screen:')) || sources[0];
+            }
+
+            if (!source) {
+                callback({});
+                return;
+            }
+
+            // 'loopback' = capture system audio via ScreenCaptureKit (macOS 13+)
+            // This captures ALL audio output including headphones
+            callback({ video: source, audio: 'loopback' });
+        } catch (err) {
+            console.error('Display media handler error:', err);
+            callback({});
+        }
+    });
+}
+
 // ─── System Tray ─────────────────────────────────────────────────
 function createTray() {
     const iconPath = path.join(__dirname, 'assets', 'tray-icon.png');
     try {
         const icon = nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 });
         tray = new Tray(icon);
-        tray.setToolTip('RE/MAX Meeting Recorder');
+        tray.setToolTip('REMAX Meeting Recorder');
         tray.on('click', () => {
             if (mainWindow) {
                 mainWindow.isVisible() ? mainWindow.focus() : mainWindow.show();
@@ -59,19 +92,20 @@ function createTray() {
         ]);
         tray.setContextMenu(contextMenu);
     } catch (e) {
-        // Tray icon not available, skip
         console.warn('Tray icon not created:', e.message);
     }
 }
 
 // ─── App Lifecycle ───────────────────────────────────────────────
 app.whenReady().then(() => {
+    setupDisplayMediaHandler();
     createWindow();
     createTray();
 
-    // Request microphone permission on macOS
+    // Request microphone + screen recording permissions on macOS
     if (process.platform === 'darwin') {
         systemPreferences.askForMediaAccess('microphone').catch(() => {});
+        systemPreferences.askForMediaAccess('camera').catch(() => {});
     }
 
     app.on('activate', () => {
@@ -80,7 +114,6 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
-    // Keep running in tray on macOS
     if (process.platform !== 'darwin') app.quit();
 });
 
@@ -100,6 +133,12 @@ ipcMain.handle('get-sources', async () => {
         thumbnail: s.thumbnail.toDataURL(),
         appIcon: s.appIcon?.toDataURL() || null,
     }));
+});
+
+// Store the selected source ID (used by display media handler)
+ipcMain.handle('set-selected-source', (event, sourceId) => {
+    selectedSourceId = sourceId;
+    return true;
 });
 
 // Window controls (frameless window)

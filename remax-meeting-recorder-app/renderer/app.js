@@ -260,50 +260,68 @@ async function startRecording() {
     audioChunks = [];
 
     try {
-        // Get the media stream from the selected source
-        const stream = await navigator.mediaDevices.getUserMedia({
-            audio: {
-                mandatory: {
-                    chromeMediaSource: 'desktop',
-                    chromeMediaSourceId: selectedSourceId,
-                },
-            },
+        // Tell main process which source the user selected
+        if (window.electronAPI) {
+            await window.electronAPI.setSelectedSource(selectedSourceId);
+        }
+
+        // Use getDisplayMedia which triggers the main process handler
+        // On macOS: uses ScreenCaptureKit with audio:'loopback' to capture system audio
+        // This works even with headphones — captures all system audio output
+        const displayStream = await navigator.mediaDevices.getDisplayMedia({
+            audio: true,
             video: {
-                mandatory: {
-                    chromeMediaSource: 'desktop',
-                    chromeMediaSourceId: selectedSourceId,
-                    maxWidth: 1,
-                    maxHeight: 1,
-                },
+                width: { max: 1 },
+                height: { max: 1 },
+                frameRate: { max: 1 },
             },
         });
 
-        // We only need audio — remove video tracks
-        stream.getVideoTracks().forEach(t => t.stop());
-        const audioStream = new MediaStream(stream.getAudioTracks());
+        // Extract audio tracks from display media (system audio)
+        const systemAudioTracks = displayStream.getAudioTracks();
+        // Stop video tracks — we only need audio
+        displayStream.getVideoTracks().forEach(t => t.stop());
 
-        // Also capture microphone
-        let mixedStream = audioStream;
-        try {
-            const micStream = await navigator.mediaDevices.getUserMedia({
-                audio: { echoCancellation: true, noiseSuppression: true },
-            });
+        let recordStream;
 
-            // Mix system + mic audio
+        if (systemAudioTracks.length > 0) {
+            // System audio captured! Now mix with microphone
             const ctx = new AudioContext();
             const dest = ctx.createMediaStreamDestination();
-            ctx.createMediaStreamSource(audioStream).connect(dest);
-            ctx.createMediaStreamSource(micStream).connect(dest);
-            mixedStream = dest.stream;
-        } catch (micErr) {
-            console.warn('Mic not available, system audio only:', micErr.message);
+
+            // Add system audio
+            const systemSource = ctx.createMediaStreamSource(new MediaStream(systemAudioTracks));
+            systemSource.connect(dest);
+
+            // Also capture microphone
+            try {
+                const micStream = await navigator.mediaDevices.getUserMedia({
+                    audio: { echoCancellation: true, noiseSuppression: true },
+                });
+                const micSource = ctx.createMediaStreamSource(micStream);
+                micSource.connect(dest);
+            } catch (micErr) {
+                console.warn('Mic not available, system audio only:', micErr.message);
+            }
+
+            recordStream = dest.stream;
+        } else {
+            // Fallback: no system audio (older macOS), use mic only
+            console.warn('No system audio tracks available, using mic only');
+            try {
+                recordStream = await navigator.mediaDevices.getUserMedia({
+                    audio: { echoCancellation: true, noiseSuppression: true },
+                });
+            } catch (micErr) {
+                throw new Error('No se pudo capturar audio. Verifica permisos de micrófono.');
+            }
         }
 
         // Create MediaRecorder
         const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
             ? 'audio/webm;codecs=opus' : 'audio/webm';
 
-        mediaRecorder = new MediaRecorder(mixedStream, { mimeType, audioBitsPerSecond: 128000 });
+        mediaRecorder = new MediaRecorder(recordStream, { mimeType, audioBitsPerSecond: 128000 });
 
         mediaRecorder.ondataavailable = (e) => {
             if (e.data.size > 0) audioChunks.push(e.data);
@@ -325,7 +343,7 @@ async function startRecording() {
 
     } catch (err) {
         console.error('Recording error:', err);
-        errorMsg.textContent = err.message;
+        errorMsg.textContent = err.message || 'Error al iniciar grabación';
         showPanel('error');
     }
 }
