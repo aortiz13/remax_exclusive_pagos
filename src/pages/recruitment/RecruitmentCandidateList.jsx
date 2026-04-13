@@ -10,14 +10,15 @@ import {
 } from 'lucide-react'
 
 const STAGE_BADGE = {
-    'Nuevo':                'bg-blue-50 text-blue-700 border-blue-200',
-    'Reunión Agendada':     'bg-sky-50 text-sky-700 border-sky-200',
-    'Reunión Confirmada':   'bg-indigo-50 text-indigo-700 border-indigo-200',
-    'Aprobado':             'bg-emerald-50 text-emerald-700 border-emerald-200',
-    'Desaprobado':          'bg-red-50 text-red-700 border-red-200',
-    'Ganado':               'bg-green-50 text-green-700 border-green-200',
-    'Perdido':              'bg-slate-100 text-slate-600 border-slate-200',
-    'Seguimiento':          'bg-amber-50 text-amber-700 border-amber-200',
+    'nuevo_lead':         'bg-blue-50 text-blue-700 border-blue-200',
+    'contacto_inicial':   'bg-indigo-50 text-indigo-700 border-indigo-200',
+    'pre_filtro':         'bg-cyan-50 text-cyan-700 border-cyan-200',
+    'formulario_cv':      'bg-violet-50 text-violet-700 border-violet-200',
+    'reunion_presencial': 'bg-amber-50 text-amber-700 border-amber-200',
+    'cierre_comercial':   'bg-orange-50 text-orange-700 border-orange-200',
+    'ganado':             'bg-emerald-50 text-emerald-700 border-emerald-200',
+    'perdido':            'bg-slate-100 text-slate-600 border-slate-200',
+    'seguimiento':        'bg-rose-50 text-rose-700 border-rose-200',
 }
 
 export default function RecruitmentCandidateList() {
@@ -243,7 +244,7 @@ export default function RecruitmentCandidateList() {
                                             </td>
                                             <td className="px-4 py-3">
                                                 <span className={`text-[10px] font-semibold px-2 py-[2px] rounded border ${stageCls}`}>
-                                                    {c.pipeline_stage}
+                                                    {PIPELINE_STAGES.find(s => s.id === c.pipeline_stage)?.label || c.pipeline_stage}
                                                 </span>
                                             </td>
                                             <td className="px-4 py-3 text-slate-600">{c.city || '—'}</td>
@@ -289,7 +290,7 @@ function NewCandidateModal({ onClose, onSave }) {
     const [form, setForm] = useState({
         first_name: '', last_name: '', email: '', phone: '', whatsapp: '',
         city: '', rut: '', age: '', job_title: '', source: 'Manual',
-        pipeline_stage: 'Nuevo', linkedin_url: '', notes: '',
+        pipeline_stage: 'nuevo_lead', linkedin_url: '', notes: '',
     })
 
     const set = (k, v) => setForm(prev => ({ ...prev, [k]: v }))

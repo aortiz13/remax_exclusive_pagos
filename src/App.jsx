@@ -67,6 +67,7 @@ import RecruitmentEmailTemplates from './pages/recruitment/RecruitmentEmailTempl
 import RecruitmentAutomationSettings from './pages/recruitment/RecruitmentAutomationSettings'
 import OnboardingForm from './pages/public/OnboardingForm'
 import RecruitmentCalendar from './pages/recruitment/RecruitmentCalendar'
+import RecruitmentWorkflow from './pages/recruitment/RecruitmentWorkflow'
 import { Toaster } from 'sonner'
 import { initGlobalErrorCapture, auditLog } from './services/auditLogService'
 
@@ -453,6 +454,11 @@ function App() {
                   <Route path="/recruitment/dashboard" element={
                     <ProtectedRoute>
                       <RecruitmentDashboard />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/recruitment/workflow" element={
+                    <ProtectedRoute>
+                      <RecruitmentWorkflow />
                     </ProtectedRoute>
                   } />
                   <Route path="/recruitment/pipeline" element={

@@ -1,0 +1,521 @@
+═══════════════════════════════════════════════════
+  WhatsApp Conversation Quality Analyzer v2.0
+═══════════════════════════════════════════════════
+
+📊 Loading raw data...
+✅ Loaded 3861 records
+
+📝 Parsing messages...
+✅ Parsed: 3861 | Errors: 0
+
+📂 Segmenting conversations...
+✅ 347 conversations
+
+📊 Scoring...
+✅ Done
+
+🔍 Agent analysis...
+
+
+════════════════════════════════════════════════════════════════════════════════
+  RESUMEN EJECUTIVO
+════════════════════════════════════════════════════════════════════════════════
+
+Total conversaciones: 347
+Score promedio global: 6.66
+
+── Distribución por tipo de usuario ──
+  interesado_comercial       246 (70.9%)
+  sin_clasificar              41 (11.8%)
+  postulante                  35 (10.1%)
+  unknown_agent               13 (3.7%)
+  agente_inmobiliario          6 (1.7%)
+  arrendatario                 4 (1.2%)
+  propietario                  2 (0.6%)
+
+── Distribución por nivel de calidad ──
+  EXCELENTE          0 (0.0%) 
+  BUENO            201 (57.9%) █████████████████████████████
+  ACEPTABLE         91 (26.2%) █████████████
+  DEFICIENTE        55 (15.9%) ████████
+  CRÍTICO            0 (0.0%) 
+
+── Estado de resolución ──
+  unknown                    151 (43.5%)
+  resolved_farewell           68 (19.6%)
+  likely_abandoned            54 (15.6%)
+  single_exchange             50 (14.4%)
+  single_message              12 (3.5%)
+  resolved_meeting             7 (2.0%)
+  escalated                    5 (1.4%)
+
+
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+  HEATMAP DE CALIDAD POR AGENTE
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+Agente                Conv  Avg    Relev  Coher  Fidel  Compl  Rol    Efic   Worst Case
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+comercial             251   6.62   6.58   6.84   7.19   4.82   7.52   6.59   56945796406 (4)
+sin_clasificar        41    6.2    6.49   6.27   7.07   3.9    7.07   5.76   +59892206700 (3.7)
+postulantes           36    7.42   7.89   7.11   7.72   5.89   8.22   7.22   59892206700 (3.5)
+clasificador          13    6.79   7.38   7.31   7.46   3.85   7.46   6.62   56953566292 (6.3)
+agentes_inmobiliarios 5     7.27   7.6    8      7.4    5.4    8      6.8    56954384373 (6.65)
+propietarios          1     4.05   3      5      5      2      5      5      56967201750 (4.05)
+
+
+════════════════════════════════════════════════════════════════════════════════
+  TOP 10 PEORES CONVERSACIONES
+════════════════════════════════════════════════════════════════════════════════
+
+──────────────────────────────────────────────────────────────────────
+#1 | Session: 59892206700 | Score: 3.5 (DEFICIENTE)
+   Tipo: interesado_comercial | Agente: postulantes | Turnos: 38 | Msgs: 76
+   Resolución: likely_abandoned
+   Scores → R:5 C:1 F:1 Co:4 Ro:8 E:1
+   ⚠️  [relevancia] ID:20 — Pidió email cuando ya fue proporcionado
+   ⚠️  [relevancia] ID:42 — Posible respuesta genérica ignorando pregunta del usuario
+   ⚠️  [relevancia] ID:50 — Respuesta AI muy corta (0 chars) a input del usuario
+   ⚠️  [coherencia] IDs:6-8 — Mensajes AI 69% similares (posible bucle)
+   ⚠️  [coherencia] IDs:30-34 — Mensajes AI 87% similares (posible bucle)
+   ⚠️  [coherencia] IDs:34-38 — Mensajes AI 100% similares (posible bucle)
+   ⚠️  [coherencia] IDs:44-46 — Mensajes AI 100% similares (posible bucle)
+   ⚠️  [coherencia] IDs:46-48 — Mensajes AI 100% similares (posible bucle)
+   ⚠️  [coherencia] IDs:52-54 — Mensajes AI 100% similares (posible bucle)
+   ⚠️  [coherencia] IDs:56-58 — Mensajes AI 78% similares (posible bucle)
+   ⚠️  [coherencia] IDs:58-60 — Mensajes AI 100% similares (posible bucle)
+   ⚠️  [coherencia] IDs:60-62 — Mensajes AI 86% similares (posible bucle)
+   ⚠️  [coherencia] IDs:64-66 — Mensajes AI 86% similares (posible bucle)
+   ⚠️  [coherencia] IDs:66-68 — Mensajes AI 86% similares (posible bucle)
+   ⚠️  [coherencia] IDs:74-76 — Mensajes AI 63% similares (posible bucle)
+   ⚠️  [coherencia] ID:24 — Pidió email cuando ya fue proporcionado
+   ⚠️  [coherencia] ID:26 — Pidió email cuando ya fue proporcionado
+   ⚠️  [coherencia] ID:28 — Pidió email cuando ya fue proporcionado
+   ⚠️  [coherencia] ID:30 — Pidió email cuando ya fue proporcionado
+   ⚠️  [coherencia] ID:32 — Pidió email cuando ya fue proporcionado
+   ⚠️  [coherencia] ID:34 — Pidió email cuando ya fue proporcionado
+   ⚠️  [coherencia] ID:38 — Pidió email cuando ya fue proporcionado
+   ⚠️  [coherencia] ID:40 — Pidió email cuando ya fue proporcionado
+   ⚠️  [coherencia] ID:52 — Pidió email cuando ya fue proporcionado
+   ⚠️  [coherencia] ID:54 — Pidió email cuando ya fue proporcionado
+   ⚠️  [coherencia] ID:72 — Pidió email cuando ya fue proporcionado
+   ⚠️  [coherencia] ID:74 — Pidió email cuando ya fue proporcionado
+   ⚠️  [coherencia] ID:76 — Pidió email cuando ya fue proporcionado
+   ⚠️  [fidelidad] ID:12 — JSON interno expuesto al usuario
+   ⚠️  [fidelidad] ID:20 — JSON interno expuesto al usuario
+   ⚠️  [fidelidad] ID:24 — JSON interno expuesto al usuario
+   ⚠️  [fidelidad] ID:26 — Mencionó horarios específicos sin verificar con herramientas
+   ⚠️  [fidelidad] ID:28 — Mencionó horarios específicos sin verificar con herramientas
+   ⚠️  [fidelidad] ID:28 — JSON interno expuesto al usuario
+   ⚠️  [fidelidad] ID:52 — JSON interno expuesto al usuario
+   ⚠️  [fidelidad] ID:54 — JSON interno expuesto al usuario
+   ⚠️  [fidelidad] ID:72 — JSON interno expuesto al usuario
+   ⚠️  [fidelidad] ID:74 — JSON interno expuesto al usuario
+   ⚠️  [fidelidad] ID:76 — JSON interno expuesto al usuario
+   ⚠️  [completitud] 38 turnos sin resolución clara
+   ⚠️  [eficiencia] 38 turnos (esperado máx 12 para interesado_comercial)
+   ⚠️  [eficiencia] Pregunta repetida: "para comenzar, me puedes indicar tu nombre completo, apellid..." (similar a turno anterior)
+   ⚠️  [eficiencia] Pregunta repetida: "para avanzar, me puedes indicar tu nombre completo, apellido..." (similar a turno anterior)
+   ⚠️  [eficiencia] Pregunta repetida: "hay algún tipo de recordatorio automático de las citas progr..." (similar a turno anterior)
+   ⚠️  [eficiencia] Pregunta repetida: "cuál es el proceso para convertirse en agente re/max exclusi..." (similar a turno anterior)
+   ⚠️  [eficiencia] Pregunta repetida: "por qué emprender con re/max exclusive..." (similar a turno anterior)
+   ⚠️  [eficiencia] Pregunta repetida: "com/calendar/event..." (similar a turno anterior)
+   ⚠️  [eficiencia] Pregunta repetida: "para poder orientarte mejor, estás buscando comprar, vender,..." (similar a turno anterior)
+   ⚠️  [eficiencia] Pregunta repetida: "para poder orientarte mejor, estás buscando comprar, vender,..." (similar a turno anterior)
+   ⚠️  [eficiencia] Pregunta repetida: "com/propiedades/compracorredorasr/casa/nunoa/tu-futura-casa-..." (similar a turno anterior)
+   ⚠️  [eficiencia] Pregunta repetida: "podrías especificar cuál es tu duda o en qué parte del proce..." (similar a turno anterior)
+   ⚠️  [eficiencia] Pregunta repetida: "deseas agregar algún detalle adicional o tienes otro requeri..." (similar a turno anterior)
+   ⚠️  [eficiencia] Pregunta repetida: "podrías especificar cuál es tu duda o en qué parte del proce..." (similar a turno anterior)
+   ⚠️  [eficiencia] Pregunta repetida: "deseas agregar algún detalle adicional o tienes otro requeri..." (similar a turno anterior)
+   ⚠️  [eficiencia] Pregunta repetida: "podrías especificar cuál es tu duda o en qué parte del proce..." (similar a turno anterior)
+   ⚠️  [eficiencia] Pregunta repetida: "com/propiedades/arriendocorredorasr/departamento/san-miguel/..." (similar a turno anterior)
+   ⚠️  [eficiencia] Pregunta repetida: "com/propiedades/compracorredorasr/casa/nunoa/tu-futura-casa-..." (similar a turno anterior)
+   ⚠️  [eficiencia] Pregunta repetida: "en qué puedo ayudarte hoy..." (similar a turno anterior)
+
+   📜 TRANSCRIPCIÓN:
+   👤 [ID:1] Mensaje del usuario: Quisiera ser agente inmobiliario
+   🤖 [ID:2] ¡Hola! Soy el asistente de Recursos Humanos de RE/MAX Exclusive 😊. ¡Gracias por tu interés en ser agente inmobiliario con nosotros!
+   Para comenzar, ¿me puedes indicar tu nombre completo, correo electrónico y en qué comuna de Santiago resides actualme
+   👤 [ID:3] Mensaje del usuario: Quisiera ser agente inmobiliario
+   
+   
+   Nombre:falta valor
+   Apellido:falta valor
+   Edad: falta valor
+   
+   Email: falta valor
+   🤖 [ID:4] ¡Gracias por tu interés en RE/MAX Exclusive! 😊 Para avanzar, ¿me puedes indicar tu nombre completo, apellido y correo electrónico? También necesito saber en qué comuna de Santiago resides actualmente.
+   Con estos datos podré contarte sobre el proceso 
+   👤 [ID:5] Mensaje del usuario: Quisiera ser agente inmobiliario
+   
+   
+   Nombre:falta valor
+   Apellido:falta valor
+   Edad: falta valor
+   
+   Email: falta valor
+   
+   Comuna: falta valor
+   
+   INFO CRM:
+   
+   Id_persona: 94f169bc-20e6-40fc-830d-1cdf3e93ac14
+   
+   Id_Oportunidad: 484db54d-ea21-4ff
+   🤖 [ID:6] ¡Hola! Gracias por tu interés en ser agente inmobiliario con RE/MAX Exclusive 😊. Para comenzar, ¿me puedes indicar tu nombre completo, apellido, correo electrónico y en qué comuna de Santiago resides actualmente?
+   Con esta información podré contarte 
+   👤 [ID:7] Mensaje del usuario: Quisiera ser agente inmobiliario
+   
+   
+   Nombre:falta valor
+   Apellido:falta valor
+   Edad: falta valor
+   
+   Email: falta valor
+   
+   Comuna: falta valor
+   
+   INFO CRM:
+   
+   Id_persona: 94f169bc-20e6-40fc-830d-1cdf3e93ac14
+   
+   Id_Oportunidad: 484db54d-ea21-4ff
+   🤖 [ID:8] ¡Hola! Gracias por tu interés en ser agente inmobiliario con RE/MAX Exclusive 😊. Para avanzar, ¿me puedes indicar tu nombre completo, apellido, correo electrónico y en qué comuna de Santiago resides actualmente?
+   Con estos datos podré contarte los re
+   👤 [ID:9] Mensaje del usuario: Hola si vivo en Cartegna
+   
+   
+   Nombre:falta valor
+   Apellido:falta valor
+   Edad: falta valor
+   
+   Email: falta valor
+   
+   Comuna: falta valor
+   
+   INFO CRM:
+   
+   Id_persona: 94f169bc-20e6-40fc-830d-1cdf3e93ac14
+   
+   Id_Oportunidad: 484db54d-ea21-4ff8-a600-9
+   🤖 [ID:10] ¡Gracias por tu interés! Actualmente trabajamos con comunas de Santiago como Providencia, Ñuñoa, Las Condes, entre otras.
+   ¿Podrías indicarme tu nombre completo y correo electrónico? Así podré derivarte con un asesor que te pueda orientar según tu com
+   👤 [ID:11] Mensaje del usuario: Mi nombre es Adrian Ortiz y mi correo aortizlao4@gmail.com
+   
+   
+   Nombre:falta valor
+   Apellido:falta valor
+   Edad: falta valor
+   
+   Email: falta valor
+   
+   Comuna: falta valor
+   
+   INFO CRM:
+   
+   Id_persona: 94f169bc-20e6-40fc-830d-1cdf3e93ac14
+   
+   Id_Opor
+   🤖 [ID:12] [Used tools: Tool: Derivar_postulante, Input: {}, Result: [{"Éxito":"Se ha derivado la información a la regional, el postulante debe esperar que lo contacten."}]; Tool: CRM, Input: {}, Result: [{"output":"éxito + Nota creada y enlazada: \"Derivado a 
+   👤 [ID:15] Mensaje del usuario: Mi nombre es Adrian Ortiz y mi correo aortizlao4@gmail.com
+   
+   
+   Nombre:falta valor
+   Apellido:falta valor
+   Edad: falta valor
+   
+   Email: falta valor
+   
+   Comuna: falta valor
+   
+   INFO CRM:
+   
+   Id_persona: 94f169bc-20e6-40fc-830d-1cdf3e93ac14
+   
+   Id_Opor
+   🤖 [ID:16] ¡Gracias, Adrian! Ya tengo tus datos registrados. Actualmente solo trabajamos con comunas de Santiago, por lo que derivé tu información para que un asesor especializado te contacte y pueda orientarte según tu comuna.
+   Si tienes cualquier otra consulta
+   👤 [ID:17] Mensaje del usuario: Un amigo está interesado y es de providencia, te puedo pasar los datos de el?
+   
+   
+   Nombre:falta valor
+   Apellido:falta valor
+   Edad: falta valor
+   
+   Email: falta valor
+   
+   Comuna: falta valor
+   
+   INFO CRM:
+   
+   Id_persona: 94f169bc-20e6-40fc-830d-1c
+   🤖 [ID:18] ¡Por supuesto, Adrian! Si tu amigo es de Providencia, puede postular con nosotros 😊. Por favor, envíame su nombre completo, correo electrónico y número de teléfono para contactarlo directamente.
+   También puedes compartirle nuestro WhatsApp (+56232354
+   👤 [ID:19] Mensaje del usuario: Su nombre es Adrián Giménez, su correo es comprasinternetadrian@gmail.com y el número es +542664654405
+   
+   
+   Nombre:falta valor
+   Apellido:falta valor
+   Edad: falta valor
+   
+   Email: falta valor
+   
+   Comuna: falta valor
+   
+   INFO CRM:
+   
+   Id_persona: 9
+   🤖 [ID:20] [Used tools: Tool: CRM, Input: {}, Result: [{"output":"éxito + comuna \"Providencia\" agregada y estado de oportunidad cambiado a \"FILTRO\"."}]] {"output":{"respuesta_usuario":"¡Muchas gracias, Adrian! Ya registré a Adrián Giménez como postulante y 
+   👤 [ID:21] Mensaje del usuario: Su nombre es Adrián Giménez, su correo es comprasinternetadrian@gmail.com y el número es +542664654405
+   
+   
+   Nombre:falta valor
+   Apellido:falta valor
+   Edad: falta valor
+   
+   Email: falta valor
+   
+   Comuna: Providencia
+   
+   INFO CRM:
+   
+   Id_persona: 9
+   🤖 [ID:22] ¡Perfecto, Adrian! Ya tengo los datos de Adrián Giménez registrados como postulante para Providencia 😊. Ahora, para avanzar, necesitamos saber:
+   ¿Adrián tiene disponibilidad full-time para trabajar como agente inmobiliario? Y, ¿le interesa un modelo 
+   ... (+56 mensajes más)
+
+──────────────────────────────────────────────────────────────────────
+#2 | Session: +59892206700 | Score: 3.7 (DEFICIENTE)
+   Tipo: sin_clasificar | Agente: sin_clasificar | Turnos: 0 | Msgs: 1
+   Resolución: single_message
+   Scores → R:3 C:5 F:5 Co:1 Ro:5 E:3
+   ⚠️  [completitud] Solo 1 mensaje, sin interacción
+
+   📜 TRANSCRIPCIÓN:
+   
+
+──────────────────────────────────────────────────────────────────────
+#3 | Session: +51920609263 | Score: 3.7 (DEFICIENTE)
+   Tipo: sin_clasificar | Agente: sin_clasificar | Turnos: 0 | Msgs: 1
+   Resolución: single_message
+   Scores → R:3 C:5 F:5 Co:1 Ro:5 E:3
+   ⚠️  [completitud] Solo 1 mensaje, sin interacción
+
+   📜 TRANSCRIPCIÓN:
+   
+
+──────────────────────────────────────────────────────────────────────
+#4 | Session: +56953566292 | Score: 3.7 (DEFICIENTE)
+   Tipo: sin_clasificar | Agente: sin_clasificar | Turnos: 0 | Msgs: 1
+   Resolución: single_message
+   Scores → R:3 C:5 F:5 Co:1 Ro:5 E:3
+   ⚠️  [completitud] Solo 1 mensaje, sin interacción
+
+   📜 TRANSCRIPCIÓN:
+   
+
+──────────────────────────────────────────────────────────────────────
+#5 | Session: +56994333668 | Score: 3.7 (DEFICIENTE)
+   Tipo: sin_clasificar | Agente: sin_clasificar | Turnos: 0 | Msgs: 1
+   Resolución: single_message
+   Scores → R:3 C:5 F:5 Co:1 Ro:5 E:3
+   ⚠️  [completitud] Solo 1 mensaje, sin interacción
+
+   📜 TRANSCRIPCIÓN:
+   
+
+──────────────────────────────────────────────────────────────────────
+#6 | Session: +56951488700 | Score: 3.7 (DEFICIENTE)
+   Tipo: sin_clasificar | Agente: sin_clasificar | Turnos: 0 | Msgs: 1
+   Resolución: single_message
+   Scores → R:3 C:5 F:5 Co:1 Ro:5 E:3
+   ⚠️  [completitud] Solo 1 mensaje, sin interacción
+
+   📜 TRANSCRIPCIÓN:
+   
+
+──────────────────────────────────────────────────────────────────────
+#7 | Session: 56922087866 | Score: 3.7 (DEFICIENTE)
+   Tipo: unknown_agent | Agente: sin_clasificar | Turnos: 0 | Msgs: 1
+   Resolución: single_message
+   Scores → R:3 C:5 F:5 Co:1 Ro:5 E:3
+   ⚠️  [completitud] Solo 1 mensaje, sin interacción
+
+   📜 TRANSCRIPCIÓN:
+   🤖 [ID:899] Hola Claudia Del Rosario Rojas Aguilar, desde *Remax Exclusive* para confirmar tu asistencia a la reunión de *hoy a las 10:30* en nuestras oficinas Dr. Carlos Charlin 1539, Providencia, *Te esperamos*
+
+──────────────────────────────────────────────────────────────────────
+#8 | Session: 56962915898 | Score: 3.7 (DEFICIENTE)
+   Tipo: unknown_agent | Agente: sin_clasificar | Turnos: 0 | Msgs: 1
+   Resolución: single_message
+   Scores → R:3 C:5 F:5 Co:1 Ro:5 E:3
+   ⚠️  [completitud] Solo 1 mensaje, sin interacción
+
+   📜 TRANSCRIPCIÓN:
+   🤖 [ID:1137] Hola Siboney palma reyes, te escribimos desde *Remax Exclusive* para confirmar tu asistencia a la reunión de *hoy a las 10:30* en nuestras oficinas Dr. Carlos Charlin 1539, Providencia, *¿Confirmas tu asistencia?*
+
+──────────────────────────────────────────────────────────────────────
+#9 | Session: 56952446715 | Score: 3.7 (DEFICIENTE)
+   Tipo: unknown_agent | Agente: sin_clasificar | Turnos: 0 | Msgs: 1
+   Resolución: single_message
+   Scores → R:3 C:5 F:5 Co:1 Ro:5 E:3
+   ⚠️  [completitud] Solo 1 mensaje, sin interacción
+
+   📜 TRANSCRIPCIÓN:
+   🤖 [ID:1476] Hola Felip Eduardo Avalos León, te escribimos desde *Remax Exclusive* para confirmar tu asistencia a la reunión de *hoy a las 10:30* en nuestras oficinas Dr. Carlos Charlin 1539, Providencia, *¡NOS VEMOS EN UN RATO!*
+
+──────────────────────────────────────────────────────────────────────
+#10 | Session: 56950880187 | Score: 3.7 (DEFICIENTE)
+   Tipo: unknown_agent | Agente: sin_clasificar | Turnos: 0 | Msgs: 1
+   Resolución: single_message
+   Scores → R:3 C:5 F:5 Co:1 Ro:5 E:3
+   ⚠️  [completitud] Solo 1 mensaje, sin interacción
+
+   📜 TRANSCRIPCIÓN:
+   🤖 [ID:1477] Hola Rocio Leon carrasco, te escribimos desde *Remax Exclusive* para confirmar tu asistencia a la reunión de *hoy a las 10:30* en Dr. Carlos Charlin 1539, 7500493 Providencia, Región Metropolitana, Chile , *¿Te esperamos?*
+
+
+════════════════════════════════════════════════════════════════════════════════
+  TOP 5 MEJORES CONVERSACIONES
+════════════════════════════════════════════════════════════════════════════════
+
+#1 | Session: +56939633742 | Score: 8.15 (BUENO)
+   Tipo: unknown_agent | Agente: sin_clasificar | Turnos: 0
+   Resolución: resolved_meeting
+
+   📜 TRANSCRIPCIÓN:
+   🤖 [ID:341] Hola Macarena Argandoña Lopez, te escribimos desde *Remax Exclusive* para confirmar tu asistencia a la reunión de *hoy a las 10:30* en Dr. Carlos Charlin 1539, 7500493 Providencia, Región Metropolitana, Chile , *¿Te esperamos?*
+
+#2 | Session: 56968536724 | Score: 8.15 (BUENO)
+   Tipo: postulante | Agente: postulantes | Turnos: 1
+   Resolución: resolved_meeting
+
+   📜 TRANSCRIPCIÓN:
+   🤖 [ID:900] Hola Barbara Naranjo, desde *Remax Exclusive* para confirmar tu asistencia a la reunión de *hoy a las 10:30* en nuestras oficinas Dr. Carlos Charlin 1539, Providencia, *Te esperamos*
+   👤 [ID:903] Mensaje del usuario: Buen día
+   Confirmo asistencia
+   
+   
+   Nombre completo :Barbara Naranjo Sin datos
+   
+   Email: b.naranjosanchez@gmail.com
+   
+   Comuna: R.Metropolitana / Santiago - Macul
+   
+   INFO CRM:
+   
+   Id_persona: e7a80cff-2b44-4eac-99f0-240f240b8d2c
+   
+   Id_Oportunidad
+   🤖 [ID:904] [🔧 Agente_de_CRM] Calling Agente de CRM with input: {"Prompt__User_Message_":"Actualizar estado de la oportunidad a REUNION_CONFIRMADA para la persona e7a80cff-2b44-4eac-99f0-240f240b8d2c y la oportunidad 6de39f56-50c4-48ca-b58d-2774cbf54d75. Crear nota: Usuario confi
+   🤖 [ID:906] ¡Gracias por confirmar, Barbara! 😊 Te esperamos hoy a las **10:30 AM** en nuestras oficinas: 
+   🏢 **Dr. Carlos Charlin 1539, Providencia**. 
+   Recuerda llegar puntual y traer tu notebook. ¡Mucho éxito en esta etapa!
+
+#3 | Session: 56966779342 | Score: 8.15 (BUENO)
+   Tipo: postulante | Agente: postulantes | Turnos: 1
+   Resolución: resolved_meeting
+
+   📜 TRANSCRIPCIÓN:
+   🤖 [ID:2279] Hola Omar, te escribimos desde *Remax Exclusive* para confirmar tu asistencia a la reunión de *hoy a las 10:30* en RE/MAX Exclusive, Dr. Carlos Charlin 1539, 7500000 Providencia, Región Metropolitana, Chilere , *¡Nos vemos!*
+   👤 [ID:2280] Mensaje del usuario: Buenos días ahí estaré, gracias
+   
+   
+   Nombre completo :Omar Santamaria
+   
+   Email: omar.santamariav@gmail.com
+   
+   Comuna: ñuñoa
+   
+   INFO CRM:
+   
+   Id_persona: 851f74ea-bf53-478d-984c-df483e006d87
+   
+   Id_Oportunidad: 6a1f7c18-294c-43ba-b62e-fbe7d818fd
+   🤖 [ID:2281] [🔧 Agente_de_CRM] Calling Agente_de_CRM with input: {"Prompt__User_Message_":"Actualizar estado a REUNION_CONFIRMADA para la oportunidad 6a1f7c18-294c-43ba-b62e-fbe7d818fde5 y persona 851f74ea-bf53-478d-984c-df483e006d87. Agregar nota: Omar confirmó asistencia para ho
+   🤖 [ID:2283] ¡Perfecto, Omar! Gracias por confirmar tu asistencia. Te esperamos hoy a las 10:30 AM en nuestra oficina: 🏢 **Dr. Carlos Charlin 1539, Providencia**. ¡Mucho éxito en tu reunión! 🚀
+   Si tienes alguna duda antes de venir, no dudes en escribirme. ¡Nos v
+
+#4 | Session: 56928559201 | Score: 8.15 (BUENO)
+   Tipo: postulante | Agente: postulantes | Turnos: 1
+   Resolución: resolved_meeting
+
+   📜 TRANSCRIPCIÓN:
+   🤖 [ID:2440] Hola Gabriel Ithal Bello, desde *Remax Exclusive* para confirmar tu asistencia a la reunión de *hoy a las 10:30* en nuestras oficinas Dr. Carlos Charlin 1539, Providencia, *Te esperamos*
+   👤 [ID:2449] Mensaje del usuario: Hola!
+   Si confirmo! :)
+   
+   
+   Nombre completo :Gabriel Ithal Bello Sin datos
+   
+   Email: gabriel.ithal-bello@outlook.com
+   
+   Comuna: R.Metropolitana / Santiago - Huechuraba
+   
+   INFO CRM:
+   
+   Id_persona: fbe05b7d-2321-491d-bc0e-a1ca953bd4d8
+   
+   Id_Opor
+   🤖 [ID:2450] [🔧 Agente_de_CRM] Calling Agente_de_CRM with input: {"Prompt__User_Message_":"Actualizar estado a REUNION_AGENDADA para la oportunidad 3a439d99-ef56-4b67-9f1f-ecc33e4a2d0e y persona fbe05b7d-2321-491d-bc0e-a1ca953bd4d8. Confirmó asistencia a la reunión presencial.","i
+   🤖 [ID:2452] ¡Perfecto, Gabriel! Confirmada tu asistencia para la reunión presencial de hoy. 😊 Nos vemos a las 📅 **10:30 AM** en 🏢 **Dr. Carlos Charlin 1539, Providencia**. ¡Te esperamos con todo listo para conversar sobre tu futuro en RE/MAX Exclusive!
+
+#5 | Session: 56966789196 | Score: 7.95 (BUENO)
+   Tipo: postulante | Agente: postulantes | Turnos: 1
+   Resolución: resolved_meeting
+
+   📜 TRANSCRIPCIÓN:
+   🤖 [ID:901] Hola Cecilia Rivera, te escribimos desde *Remax Exclusive* para confirmar tu asistencia a la reunión de *hoy a las 10:30* en Dr. Carlos Charlin 1539, 7500493 Providencia, Región Metropolitana, Chile , *¡Nos vemos!*
+   👤 [ID:907] Mensaje del usuario: Confirmo mi asistencia
+   
+   
+   Nombre completo :Cecilia Rivera Sin datos
+   
+   Email: ceciliarivera31@gmail.com
+   
+   Comuna: R.Metropolitana / Santiago - Providencia
+   
+   INFO CRM:
+   
+   Id_persona: 97390ea2-c10b-448b-b42c-8c180520cb84
+   
+   Id_Oportunidad: 
+   🤖 [ID:908] [🔧 Agente_de_CRM] Calling Agente de CRM with input: {"Prompt__User_Message_":"Actualizar estado de la oportunidad a REUNION_CONFIRMADA para la persona con ID 97390ea2-c10b-448b-b42c-8c180520cb84 y oportunidad 49156196-8978-4527-9493-0f8da723a278. Agregar nota: Cecilia
+   🤖 [ID:910] ¡Perfecto, Cecilia! Tu asistencia quedó confirmada para la reunión presencial de hoy. 😊
+   📅 **Martes 10 de febrero - 10:30 AM**
+   🏢 **Dr. Carlos Charlin 1539, Providencia**
+   Te esperamos puntual. ¡Mucho éxito en esta etapa!
+
+
+════════════════════════════════════════════════════════════════════════════════
+  PATRONES DE FALLO RECURRENTES
+════════════════════════════════════════════════════════════════════════════════
+
+  🔄 Bucles de preguntas repetidas: 136 instancias
+     → 59892206700: IDs:6-8 — Mensajes AI 69% similares (posible bucle)
+     → 59892206700: IDs:30-34 — Mensajes AI 87% similares (posible bucle)
+     → 59892206700: IDs:34-38 — Mensajes AI 100% similares (posible bucle)
+     → 59892206700: IDs:44-46 — Mensajes AI 100% similares (posible bucle)
+     → 59892206700: IDs:46-48 — Mensajes AI 100% similares (posible bucle)
+
+  🧠 Pérdida de contexto: 53 instancias
+     → 59892206700: ID:20 — Pidió email cuando ya fue proporcionado
+     → 59892206700: ID:24 — Pidió email cuando ya fue proporcionado
+     → 59892206700: ID:26 — Pidió email cuando ya fue proporcionado
+     → 59892206700: ID:28 — Pidió email cuando ya fue proporcionado
+     → 59892206700: ID:30 — Pidió email cuando ya fue proporcionado
+
+  🚫 Violaciones de protocolo: 0 instancias
+
+  📎 Problemas multimedia: 10 conversaciones con multimedia
+
+  🔐 Fugas de JSON: 12 instancias
+     → 59892206700: ID:12 — JSON interno expuesto al usuario
+     → 59892206700: ID:20 — JSON interno expuesto al usuario
+     → 59892206700: ID:24 — JSON interno expuesto al usuario
+     → 59892206700: ID:28 — JSON interno expuesto al usuario
+     → 59892206700: ID:52 — JSON interno expuesto al usuario
+
+
+✅ Análisis completo. Reportes guardados en:
+   quality_report.json
+   sessions_data.json

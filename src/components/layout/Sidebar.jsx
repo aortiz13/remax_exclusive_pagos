@@ -314,6 +314,7 @@ export default function Sidebar() {
         title: 'RECLUTAMIENTO',
         items: [
             { title: 'Dashboard', icon: Kanban, path: '/recruitment/dashboard' },
+            { title: 'Workflow', icon: Zap, path: '/recruitment/workflow' },
             { title: 'Pipeline Candidatos', icon: Kanban, path: '/recruitment/pipeline' },
             { title: 'Lista Candidatos', icon: UserPlus, path: '/recruitment/candidates' },
             { title: 'Tareas', icon: ClipboardList, path: '/recruitment/tasks' },

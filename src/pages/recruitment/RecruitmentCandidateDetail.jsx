@@ -11,30 +11,33 @@ import {
 import { fetchRecruitmentTasks, createRecruitmentTask, TASK_TYPES, TASK_PRIORITIES } from '../../services/recruitmentTaskService'
 import { fetchTemplates, renderTemplate } from '../../services/recruitmentTemplateService'
 import { useAuth } from '../../context/AuthContext'
+import MeetingsTab from '../../components/recruitment/MeetingsTab'
 import {
     ArrowLeft, Mail, Phone, MapPin, Briefcase, Calendar, User, Save,
     Clock, ChevronRight, Edit3, X, Check, MessageSquare, Send,
     CalendarCheck, CalendarClock, Trophy, XCircle, Bookmark, Star,
     UserCheck, UserX, Zap, Building, GraduationCap, Car, Globe, FileText,
     CheckCircle2, Circle, ClipboardList, ExternalLink, Plus, AlertCircle,
-    Search, StickyNote, Pin, Trash2
+    Search, StickyNote, Pin, Trash2, Video
 } from 'lucide-react'
 
 const STAGE_ICONS = {
-    'Nuevo': Zap, 'Reunión Agendada': CalendarClock, 'Reunión Confirmada': CalendarCheck,
-    'Aprobado': UserCheck, 'Desaprobado': UserX, 'Ganado': Trophy,
-    'Perdido': XCircle, 'Seguimiento': Bookmark,
+    'nuevo_lead': Zap, 'contacto_inicial': Mail, 'pre_filtro': CalendarCheck,
+    'formulario_cv': FileText, 'reunion_presencial': CalendarClock,
+    'cierre_comercial': UserCheck, 'ganado': Trophy,
+    'perdido': XCircle, 'seguimiento': Bookmark,
 }
 
 const STAGE_BADGE = {
-    'Nuevo': 'bg-blue-50 text-blue-700 border-blue-200',
-    'Reunión Agendada': 'bg-sky-50 text-sky-700 border-sky-200',
-    'Reunión Confirmada': 'bg-indigo-50 text-indigo-700 border-indigo-200',
-    'Aprobado': 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    'Desaprobado': 'bg-red-50 text-red-700 border-red-200',
-    'Ganado': 'bg-green-50 text-green-700 border-green-200',
-    'Perdido': 'bg-slate-100 text-slate-600 border-slate-200',
-    'Seguimiento': 'bg-amber-50 text-amber-700 border-amber-200',
+    'nuevo_lead':         'bg-blue-50 text-blue-700 border-blue-200',
+    'contacto_inicial':   'bg-indigo-50 text-indigo-700 border-indigo-200',
+    'pre_filtro':         'bg-cyan-50 text-cyan-700 border-cyan-200',
+    'formulario_cv':      'bg-violet-50 text-violet-700 border-violet-200',
+    'reunion_presencial': 'bg-amber-50 text-amber-700 border-amber-200',
+    'cierre_comercial':   'bg-orange-50 text-orange-700 border-orange-200',
+    'ganado':             'bg-emerald-50 text-emerald-700 border-emerald-200',
+    'perdido':            'bg-slate-100 text-slate-600 border-slate-200',
+    'seguimiento':        'bg-rose-50 text-rose-700 border-rose-200',
 }
 
 export default function RecruitmentCandidateDetail() {
@@ -97,7 +100,7 @@ export default function RecruitmentCandidateDetail() {
             await updatePipelineStage(id, fromStage, newStage, profile?.id)
             setCandidate(prev => ({ ...prev, pipeline_stage: newStage }))
             const h = await fetchPipelineHistory(id)
-            setHistory(h); toast.success(`Movido a "${newStage}"`)
+            setHistory(h); toast.success(`Movido a "${PIPELINE_STAGES.find(s => s.id === newStage)?.label || newStage}"`)
         } catch { toast.error('Error al cambiar estado') }
     }
 
@@ -167,7 +170,7 @@ export default function RecruitmentCandidateDetail() {
                         <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
                             <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-semibold ${STAGE_BADGE[candidate.pipeline_stage] || ''}`}>
                                 <StageIcon className="w-3.5 h-3.5" />
-                                {candidate.pipeline_stage}
+                                {PIPELINE_STAGES.find(s => s.id === candidate.pipeline_stage)?.label || candidate.pipeline_stage}
                             </div>
                             <span className="text-[10px] text-slate-400">
                                 {candidate.source && `vía ${candidate.source}`}
@@ -290,6 +293,7 @@ export default function RecruitmentCandidateDetail() {
                                 {[
                                     { id: 'timeline', label: 'Timeline', icon: Clock, count: history.length + tasks.length + emailLogs.length + notes.length },
                                     { id: 'cv', label: 'CV / Datos', icon: FileText },
+                                    { id: 'meetings', label: 'Reuniones', icon: Video },
                                     { id: 'tasks', label: 'Tareas', icon: ClipboardList, count: tasks.length },
                                     { id: 'emails', label: 'Emails', icon: Mail, count: emailLogs.length },
                                     { id: 'notes', label: 'Notas', icon: StickyNote, count: notes.length },
@@ -314,6 +318,7 @@ export default function RecruitmentCandidateDetail() {
                         <div className="p-5">
                             {activeTab === 'timeline' && <TimelineTab history={history} tasks={tasks} emails={emailLogs} notes={notes} />}
                             {activeTab === 'cv' && <CvTab candidate={candidate} />}
+                            {activeTab === 'meetings' && <MeetingsTab candidateId={id} onCandidateUpdated={loadAll} />}
                             {activeTab === 'tasks' && <TasksTab tasks={tasks} navigate={navigate} candidateId={id} profileId={profile?.id} onTaskCreated={loadAll} />}
                             {activeTab === 'emails' && <EmailsTab logs={emailLogs} candidate={candidate} onEmailSent={loadAll} />}
                             {activeTab === 'notes' && <NotesTab notes={notes} candidateId={id} profileId={profile?.id} onNotesChanged={loadAll} />}

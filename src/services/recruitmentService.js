@@ -37,7 +37,7 @@ export async function createCandidate(candidate) {
     .from('recruitment_candidates')
     .insert([{
       ...candidate,
-      pipeline_stage: candidate.pipeline_stage || 'Nuevo',
+      pipeline_stage: candidate.pipeline_stage || 'nuevo_lead',
       source: candidate.source || 'Manual',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -48,7 +48,7 @@ export async function createCandidate(candidate) {
   if (error) throw error
 
   // Log initial pipeline entry
-  await logPipelineChange(data.id, null, 'Nuevo', candidate._changed_by)
+  await logPipelineChange(data.id, null, 'nuevo_lead', candidate._changed_by)
 
   return data
 }
@@ -204,17 +204,125 @@ export async function fetchRecruitmentStats() {
   return stats
 }
 
+// ─── Funnel Metrics ─────────────────────────────────────────────
+
+export async function fetchFunnelMetrics() {
+  // Count candidates per stage
+  const { data: candidates, error } = await supabase
+    .from('recruitment_candidates')
+    .select('pipeline_stage, source, created_at')
+
+  if (error) throw error
+
+  const stageCounts = {}
+  PIPELINE_STAGES.forEach(s => { stageCounts[s.id] = 0 })
+  candidates.forEach(c => {
+    if (stageCounts[c.pipeline_stage] !== undefined) stageCounts[c.pipeline_stage]++
+  })
+
+  // Calculate drop-off between sequential stages
+  const sequential = PIPELINE_STAGES.filter(s => s.sequential)
+  const funnel = sequential.map((stage, i) => {
+    const count = stageCounts[stage.id] || 0
+    const prevCount = i > 0 ? (stageCounts[sequential[i - 1].id] || 0) : count
+    const dropOff = prevCount > 0 ? ((prevCount - count) / prevCount * 100).toFixed(1) : 0
+    const advanceRate = prevCount > 0 ? (count / prevCount * 100).toFixed(1) : 0
+    return { stage: stage.id, label: stage.label, count, dropOff, advanceRate }
+  })
+
+  return { stageCounts, funnel, total: candidates.length }
+}
+
+export async function fetchConversionBySource() {
+  const { data, error } = await supabase
+    .from('recruitment_candidates')
+    .select('pipeline_stage, source')
+
+  if (error) throw error
+
+  const map = {}
+  data.forEach(c => {
+    const s = c.source || 'Sin fuente'
+    if (!map[s]) map[s] = { total: 0, won: 0, lost: 0 }
+    map[s].total++
+    if (c.pipeline_stage === 'ganado') map[s].won++
+    if (c.pipeline_stage === 'perdido') map[s].lost++
+  })
+
+  return Object.entries(map)
+    .map(([source, stats]) => ({
+      source,
+      ...stats,
+      convRate: stats.total > 0 ? ((stats.won / stats.total) * 100).toFixed(1) : '0',
+    }))
+    .sort((a, b) => b.total - a.total)
+}
+
+// ─── Stage Actions (Workflow configuration) ─────────────────────
+
+export async function fetchStageActions(stageId) {
+  let query = supabase
+    .from('recruitment_stage_actions')
+    .select('*')
+    .order('action_order', { ascending: true })
+
+  if (stageId) query = query.eq('stage_id', stageId)
+
+  const { data, error } = await query
+  if (error) throw error
+  return data || []
+}
+
+export async function upsertStageAction(action) {
+  const payload = {
+    stage_id: action.stage_id,
+    action_order: action.action_order || 0,
+    action_type: action.action_type,
+    config: action.config || {},
+    is_active: action.is_active !== false,
+    updated_at: new Date().toISOString(),
+  }
+
+  if (action.id) {
+    const { data, error } = await supabase
+      .from('recruitment_stage_actions')
+      .update(payload)
+      .eq('id', action.id)
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  } else {
+    const { data, error } = await supabase
+      .from('recruitment_stage_actions')
+      .insert([payload])
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  }
+}
+
+export async function deleteStageAction(id) {
+  const { error } = await supabase
+    .from('recruitment_stage_actions')
+    .delete()
+    .eq('id', id)
+  if (error) throw error
+}
+
 // ─── Constants ──────────────────────────────────────────────────
 
 export const PIPELINE_STAGES = [
-  { id: 'Nuevo', label: 'Nuevo', color: 'blue', description: 'Leads recién ingresados' },
-  { id: 'Reunión Agendada', label: 'Reunión Agendada', color: 'indigo', description: 'Invitación enviada' },
-  { id: 'Reunión Confirmada', label: 'Reunión Confirmada', color: 'cyan', description: 'Confirmó asistencia' },
-  { id: 'Aprobado', label: 'Aprobado', color: 'green', description: 'Pasó la reunión' },
-  { id: 'Desaprobado', label: 'Desaprobado', color: 'red', description: 'No pasó la reunión' },
-  { id: 'Ganado', label: 'Ganado', color: 'emerald', description: 'Proceso completado' },
-  { id: 'Perdido', label: 'Perdido', color: 'slate', description: 'No avanzó' },
-  { id: 'Seguimiento', label: 'Seguimiento', color: 'amber', description: 'Re-contactar futuro' },
+  { id: 'nuevo_lead',          label: 'Nuevo Lead',           color: 'blue',    icon: 'Zap',           sequential: true,  description: 'Leads recién ingresados desde cualquier fuente' },
+  { id: 'contacto_inicial',    label: 'Contacto Inicial',     color: 'indigo',  icon: 'Mail',          sequential: true,  description: 'Email A/B + Video WhatsApp enviados' },
+  { id: 'pre_filtro',          label: 'Pre-filtro',           color: 'cyan',    icon: 'Video',         sequential: true,  description: 'Videollamada 10min con Karen' },
+  { id: 'formulario_cv',       label: 'Formulario + CV',      color: 'violet',  icon: 'FileText',      sequential: true,  description: 'Candidato llena formulario nativo + sube CV' },
+  { id: 'reunion_presencial',  label: 'Reunión Presencial',   color: 'amber',   icon: 'Users',         sequential: true,  description: 'Reunión 60min con Broker (Mar/Jue)' },
+  { id: 'cierre_comercial',    label: 'Cierre Comercial',     color: 'orange',  icon: 'CreditCard',    sequential: true,  description: 'Cobro inmediato / Link de pago' },
+  { id: 'ganado',              label: 'Ganado',               color: 'emerald', icon: 'Trophy',        sequential: false, description: 'Pagó y se formalizó ✅' },
+  { id: 'perdido',             label: 'Perdido',              color: 'slate',   icon: 'XCircle',       sequential: false, description: 'No avanzó en alguna etapa ❌' },
+  { id: 'seguimiento',         label: 'Seguimiento',          color: 'rose',    icon: 'RefreshCw',     sequential: false, description: 'Re-contactar en el futuro 🔄' },
 ]
 
 export const CANDIDATE_SOURCES = [
@@ -241,4 +349,3 @@ export async function getRecruitmentAccountStatus() {
   if (error) throw new Error(error.message || 'Error al verificar cuenta')
   return data
 }
-

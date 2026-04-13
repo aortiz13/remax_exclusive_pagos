@@ -8,21 +8,24 @@ import {
 } from 'lucide-react'
 import { fetchAutomationRules, upsertAutomationRule, deleteAutomationRule, fetchABMetrics } from '../../services/recruitmentAutomation'
 import { fetchTemplates } from '../../services/recruitmentTemplateService'
+import { PIPELINE_STAGES } from '../../services/recruitmentService'
 
-const PIPELINE_STAGES = ['Nuevo', 'Reunión Agendada', 'Reunión Confirmada', 'Aprobado', 'Rechazado']
-const STAGE_COLORS = {
-    'Nuevo': 'from-blue-500 to-blue-600',
-    'Reunión Agendada': 'from-indigo-500 to-indigo-600',
-    'Reunión Confirmada': 'from-cyan-500 to-cyan-600',
-    'Aprobado': 'from-green-500 to-green-600',
-    'Rechazado': 'from-red-500 to-red-600',
+const STAGE_COLORS_MAP = {
+    'nuevo_lead': 'from-blue-500 to-blue-600',
+    'contacto_inicial': 'from-indigo-500 to-indigo-600',
+    'pre_filtro': 'from-cyan-500 to-cyan-600',
+    'formulario_cv': 'from-violet-500 to-violet-600',
+    'reunion_presencial': 'from-amber-500 to-amber-600',
+    'cierre_comercial': 'from-orange-500 to-red-500',
+    'ganado': 'from-emerald-500 to-green-600',
+    'perdido': 'from-slate-400 to-slate-500',
+    'seguimiento': 'from-rose-400 to-rose-500',
 }
-const STAGE_ICONS = {
-    'Nuevo': Zap,
-    'Reunión Agendada': CalendarCheck,
-    'Reunión Confirmada': CalendarCheck,
-    'Aprobado': UserCheck,
-    'Rechazado': X,
+const STAGE_ICONS_MAP = {
+    'nuevo_lead': Zap, 'contacto_inicial': Mail,
+    'pre_filtro': CalendarCheck, 'formulario_cv': ClipboardList,
+    'reunion_presencial': UserCheck, 'cierre_comercial': Zap,
+    'ganado': UserCheck, 'perdido': X, 'seguimiento': CalendarCheck,
 }
 
 export default function RecruitmentAutomationSettings() {
@@ -87,7 +90,7 @@ export default function RecruitmentAutomationSettings() {
         } catch { /* ignore */ }
     }
 
-    const getRulesForStage = (stage) => rules.filter(r => r.trigger_stage === stage)
+    const getRulesForStage = (stageId) => rules.filter(r => r.trigger_stage === stageId)
 
     if (loading) return (
         <div className="flex items-center justify-center h-96">
@@ -146,25 +149,25 @@ export default function RecruitmentAutomationSettings() {
             {/* Rules by stage */}
             <div className="space-y-3">
                 {PIPELINE_STAGES.map(stage => {
-                    const stageRules = getRulesForStage(stage)
-                    const isExpanded = expandedStage === stage
-                    const StageIcon = STAGE_ICONS[stage] || Zap
+                    const stageRules = getRulesForStage(stage.id)
+                    const isExpanded = expandedStage === stage.id
+                    const StageIcon = STAGE_ICONS_MAP[stage.id] || Zap
 
                     return (
-                        <div key={stage} className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                        <div key={stage.id} className="bg-white rounded-xl border border-slate-200 overflow-hidden">
                             {/* Stage header */}
                             <button
-                                onClick={() => setExpandedStage(isExpanded ? null : stage)}
+                                onClick={() => setExpandedStage(isExpanded ? null : stage.id)}
                                 className="w-full flex items-center justify-between px-5 py-4 hover:bg-slate-50 transition-colors"
                             >
                                 <div className="flex items-center gap-3">
-                                    <div className={`w-8 h-8 rounded-lg bg-gradient-to-r ${STAGE_COLORS[stage]} flex items-center justify-center`}>
+                                    <div className={`w-8 h-8 rounded-lg bg-gradient-to-r ${STAGE_COLORS_MAP[stage.id] || 'from-slate-400 to-slate-500'} flex items-center justify-center`}>
                                         <StageIcon className="w-4 h-4 text-white" />
                                     </div>
                                     <div className="text-left">
                                         <div className="flex items-center gap-2">
                                             <span className="text-sm text-slate-400">Al mover a →</span>
-                                            <span className="font-bold text-slate-800">{stage}</span>
+                                            <span className="font-bold text-slate-800">{stage.label}</span>
                                         </div>
                                         <p className="text-xs text-slate-400">{stageRules.length} regla{stageRules.length !== 1 ? 's' : ''} configurada{stageRules.length !== 1 ? 's' : ''}</p>
                                     </div>
@@ -209,13 +212,13 @@ export default function RecruitmentAutomationSettings() {
                                             {/* Add rule buttons */}
                                             <div className="flex gap-2 pt-2">
                                                 <button
-                                                    onClick={() => setEditingRule({ trigger_stage: stage, action_type: 'send_email', is_active: true, ab_enabled: false, delay_minutes: 0 })}
+                                                    onClick={() => setEditingRule({ trigger_stage: stage.id, action_type: 'send_email', is_active: true, ab_enabled: false, delay_minutes: 0 })}
                                                     className="flex items-center gap-1.5 px-3 py-2 bg-blue-50 text-blue-700 text-xs font-semibold rounded-lg hover:bg-blue-100 transition-colors border border-blue-200"
                                                 >
                                                     <Plus className="w-3.5 h-3.5" /> Agregar Email
                                                 </button>
                                                 <button
-                                                    onClick={() => setEditingRule({ trigger_stage: stage, action_type: 'create_task', is_active: true, task_type: 'Seguimiento' })}
+                                                    onClick={() => setEditingRule({ trigger_stage: stage.id, action_type: 'create_task', is_active: true, task_type: 'Seguimiento' })}
                                                     className="flex items-center gap-1.5 px-3 py-2 bg-amber-50 text-amber-700 text-xs font-semibold rounded-lg hover:bg-amber-100 transition-colors border border-amber-200"
                                                 >
                                                     <Plus className="w-3.5 h-3.5" /> Agregar Tarea

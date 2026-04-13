@@ -9,31 +9,34 @@ import {
     ExternalLink, UserCheck, UserX, Eye,
     ChevronDown, ChevronUp, Filter, Plus,
     GripVertical, Clock, Briefcase, Columns3, Check,
-    CalendarCheck, CalendarClock, Trophy, XCircle, Bookmark, Star, Users, Zap, X
+    CalendarCheck, CalendarClock, Trophy, XCircle, Bookmark, Star, Users, Zap, X,
+    Video, FileText, CreditCard, RefreshCw
 } from 'lucide-react'
 
 // ─── Column Visual Definitions ────────────────────────────────────────────────
 
 const COLUMN_STYLES = {
-    'Nuevo':                { bg: 'bg-white/60', border: 'border-blue-100', headerBg: 'bg-gradient-to-r from-blue-600 to-blue-500', badge: 'bg-blue-50 text-blue-700 border-blue-200', dot: 'bg-blue-500', ring: 'ring-blue-200/60', iconBg: 'bg-blue-500/15' },
-    'Reunión Agendada':     { bg: 'bg-white/60', border: 'border-indigo-100', headerBg: 'bg-gradient-to-r from-indigo-600 to-indigo-500', badge: 'bg-indigo-50 text-indigo-700 border-indigo-200', dot: 'bg-indigo-500', ring: 'ring-indigo-200/60', iconBg: 'bg-indigo-500/15' },
-    'Reunión Confirmada':   { bg: 'bg-white/60', border: 'border-cyan-100', headerBg: 'bg-gradient-to-r from-cyan-600 to-cyan-500', badge: 'bg-cyan-50 text-cyan-700 border-cyan-200', dot: 'bg-cyan-500', ring: 'ring-cyan-200/60', iconBg: 'bg-cyan-500/15' },
-    'Aprobado':             { bg: 'bg-white/60', border: 'border-green-100', headerBg: 'bg-gradient-to-r from-green-600 to-green-500', badge: 'bg-green-50 text-green-700 border-green-200', dot: 'bg-green-500', ring: 'ring-green-200/60', iconBg: 'bg-green-500/15' },
-    'Desaprobado':          { bg: 'bg-white/60', border: 'border-red-100', headerBg: 'bg-gradient-to-r from-red-500 to-rose-500', badge: 'bg-red-50 text-red-700 border-red-200', dot: 'bg-red-500', ring: 'ring-red-200/60', iconBg: 'bg-red-500/15' },
-    'Ganado':               { bg: 'bg-white/60', border: 'border-emerald-100', headerBg: 'bg-gradient-to-r from-emerald-600 to-teal-500', badge: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500', ring: 'ring-emerald-200/60', iconBg: 'bg-emerald-500/15' },
-    'Perdido':              { bg: 'bg-white/60', border: 'border-slate-200', headerBg: 'bg-gradient-to-r from-slate-500 to-slate-400', badge: 'bg-slate-50 text-slate-600 border-slate-200', dot: 'bg-slate-400', ring: 'ring-slate-200/60', iconBg: 'bg-slate-400/15' },
-    'Seguimiento':          { bg: 'bg-white/60', border: 'border-amber-100', headerBg: 'bg-gradient-to-r from-amber-500 to-orange-500', badge: 'bg-amber-50 text-amber-700 border-amber-200', dot: 'bg-amber-500', ring: 'ring-amber-200/60', iconBg: 'bg-amber-500/15' },
+    'nuevo_lead':         { bg: 'bg-white/60', border: 'border-blue-100', headerBg: 'bg-gradient-to-r from-blue-600 to-blue-500', badge: 'bg-blue-50 text-blue-700 border-blue-200', dot: 'bg-blue-500', ring: 'ring-blue-200/60', iconBg: 'bg-blue-500/15' },
+    'contacto_inicial':   { bg: 'bg-white/60', border: 'border-indigo-100', headerBg: 'bg-gradient-to-r from-indigo-600 to-indigo-500', badge: 'bg-indigo-50 text-indigo-700 border-indigo-200', dot: 'bg-indigo-500', ring: 'ring-indigo-200/60', iconBg: 'bg-indigo-500/15' },
+    'pre_filtro':         { bg: 'bg-white/60', border: 'border-cyan-100', headerBg: 'bg-gradient-to-r from-cyan-600 to-cyan-500', badge: 'bg-cyan-50 text-cyan-700 border-cyan-200', dot: 'bg-cyan-500', ring: 'ring-cyan-200/60', iconBg: 'bg-cyan-500/15' },
+    'formulario_cv':      { bg: 'bg-white/60', border: 'border-violet-100', headerBg: 'bg-gradient-to-r from-violet-600 to-violet-500', badge: 'bg-violet-50 text-violet-700 border-violet-200', dot: 'bg-violet-500', ring: 'ring-violet-200/60', iconBg: 'bg-violet-500/15' },
+    'reunion_presencial': { bg: 'bg-white/60', border: 'border-amber-100', headerBg: 'bg-gradient-to-r from-amber-600 to-amber-500', badge: 'bg-amber-50 text-amber-700 border-amber-200', dot: 'bg-amber-500', ring: 'ring-amber-200/60', iconBg: 'bg-amber-500/15' },
+    'cierre_comercial':   { bg: 'bg-white/60', border: 'border-orange-100', headerBg: 'bg-gradient-to-r from-orange-500 to-red-500', badge: 'bg-orange-50 text-orange-700 border-orange-200', dot: 'bg-orange-500', ring: 'ring-orange-200/60', iconBg: 'bg-orange-500/15' },
+    'ganado':             { bg: 'bg-white/60', border: 'border-emerald-100', headerBg: 'bg-gradient-to-r from-emerald-600 to-teal-500', badge: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500', ring: 'ring-emerald-200/60', iconBg: 'bg-emerald-500/15' },
+    'perdido':            { bg: 'bg-white/60', border: 'border-slate-200', headerBg: 'bg-gradient-to-r from-slate-500 to-slate-400', badge: 'bg-slate-50 text-slate-600 border-slate-200', dot: 'bg-slate-400', ring: 'ring-slate-200/60', iconBg: 'bg-slate-400/15' },
+    'seguimiento':        { bg: 'bg-white/60', border: 'border-rose-100', headerBg: 'bg-gradient-to-r from-rose-500 to-rose-400', badge: 'bg-rose-50 text-rose-700 border-rose-200', dot: 'bg-rose-400', ring: 'ring-rose-200/60', iconBg: 'bg-rose-400/15' },
 }
 
 const STAGE_ICONS = {
-    'Nuevo': Zap,
-    'Reunión Agendada': CalendarClock,
-    'Reunión Confirmada': CalendarCheck,
-    'Aprobado': UserCheck,
-    'Desaprobado': UserX,
-    'Ganado': Trophy,
-    'Perdido': XCircle,
-    'Seguimiento': Bookmark,
+    'nuevo_lead': Zap,
+    'contacto_inicial': Mail,
+    'pre_filtro': Video,
+    'formulario_cv': FileText,
+    'reunion_presencial': Users,
+    'cierre_comercial': CreditCard,
+    'ganado': Trophy,
+    'perdido': XCircle,
+    'seguimiento': RefreshCw,
 }
 
 const SOURCE_COLORS = {
@@ -45,9 +48,17 @@ const SOURCE_COLORS = {
     'Manual': 'bg-slate-50 text-slate-600 border-slate-200',
 }
 
+// Action indicator badges
+const ACTION_INDICATORS = {
+    whatsapp_video_sent: { icon: '📹', label: 'Video WA' },
+    form_sent_at:        { icon: '📋', label: 'Form enviado' },
+    cv_uploaded_at:      { icon: '📎', label: 'CV subido' },
+    payment_status:      { icon: '💰', label: 'Pago' },
+}
+
 // ─── VISIBLE COLUMNS PERSISTENCE ──────────────────────────────────────────────
 
-const VIS_KEY = 'recruitment_pipeline_visible_cols'
+const VIS_KEY = 'recruitment_pipeline_visible_cols_v2'
 function loadVisible() {
     try {
         const s = localStorage.getItem(VIS_KEY)
@@ -120,7 +131,7 @@ export default function RecruitmentPipeline() {
         return matchSearch && matchSource
     }), [candidates, searchTerm, filterSource])
 
-    const getColCandidates = (colId) => filtered.filter(c => (c.pipeline_stage || 'Nuevo') === colId)
+    const getColCandidates = (colId) => filtered.filter(c => (c.pipeline_stage || 'nuevo_lead') === colId)
     const hasFilters = searchTerm || filterSource !== 'all'
 
     // ─── Drag & Drop ──────────────────────────────────────────────────────────
@@ -139,9 +150,9 @@ export default function RecruitmentPipeline() {
         e.preventDefault(); setDragOverCol(null)
         const cId = e.dataTransfer.getData('text/plain')
         const candidate = candidates.find(c => c.id === cId)
-        if (!candidate || (candidate.pipeline_stage || 'Nuevo') === targetStage) { setDraggedId(null); return }
+        if (!candidate || (candidate.pipeline_stage || 'nuevo_lead') === targetStage) { setDraggedId(null); return }
 
-        const fromStage = candidate.pipeline_stage || 'Nuevo'
+        const fromStage = candidate.pipeline_stage || 'nuevo_lead'
 
         // Optimistic update
         setCandidates(prev => prev.map(c =>
@@ -151,7 +162,7 @@ export default function RecruitmentPipeline() {
 
         try {
             await updatePipelineStage(cId, fromStage, targetStage, profile?.id)
-            toast.success(`Movido a "${targetStage}"`, { icon: '✓' })
+            toast.success(`Movido a "${PIPELINE_STAGES.find(s => s.id === targetStage)?.label || targetStage}"`, { icon: '✓' })
         } catch {
             toast.error('Error al actualizar estado')
             setCandidates(prev => prev.map(c => c.id === cId ? { ...c, pipeline_stage: fromStage } : c))
@@ -209,6 +220,7 @@ export default function RecruitmentPipeline() {
                         const count = getColCandidates(col.id).length
                         if (count === 0) return null
                         const colors = COLUMN_STYLES[col.id]
+                        if (!colors) return null
                         return (
                             <div key={col.id} className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border ${colors.badge}`}>
                                 <span className={`w-1.5 h-1.5 rounded-full ${colors.dot}`} />
@@ -281,14 +293,14 @@ export default function RecruitmentPipeline() {
                                         <div className="py-1">
                                             {PIPELINE_STAGES.map(col => {
                                                 const isVis = visibleCols.includes(col.id)
-                                                const colors = COLUMN_STYLES[col.id]
+                                                const colors = COLUMN_STYLES[col.id] || {}
                                                 return (
                                                     <button key={col.id} onClick={() => toggleCol(col.id)}
                                                         className={`w-full flex items-center gap-2.5 px-3 py-2 hover:bg-slate-50 transition-colors text-left ${!isVis ? 'opacity-50' : ''}`}>
                                                         <div className={`w-4 h-4 rounded flex items-center justify-center border transition-all ${isVis ? 'bg-primary border-primary' : 'border-slate-300'}`}>
                                                             {isVis && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
                                                         </div>
-                                                        <span className={`w-2 h-2 rounded-full ${colors.dot}`} />
+                                                        <span className={`w-2 h-2 rounded-full ${colors.dot || 'bg-slate-400'}`} />
                                                         <span className="flex-1 text-sm text-slate-700 font-medium">{col.label}</span>
                                                         <span className="text-[10px] text-slate-400 tabular-nums">{getColCandidates(col.id).length}</span>
                                                     </button>
@@ -340,7 +352,7 @@ export default function RecruitmentPipeline() {
                 <div className="flex gap-4 overflow-x-auto pb-4 -mx-2 px-2 snap-x">
                     {PIPELINE_STAGES.filter(col => visibleCols.includes(col.id)).map(col => {
                         const items = getColCandidates(col.id)
-                        const colors = COLUMN_STYLES[col.id]
+                        const colors = COLUMN_STYLES[col.id] || {}
                         const isOver = dragOverCol === col.id
                         const Icon = STAGE_ICONS[col.id] || Star
 
@@ -348,14 +360,14 @@ export default function RecruitmentPipeline() {
                             <div
                                 key={col.id}
                                 className={`flex-shrink-0 w-[300px] snap-start rounded-2xl border transition-all duration-200 flex flex-col
-                                    ${colors.border} ${colors.bg} backdrop-blur-sm
-                                    ${isOver ? `ring-2 ${colors.ring} border-dashed scale-[1.005]` : ''}`}
+                                    ${colors.border || ''} ${colors.bg || ''} backdrop-blur-sm
+                                    ${isOver ? `ring-2 ${colors.ring || ''} border-dashed scale-[1.005]` : ''}`}
                                 onDragOver={e => handleDragOver(e, col.id)}
                                 onDragLeave={handleDragLeave}
                                 onDrop={e => handleDrop(e, col.id)}
                             >
                                 {/* Column Header */}
-                                <div className={`${colors.headerBg} rounded-t-[14px] px-4 py-3 flex items-center justify-between`}>
+                                <div className={`${colors.headerBg || ''} rounded-t-[14px] px-4 py-3 flex items-center justify-between`}>
                                     <div className="flex items-center gap-2">
                                         <div className="p-1.5 bg-white/20 rounded-lg">
                                             <Icon className="w-4 h-4 text-white" strokeWidth={2.5} />
@@ -373,7 +385,7 @@ export default function RecruitmentPipeline() {
                                         {items.length === 0 ? (
                                             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                                                 className="flex flex-col items-center justify-center py-8 text-slate-300">
-                                                <div className={`p-3 rounded-full ${colors.iconBg} mb-2`}>
+                                                <div className={`p-3 rounded-full ${colors.iconBg || ''} mb-2`}>
                                                     <Icon className="w-6 h-6 opacity-50" />
                                                 </div>
                                                 <p className="text-xs font-medium text-slate-400">Sin candidatos</p>
@@ -422,6 +434,12 @@ function CandidateCard({ candidate, isDragged, onDragStart, onDragEnd, onNavigat
     const hue = fullName.split('').reduce((a, c) => a + c.charCodeAt(0), 0) % 360
     const srcCls = SOURCE_COLORS[candidate.source] || 'bg-slate-50 text-slate-600 border-slate-200'
 
+    // Action indicators
+    const actionBadges = []
+    if (candidate.whatsapp_video_sent) actionBadges.push({ icon: '📹', label: 'Video WA', color: 'bg-green-50 text-green-600 border-green-200' })
+    if (candidate.form_sent_at) actionBadges.push({ icon: '📋', label: candidate.cv_uploaded_at ? 'CV ✓' : 'Form', color: candidate.cv_uploaded_at ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-yellow-50 text-yellow-600 border-yellow-200' })
+    if (candidate.payment_status === 'pagado') actionBadges.push({ icon: '💰', label: 'Pagado', color: 'bg-emerald-50 text-emerald-600 border-emerald-200' })
+
     return (
         <motion.div
             layout
@@ -464,19 +482,24 @@ function CandidateCard({ candidate, isDragged, onDragStart, onDragEnd, onNavigat
                     <GripVertical className="w-3.5 h-3.5 text-slate-200 shrink-0 mt-1 opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
 
-                {/* Source tag */}
-                {candidate.source && (
-                    <div className="flex flex-wrap items-center gap-1 mt-2">
+                {/* Source tag + action indicators */}
+                <div className="flex flex-wrap items-center gap-1 mt-2">
+                    {candidate.source && (
                         <span className={`text-[10px] font-medium px-1.5 py-[1px] rounded border ${srcCls}`}>
                             {candidate.source}
                         </span>
-                        {candidate.city && (
-                            <span className="text-[10px] font-medium px-1.5 py-[1px] rounded bg-slate-50 text-slate-500 border border-slate-200 flex items-center gap-0.5">
-                                <MapPin className="w-2.5 h-2.5" />{candidate.city}
-                            </span>
-                        )}
-                    </div>
-                )}
+                    )}
+                    {candidate.city && (
+                        <span className="text-[10px] font-medium px-1.5 py-[1px] rounded bg-slate-50 text-slate-500 border border-slate-200 flex items-center gap-0.5">
+                            <MapPin className="w-2.5 h-2.5" />{candidate.city}
+                        </span>
+                    )}
+                    {actionBadges.map((b, i) => (
+                        <span key={i} className={`text-[10px] font-medium px-1.5 py-[1px] rounded border ${b.color}`}>
+                            {b.icon} {b.label}
+                        </span>
+                    ))}
+                </div>
             </div>
 
             {/* Expanded Details */}
@@ -489,6 +512,9 @@ function CandidateCard({ candidate, isDragged, onDragStart, onDragEnd, onNavigat
                             )}
                             {candidate.meeting_date && (
                                 <p className="flex items-center gap-1.5"><Clock className="w-3 h-3 opacity-50" />Reunión: <span className="font-medium text-slate-700">{formatDate(candidate.meeting_date)}</span></p>
+                            )}
+                            {candidate.rut && (
+                                <p className="flex items-center gap-1.5"><FileText className="w-3 h-3 opacity-50" />RUT: <span className="font-medium text-slate-700">{candidate.rut}</span></p>
                             )}
                             {candidate.notes && (
                                 <p className="italic text-slate-400 line-clamp-2 mt-1">"{candidate.notes}"</p>

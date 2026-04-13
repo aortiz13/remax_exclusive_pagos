@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 import { supabase } from '../../services/supabase'
-import { fetchCandidates, PIPELINE_STAGES } from '../../services/recruitmentService'
+import { fetchCandidates, PIPELINE_STAGES, fetchFunnelMetrics, fetchConversionBySource } from '../../services/recruitmentService'
 import { fetchRecruitmentTasks } from '../../services/recruitmentTaskService'
 import {
     Users, UserPlus, Trophy, ClipboardList, Clock, TrendingUp,
@@ -15,19 +15,20 @@ import {
 
 // ─── Constants ───────────────────────────────────────────────
 const STAGE_COLORS = {
-    'Nuevo': { bg: 'bg-blue-500', light: 'bg-blue-50 text-blue-700', bar: '#3b82f6' },
-    'Reunión Agendada': { bg: 'bg-sky-500', light: 'bg-sky-50 text-sky-700', bar: '#0ea5e9' },
-    'Reunión Confirmada': { bg: 'bg-indigo-500', light: 'bg-indigo-50 text-indigo-700', bar: '#6366f1' },
-    'Aprobado': { bg: 'bg-emerald-500', light: 'bg-emerald-50 text-emerald-700', bar: '#10b981' },
-    'Desaprobado': { bg: 'bg-red-500', light: 'bg-red-50 text-red-700', bar: '#ef4444' },
-    'Ganado': { bg: 'bg-green-600', light: 'bg-green-50 text-green-700', bar: '#16a34a' },
-    'Perdido': { bg: 'bg-slate-400', light: 'bg-slate-100 text-slate-600', bar: '#94a3b8' },
-    'Seguimiento': { bg: 'bg-amber-500', light: 'bg-amber-50 text-amber-700', bar: '#f59e0b' },
+    'nuevo_lead':         { bg: 'bg-blue-500',    light: 'bg-blue-50 text-blue-700',      bar: '#3b82f6' },
+    'contacto_inicial':   { bg: 'bg-indigo-500',  light: 'bg-indigo-50 text-indigo-700',  bar: '#6366f1' },
+    'pre_filtro':         { bg: 'bg-cyan-500',    light: 'bg-cyan-50 text-cyan-700',      bar: '#06b6d4' },
+    'formulario_cv':      { bg: 'bg-violet-500',  light: 'bg-violet-50 text-violet-700',  bar: '#8b5cf6' },
+    'reunion_presencial': { bg: 'bg-amber-500',   light: 'bg-amber-50 text-amber-700',    bar: '#f59e0b' },
+    'cierre_comercial':   { bg: 'bg-orange-500',  light: 'bg-orange-50 text-orange-700',  bar: '#f97316' },
+    'ganado':             { bg: 'bg-emerald-500', light: 'bg-emerald-50 text-emerald-700', bar: '#10b981' },
+    'perdido':            { bg: 'bg-slate-400',   light: 'bg-slate-100 text-slate-600',    bar: '#94a3b8' },
+    'seguimiento':        { bg: 'bg-rose-400',    light: 'bg-rose-50 text-rose-700',       bar: '#fb7185' },
 }
 const STAGE_ICONS = {
-    'Nuevo': Zap, 'Reunión Agendada': CalendarClock, 'Reunión Confirmada': CalendarCheck,
-    'Aprobado': UserCheck, 'Desaprobado': UserX, 'Ganado': Trophy,
-    'Perdido': XCircle, 'Seguimiento': Bookmark,
+    'nuevo_lead': Zap, 'contacto_inicial': Mail, 'pre_filtro': CalendarCheck,
+    'formulario_cv': FileText, 'reunion_presencial': CalendarClock, 'cierre_comercial': UserCheck,
+    'ganado': Trophy, 'perdido': XCircle, 'seguimiento': Bookmark,
 }
 
 const DATE_RANGES = [
@@ -104,7 +105,7 @@ export default function RecruitmentDashboard() {
     // ─── KPI stats ────────────────────────────────────────────
     const total = filteredCandidates.length
     const newThisWeek = filteredCandidates.filter(c => new Date(c.created_at) >= weekAgo).length
-    const wonCount = filteredCandidates.filter(c => c.pipeline_stage === 'Ganado').length
+    const wonCount = filteredCandidates.filter(c => c.pipeline_stage === 'ganado').length
     const conversionRate = total > 0 ? ((wonCount / total) * 100).toFixed(1) : '0'
     const pendingTasks = tasks.filter(t => !t.completed).length
     const overdueTasks = tasks.filter(t => !t.completed && t.execution_date && new Date(t.execution_date) < now)
@@ -122,7 +123,7 @@ export default function RecruitmentDashboard() {
             const s = c.source || 'Sin fuente'
             if (!map[s]) map[s] = { total: 0, won: 0 }
             map[s].total++
-            if (c.pipeline_stage === 'Ganado') map[s].won++
+            if (c.pipeline_stage === 'ganado') map[s].won++
         })
         return Object.entries(map)
             .map(([source, stats]) => ({ source, ...stats, rate: stats.total > 0 ? ((stats.won / stats.total) * 100).toFixed(0) : '0' }))
