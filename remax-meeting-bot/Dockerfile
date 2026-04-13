@@ -24,14 +24,11 @@ COPY src/ ./src/
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-# Copy auth state if available (from local login)
-COPY auth-state.json /app/google-session/auth-state.json
+# Create directory for persistent Google session
+RUN mkdir -p /app/google-session
 
 ENV NODE_ENV=production
 ENV DISPLAY=:99
 ENV BOT_USER_DATA_DIR=/app/google-session
-
-# Expose auth server port
-EXPOSE 3099
 
 CMD ["/entrypoint.sh"]

@@ -15,19 +15,19 @@ pactl set-default-sink VirtualSink 2>/dev/null || true
 
 echo "✅ Virtual display and audio ready"
 
-# Check auth state
-echo "🔐 Checking Google auth state..."
-if [ -f "/app/google-session/auth-state.json" ]; then
-    echo "✅ Google auth state found"
+# Restore Google auth state from env var if provided
+if [ -n "$GOOGLE_AUTH_STATE_B64" ]; then
+    echo "🔐 Restoring Google auth from environment variable..."
+    mkdir -p /app/google-session
+    echo "$GOOGLE_AUTH_STATE_B64" | base64 -d > /app/google-session/auth-state.json
+    echo "✅ Google auth state restored ($(wc -c < /app/google-session/auth-state.json) bytes)"
+elif [ -f "/app/google-session/auth-state.json" ]; then
+    echo "✅ Google auth state found on disk"
 else
-    echo "⚠️  No Google auth. Use the auth endpoint to setup."
-    echo "   POST http://localhost:3099/auth/setup"
+    echo "⚠️  No Google auth. Set GOOGLE_AUTH_STATE_B64 env var or mount auth-state.json"
 fi
 
-echo "🤖 Starting Meeting Bot Worker + Auth Server..."
-
-# Start auth server in background
-node src/setupAuth.js --server &
+echo "🤖 Starting Meeting Bot Worker..."
 
 # Start main worker
 exec node src/worker.js
