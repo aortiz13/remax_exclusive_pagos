@@ -1,7 +1,7 @@
-FROM mcr.microsoft.com/playwright:v1.52.0-noble
+FROM mcr.microsoft.com/playwright:v1.49.1-noble
 
 # Install audio/video dependencies
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     pulseaudio \
     ffmpeg \
     xvfb \
@@ -14,11 +14,11 @@ RUN mkdir -p /root/.config/pulse && \
 
 WORKDIR /app
 
-COPY package*.json ./
-RUN npm ci --production
+COPY package.json ./
+RUN npm install --omit=dev
 
-# Install Playwright browsers
-RUN npx playwright install chromium
+# Install Playwright Chromium browser
+RUN npx playwright install chromium --with-deps
 
 COPY src/ ./src/
 COPY entrypoint.sh /entrypoint.sh
