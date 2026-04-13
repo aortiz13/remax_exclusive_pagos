@@ -9,6 +9,7 @@ import {
     Sparkles, CheckCircle2, AlertCircle, User, Briefcase, Calendar,
     Loader2, Download, Volume2, XCircle, RotateCcw
 } from 'lucide-react'
+import MeetingBotPanel from './MeetingBotPanel'
 
 const PLATFORM_LABELS = {
     google_meet: 'Google Meet',
@@ -46,34 +47,41 @@ export default function MeetingsTab({ candidateId, onCandidateUpdated }) {
 
     if (meetings.length === 0) {
         return (
-            <div className="text-center py-12">
-                <Video className="w-12 h-12 text-slate-200 mx-auto mb-3" />
-                <p className="text-sm text-slate-400 font-medium">Sin reuniones grabadas</p>
-                <p className="text-xs text-slate-300 mt-1">
-                    Usa la extensión de Chrome para grabar una reunión con este candidato
-                </p>
+            <div className="space-y-6">
+                <MeetingBotPanel candidateId={candidateId} onMeetingCompleted={loadMeetings} />
+                <div className="text-center py-12">
+                    <Video className="w-12 h-12 text-slate-200 mx-auto mb-3" />
+                    <p className="text-sm text-slate-400 font-medium">Sin reuniones grabadas</p>
+                    <p className="text-xs text-slate-300 mt-1">
+                        Envía el bot a una reunión o usa la extensión de Chrome para grabar
+                    </p>
+                </div>
             </div>
         )
     }
 
     return (
-        <div className="space-y-3">
-            <div className="flex items-center justify-between">
-                <p className="text-xs text-slate-400 font-medium">
-                    {meetings.length} reunión{meetings.length !== 1 ? 'es' : ''} grabada{meetings.length !== 1 ? 's' : ''}
-                </p>
-            </div>
+        <div className="space-y-6">
+            <MeetingBotPanel candidateId={candidateId} onMeetingCompleted={loadMeetings} />
 
-            {meetings.map(meeting => (
-                <MeetingCard
-                    key={meeting.id}
-                    meeting={meeting}
-                    isExpanded={expandedId === meeting.id}
-                    onToggle={() => setExpandedId(expandedId === meeting.id ? null : meeting.id)}
-                    onMeetingUpdated={loadMeetings}
-                    onCandidateUpdated={onCandidateUpdated}
-                />
-            ))}
+            <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                    <p className="text-xs text-slate-400 font-medium">
+                        {meetings.length} reunión{meetings.length !== 1 ? 'es' : ''} grabada{meetings.length !== 1 ? 's' : ''}
+                    </p>
+                </div>
+
+                {meetings.map(meeting => (
+                    <MeetingCard
+                        key={meeting.id}
+                        meeting={meeting}
+                        isExpanded={expandedId === meeting.id}
+                        onToggle={() => setExpandedId(expandedId === meeting.id ? null : meeting.id)}
+                        onMeetingUpdated={loadMeetings}
+                        onCandidateUpdated={onCandidateUpdated}
+                    />
+                ))}
+            </div>
         </div>
     )
 }

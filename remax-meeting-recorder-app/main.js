@@ -1,5 +1,6 @@
 const { app, BrowserWindow, ipcMain, desktopCapturer, systemPreferences, session, Tray, Menu, nativeImage, Notification } = require('electron');
 const path = require('path');
+const { exec } = require('child_process');
 
 let mainWindow = null;
 let tray = null;
@@ -12,7 +13,7 @@ let lastMeetSourceId = null;
 function createWindow() {
     mainWindow = new BrowserWindow({
         width: 380,
-        height: 520,
+        height: 580,
         minWidth: 340,
         minHeight: 480,
         maxWidth: 440,
@@ -35,8 +36,8 @@ function createWindow() {
     mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
 
     mainWindow.once('ready-to-show', () => {
-        // Start minimized to tray — only show when meeting detected or user clicks tray
-        // mainWindow.show(); // Don't show on start
+        // Show on start so user can log in
+        mainWindow.show();
     });
 
     mainWindow.on('closed', () => {
@@ -44,7 +45,6 @@ function createWindow() {
     });
 
     mainWindow.on('close', (e) => {
-        // Hide instead of close (stay in tray)
         if (!app.isQuitting) {
             e.preventDefault();
             mainWindow.hide();
@@ -54,11 +54,25 @@ function createWindow() {
     mainWindow.webContents.on('will-navigate', (e) => e.preventDefault());
 }
 
-// ─── Display Media Handler (system audio capture) ────────────────
+// ─── Display Media Handler ───────────────────────────────────────
 function setupDisplayMediaHandler() {
     session.defaultSession.setDisplayMediaRequestHandler(async (request, callback) => {
         try {
-            const sources = await desktopCapturer.getSources({ types: ['window', 'screen'] });
+            console.log('[MediaHandler] getDisplayMedia requested');
+            const sources = await desktopCapturer.getSources({
+                types: ['screen', 'window'],
+                thumbnailSize: { width: 1, height: 1 },
+            });
+
+            if (!sources || sources.length === 0) {
+                console.error('[MediaHandler] No sources — Screen Recording permission denied');
+                // Don't call callback — let getDisplayMedia reject so renderer falls back to mic
+                return;
+            }
+
+            console.log('[MediaHandler] Sources available:', sources.length);
+
+            // Find best source
             let source = null;
             if (selectedSourceId) {
                 source = sources.find(s => s.id === selectedSourceId);
@@ -66,22 +80,54 @@ function setupDisplayMediaHandler() {
             if (!source) {
                 source = sources.find(s => s.id.startsWith('screen:')) || sources[0];
             }
-            if (!source) { callback({}); return; }
+
+            console.log('[MediaHandler] Using source:', source.name);
             callback({ video: source, audio: 'loopback' });
         } catch (err) {
-            console.error('Display media handler error:', err);
-            callback({});
+            console.error('[MediaHandler] Error:', err.message);
+            // Don't call callback — let getDisplayMedia reject
         }
     });
 }
 
-// ─── Meeting Detection ──────────────────────────────────────────
-const { exec } = require('child_process');
+// ─── Screen Recording Permission ─────────────────────────────────
+function checkScreenRecordingPermission() {
+    if (process.platform !== 'darwin') return true;
 
+    // On macOS 10.15+, check screen recording access
+    try {
+        const status = systemPreferences.getMediaAccessStatus('screen');
+        console.log('[Permissions] Screen recording status:', status);
+        return status === 'granted';
+    } catch {
+        return false;
+    }
+}
+
+async function requestScreenRecordingPermission() {
+    if (process.platform !== 'darwin') return true;
+
+    const hasPermission = checkScreenRecordingPermission();
+    if (hasPermission) {
+        console.log('[Permissions] ✅ Screen recording permission granted');
+        return true;
+    }
+
+    console.log('[Permissions] ⚠️ Screen recording NOT granted, requesting...');
+    // On macOS, we need to trigger the permission dialog by trying to capture
+    // The system will show a dialog asking the user to grant access
+    try {
+        await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: 1, height: 1 } });
+    } catch {
+        // This triggers the macOS permission dialog
+    }
+
+    return checkScreenRecordingPermission();
+}
+
+// ─── Meeting Detection (AppleScript for macOS) ──────────────────
 function detectMeetingMac() {
     return new Promise((resolve) => {
-        // In dev: scripts/ is next to main.js
-        // In built app: scripts/ is in Resources/scripts/ via extraResources
         const scriptPath = app.isPackaged
             ? path.join(process.resourcesPath, 'scripts', 'detect-meet.scpt')
             : path.join(__dirname, 'scripts', 'detect-meet.scpt');
@@ -104,7 +150,6 @@ function startMeetingDetection() {
             if (process.platform === 'darwin') {
                 meetTitle = await detectMeetingMac();
             } else {
-                // Windows: use desktopCapturer
                 try {
                     const sources = await desktopCapturer.getSources({
                         types: ['window'],
@@ -121,31 +166,30 @@ function startMeetingDetection() {
                         meetTitle = meetSource.name;
                         lastMeetSourceId = meetSource.id;
                     }
-                } catch {
-                    // Screen recording permission not granted
-                }
+                } catch { /* no permission */ }
             }
 
             if (meetTitle && !meetingActive) {
                 meetingActive = true;
                 console.log(`[Detector] 🎥 Meeting detected: "${meetTitle}"`);
 
-                // On macOS, try to get the source ID for recording
-                if (process.platform === 'darwin' && !lastMeetSourceId) {
+                // Try to get source ID for recording (non-blocking)
+                if (!lastMeetSourceId) {
                     try {
                         const sources = await desktopCapturer.getSources({
-                            types: ['window', 'screen'],
+                            types: ['screen', 'window'],
                             thumbnailSize: { width: 1, height: 1 },
                         });
-                        // Find Chrome window or use first screen
-                        const chromeWin = sources.find(s => s.name.toLowerCase().includes('chrome') || s.name.toLowerCase().includes('meet'));
-                        lastMeetSourceId = chromeWin?.id || sources.find(s => s.id.startsWith('screen:'))?.id || sources[0]?.id;
+                        const chromeWin = sources.find(s =>
+                            s.name.toLowerCase().includes('chrome') || s.name.toLowerCase().includes('meet')
+                        );
+                        lastMeetSourceId = chromeWin?.id || sources.find(s => s.id.startsWith('screen:'))?.id;
                     } catch {
-                        // Will use screen as fallback when recording starts
+                        console.log('[Detector] Could not get source ID — will use screen fallback');
                     }
                 }
 
-                // Show notification
+                // Notify
                 if (Notification.isSupported()) {
                     const notif = new Notification({
                         title: 'Reunión detectada',
@@ -153,10 +197,7 @@ function startMeetingDetection() {
                         icon: path.join(__dirname, 'assets', 'icon.png'),
                         silent: false,
                     });
-                    notif.on('click', () => {
-                        mainWindow?.show();
-                        mainWindow?.focus();
-                    });
+                    notif.on('click', () => { mainWindow?.show(); mainWindow?.focus(); });
                     notif.show();
                 }
 
@@ -164,7 +205,6 @@ function startMeetingDetection() {
                     sourceId: lastMeetSourceId || 'screen:0:0',
                     sourceName: meetTitle,
                 });
-
                 mainWindow?.show();
                 mainWindow?.focus();
 
@@ -221,7 +261,7 @@ function createTray() {
 }
 
 // ─── App Lifecycle ───────────────────────────────────────────────
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
     setupDisplayMediaHandler();
     createWindow();
     createTray();
@@ -229,7 +269,8 @@ app.whenReady().then(() => {
     // Request permissions on macOS
     if (process.platform === 'darwin') {
         systemPreferences.askForMediaAccess('microphone').catch(() => {});
-        systemPreferences.askForMediaAccess('camera').catch(() => {});
+        // Check screen recording (non-blocking, just log)
+        await requestScreenRecordingPermission();
     }
 
     // Start detecting meetings
@@ -258,16 +299,23 @@ app.on('before-quit', () => {
 });
 
 // ─── IPC Handlers ────────────────────────────────────────────────
-
-// Set selected source for recording
 ipcMain.handle('set-selected-source', (event, sourceId) => {
     selectedSourceId = sourceId;
     return true;
 });
 
-// Get current meeting status
 ipcMain.handle('get-meeting-status', () => {
     return { active: meetingActive, sourceId: lastMeetSourceId };
+});
+
+// Check screen recording permission
+ipcMain.handle('check-screen-permission', () => {
+    return checkScreenRecordingPermission();
+});
+
+// Request permission
+ipcMain.handle('request-screen-permission', async () => {
+    return await requestScreenRecordingPermission();
 });
 
 // Window controls

@@ -9,6 +9,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     setSelectedSource: (sourceId) => ipcRenderer.invoke('set-selected-source', sourceId),
     getMeetingStatus: () => ipcRenderer.invoke('get-meeting-status'),
 
+    // Permissions
+    checkScreenPermission: () => ipcRenderer.invoke('check-screen-permission'),
+    requestScreenPermission: () => ipcRenderer.invoke('request-screen-permission'),
+
     // Window controls
     minimizeWindow: () => ipcRenderer.invoke('window-minimize'),
     closeWindow: () => ipcRenderer.invoke('window-close'),

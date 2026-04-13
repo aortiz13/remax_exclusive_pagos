@@ -173,47 +173,72 @@ function getCurrentState() {
 
 // ─── Recording ──────────────────────────────────────────────────
 async function startRecording() {
-    if (!meetSourceId) return;
     audioChunks = [];
 
     try {
-        // Tell main process the source
+        let recordStream = null;
+        let captureMode = 'none';
+
+        // Check if screen recording permission is available BEFORE trying
+        let hasScreenPermission = false;
         if (window.electronAPI) {
-            await window.electronAPI.setSelectedSource(meetSourceId);
+            hasScreenPermission = await window.electronAPI.checkScreenPermission();
+            console.log('[Recording] Screen permission:', hasScreenPermission);
         }
 
-        // Capture system audio via getDisplayMedia + loopback
-        const displayStream = await navigator.mediaDevices.getDisplayMedia({
-            audio: true,
-            video: { width: { max: 1 }, height: { max: 1 }, frameRate: { max: 1 } },
-        });
-
-        const systemAudioTracks = displayStream.getAudioTracks();
-        displayStream.getVideoTracks().forEach(t => t.stop());
-
-        let recordStream;
-
-        if (systemAudioTracks.length > 0) {
-            const ctx = new AudioContext();
-            const dest = ctx.createMediaStreamDestination();
-            const systemSource = ctx.createMediaStreamSource(new MediaStream(systemAudioTracks));
-            systemSource.connect(dest);
-
+        // Strategy 1: System audio (only if permission granted)
+        if (hasScreenPermission) {
             try {
-                const micStream = await navigator.mediaDevices.getUserMedia({
+                console.log('[Recording] Trying system audio capture...');
+                if (window.electronAPI) {
+                    await window.electronAPI.setSelectedSource(meetSourceId || 'screen:0:0');
+                }
+
+                const displayStream = await navigator.mediaDevices.getDisplayMedia({
+                    audio: true,
+                    video: { width: { max: 1 }, height: { max: 1 }, frameRate: { max: 1 } },
+                });
+
+                const systemAudioTracks = displayStream.getAudioTracks();
+                displayStream.getVideoTracks().forEach(t => t.stop());
+
+                if (systemAudioTracks.length > 0) {
+                    const ctx = new AudioContext();
+                    const dest = ctx.createMediaStreamDestination();
+                    ctx.createMediaStreamSource(new MediaStream(systemAudioTracks)).connect(dest);
+
+                    try {
+                        const micStream = await navigator.mediaDevices.getUserMedia({
+                            audio: { echoCancellation: true, noiseSuppression: true },
+                        });
+                        ctx.createMediaStreamSource(micStream).connect(dest);
+                        captureMode = 'system+mic';
+                    } catch {
+                        captureMode = 'system';
+                    }
+
+                    recordStream = dest.stream;
+                    console.log(`[Recording] ✅ System audio captured (${captureMode})`);
+                }
+            } catch (displayErr) {
+                console.warn('[Recording] System audio failed:', displayErr.message);
+            }
+        } else {
+            console.log('[Recording] Screen permission denied — skipping system audio');
+        }
+
+        // Strategy 2: Microphone only (always works)
+        if (!recordStream) {
+            console.log('[Recording] Using microphone only...');
+            try {
+                recordStream = await navigator.mediaDevices.getUserMedia({
                     audio: { echoCancellation: true, noiseSuppression: true },
                 });
-                ctx.createMediaStreamSource(micStream).connect(dest);
+                captureMode = 'mic-only';
+                console.log('[Recording] ✅ Microphone ready');
             } catch (micErr) {
-                console.warn('Mic not available:', micErr.message);
+                throw new Error('No se pudo acceder al micrófono. Permite el acceso en Preferencias del Sistema.');
             }
-
-            recordStream = dest.stream;
-        } else {
-            console.warn('No system audio, mic only');
-            recordStream = await navigator.mediaDevices.getUserMedia({
-                audio: { echoCancellation: true, noiseSuppression: true },
-            });
         }
 
         const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
@@ -234,9 +259,25 @@ async function startRecording() {
             resetPostForm();
         };
 
+        mediaRecorder.onerror = (e) => {
+            console.error('[Recording] MediaRecorder error:', e);
+            stopRecording();
+            errorMsg.textContent = 'Error durante la grabación';
+            showState('error');
+        };
+
         mediaRecorder.start(1000);
         recordingStartTime = Date.now();
         timerInterval = setInterval(updateTimer, 1000);
+
+        // Update hint based on capture mode
+        const hint = document.querySelector('.rec-hint');
+        if (hint) {
+            if (captureMode === 'system+mic') hint.textContent = '🎧 Grabando audio del sistema + micrófono';
+            else if (captureMode === 'system') hint.textContent = '🎧 Grabando audio del sistema';
+            else hint.textContent = '🎤 Grabando solo micrófono (audio del sistema no disponible)';
+        }
+
         showState('recording');
 
     } catch (err) {
