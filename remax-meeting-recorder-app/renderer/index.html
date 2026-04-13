@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src https://remax-crm-remax-app.jzuuqr.easypanel.host; media-src mediastream: blob:;">
+  <title>RE/MAX Meeting Recorder</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- ═══════ Title Bar ═══════ -->
+  <div class="titlebar" id="titlebar">
+    <div class="titlebar-drag"></div>
+    <div class="titlebar-btns">
+      <button class="tb-btn tb-minimize" id="btn-minimize" title="Minimizar">
+        <svg width="10" height="10" viewBox="0 0 10 10"><rect y="4" width="10" height="2" rx="1" fill="currentColor"/></svg>
+      </button>
+      <button class="tb-btn tb-close" id="btn-close" title="Cerrar">
+        <svg width="10" height="10" viewBox="0 0 10 10"><path d="M1 1l8 8M9 1l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- ═══════ Login Screen ═══════ -->
+  <div id="screen-login" class="screen active">
+    <div class="login-container">
+      <div class="logo-section">
+        <div class="logo-icon">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+            <rect x="9" y="2" width="6" height="11" rx="3"/>
+            <path d="M5 10a7 7 0 0 0 14 0"/>
+            <line x1="12" y1="17" x2="12" y2="21"/>
+            <line x1="8" y1="21" x2="16" y2="21"/>
+          </svg>
+        </div>
+        <h1>RE/MAX<br><span>Meeting Recorder</span></h1>
+        <p class="version" id="app-version"></p>
+      </div>
+
+      <div class="form-group">
+        <label>Token de acceso</label>
+        <input type="password" id="login-token" placeholder="Pega tu JWT token aquí..." />
+        <p class="hint">Copia el token desde el CRM → Reclutamiento → Grabadora</p>
+      </div>
+
+      <button id="btn-login" class="btn btn-primary">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+        Iniciar Sesión
+      </button>
+      <div id="login-error" class="error-msg" style="display:none"></div>
+    </div>
+  </div>
+
+  <!-- ═══════ Main Screen ═══════ -->
+  <div id="screen-main" class="screen">
+    <!-- Header -->
+    <div class="header">
+      <div class="header-left">
+        <div class="avatar-sm" id="user-avatar">A</div>
+        <div>
+          <h2 id="user-name">Usuario</h2>
+          <p class="user-role">RE/MAX Exclusive</p>
+        </div>
+      </div>
+      <button id="btn-logout" class="btn-icon" title="Cerrar sesión">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      </button>
+    </div>
+
+    <!-- Step 1: Select source -->
+    <div class="section" id="section-source">
+      <div class="section-header">
+        <span class="step-badge">1</span>
+        <h3>Selecciona la ventana a grabar</h3>
+      </div>
+      <button id="btn-choose-source" class="btn btn-outline btn-block">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        Elegir ventana o pantalla
+      </button>
+      <div id="selected-source" class="selected-source" style="display:none">
+        <img id="source-thumb" class="source-thumb" />
+        <div class="source-info">
+          <span id="source-name" class="source-name"></span>
+          <button id="btn-change-source" class="btn-link">Cambiar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Source picker modal -->
+    <div id="source-modal" class="modal" style="display:none">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Elige qué grabar</h3>
+          <button id="btn-close-modal" class="btn-icon-sm">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div id="source-list" class="source-list"></div>
+      </div>
+    </div>
+
+    <!-- Step 2: Select candidate -->
+    <div class="section" id="section-candidate">
+      <div class="section-header">
+        <span class="step-badge">2</span>
+        <h3>Selecciona el candidato</h3>
+      </div>
+      <div class="search-box" id="search-box">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="candidate-search" placeholder="Buscar por nombre..." />
+      </div>
+      <div id="candidate-results" class="search-results" style="display:none"></div>
+      <div id="selected-candidate" class="selected-candidate" style="display:none">
+        <div class="cand-avatar" id="cand-avatar"></div>
+        <div class="cand-info">
+          <span class="cand-name" id="cand-name"></span>
+          <span class="cand-email" id="cand-email"></span>
+        </div>
+        <button id="btn-clear-candidate" class="btn-icon-sm" title="Cambiar">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Step 3: Record -->
+    <div class="section" id="section-record">
+      <div class="section-header">
+        <span class="step-badge">3</span>
+        <h3>Graba la reunión</h3>
+      </div>
+
+      <div id="rec-idle" class="rec-panel">
+        <button id="btn-record" class="btn-record" disabled>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="8"/></svg>
+        </button>
+        <p class="rec-hint">Selecciona ventana y candidato para grabar</p>
+      </div>
+
+      <div id="rec-recording" class="rec-panel" style="display:none">
+        <div class="rec-live">
+          <span class="live-dot"></span>
+          <span class="live-text">GRABANDO</span>
+          <span class="rec-timer" id="rec-timer">00:00</span>
+        </div>
+        <div class="rec-wave" id="rec-wave">
+          <div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div>
+          <div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div>
+          <div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div>
+        </div>
+        <button id="btn-stop" class="btn btn-danger btn-block">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+          Detener grabación
+        </button>
+      </div>
+
+      <div id="rec-uploading" class="rec-panel" style="display:none">
+        <div class="upload-anim">
+          <div class="spinner-lg"></div>
+        </div>
+        <p class="upload-title">Subiendo y transcribiendo...</p>
+        <p class="upload-sub">Esto puede tomar unos segundos</p>
+      </div>
+
+      <div id="rec-done" class="rec-panel" style="display:none">
+        <div class="done-check">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        </div>
+        <p class="done-title">¡Reunión guardada!</p>
+        <p class="done-sub">Revisa la transcripción en el perfil del candidato en el CRM</p>
+        <button id="btn-new-recording" class="btn btn-outline btn-block" style="margin-top:12px">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+          Nueva grabación
+        </button>
+      </div>
+
+      <div id="rec-error" class="rec-panel" style="display:none">
+        <div class="error-check">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+        </div>
+        <p class="error-title">Error al procesar</p>
+        <p class="error-sub" id="error-msg"></p>
+        <button id="btn-retry" class="btn btn-outline btn-block" style="margin-top:8px">Reintentar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

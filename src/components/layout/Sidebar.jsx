@@ -36,7 +36,8 @@ import {
     FileSpreadsheet,
     UserPlus,
     ArrowLeftRight,
-    Receipt
+    Receipt,
+    Mic
 } from 'lucide-react'
 import { useState, useEffect, useCallback } from 'react'
 import { cn } from '@/lib/utils'
@@ -321,6 +322,7 @@ export default function Sidebar() {
             { title: 'Plantillas Email', icon: MessageSquare, path: '/recruitment/templates' },
             { title: 'Automatización', icon: Kanban, path: '/recruitment/automation' },
             { title: 'Calendario', icon: Calendar, path: '/recruitment/calendar' },
+            { title: 'Grabadora', icon: Mic, path: '/recruitment/recorder' },
             { title: 'Casilla', icon: MessageSquare, path: '/casilla' },
         ]
     }

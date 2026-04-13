@@ -68,6 +68,7 @@ import RecruitmentAutomationSettings from './pages/recruitment/RecruitmentAutoma
 import OnboardingForm from './pages/public/OnboardingForm'
 import RecruitmentCalendar from './pages/recruitment/RecruitmentCalendar'
 import RecruitmentWorkflow from './pages/recruitment/RecruitmentWorkflow'
+import RecruitmentRecorder from './pages/recruitment/RecruitmentRecorder'
 import { Toaster } from 'sonner'
 import { initGlobalErrorCapture, auditLog } from './services/auditLogService'
 
@@ -494,6 +495,11 @@ function App() {
                   <Route path="/recruitment/calendar" element={
                     <ProtectedRoute>
                       <RecruitmentCalendar />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/recruitment/recorder" element={
+                    <ProtectedRoute>
+                      <RecruitmentRecorder />
                     </ProtectedRoute>
                   } />
 
