@@ -10,13 +10,12 @@ import {
 
 const APP_VERSION = '1.0.0'
 
-// These URLs will point to MinIO once the binaries are uploaded
-const API_BASE = import.meta.env.VITE_API_URL || 'https://remax-crm-remax-app.jzuuqr.easypanel.host'
-const DOWNLOAD_BASE = `${API_BASE}/storage/v1/object/public/remax-storage/apps`
+// Downloads hosted on MinIO storage
+const STORAGE_BASE = 'https://remax-crm-remax-storage.jzuuqr.easypanel.host/apps'
 
 const DOWNLOADS = {
     mac: {
-        url: `${DOWNLOAD_BASE}/RE-MAX-Meeting-Recorder-${APP_VERSION}-universal.dmg`,
+        url: `${STORAGE_BASE}/RE-MAX-Meeting-Recorder-${APP_VERSION}-universal.dmg`,
         label: 'macOS',
         icon: Apple,
         ext: '.dmg',
@@ -24,7 +23,7 @@ const DOWNLOADS = {
         req: 'macOS 11 Big Sur o superior',
     },
     win: {
-        url: `${DOWNLOAD_BASE}/RE-MAX-Meeting-Recorder-Setup-${APP_VERSION}.exe`,
+        url: `${STORAGE_BASE}/RE-MAX-Meeting-Recorder-Setup-${APP_VERSION}.exe`,
         label: 'Windows',
         icon: Monitor,
         ext: '.exe',
