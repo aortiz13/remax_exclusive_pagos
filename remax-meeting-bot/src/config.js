@@ -14,9 +14,9 @@ export const config = {
     MINIO_PORT: parseInt(process.env.MINIO_PORT || '443'),
     MINIO_ACCESS_KEY: process.env.MINIO_ACCESS_KEY || 'remaxadmin',
     MINIO_SECRET_KEY: process.env.MINIO_SECRET_KEY || 'RemaxExclusive123!',
-    MINIO_USE_SSL: process.env.MINIO_USE_SSL !== 'false',
-    MINIO_PUBLIC_URL: process.env.MINIO_PUBLIC_URL || 'https://remax-crm-remax-storage.jzuuqr.easypanel.host',
-    MINIO_BUCKET: 'remax-storage',
+    MINIO_USE_SSL: process.env.MINIO_USE_SSL === 'true' || (parseInt(process.env.MINIO_PORT || '443') === 443),
+    MINIO_PUBLIC_URL: process.env.MINIO_PUBLIC_URL || process.env.PUBLIC_STORAGE_URL || 'https://remax-crm-remax-storage.jzuuqr.easypanel.host',
+    MINIO_BUCKET: process.env.MINIO_BUCKET || 'remax-storage',
 
     // OpenAI
     OPENAI_API_KEY: process.env.OPENAI_API_KEY,

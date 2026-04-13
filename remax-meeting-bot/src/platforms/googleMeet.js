@@ -1,13 +1,42 @@
 /**
- * Google Meet — Join Flow
+ * Google Meet — Join Flow (v2)
  * Handles joining a Google Meet as an anonymous user
+ * Fixed: dismisses cookie banners and overlay dialogs that block clicks
  */
 
 import { config } from '../config.js';
 
 // Selectors grouped for easy maintenance when Google updates their UI
 const SELECTORS = {
-    // Pre-join screen
+    // Cookie / consent banners that block everything
+    cookieDismiss: [
+        'button[aria-label="Accept all"]',
+        'button[aria-label="Aceptar todo"]',
+        'button[aria-label="Reject all"]',
+        'button[aria-label="Rechazar todo"]',
+        'button:has-text("Accept all")',
+        'button:has-text("Aceptar todo")',
+        'button:has-text("Rechazar todo")',
+        'button:has-text("Reject all")',
+        'button:has-text("Got it")',
+        'button:has-text("Entendido")',
+        'button:has-text("I agree")',
+        'button:has-text("Acepto")',
+        '[aria-label="Dismiss"]',
+        '[aria-label="Cerrar"]',
+    ],
+
+    // "Continue without signing in" / guest prompts
+    continueAsGuest: [
+        'button:has-text("Continue without signing in")',
+        'button:has-text("Continuar sin cuenta")',
+        'button:has-text("Continuar sin iniciar sesión")',
+        'button:has-text("Continue as guest")',
+        'a:has-text("Continue without signing in")',
+        'a:has-text("Continuar sin cuenta")',
+    ],
+
+    // Pre-join screen name input
     nameInput: [
         'input[aria-label="Tu nombre"]',
         'input[aria-label="Your name"]',
@@ -18,7 +47,7 @@ const SELECTORS = {
 
     // Join button variants
     joinButton: [
-        'button[data-is-touch-wrapper] span',
+        'button[jsname="Qx7uuf"]',
         '[aria-label*="Solicitar unirse"]',
         '[aria-label*="Ask to join"]',
         '[aria-label*="Unirme"]',
@@ -33,10 +62,13 @@ const SELECTORS = {
     // Waiting / admitted indicators
     inMeeting: [
         '[data-self-name]',
+        '[data-meeting-title]',
+        'div[data-allocation-index]',
         '[aria-label*="Presentación"]',
         '[aria-label*="Presentation"]',
-        'div[data-allocation-index]',
-        '[data-meeting-title]',
+        // Meeting controls visible = we're in
+        '[aria-label*="Leave call"]',
+        '[aria-label*="Salir de la llamada"]',
     ],
 
     // Meeting ended
@@ -49,7 +81,7 @@ const SELECTORS = {
         'div:has-text("Return to home screen")',
     ],
 
-    // Camera/Mic toggle buttons
+    // Camera/Mic toggle buttons  
     micToggle: [
         '[aria-label*="micrófono"]',
         '[aria-label*="microphone"]',
@@ -67,7 +99,6 @@ const SELECTORS = {
     participantCount: [
         '[aria-label*="participante"]',
         '[aria-label*="participant"]',
-        'span[jsname]:has-text(" / ")',
     ],
 };
 
@@ -87,6 +118,85 @@ async function findElement(page, selectorList, timeout = 5000) {
 }
 
 /**
+ * Dismiss ALL overlays — cookie banners, consent dialogs, etc.
+ */
+async function dismissOverlays(page) {
+    console.log('[GoogleMeet] Dismissing overlays...');
+    let dismissed = 0;
+
+    // 1. Try cookie consent buttons
+    for (const selector of SELECTORS.cookieDismiss) {
+        try {
+            const el = await page.$(selector);
+            if (el) {
+                await el.click({ force: true });
+                dismissed++;
+                console.log(`[GoogleMeet] Dismissed overlay: ${selector}`);
+                await page.waitForTimeout(500);
+            }
+        } catch { }
+    }
+
+    // 2. Try clicking the cookie consent via JS (Google's cookie iframe)
+    try {
+        const frames = page.frames();
+        for (const frame of frames) {
+            try {
+                const consentBtn = await frame.$('button#L2AGLb, button[aria-label="Accept all"]');
+                if (consentBtn) {
+                    await consentBtn.click({ force: true });
+                    dismissed++;
+                    console.log('[GoogleMeet] Dismissed cookie consent in iframe');
+                    await page.waitForTimeout(1000);
+                }
+            } catch { }
+        }
+    } catch { }
+
+    // 3. Remove any blocking overlays via JavaScript
+    try {
+        await page.evaluate(() => {
+            // Remove cookie consent banners
+            document.querySelectorAll('[aria-modal="true"], .consent-bump, .qqtRac, .gws-adscontrol').forEach(el => {
+                el.remove();
+            });
+            // Remove any fixed/absolute overlays that might block interaction
+            document.querySelectorAll('div[style*="position: fixed"], div[style*="position:fixed"]').forEach(el => {
+                if (el.style.zIndex > 100 && !el.querySelector('input') && !el.querySelector('[data-self-name]')) {
+                    el.remove();
+                }
+            });
+        });
+    } catch { }
+
+    // 4. Handle "Continue without signing in"
+    for (const selector of SELECTORS.continueAsGuest) {
+        try {
+            const el = await page.$(selector);
+            if (el) {
+                await el.click({ force: true });
+                dismissed++;
+                console.log('[GoogleMeet] Clicked "Continue without signing in"');
+                await page.waitForTimeout(2000);
+            }
+        } catch { }
+    }
+
+    console.log(`[GoogleMeet] Dismissed ${dismissed} overlay(s)`);
+    return dismissed;
+}
+
+/**
+ * Click an element using JavaScript (bypasses overlay interception)
+ */
+async function jsClick(page, element) {
+    await page.evaluate(el => {
+        el.scrollIntoView({ block: 'center' });
+        el.click();
+    }, element);
+}
+
+/**
  * Join a Google Meet meeting
  * @param {import('playwright').Page} page - Playwright page
  * @param {string} meetingUrl - Google Meet URL
@@ -98,76 +208,111 @@ export async function joinGoogleMeet(page, meetingUrl, botName = config.BOT_DISP
 
     try {
         // Navigate to the meeting
-        await page.goto(meetingUrl, { waitUntil: 'networkidle', timeout: 30000 });
-        await page.waitForTimeout(3000); // Let the page fully render
+        await page.goto(meetingUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+        await page.waitForTimeout(4000); // Let the page fully render
 
-        // Check if we need to dismiss any "Sign in" or "Continue without signing in" prompts
-        const continueWithoutSignIn = await page.$('button:has-text("Continue without signing in")');
-        const continuarSinCuenta = await page.$('button:has-text("Continuar sin cuenta")');
-        if (continueWithoutSignIn) {
-            await continueWithoutSignIn.click();
-            await page.waitForTimeout(2000);
-        } else if (continuarSinCuenta) {
-            await continuarSinCuenta.click();
-            await page.waitForTimeout(2000);
-        }
+        // === STEP 1: Dismiss ALL overlays (cookies, consent, etc.) ===
+        await dismissOverlays(page);
+        await page.waitForTimeout(1000);
 
-        // Try to turn off camera and mic BEFORE joining
+        // Dismiss again after wait (some appear delayed)
+        await dismissOverlays(page);
+
+        // === STEP 2: Try to turn off camera and mic BEFORE joining ===
         console.log('[GoogleMeet] Turning off camera and microphone...');
-        const micBtn = await findElement(page, SELECTORS.micToggle, 3000);
-        if (micBtn) {
-            const isOn = await micBtn.getAttribute('data-is-muted');
-            if (isOn !== 'true') {
-                await micBtn.click();
-                await page.waitForTimeout(500);
+        try {
+            const micBtn = await findElement(page, SELECTORS.micToggle, 3000);
+            if (micBtn) {
+                const ariaLabel = await micBtn.getAttribute('aria-label') || '';
+                // If mic is ON (label says "turn off"), click to mute
+                if (ariaLabel.toLowerCase().includes('desactivar') || ariaLabel.toLowerCase().includes('turn off')) {
+                    await jsClick(page, micBtn);
+                    await page.waitForTimeout(300);
+                }
             }
-        }
+        } catch { }
 
-        const camBtn = await findElement(page, SELECTORS.camToggle, 3000);
-        if (camBtn) {
-            const isOn = await camBtn.getAttribute('data-is-muted');
-            if (isOn !== 'true') {
-                await camBtn.click();
-                await page.waitForTimeout(500);
+        try {
+            const camBtn = await findElement(page, SELECTORS.camToggle, 3000);
+            if (camBtn) {
+                const ariaLabel = await camBtn.getAttribute('aria-label') || '';
+                if (ariaLabel.toLowerCase().includes('desactivar') || ariaLabel.toLowerCase().includes('turn off')) {
+                    await jsClick(page, camBtn);
+                    await page.waitForTimeout(300);
+                }
             }
-        }
+        } catch { }
 
-        // Enter the bot name
+        // === STEP 3: Enter the bot name ===
         console.log(`[GoogleMeet] Entering name: "${botName}"`);
         const nameInput = await findElement(page, SELECTORS.nameInput, 10000);
         if (nameInput) {
-            await nameInput.click({ clickCount: 3 }); // Select all
+            await nameInput.click({ force: true, clickCount: 3 });
             await nameInput.fill(botName);
             await page.waitForTimeout(500);
+            console.log('[GoogleMeet] Name entered successfully');
         } else {
             console.log('[GoogleMeet] Name input not found — may already have a name set');
         }
 
-        // Click join button
+        // === STEP 4: Click join button ===
         console.log('[GoogleMeet] Clicking join button...');
+        
+        // Try strategy 1: find via selectors and force-click
+        let joined = false;
         const joinBtn = await findElement(page, SELECTORS.joinButton, 10000);
-        if (!joinBtn) {
-            // Try clicking any button that looks like join
-            const allButtons = await page.$$('button');
-            let clicked = false;
-            for (const btn of allButtons) {
-                const text = await btn.textContent();
-                if (text && (text.includes('Unir') || text.includes('Join') || text.includes('Solicitar') || text.includes('Pedir'))) {
-                    await btn.click();
-                    clicked = true;
-                    break;
+        if (joinBtn) {
+            try {
+                await joinBtn.click({ force: true, timeout: 5000 });
+                joined = true;
+                console.log('[GoogleMeet] Join button clicked (force)');
+            } catch {
+                // Strategy 2: JS click
+                try {
+                    await jsClick(page, joinBtn);
+                    joined = true;
+                    console.log('[GoogleMeet] Join button clicked (JS)');
+                } catch (e2) {
+                    console.log('[GoogleMeet] JS click also failed:', e2.message);
                 }
             }
-            if (!clicked) {
-                return { success: false, error: 'Join button not found' };
+        }
+
+        // Strategy 3: Find any button with join-like text
+        if (!joined) {
+            console.log('[GoogleMeet] Trying button text search...');
+            const allButtons = await page.$$('button');
+            for (const btn of allButtons) {
+                try {
+                    const text = await btn.textContent();
+                    if (text && (
+                        text.includes('Unir') || text.includes('Join') ||
+                        text.includes('Solicitar') || text.includes('Pedir') ||
+                        text.includes('Ask to')
+                    )) {
+                        await page.evaluate(el => el.click(), btn);
+                        joined = true;
+                        console.log(`[GoogleMeet] Clicked button with text: "${text.trim()}"`);
+                        break;
+                    }
+                } catch { }
             }
-        } else {
-            await joinBtn.click();
+        }
+
+        // Strategy 4: Press Enter (sometimes works on the name input)
+        if (!joined) {
+            console.log('[GoogleMeet] Trying Enter key...');
+            await page.keyboard.press('Enter');
+            joined = true;
+        }
+
+        if (!joined) {
+            return { success: false, error: 'Join button not found' };
         }
 
         console.log('[GoogleMeet] Waiting to be admitted...');
 
-        // Wait to be admitted (up to JOIN_TIMEOUT)
+        // === STEP 5: Wait to be admitted ===
         const joinTimeout = config.BOT_JOIN_TIMEOUT * 1000;
         const startWait = Date.now();
 
@@ -213,7 +358,6 @@ export async function isMeetingEnded(page) {
  */
 export async function getParticipantCount(page) {
     try {
-        // Try to extract participant count from the UI
         const countEl = await findElement(page, SELECTORS.participantCount, 2000);
         if (countEl) {
             const text = await countEl.textContent();
