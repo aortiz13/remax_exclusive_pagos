@@ -76,37 +76,80 @@ function setupDisplayMediaHandler() {
 }
 
 // ─── Meeting Detection ──────────────────────────────────────────
+const { exec } = require('child_process');
+
+function detectMeetingMac() {
+    return new Promise((resolve) => {
+        // In dev: scripts/ is next to main.js
+        // In built app: scripts/ is in Resources/scripts/ via extraResources
+        const scriptPath = app.isPackaged
+            ? path.join(process.resourcesPath, 'scripts', 'detect-meet.scpt')
+            : path.join(__dirname, 'scripts', 'detect-meet.scpt');
+        exec(`osascript "${scriptPath}"`, { timeout: 5000 }, (err, stdout) => {
+            if (err) { resolve(null); return; }
+            const title = stdout.trim();
+            resolve(title && title.length > 0 ? title : null);
+        });
+    });
+}
+
 function startMeetingDetection() {
     if (meetingDetectionInterval) return;
 
     console.log('[Detector] Starting meeting detection...');
     meetingDetectionInterval = setInterval(async () => {
         try {
-            const sources = await desktopCapturer.getSources({
-                types: ['window'],
-                thumbnailSize: { width: 1, height: 1 },
-            });
+            let meetTitle = null;
 
-            // Look for Google Meet windows
-            const meetWindow = sources.find(s => {
-                const name = s.name.toLowerCase();
-                return name.includes('meet.google.com') ||
-                       name.includes('google meet') ||
-                       (name.includes('meet -') && name.includes('google')) ||
-                       name.includes('meet –');
-            });
+            if (process.platform === 'darwin') {
+                meetTitle = await detectMeetingMac();
+            } else {
+                // Windows: use desktopCapturer
+                try {
+                    const sources = await desktopCapturer.getSources({
+                        types: ['window'],
+                        thumbnailSize: { width: 1, height: 1 },
+                    });
+                    const meetSource = sources.find(s => {
+                        const name = s.name.toLowerCase();
+                        return name.includes('meet.google.com') ||
+                               name.includes('google meet') ||
+                               name.startsWith('meet:') ||
+                               name.startsWith('meet -');
+                    });
+                    if (meetSource) {
+                        meetTitle = meetSource.name;
+                        lastMeetSourceId = meetSource.id;
+                    }
+                } catch {
+                    // Screen recording permission not granted
+                }
+            }
 
-            if (meetWindow && !meetingActive) {
-                // Meeting detected!
+            if (meetTitle && !meetingActive) {
                 meetingActive = true;
-                lastMeetSourceId = meetWindow.id;
-                console.log(`[Detector] 🎥 Meeting detected: "${meetWindow.name}" (${meetWindow.id})`);
+                console.log(`[Detector] 🎥 Meeting detected: "${meetTitle}"`);
+
+                // On macOS, try to get the source ID for recording
+                if (process.platform === 'darwin' && !lastMeetSourceId) {
+                    try {
+                        const sources = await desktopCapturer.getSources({
+                            types: ['window', 'screen'],
+                            thumbnailSize: { width: 1, height: 1 },
+                        });
+                        // Find Chrome window or use first screen
+                        const chromeWin = sources.find(s => s.name.toLowerCase().includes('chrome') || s.name.toLowerCase().includes('meet'));
+                        lastMeetSourceId = chromeWin?.id || sources.find(s => s.id.startsWith('screen:'))?.id || sources[0]?.id;
+                    } catch {
+                        // Will use screen as fallback when recording starts
+                    }
+                }
 
                 // Show notification
                 if (Notification.isSupported()) {
                     const notif = new Notification({
                         title: 'Reunión detectada',
-                        body: `Google Meet activo: ${meetWindow.name.substring(0, 50)}`,
+                        body: `Google Meet: ${meetTitle.substring(0, 50)}`,
                         icon: path.join(__dirname, 'assets', 'icon.png'),
                         silent: false,
                     });
@@ -117,25 +160,22 @@ function startMeetingDetection() {
                     notif.show();
                 }
 
-                // Tell renderer about the meeting
                 mainWindow?.webContents.send('meeting-detected', {
-                    sourceId: meetWindow.id,
-                    sourceName: meetWindow.name,
+                    sourceId: lastMeetSourceId || 'screen:0:0',
+                    sourceName: meetTitle,
                 });
 
-                // Show and focus window
                 mainWindow?.show();
                 mainWindow?.focus();
 
-            } else if (!meetWindow && meetingActive) {
-                // Meeting ended
+            } else if (!meetTitle && meetingActive) {
                 meetingActive = false;
                 lastMeetSourceId = null;
                 console.log('[Detector] Meeting ended');
                 mainWindow?.webContents.send('meeting-ended');
             }
         } catch (err) {
-            // Silent — detection loop should never crash
+            console.error('[Detector] Error:', err);
         }
     }, 3000);
 }

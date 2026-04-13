@@ -21,7 +21,15 @@
       "main.js",
       "preload.js",
       "renderer/**/*",
-      "assets/**/*"
+      "assets/**/*",
+      "scripts/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "scripts/",
+        "to": "scripts/",
+        "filter": ["**/*"]
+      }
     ],
     "asar": true,
     "asarUnpack": ["node_modules/**/*"],
@@ -31,7 +39,7 @@
       "target": [
         {
           "target": "dmg",
-          "arch": ["arm64", "x64"]
+          "arch": ["arm64"]
         }
       ],
       "darkModeSupport": true,
