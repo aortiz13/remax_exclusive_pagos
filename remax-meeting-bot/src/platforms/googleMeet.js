@@ -64,6 +64,13 @@ const SELECTORS = {
         '[aria-label*="Salir de la llamada"]',
         '[aria-label*="Salir"]',
         'button[aria-label*="call_end"]',
+        // Text-based selectors (from real Google Meet DOM)
+        'button:has-text("call_end")',
+        'button:has-text("chat_bubble")',
+        '[aria-label*="chat"]',
+        '[aria-label*="Chat"]',
+        // The "info" button only appears in-meeting
+        'button:has-text("infoinfo")',
     ],
 
     meetingEnded: [
