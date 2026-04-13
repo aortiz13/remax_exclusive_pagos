@@ -1,6 +1,6 @@
 /**
- * Meeting Bot Worker — Main BullMQ Worker
- * Processes "meeting-bot" queue jobs: joins meetings, records, transcribes
+ * Meeting Bot Worker — Main BullMQ Worker (v2 - with Google auth)
+ * Uses saved Google session cookies to join meetings as authenticated user
  */
 
 import { Worker } from 'bullmq';
@@ -17,6 +17,7 @@ import { startAudioCapture } from './services/audioCapture.js';
 import { monitorMeeting } from './services/meetingMonitor.js';
 import { processRecording } from './services/postProcessor.js';
 import { takeScreenshot } from './services/screenshotDiag.js';
+import { hasAuthState, getAuthState } from './setupAuth.js';
 
 // Platform join functions
 const JOIN_FUNCTIONS = {
@@ -26,10 +27,19 @@ const JOIN_FUNCTIONS = {
 };
 
 console.log('╔══════════════════════════════════════════════╗');
-console.log('║  🤖 RE/MAX Meeting Bot Worker               ║');
+console.log('║  🤖 RE/MAX Meeting Bot Worker v2            ║');
 console.log(`║  Concurrency: ${config.BOT_CONCURRENCY}                            ║`);
 console.log(`║  Max duration: ${config.BOT_MAX_MEETING_DURATION}s                        ║`);
 console.log('╚══════════════════════════════════════════════╝');
+
+// Check auth state on startup
+const authInfo = hasAuthState();
+if (authInfo.exists) {
+    console.log(`[Worker] ✅ Google auth detected (${authInfo.ageDays} days old)`);
+} else {
+    console.log('[Worker] ⚠️ No Google auth found. Bot will join as anonymous (may be blocked by Workspace).');
+    console.log('[Worker]    Run: node src/setupAuth.js — to login and save session.');
+}
 
 // ─── Update Session Status Helper ───────────────────────────────
 async function updateSessionStatus(sessionId, status, extra = {}) {
@@ -70,21 +80,33 @@ const worker = new Worker('meeting-bot', async (job) => {
         // 2. Launch browser
         console.log('[Worker] Launching Chromium...');
         browser = await chromium.launch(getLaunchOptions());
-        const context = await browser.newContext({
+
+        // 3. Create context WITH or WITHOUT auth state
+        const contextOptions = {
             viewport: { width: 1920, height: 1080 },
             permissions: ['microphone', 'camera'],
             locale: 'es-CL',
             userAgent: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-        });
+        };
 
+        // Load saved Google session if available
+        const authState = getAuthState();
+        if (authState) {
+            contextOptions.storageState = authState;
+            console.log('[Worker] 🔐 Using saved Google session (authenticated)');
+        } else {
+            console.log('[Worker] ⚠️ No saved session — joining as anonymous');
+        }
+
+        const context = await browser.newContext(contextOptions);
         const page = await context.newPage();
         await applyStealthToPage(page);
 
-        // 3. Normalize URL (e.g., Zoom → web client)
+        // 4. Normalize URL
         const normalizedUrl = normalizeUrl(meetingUrl, platform);
         console.log(`[Worker] Normalized URL: ${normalizedUrl}`);
 
-        // 4. Join the meeting
+        // 5. Join the meeting
         const joinFn = JOIN_FUNCTIONS[platform];
         if (!joinFn) {
             throw new Error(`Unsupported platform: ${platform}`);
@@ -93,7 +115,6 @@ const worker = new Worker('meeting-bot', async (job) => {
         const joinResult = await joinFn(page, normalizedUrl, botName || config.BOT_DISPLAY_NAME);
 
         if (!joinResult.success) {
-            // Take diagnostic screenshot
             const screenshotUrl = await takeScreenshot(page, sessionId, 'join_failed');
 
             await updateSessionStatus(sessionId, 'failed', {
@@ -104,7 +125,7 @@ const worker = new Worker('meeting-bot', async (job) => {
             throw new Error(`Failed to join: ${joinResult.error}`);
         }
 
-        // 5. Successfully joined — start recording
+        // 6. Successfully joined — start recording
         console.log('[Worker] 🎙️ Starting audio capture...');
         await updateSessionStatus(sessionId, 'in_meeting', {
             joined_at: new Date().toISOString(),
@@ -112,9 +133,8 @@ const worker = new Worker('meeting-bot', async (job) => {
 
         audioCapture = startAudioCapture(sessionId);
 
-        // 6. Monitor the meeting
+        // 7. Monitor the meeting
         const monitorResult = await monitorMeeting(page, platform, async (status) => {
-            // Periodic status updates to DB
             await updateSessionStatus(sessionId, 'in_meeting', {
                 recording_duration_seconds: status.elapsed,
             });
@@ -122,7 +142,7 @@ const worker = new Worker('meeting-bot', async (job) => {
 
         console.log(`[Worker] Meeting ended. Reason: ${monitorResult.reason}, Duration: ${monitorResult.duration}s`);
 
-        // 7. Stop recording
+        // 8. Stop recording
         const audioPath = await audioCapture.stop();
         audioCapture = null;
 
@@ -131,11 +151,11 @@ const worker = new Worker('meeting-bot', async (job) => {
             recording_duration_seconds: monitorResult.duration,
         });
 
-        // 8. Close browser
+        // 9. Close browser
         await browser.close();
         browser = null;
 
-        // 9. Post-process: transcribe, extract, save
+        // 10. Post-process: transcribe, extract, save
         console.log('[Worker] Starting post-processing...');
         const result = await processRecording(
             sessionId,
@@ -157,7 +177,6 @@ const worker = new Worker('meeting-bot', async (job) => {
     } catch (err) {
         console.error(`[Worker] ❌ Job failed:`, err.message);
 
-        // Cleanup
         try {
             if (audioCapture) await audioCapture.stop();
         } catch { }
@@ -166,7 +185,6 @@ const worker = new Worker('meeting-bot', async (job) => {
             if (browser) await browser.close();
         } catch { }
 
-        // Mark as failed if not already
         try {
             const { rows } = await pool.query(
                 'SELECT status FROM meeting_bot_sessions WHERE id = $1',
@@ -185,7 +203,7 @@ const worker = new Worker('meeting-bot', async (job) => {
 }, {
     connection: redisConnection,
     concurrency: config.BOT_CONCURRENCY,
-    lockDuration: config.BOT_MAX_MEETING_DURATION * 1000 + 300000, // Max meeting + 5 min processing
+    lockDuration: config.BOT_MAX_MEETING_DURATION * 1000 + 300000,
 });
 
 // ─── Worker Events ──────────────────────────────────────────────
