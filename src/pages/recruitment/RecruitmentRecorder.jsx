@@ -15,7 +15,7 @@ const STORAGE_BASE = 'https://remax-crm-remax-storage.jzuuqr.easypanel.host/apps
 
 const DOWNLOADS = {
     mac: {
-        url: `${STORAGE_BASE}/RE-MAX-Meeting-Recorder-${APP_VERSION}-universal.dmg`,
+        url: `${STORAGE_BASE}/REMAX-Meeting-Recorder-${APP_VERSION}-arm64.dmg`,
         label: 'macOS',
         icon: Apple,
         ext: '.dmg',

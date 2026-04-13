@@ -13,7 +13,7 @@
   },
   "build": {
     "appId": "cl.remax-exclusive.meeting-recorder",
-    "productName": "RE/MAX Meeting Recorder",
+    "productName": "REMAX Meeting Recorder",
     "directories": {
       "output": "dist"
     },
@@ -23,16 +23,20 @@
       "renderer/**/*",
       "assets/**/*"
     ],
+    "asar": true,
+    "asarUnpack": ["node_modules/**/*"],
     "mac": {
       "category": "public.app-category.business",
       "icon": "assets/icon.icns",
       "target": [
         {
           "target": "dmg",
-          "arch": ["universal"]
+          "arch": ["arm64", "x64"]
         }
       ],
-      "darkModeSupport": true
+      "darkModeSupport": true,
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false
     },
     "win": {
       "icon": "assets/icon.ico",
@@ -50,12 +54,13 @@
       "shortcutName": "RE/MAX Recorder"
     },
     "dmg": {
-      "title": "RE/MAX Meeting Recorder",
+      "title": "REMAX Meeting Recorder",
       "contents": [
         { "x": 130, "y": 220 },
         { "x": 410, "y": 220, "type": "link", "path": "/Applications" }
       ]
-    }
+    },
+    "afterPack": "./scripts/afterPack.js"
   },
   "dependencies": {
     "form-data": "^4.0.0",
