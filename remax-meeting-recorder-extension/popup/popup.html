@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>REMAX Meeting Recorder</title>
+  <link rel="stylesheet" href="popup.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="app">
+    <!-- ─── Header ─────────────────────────────────────── -->
+    <header class="header">
+      <div class="brand">
+        <div class="brand-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M8 12l2 2 4-4"/>
+          </svg>
+        </div>
+        <span class="brand-name">REMAX Recorder</span>
+      </div>
+      <div class="status-dot" id="status-dot" title="Desconectado"></div>
+    </header>
+
+    <!-- ─── Login Screen ───────────────────────────────── -->
+    <div class="screen active" id="screen-login">
+      <div class="login-container">
+        <div class="login-icon">🔐</div>
+        <h2>Iniciar sesión</h2>
+        <p class="login-hint">Ingresa tu token del CRM</p>
+        <input type="password" id="login-token" placeholder="Token de acceso..." autocomplete="off">
+        <button class="btn btn-primary btn-full" id="btn-login">Conectar</button>
+        <p class="error" id="login-error"></p>
+      </div>
+    </div>
+
+    <!-- ─── Main Screen ────────────────────────────────── -->
+    <div class="screen" id="screen-main">
+      <!-- User info bar -->
+      <div class="user-bar">
+        <div class="user-info">
+          <div class="user-avatar" id="user-avatar">A</div>
+          <span class="user-name" id="user-name">Agente</span>
+        </div>
+        <button class="btn-icon" id="btn-logout" title="Cerrar sesión">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
+            <polyline points="16 17 21 12 16 7"/>
+            <line x1="21" y1="12" x2="9" y2="12"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- State: Idle / No Meet detected -->
+      <div class="state active" id="state-idle">
+        <div class="state-illustration">
+          <div class="pulse-ring"></div>
+          <div class="mic-icon">🎙️</div>
+        </div>
+        <h3>Esperando reunión</h3>
+        <p class="state-hint">Abre Google Meet y únete a una llamada.</p>
+        <p class="state-hint hint-small">La extensión detectará la reunión automáticamente.</p>
+      </div>
+
+      <!-- State: Meet detected, ready to record -->
+      <div class="state" id="state-ready">
+        <div class="meeting-badge">
+          <div class="meet-icon">📹</div>
+          <div class="meeting-info">
+            <span class="meet-label">Google Meet activo</span>
+            <span class="meet-title" id="meet-title">Reunión</span>
+          </div>
+        </div>
+        <button class="btn btn-record" id="btn-record">
+          <span class="record-dot"></span>
+          Iniciar grabación
+        </button>
+        <p class="state-hint hint-small">Se grabará el audio del tab + tu micrófono</p>
+      </div>
+
+      <!-- State: Recording -->
+      <div class="state" id="state-recording">
+        <div class="recording-indicator">
+          <div class="rec-pulse"></div>
+          <span class="rec-label">GRABANDO</span>
+        </div>
+        <div class="rec-timer" id="rec-timer">00:00</div>
+        <div class="audio-viz" id="audio-viz">
+          <div class="viz-bar"></div><div class="viz-bar"></div><div class="viz-bar"></div>
+          <div class="viz-bar"></div><div class="viz-bar"></div><div class="viz-bar"></div>
+          <div class="viz-bar"></div><div class="viz-bar"></div><div class="viz-bar"></div>
+        </div>
+        <button class="btn btn-stop" id="btn-stop">
+          <span class="stop-icon">■</span>
+          Detener grabación
+        </button>
+      </div>
+
+      <!-- State: Post-recording (assign candidate) -->
+      <div class="state" id="state-post">
+        <div class="post-header">
+          <span class="post-icon">✅</span>
+          <h3>Grabación lista</h3>
+          <span class="post-duration" id="post-duration">0:00</span>
+        </div>
+        <div class="candidate-section">
+          <label>Asociar candidato (opcional)</label>
+          <input type="text" id="candidate-search" placeholder="Buscar candidato...">
+          <div class="candidate-results" id="candidate-results"></div>
+          <div class="selected-candidate hidden" id="selected-candidate">
+            <span id="selected-name"></span>
+            <button class="btn-icon btn-clear" id="btn-clear-cand">✕</button>
+          </div>
+        </div>
+        <div class="post-actions">
+          <button class="btn btn-primary btn-full" id="btn-upload">📤 Subir y transcribir</button>
+          <button class="btn btn-ghost" id="btn-discard">Descartar</button>
+        </div>
+      </div>
+
+      <!-- State: Uploading -->
+      <div class="state" id="state-uploading">
+        <div class="upload-spinner"></div>
+        <h3>Subiendo grabación...</h3>
+        <p class="state-hint" id="upload-step">Enviando audio al servidor</p>
+      </div>
+
+      <!-- State: Done -->
+      <div class="state" id="state-done">
+        <div class="done-icon">🎉</div>
+        <h3>¡Listo!</h3>
+        <p class="state-hint">La transcripción estará disponible en el CRM en unos minutos.</p>
+        <button class="btn btn-primary" id="btn-new-recording">Nueva grabación</button>
+      </div>
+
+      <!-- State: Error -->
+      <div class="state" id="state-error">
+        <div class="error-icon">⚠️</div>
+        <h3>Error</h3>
+        <p class="error" id="error-msg">Algo salió mal</p>
+        <button class="btn btn-primary" id="btn-retry">Reintentar</button>
+      </div>
+    </div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
