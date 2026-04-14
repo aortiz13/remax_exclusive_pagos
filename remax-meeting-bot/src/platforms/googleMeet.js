@@ -239,8 +239,19 @@ export async function joinGoogleMeet(page, meetingUrl, botName = config.BOT_DISP
                 console.log('[GoogleMeet] No name input → authenticated flow (using Google account name)');
             }
 
+            // === Disable mic and camera before joining (human-like behavior) ===
+            console.log('[GoogleMeet] Disabling mic/camera before joining...');
+            try {
+                await page.keyboard.press('Control+d'); // Mute mic
+                await page.waitForTimeout(300 + Math.random() * 500);
+                await page.keyboard.press('Control+e'); // Disable camera
+                await page.waitForTimeout(300 + Math.random() * 500);
+            } catch { }
+
             // === Click join button ===
             console.log('[GoogleMeet] Looking for join button...');
+            // Small human-like delay before clicking
+            await page.waitForTimeout(1000 + Math.random() * 2000);
             let joined = false;
 
             // Strategy 1: selector match

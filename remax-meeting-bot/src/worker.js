@@ -1,10 +1,14 @@
 /**
- * Meeting Bot Worker — Main BullMQ Worker (v2 - with Google auth)
- * Uses saved Google session cookies to join meetings as authenticated user
+ * Meeting Bot Worker — Main BullMQ Worker (v3 - with stealth plugin)
+ * Uses playwright-extra + stealth plugin to evade Google's bot detection
  */
 
 import { Worker } from 'bullmq';
-import { chromium } from 'playwright';
+import { chromium } from 'playwright-extra';
+import StealthPlugin from 'puppeteer-extra-plugin-stealth';
+
+// Apply stealth plugin (covers ~15 detection vectors)
+chromium.use(StealthPlugin());
 import { redisConnection } from './lib/redis.js';
 import pool from './lib/db.js';
 import { config } from './config.js';
