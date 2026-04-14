@@ -77,23 +77,19 @@ const worker = new Worker('meeting-bot', async (job) => {
         // 1. Update status to "joining"
         await updateSessionStatus(sessionId, 'joining');
 
-        // 2. Launch browser with persistent context (looks like a real Chrome profile)
-        console.log('[Worker] Launching Chromium with persistent context...');
-        
-        const userDataDir = process.env.BOT_USER_DATA_DIR || '/app/google-session';
-        const chromeProfileDir = `${userDataDir}/chrome-profile`;
-        
-        // Load auth state into persistent context if available
+        // 2. Launch browser
+        console.log('[Worker] Launching Chromium...');
+        browser = await chromium.launch(getLaunchOptions());
+
+        // 3. Create context with auth state
         const authState = getAuthState();
         const contextOptions = {
-            ...getLaunchOptions(),
             viewport: { width: 1920, height: 1080 },
             permissions: ['microphone', 'camera'],
             locale: 'es-CL',
             userAgent: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-            acceptDownloads: false,
         };
-        
+
         if (authState) {
             contextOptions.storageState = authState;
             console.log('[Worker] 🔐 Using saved Google session (authenticated)');
@@ -101,9 +97,8 @@ const worker = new Worker('meeting-bot', async (job) => {
             console.log('[Worker] ⚠️ No saved session — joining as anonymous');
         }
 
-        const context = await chromium.launchPersistentContext(chromeProfileDir, contextOptions);
-        browser = context.browser() || { close: () => context.close() }; // persistent context IS the browser
-        const page = context.pages()[0] || await context.newPage();
+        const context = await browser.newContext(contextOptions);
+        const page = await context.newPage();
         await applyStealthToPage(page);
 
         // 4. Normalize URL
@@ -155,8 +150,8 @@ const worker = new Worker('meeting-bot', async (job) => {
             recording_duration_seconds: monitorResult.duration,
         });
 
-        // 9. Close browser/context
-        try { await context.close(); } catch { }
+        // 9. Close browser
+        await browser.close();
         browser = null;
 
         // 10. Post-process: transcribe, extract, save
@@ -186,7 +181,7 @@ const worker = new Worker('meeting-bot', async (job) => {
         } catch { }
 
         try {
-            if (browser) { try { await browser.close(); } catch { } }
+            if (browser) await browser.close();
         } catch { }
 
         try {
