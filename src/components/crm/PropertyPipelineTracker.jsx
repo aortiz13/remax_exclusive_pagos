@@ -188,9 +188,9 @@ const DealPipelineCard = ({ deal, parentLabel, childDeals, isHistorical }) => {
                 <div className="mt-3 h-1 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                     <div
                         className={`h-full rounded-full transition-all duration-700 ease-out ${
-                            allCompleted ? 'bg-slate-500 dark:bg-slate-400' :
+                            allCompleted ? 'bg-emerald-500 dark:bg-emerald-400' :
                             isLost ? 'bg-slate-400 dark:bg-slate-500' :
-                            'bg-slate-700 dark:bg-slate-300'
+                            'bg-emerald-500 dark:bg-emerald-400'
                         }`}
                         style={{
                             width: allCompleted ? '100%' :
@@ -214,7 +214,9 @@ const DealPipelineCard = ({ deal, parentLabel, childDeals, isHistorical }) => {
                                     <div
                                         className="absolute left-[13px] top-[30px] w-px bottom-0"
                                         style={{
-                                            background: status === 'completed' || (status === 'current' && idx < stages.length - 1)
+                                            background: status === 'completed'
+                                                ? '#34d399'  // emerald-400
+                                                : status === 'current'
                                                 ? '#94a3b8'  // slate-400
                                                 : '#e2e8f0'  // slate-200
                                         }}
@@ -224,8 +226,8 @@ const DealPipelineCard = ({ deal, parentLabel, childDeals, isHistorical }) => {
                                 {/* Icon */}
                                 <div className="relative z-10 flex-shrink-0 mt-0.5">
                                     {status === 'completed' ? (
-                                        <div className="w-[26px] h-[26px] rounded-full bg-slate-700 dark:bg-slate-300 flex items-center justify-center">
-                                            <CheckCircle2 className="w-4 h-4 text-white dark:text-slate-900" strokeWidth={2.5} />
+                                        <div className="w-[26px] h-[26px] rounded-full bg-emerald-500 dark:bg-emerald-400 flex items-center justify-center">
+                                            <CheckCircle2 className="w-4 h-4 text-white dark:text-emerald-950" strokeWidth={2.5} />
                                         </div>
                                     ) : status === 'current' ? (
                                         <div className="w-[26px] h-[26px] rounded-full bg-slate-800 dark:bg-white flex items-center justify-center ring-[3px] ring-slate-200 dark:ring-slate-700">
@@ -259,7 +261,7 @@ const DealPipelineCard = ({ deal, parentLabel, childDeals, isHistorical }) => {
                                             </h4>
                                             <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
                                                 status === 'completed'
-                                                    ? 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300'
+                                                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
                                                     : status === 'current'
                                                     ? 'bg-slate-800 text-white dark:bg-white dark:text-slate-900'
                                                     : 'bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500'
