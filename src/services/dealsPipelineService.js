@@ -553,6 +553,23 @@ export async function fetchDealHistory(dealId) {
   return data || []
 }
 
+// ─── Delete ─────────────────────────────────────────────────────────────────
+
+export async function deleteDeal(dealId) {
+  // Delete stage history first (FK dependency)
+  await supabase
+    .from('deal_stage_history')
+    .delete()
+    .eq('deal_id', dealId)
+
+  const { error } = await supabase
+    .from('deals')
+    .delete()
+    .eq('id', dealId)
+
+  if (error) throw error
+}
+
 // ─── Column Visual Styles (sober / muted) ───────────────────────────────────
 
 export const STAGE_COLUMN_STYLES = {
