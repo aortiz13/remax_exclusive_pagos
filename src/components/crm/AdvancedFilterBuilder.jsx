@@ -54,7 +54,10 @@ export default function AdvancedFilterBuilder({
 
       {/* Filter Builder Panel */}
       {isOpen && (
-        <div className="absolute z-50 top-full right-0 md:left-0 md:right-auto mt-2 w-[min(680px,calc(100vw-2rem))] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+        <div className="fixed md:absolute inset-0 md:inset-auto md:top-full md:left-0 md:mt-2 z-50 flex items-end md:items-start justify-center md:justify-start">
+          {/* Backdrop (mobile only) */}
+          <div className="fixed inset-0 bg-black/30 md:hidden" onClick={() => setIsOpen(false)} />
+          <div className="relative w-full md:w-[680px] max-h-[80dvh] md:max-h-none bg-white dark:bg-slate-900 border-t md:border border-slate-200 dark:border-slate-700 rounded-t-2xl md:rounded-xl shadow-xl overflow-hidden animate-in fade-in slide-in-from-bottom md:slide-in-from-top-2 duration-200">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30">
             <div className="flex items-center gap-2">
@@ -156,6 +159,7 @@ export default function AdvancedFilterBuilder({
               Aplicar
             </Button>
           </div>
+          </div>
         </div>
       )}
     </div>
@@ -174,10 +178,10 @@ function FilterRow({ filter, filterConfig, onUpdate, onRemove, canRemove }) {
   const needsTwoValues = filter.operator ? operatorNeedsTwoValues(filter.operator) : false
 
   return (
-    <div className="flex items-start gap-2">
+    <div className="flex flex-wrap items-start gap-2">
       {/* Property selector */}
       <Select value={filter.property} onValueChange={(val) => onUpdate({ property: val })}>
-        <SelectTrigger className="w-[160px] h-8 text-xs bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 shrink-0">
+        <SelectTrigger className="w-full md:w-[160px] h-8 text-xs bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 shrink-0">
           <SelectValue placeholder="Propiedad..." />
         </SelectTrigger>
         <SelectContent className="max-h-[300px]">
@@ -192,7 +196,7 @@ function FilterRow({ filter, filterConfig, onUpdate, onRemove, canRemove }) {
       {/* Operator selector */}
       {filter.property && (
         <Select value={filter.operator} onValueChange={(val) => onUpdate({ operator: val })}>
-          <SelectTrigger className="w-[140px] h-8 text-xs bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 shrink-0">
+          <SelectTrigger className="w-full md:w-[140px] h-8 text-xs bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 shrink-0">
             <SelectValue placeholder="Condición..." />
           </SelectTrigger>
           <SelectContent>
