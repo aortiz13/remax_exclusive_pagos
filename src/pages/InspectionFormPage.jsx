@@ -280,7 +280,10 @@ export default function InspectionFormPage() {
                 toast.success(`${file.name} subida`, { id: `upload-${file.name}` })
             } catch (err) {
                 console.error('Photo upload error:', err)
-                toast.error(`Error subiendo ${file.name}`, { id: `upload-${file.name}` })
+                const msg = err.message?.includes('sesión') || err.message?.includes('expired') || err.message?.includes('token')
+                    ? 'Tu sesión expiró. Recarga la página para continuar.'
+                    : `Error subiendo ${file.name}`
+                toast.error(msg, { id: `upload-${file.name}`, duration: 6000 })
             }
         }
         e.target.value = ''

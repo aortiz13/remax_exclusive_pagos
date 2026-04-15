@@ -183,14 +183,39 @@ export async function markInspectionSent(id, pdfUrl) {
 
 /**
  * Upload a photo to inspection-photos bucket
+ * Includes automatic session refresh to prevent "Invalid or expired token" errors
  */
 export async function uploadInspectionPhoto(file, inspectionId, section) {
     const ext = file.name.split('.').pop()
     const path = `${inspectionId}/${section}/${Date.now()}.${ext}`
 
-    const { error } = await supabase.storage
+    // Proactively refresh the session token before uploading
+    try {
+        await supabase.auth.refreshSession()
+    } catch (refreshErr) {
+        console.warn('Session refresh before upload failed:', refreshErr)
+    }
+
+    let { error } = await supabase.storage
         .from(BUCKET)
         .upload(path, file, { cacheControl: '3600', upsert: false })
+
+    // If the token was still invalid, force a refresh and retry once
+    if (error && (error.message?.includes('Invalid') || error.message?.includes('expired') || error.message?.includes('token') || error.statusCode === 401 || error.status === 401)) {
+        console.warn('Upload failed with token error, refreshing session and retrying...')
+        const { error: refreshError } = await supabase.auth.refreshSession()
+        if (refreshError) {
+            throw new Error('Tu sesión ha expirado. Por favor, recarga la página e inicia sesión nuevamente.')
+        }
+        // Retry the upload with the refreshed token
+        const retryPath = `${inspectionId}/${section}/${Date.now()}.${ext}`
+        const retry = await supabase.storage
+            .from(BUCKET)
+            .upload(retryPath, file, { cacheControl: '3600', upsert: false })
+        if (retry.error) throw retry.error
+        const url = getCustomPublicUrl(BUCKET, retryPath)
+        return { url, path: retryPath, section }
+    }
 
     if (error) throw error
 
