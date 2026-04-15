@@ -976,7 +976,7 @@ export default function CalendarPage() {
 
             {/* Modals */}
             <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-                <DialogContent className="sm:max-w-[460px] p-0 overflow-hidden border-none shadow-2xl flex flex-col max-h-[92vh]">
+                <DialogContent className="sm:max-w-[640px] p-0 overflow-hidden border-none shadow-2xl flex flex-col max-h-[92vh]">
                     {!isEditing && selectedEvent ? (
                         <div className="flex flex-col overflow-hidden">
                             <div className="flex-1 overflow-y-auto">
@@ -1164,7 +1164,7 @@ export default function CalendarPage() {
                     ) : (
                         /* Edit Mode */
                         <div className="flex flex-col overflow-hidden h-full">
-                            <div className="p-4 border-b border-slate-100 shrink-0 bg-slate-50/50">
+                            <div className="p-3 border-b border-slate-100 shrink-0 bg-slate-50/50">
                                 <DialogHeader>
                                     <DialogTitle className="flex items-center gap-2 text-lg font-bold">
                                         {getModalConfig().icon}
@@ -1185,16 +1185,17 @@ export default function CalendarPage() {
                                 </DialogHeader>
                             </div>
 
-                            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                            <div className="flex-1 overflow-y-auto p-4 space-y-2.5">
+                                {/* Row 1: Type + Estado */}
                                 <div className="grid grid-cols-2 gap-3">
-                                    <div className="space-y-1.5">
+                                    <div className="space-y-1">
                                         <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Tipo</Label>
                                         <Select
                                             value={formData.type}
                                             onValueChange={v => setFormData({ ...formData, type: v })}
                                             disabled={selectedEvent?.isGoogleEvent}
                                         >
-                                            <SelectTrigger className="h-9 text-sm">
+                                            <SelectTrigger className="h-8 text-sm">
                                                 <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -1203,11 +1204,11 @@ export default function CalendarPage() {
                                             </SelectContent>
                                         </Select>
                                     </div>
-                                    <div className="space-y-1.5">
+                                    <div className="space-y-1">
                                         <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Estado</Label>
                                         <Button
                                             variant="outline"
-                                            className="w-full justify-start gap-2 h-9 text-sm font-medium"
+                                            className="w-full justify-start gap-2 h-8 text-sm font-medium"
                                             onClick={toggleCompleted}
                                             type="button"
                                         >
@@ -1217,130 +1218,171 @@ export default function CalendarPage() {
                                     </div>
                                 </div>
 
-                                <div className="space-y-1.5">
-                                    <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Título / Acción</Label>
-                                    <Input
-                                        placeholder="Ej: Llamar a cliente..."
-                                        className="h-9 text-sm"
-                                        value={formData.title}
-                                        onChange={e => setFormData({ ...formData, title: e.target.value })}
-                                        disabled={selectedEvent?.isGoogleEvent}
-                                    />
-                                    <div className="flex items-center gap-2 mt-2">
+                                {/* Row 2: Título + Vincular Acción side by side */}
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="space-y-1">
+                                        <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Título / Acción</Label>
+                                        <Input
+                                            placeholder="Ej: Llamar a cliente..."
+                                            className="h-8 text-sm"
+                                            value={formData.title}
+                                            onChange={e => setFormData({ ...formData, title: e.target.value })}
+                                            disabled={selectedEvent?.isGoogleEvent}
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1">
+                                            <Link2 className="w-3 h-3 text-indigo-500" />
+                                            Vincular Acción
+                                        </Label>
+                                        {hasExecutedAction ? (
+                                            <div className="bg-green-50 p-2 rounded-lg border border-green-200 flex items-center gap-1.5">
+                                                <Activity className="w-3.5 h-3.5 text-green-600 shrink-0" />
+                                                <span className="text-xs text-green-700 font-medium truncate">{linkedActionType}</span>
+                                            </div>
+                                        ) : selectedEvent?.actionId && linkedActionType ? (
+                                            <div className="flex items-center gap-1">
+                                                <div className="flex-1 bg-indigo-50 p-2 rounded-lg border border-indigo-200 flex items-center gap-1.5 min-w-0">
+                                                    <Activity className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                                                    <span className="text-xs text-indigo-700 font-medium truncate">{linkedActionType}</span>
+                                                    <span className="text-[9px] bg-amber-100 text-amber-700 px-1 py-0.5 rounded-full shrink-0">⏳</span>
+                                                </div>
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="shrink-0 h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                                    onClick={() => setLinkedActionType('')}
+                                                    title="Desvincular acción"
+                                                >
+                                                    <Unlink className="w-3.5 h-3.5" />
+                                                </Button>
+                                            </div>
+                                        ) : (
+                                            <Select value={linkedActionType} onValueChange={setLinkedActionType}>
+                                                <SelectTrigger className="w-full h-8 text-sm">
+                                                    <SelectValue placeholder="Sin acción vinculada" />
+                                                </SelectTrigger>
+                                                <SelectContent className="z-[300]">
+                                                    <SelectItem value="none">Sin acción vinculada</SelectItem>
+                                                    {ACTION_TYPES.map(type => (
+                                                        <SelectItem key={type} value={type}>{type}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        )}
+                                    </div>
+                                </div>
+                                {linkedActionType && linkedActionType !== 'none' && !selectedEvent?.actionId && (
+                                    <p className="text-[10px] text-amber-600 -mt-1.5">
+                                        ⏳ La acción se registrará como pendiente hasta que la tarea se marque como realizada.
+                                    </p>
+                                )}
+
+                                {/* Row 3: Todo el día + Fecha(s) */}
+                                <div className="flex items-end gap-3">
+                                    <div className="flex items-center gap-1.5 pb-1.5 shrink-0">
                                         <input
                                             type="checkbox"
                                             id="isAllDay"
-                                            className="w-4 h-4 rounded border-slate-300 text-indigo-500 focus:ring-indigo-500"
+                                            className="w-3.5 h-3.5 rounded border-slate-300 text-indigo-500 focus:ring-indigo-500"
                                             checked={formData.is_all_day}
                                             onChange={e => {
                                                 const checked = e.target.checked;
-                                                // Convert start/end to/from datetime-local format
                                                 let newStart = formData.start;
                                                 let newEnd = formData.end;
-
                                                 if (checked) {
-                                                    // From datetime to date
                                                     if (newStart.includes('T')) newStart = newStart.split('T')[0];
                                                     if (newEnd.includes('T')) newEnd = newEnd.split('T')[0];
                                                 } else {
-                                                    // From date to datetime
                                                     if (!newStart.includes('T')) newStart = `${newStart}T09:00`;
                                                     if (!newEnd.includes('T')) newEnd = `${newEnd}T09:30`;
                                                 }
-
-                                                setFormData({
-                                                    ...formData,
-                                                    is_all_day: checked,
-                                                    start: newStart,
-                                                    end: newEnd
-                                                });
+                                                setFormData({ ...formData, is_all_day: checked, start: newStart, end: newEnd });
                                             }}
                                         />
-                                        <Label htmlFor="isAllDay" className="text-xs text-slate-600 cursor-pointer">Todo el día</Label>
+                                        <Label htmlFor="isAllDay" className="text-[10px] text-slate-500 cursor-pointer whitespace-nowrap">Todo el día</Label>
                                     </div>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div className="space-y-1.5">
-                                        <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                                            {formData.type === 'task' ? 'Fecha Límite' : 'Inicio'}
-                                        </Label>
-                                        <Input
-                                            type={formData.is_all_day ? "date" : "datetime-local"}
-                                            className="h-9 text-sm"
-                                            value={formData.start}
-                                            onChange={e => {
-                                                const newStart = e.target.value;
-                                                const updates = { start: newStart };
-                                                if (formData.type === 'task') {
-                                                    // For tasks, end_date is start + 15 mins (if not all day)
-                                                    if (formData.is_all_day) {
-                                                        updates.end = newStart;
-                                                    } else {
-                                                        const startDate = new Date(newStart);
-                                                        if (!isNaN(startDate.getTime())) {
-                                                            const endDate = new Date(startDate.getTime() + 15 * 60000);
-                                                            const year = endDate.getFullYear();
-                                                            const month = String(endDate.getMonth() + 1).padStart(2, '0');
-                                                            const day = String(endDate.getDate()).padStart(2, '0');
-                                                            const hours = String(endDate.getHours()).padStart(2, '0');
-                                                            const minutes = String(endDate.getMinutes()).padStart(2, '0');
-                                                            updates.end = `${year}-${month}-${day}T${hours}:${minutes}`;
+                                    <div className="flex-1 grid grid-cols-2 gap-3">
+                                        <div className="space-y-1">
+                                            <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                                                {formData.type === 'task' ? 'Fecha Límite' : 'Inicio'}
+                                            </Label>
+                                            <Input
+                                                type={formData.is_all_day ? "date" : "datetime-local"}
+                                                className="h-8 text-sm"
+                                                value={formData.start}
+                                                onChange={e => {
+                                                    const newStart = e.target.value;
+                                                    const updates = { start: newStart };
+                                                    if (formData.type === 'task') {
+                                                        if (formData.is_all_day) {
+                                                            updates.end = newStart;
+                                                        } else {
+                                                            const startDate = new Date(newStart);
+                                                            if (!isNaN(startDate.getTime())) {
+                                                                const endDate = new Date(startDate.getTime() + 15 * 60000);
+                                                                const year = endDate.getFullYear();
+                                                                const month = String(endDate.getMonth() + 1).padStart(2, '0');
+                                                                const day = String(endDate.getDate()).padStart(2, '0');
+                                                                const hours = String(endDate.getHours()).padStart(2, '0');
+                                                                const minutes = String(endDate.getMinutes()).padStart(2, '0');
+                                                                updates.end = `${year}-${month}-${day}T${hours}:${minutes}`;
+                                                            }
                                                         }
                                                     }
-                                                }
-                                                setFormData({ ...formData, ...updates });
-                                            }}
-                                        />
-                                    </div>
-                                    {formData.type !== 'task' && !formData.is_all_day && (
-                                        <div className="space-y-1.5">
-                                            <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Fin</Label>
-                                            <Input
-                                                type="datetime-local"
-                                                className="h-9 text-sm"
-                                                value={formData.end}
-                                                onChange={e => setFormData({ ...formData, end: e.target.value })}
+                                                    setFormData({ ...formData, ...updates });
+                                                }}
                                             />
                                         </div>
-                                    )}
+                                        {formData.type !== 'task' && !formData.is_all_day && (
+                                            <div className="space-y-1">
+                                                <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Fin</Label>
+                                                <Input
+                                                    type="datetime-local"
+                                                    className="h-8 text-sm"
+                                                    value={formData.end}
+                                                    onChange={e => setFormData({ ...formData, end: e.target.value })}
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
 
-                                {formData.type !== 'task' && profile?.google_refresh_token && (
-                                    <div className="flex items-center space-x-3 py-2.5 bg-blue-50/50 rounded-xl px-4 border border-blue-100 transition-all hover:bg-blue-50">
-                                        <Checkbox
-                                            id="create_meet"
-                                            checked={formData.create_meet}
-                                            onCheckedChange={checked => setFormData({ ...formData, create_meet: !!checked })}
-                                            className="data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
-                                        />
-                                        <div className="grid gap-1 leading-none">
-                                            <label htmlFor="create_meet" className="text-sm font-bold text-blue-900 flex items-center gap-2 cursor-pointer">
-                                                <Video className="w-4 h-4" />
-                                                Generar enlace de Google Meet
-                                            </label>
-                                            <p className="text-[10px] text-blue-700/70">Sincroniza automáticamente una sala de video.</p>
-                                        </div>
-                                    </div>
-                                )}
-
+                                {/* Row 4: Google Meet + Ubicación (meetings only) */}
                                 {formData.type !== 'task' && (
-                                    <div className="space-y-1.5">
-                                        <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Ubicación</Label>
-                                        <div className="relative group">
-                                            <MapPin className="absolute left-3 top-2.5 w-4 h-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
-                                            <Input
-                                                className="pl-9 h-9 text-sm"
-                                                placeholder="Añadir ubicación..."
-                                                value={formData.location}
-                                                onChange={e => setFormData({ ...formData, location: e.target.value })}
-                                            />
+                                    <div className="grid grid-cols-2 gap-3">
+                                        {profile?.google_refresh_token && (
+                                            <div className="flex items-center space-x-2 py-2 bg-blue-50/50 rounded-lg px-3 border border-blue-100">
+                                                <Checkbox
+                                                    id="create_meet"
+                                                    checked={formData.create_meet}
+                                                    onCheckedChange={checked => setFormData({ ...formData, create_meet: !!checked })}
+                                                    className="data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
+                                                />
+                                                <label htmlFor="create_meet" className="text-xs font-bold text-blue-900 flex items-center gap-1.5 cursor-pointer">
+                                                    <Video className="w-3.5 h-3.5" />
+                                                    Google Meet
+                                                </label>
+                                            </div>
+                                        )}
+                                        <div className="space-y-1">
+                                            <div className="relative group">
+                                                <MapPin className="absolute left-2.5 top-2 w-3.5 h-3.5 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+                                                <Input
+                                                    className="pl-8 h-8 text-sm"
+                                                    placeholder="Ubicación..."
+                                                    value={formData.location}
+                                                    onChange={e => setFormData({ ...formData, location: e.target.value })}
+                                                />
+                                            </div>
                                         </div>
                                     </div>
                                 )}
 
+                                {/* Row 5: Cliente + Propiedad */}
                                 <div className="grid grid-cols-2 gap-3">
-                                    <div className="space-y-1.5">
+                                    <div className="space-y-1">
                                         <ContactPickerInline
                                             label="Cliente"
                                             value={formData.contactId !== 'none' ? formData.contactId : ''}
@@ -1348,7 +1390,7 @@ export default function CalendarPage() {
                                             disabled={selectedEvent?.isGoogleEvent}
                                         />
                                     </div>
-                                    <div className="space-y-1.5">
+                                    <div className="space-y-1">
                                         <PropertyPickerInline
                                             label="Propiedad"
                                             value={formData.propertyId !== 'none' ? formData.propertyId : ''}
@@ -1358,63 +1400,10 @@ export default function CalendarPage() {
                                     </div>
                                 </div>
 
-                                {/* Linked Action Selector */}
-                                <div className="space-y-1.5">
-                                    <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
-                                        <Link2 className="w-3.5 h-3.5 text-indigo-500" />
-                                        Vincular Acción <span className="text-slate-400 font-normal normal-case">(opcional — alimenta indicadores)</span>
-                                    </Label>
-                                    {hasExecutedAction ? (
-                                        <div className="bg-green-50 dark:bg-green-900/10 p-3 rounded-lg border border-green-200 dark:border-green-800">
-                                            <p className="text-sm text-green-700 dark:text-green-400 font-medium flex items-center gap-2">
-                                                <Activity className="w-4 h-4" />
-                                                Acción ejecutada: {linkedActionType}
-                                            </p>
-                                            <p className="text-xs text-green-600 dark:text-green-500 mt-1">Esta acción ya fue ejecutada y no se puede modificar.</p>
-                                        </div>
-                                    ) : selectedEvent?.actionId && linkedActionType ? (
-                                        <div className="flex items-center gap-2">
-                                            <div className="flex-1 bg-indigo-50 dark:bg-indigo-900/10 p-3 rounded-lg border border-indigo-200 dark:border-indigo-800">
-                                                <p className="text-sm text-indigo-700 dark:text-indigo-400 font-medium flex items-center gap-2">
-                                                    <Activity className="w-4 h-4" />
-                                                    {linkedActionType}
-                                                    <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">⏳ Pendiente</span>
-                                                </p>
-                                            </div>
-                                            <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="icon"
-                                                className="shrink-0 text-red-500 hover:text-red-700 hover:bg-red-50"
-                                                onClick={() => setLinkedActionType('')}
-                                                title="Desvincular acción"
-                                            >
-                                                <Unlink className="w-4 h-4" />
-                                            </Button>
-                                        </div>
-                                    ) : (
-                                        <Select value={linkedActionType} onValueChange={setLinkedActionType}>
-                                            <SelectTrigger className="w-full h-9 text-sm">
-                                                <SelectValue placeholder="Sin acción vinculada" />
-                                            </SelectTrigger>
-                                            <SelectContent className="z-[300]">
-                                                <SelectItem value="none">Sin acción vinculada</SelectItem>
-                                                {ACTION_TYPES.map(type => (
-                                                    <SelectItem key={type} value={type}>{type}</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    )}
-                                    {linkedActionType && linkedActionType !== 'none' && !selectedEvent?.actionId && (
-                                        <p className="text-xs text-amber-600 dark:text-amber-400">
-                                            ⏳ La acción se registrará como pendiente hasta que la tarea se marque como realizada.
-                                        </p>
-                                    )}
-                                </div>
-
+                                {/* Row 6: Invitados (meetings only) */}
                                 {formData.type !== 'task' && (
-                                    <div className="space-y-2">
-                                        <div className="flex justify-between items-center">
+                                    <div className="space-y-1.5">
+                                        <div className="flex items-center gap-2">
                                             <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
                                                 Invitados ({(() => {
                                                     const contact = contacts.find(c => c.id === formData.contactId);
@@ -1428,49 +1417,46 @@ export default function CalendarPage() {
                                         </div>
                                         <div className="flex gap-2">
                                             <Input
-                                                className="h-9 text-sm bg-slate-50/50"
+                                                className="h-8 text-sm bg-slate-50/50"
                                                 placeholder="ejemplo@correo.com"
                                                 value={guestInput}
                                                 onChange={e => setGuestInput(e.target.value)}
                                                 onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addGuest())}
                                             />
-                                            <Button type="button" variant="outline" size="sm" onClick={addGuest} className="shrink-0 h-9 px-4 font-semibold hover:bg-slate-50">
+                                            <Button type="button" variant="outline" size="sm" onClick={addGuest} className="shrink-0 h-8 px-3 text-xs font-semibold hover:bg-slate-50">
                                                 Añadir
                                             </Button>
                                         </div>
-                                        <div className="space-y-1.5">
-                                            {formData.attendees.length > 0 && (
-                                                <div className="flex flex-wrap gap-1.5 max-h-[80px] overflow-y-auto p-2 bg-slate-50/50 rounded-lg border border-slate-100">
-                                                    {formData.attendees.map((attendee, idx) => (
-                                                        <div key={idx} className="flex items-center gap-1.5 bg-white border border-slate-200 px-2 py-1 rounded shadow-sm text-[11px] text-slate-600">
-                                                            <span className="truncate max-w-[140px] font-medium">{attendee.email}</span>
-                                                            <button onClick={() => removeGuest(attendee.email)} className="text-slate-400 hover:text-red-500 transition-colors p-0.5">
-                                                                <X className="w-3 h-3" />
-                                                            </button>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            )}
-                                            {(() => {
-                                                const contact = contacts.find(c => c.id === formData.contactId);
-                                                return contact?.email && (
-                                                    <div className="flex items-center justify-between text-xs py-1.5 px-3 bg-blue-50/50 rounded-lg border border-blue-100/50">
-                                                        <div className="flex items-center gap-2 truncate">
-                                                            <span className="text-blue-700 font-medium truncate">{contact.email}</span>
-                                                            <span className="text-[10px] text-blue-500 bg-blue-100/50 px-1.5 rounded uppercase font-bold">Cliente</span>
-                                                        </div>
+                                        {formData.attendees.length > 0 && (
+                                            <div className="flex flex-wrap gap-1 max-h-[60px] overflow-y-auto p-1.5 bg-slate-50/50 rounded-lg border border-slate-100">
+                                                {formData.attendees.map((attendee, idx) => (
+                                                    <div key={idx} className="flex items-center gap-1 bg-white border border-slate-200 px-1.5 py-0.5 rounded shadow-sm text-[10px] text-slate-600">
+                                                        <span className="truncate max-w-[120px] font-medium">{attendee.email}</span>
+                                                        <button onClick={() => removeGuest(attendee.email)} className="text-slate-400 hover:text-red-500 transition-colors p-0.5">
+                                                            <X className="w-2.5 h-2.5" />
+                                                        </button>
                                                     </div>
-                                                );
-                                            })()}
-                                        </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                        {(() => {
+                                            const contact = contacts.find(c => c.id === formData.contactId);
+                                            return contact?.email && (
+                                                <div className="flex items-center text-[10px] py-1 px-2.5 bg-blue-50/50 rounded border border-blue-100/50 gap-1.5">
+                                                    <span className="text-blue-700 font-medium truncate">{contact.email}</span>
+                                                    <span className="text-[9px] text-blue-500 bg-blue-100/50 px-1 rounded uppercase font-bold">Cliente</span>
+                                                </div>
+                                            );
+                                        })()}
                                     </div>
                                 )}
 
-                                <div className="space-y-1.5">
+                                {/* Row 7: Descripción */}
+                                <div className="space-y-1">
                                     <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Descripción</Label>
                                     <Textarea
                                         placeholder="Detalles adicionales..."
-                                        className="min-h-[80px] text-sm resize-none bg-slate-50/50 focus:bg-white transition-all"
+                                        className="min-h-[56px] text-sm resize-none bg-slate-50/50 focus:bg-white transition-all"
                                         value={formData.description}
                                         onChange={e => setFormData({ ...formData, description: e.target.value })}
                                         disabled={selectedEvent?.isGoogleEvent}
@@ -1478,21 +1464,21 @@ export default function CalendarPage() {
                                 </div>
                             </div>
 
-                            <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-2 shrink-0">
+                            <div className="p-3 border-t border-slate-100 bg-slate-50 flex justify-end gap-2 shrink-0">
                                 <Button
                                     variant="outline"
                                     onClick={() => {
                                         if (selectedEvent && isEditing) setIsEditing(false)
                                         else setIsModalOpen(false)
                                     }}
-                                    className="h-10 px-6 font-semibold"
+                                    className="h-8 px-5 text-sm font-semibold"
                                 >
                                     Cancelar
                                 </Button>
                                 <Button
                                     onClick={handleSave}
                                     disabled={isSaving}
-                                    className="h-10 px-8 bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-lg shadow-blue-200 transition-all active:scale-95"
+                                    className="h-8 px-6 text-sm bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-lg shadow-blue-200 transition-all active:scale-95"
                                 >
                                     {isSaving ? (
                                         <span className="flex items-center gap-2">
