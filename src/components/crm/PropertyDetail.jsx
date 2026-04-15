@@ -88,6 +88,7 @@ const PropertyDetail = () => {
     const { profile, user } = useAuth()
     const { id } = useParams()
     const navigate = useNavigate()
+    const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
     const [property, setProperty] = useState(null)
     const [loading, setLoading] = useState(true)
     const [isEditOpen, setIsEditOpen] = useState(false)
@@ -132,6 +133,13 @@ const PropertyDetail = () => {
         fetchParticipants()
         fetchPhotos()
     }, [id])
+
+    useEffect(() => {
+        const mq = window.matchMedia('(max-width: 767px)')
+        const handler = (e) => setIsMobile(e.matches)
+        mq.addEventListener('change', handler)
+        return () => mq.removeEventListener('change', handler)
+    }, [])
 
     const handleDeleteProperty = async () => {
         setIsDeleting(true)
@@ -493,71 +501,60 @@ const PropertyDetail = () => {
     const isOwner = user?.id === property?.agent_id
 
     return (
-        <div className="space-y-6 animate-in fade-in duration-500">
+        <div className="space-y-4 md:space-y-6 animate-in fade-in duration-500 pb-20">
             {/* Header */}
-            <div className="flex items-center gap-4">
-                <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+            <div className="flex items-center justify-between">
+                <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="h-9 w-9">
                     <ArrowLeft className="w-5 h-5" />
                 </Button>
-                <div>
-                    <h1 className="text-xl font-bold truncate max-w-md" title={property.address}>
+                <div className="flex-1 min-w-0 mx-2 md:mx-4">
+                    <h1 className="text-base md:text-xl font-bold truncate" title={property.address}>
                         {property.address}
                     </h1>
-                    <div className="flex items-center gap-2 text-sm text-gray-500 flex-wrap">
+                    <div className="flex items-center gap-1.5 text-xs md:text-sm text-gray-500 flex-wrap">
                         {property.price && (
-                            <span className="font-semibold text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 px-2 py-0.5 rounded">
+                            <span className="font-semibold text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 px-1.5 py-0.5 rounded text-[11px] md:text-sm">
                                 {property.currency === 'CLP' ? '$' : property.currency} {new Intl.NumberFormat('es-CL').format(property.price)}
                             </span>
                         )}
-                        {property.sold_price > 0 && (
-                            <span className="font-semibold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20 px-2 py-0.5 rounded text-xs">
-                                Vendida: {property.currency === 'CLP' ? '$' : property.currency} {new Intl.NumberFormat('es-CL').format(property.sold_price)}
-                            </span>
-                        )}
-                        {property.maintenance_fee > 0 && (
-                            <span className="text-xs text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20 px-2 py-0.5 rounded">
-                                GC: ${new Intl.NumberFormat('es-CL').format(property.maintenance_fee)}
-                            </span>
-                        )}
                         {property.is_exclusive && (
-                            <span className="inline-flex items-center gap-0.5 px-2 py-0.5 text-xs font-semibold rounded-full bg-gradient-to-r from-amber-400 to-yellow-400 text-amber-900">
+                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] md:text-xs font-semibold rounded-full bg-gradient-to-r from-amber-400 to-yellow-400 text-amber-900">
                                 <Star className="w-2.5 h-2.5" /> Exclusiva
                             </span>
                         )}
                         {property.operation_type && (
-                            <span className={`px-2 py-0.5 text-xs font-medium rounded-full capitalize ${property.operation_type === 'arriendo' ? 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300' : 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300'}`}>
+                            <span className={`px-1.5 py-0.5 text-[10px] md:text-xs font-medium rounded-full capitalize ${property.operation_type === 'arriendo' ? 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300' : 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300'}`}>
                                 {property.operation_type}
                             </span>
                         )}
-                        {property.unit_number && <span>• Depto {property.unit_number}</span>}
-                        {property.rol_number && <span>• ROL {property.rol_number}</span>}
-                        {property.commune && <span>• {property.commune}</span>}
+                        <span className="hidden md:inline">{property.commune && `• ${property.commune}`}</span>
                     </div>
                 </div>
-                <div className="ml-auto flex gap-2">
-                    {isOwner && (
-                        <Button className="bg-indigo-600 hover:bg-indigo-700 text-white" onClick={() => setIsActionModalOpen(true)}>
-                            <Plus className="w-4 h-4 mr-2" />
-                            Agregar Acción
+                {isOwner && (
+                    <div className="flex items-center gap-1.5">
+                        <Button className="bg-indigo-600 hover:bg-indigo-700 text-white h-9 w-9 md:w-auto md:px-3" size={isMobile ? 'icon' : 'default'} onClick={() => setIsActionModalOpen(true)}>
+                            <Plus className="w-4 h-4" />
+                            <span className="hidden md:inline ml-1">Acción</span>
                         </Button>
-                    )}
-                    {isOwner && (
-                        <Button variant="outline" onClick={() => setIsEditOpen(true)}>Editar</Button>
-                    )}
-                    {isOwner && (
-                        <Button className="bg-green-600 hover:bg-green-700 text-white" onClick={() => {
-                            setSelectedTask({ property_id: property.id, contact_id: property.owner_id }) // Pre-fill
-                            setIsTaskModalOpen(true)
-                        }}>
-                            <Plus className="w-4 h-4 mr-2" />
-                            Nueva Tarea
+                        <Button variant="outline" size={isMobile ? 'icon' : 'default'} className="h-9 w-9 md:w-auto md:px-3" onClick={() => setIsEditOpen(true)}>
+                            <FileText className="w-4 h-4" />
+                            <span className="hidden md:inline ml-1">Editar</span>
                         </Button>
-                    )}
-                    {isOwner && (
+                        <Button
+                            className="bg-green-600 hover:bg-green-700 text-white h-9 w-9 md:w-auto md:px-3"
+                            size={isMobile ? 'icon' : 'default'}
+                            onClick={() => {
+                                setSelectedTask({ property_id: property.id, contact_id: property.owner_id })
+                                setIsTaskModalOpen(true)
+                            }}
+                        >
+                            <Briefcase className="w-4 h-4" />
+                            <span className="hidden md:inline ml-1">Tarea</span>
+                        </Button>
                         <Button
                             variant="destructive"
                             size="icon"
-                            className="bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/40 border-0"
+                            className="bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/40 border-0 h-9 w-9"
                             onClick={async () => {
                                 const { count } = await supabase
                                     .from('mandates')
@@ -569,8 +566,8 @@ const PropertyDetail = () => {
                         >
                             <Trash2 className="w-4 h-4" />
                         </Button>
-                    )}
-                </div>
+                    </div>
+                )}
             </div>
 
             {/* Photo Slideshow */}
@@ -636,7 +633,7 @@ const PropertyDetail = () => {
             })()}
 
             {/* Main Layout */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
 
                 {/* Left Column: Info */}
                 <div className="lg:col-span-2 space-y-6">
@@ -701,22 +698,22 @@ const PropertyDetail = () => {
 
                     {/* Tabs for Details, Docs, Notes */}
                     <Tabs defaultValue="activity" className="w-full">
-                        <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent">
-                            <TabsTrigger value="activity" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2">Actividad</TabsTrigger>
-                            <TabsTrigger value="pipeline" className="rounded-none border-b-2 border-transparent data-[state=active]:border-[#003DA5] data-[state=active]:bg-transparent px-4 py-2">
-                                <GitBranch className="w-3.5 h-3.5 mr-1.5" /> Pipeline
+                        <TabsList className="w-full overflow-x-auto scrollbar-hide flex md:justify-start border-b rounded-none h-auto p-0 bg-transparent gap-0">
+                            <TabsTrigger value="activity" className="flex-none rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-3 md:px-4 py-2 text-xs md:text-sm">Actividad</TabsTrigger>
+                            <TabsTrigger value="pipeline" className="flex-none rounded-none border-b-2 border-transparent data-[state=active]:border-[#003DA5] data-[state=active]:bg-transparent px-3 md:px-4 py-2 text-xs md:text-sm">
+                                <GitBranch className="w-3.5 h-3.5 mr-1" /> Pipeline
                             </TabsTrigger>
                             {property.source === 'remax' && (
-                                <TabsTrigger value="timeline" className="rounded-none border-b-2 border-transparent data-[state=active]:border-indigo-500 data-[state=active]:bg-transparent px-4 py-2">
-                                    <History className="w-3.5 h-3.5 mr-1.5" /> RE/MAX Timeline
+                                <TabsTrigger value="timeline" className="flex-none rounded-none border-b-2 border-transparent data-[state=active]:border-indigo-500 data-[state=active]:bg-transparent px-3 md:px-4 py-2 text-xs md:text-sm whitespace-nowrap">
+                                    <History className="w-3.5 h-3.5 mr-1" /> RE/MAX
                                 </TabsTrigger>
                             )}
-                            <TabsTrigger value="photos" className="rounded-none border-b-2 border-transparent data-[state=active]:border-emerald-500 data-[state=active]:bg-transparent px-4 py-2">
-                                <Camera className="w-3.5 h-3.5 mr-1.5" /> Fotos {photos.length > 0 && <Badge className="ml-1.5 bg-emerald-100 text-emerald-700 text-[10px] px-1.5">{photos.length}</Badge>}
+                            <TabsTrigger value="photos" className="flex-none rounded-none border-b-2 border-transparent data-[state=active]:border-emerald-500 data-[state=active]:bg-transparent px-3 md:px-4 py-2 text-xs md:text-sm">
+                                <Camera className="w-3.5 h-3.5 mr-1" /> Fotos {photos.length > 0 && <Badge className="ml-1 bg-emerald-100 text-emerald-700 text-[10px] px-1.5">{photos.length}</Badge>}
                             </TabsTrigger>
-                            <TabsTrigger value="details" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2">Detalles</TabsTrigger>
-                            <TabsTrigger value="notes" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2">Notas</TabsTrigger>
-                            <TabsTrigger value="links" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2">Enlaces</TabsTrigger>
+                            <TabsTrigger value="details" className="flex-none rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-3 md:px-4 py-2 text-xs md:text-sm">Detalles</TabsTrigger>
+                            <TabsTrigger value="notes" className="flex-none rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-3 md:px-4 py-2 text-xs md:text-sm">Notas</TabsTrigger>
+                            <TabsTrigger value="links" className="flex-none rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-3 md:px-4 py-2 text-xs md:text-sm">Enlaces</TabsTrigger>
                         </TabsList>
 
                         <TabsContent value="activity" className="py-4 space-y-6">

@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../../services/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { Button, AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, Input, Label } from "@/components/ui"
-import { ArrowLeft, Edit, Calendar, CheckCircle2, Circle, Trash2, AlertTriangle, Plus, Home } from 'lucide-react'
+import { ArrowLeft, Edit, Calendar, CheckCircle2, Circle, Trash2, AlertTriangle, Plus, Home, Phone, MessageCircle, MoreVertical, Mail } from 'lucide-react'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import ContactForm from './ContactForm'
 import TaskModal from './TaskModal'
@@ -17,6 +17,14 @@ import { completeTaskWithAction } from '../../services/completeTaskAction'
 
 const ContactDetail = () => {
     const { profile, user } = useAuth()
+    const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
+
+    useEffect(() => {
+        const mq = window.matchMedia('(max-width: 767px)')
+        const handler = (e) => setIsMobile(e.matches)
+        mq.addEventListener('change', handler)
+        return () => mq.removeEventListener('change', handler)
+    }, [])
     const { id } = useParams()
     const navigate = useNavigate()
     const [contact, setContact] = useState(null)
@@ -251,71 +259,106 @@ const ContactDetail = () => {
     const isOwner = user?.id === contact?.agent_id
 
     return (
-        <div className="max-w-7xl mx-auto space-y-6 pb-20">
+        <div className="max-w-7xl mx-auto space-y-4 md:space-y-6 pb-20">
             {/* Header */}
             <div className="flex items-center justify-between">
-                <Button variant="ghost" onClick={() => navigate(-1)} className="gap-2 pl-0">
-                    <ArrowLeft className="w-4 h-4" /> Volver
+                <Button variant="ghost" onClick={() => navigate(-1)} className="gap-1 pl-0 h-9">
+                    <ArrowLeft className="w-4 h-4" />
+                    <span className="hidden md:inline">Volver</span>
                 </Button>
-                <div className="flex items-center gap-2">
-                    {isOwner && (
-                        <Button onClick={() => setIsActionModalOpen(true)} className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white">
-                            <Plus className="w-4 h-4" /> Agregar Acción
+                {isOwner && (
+                    <div className="flex items-center gap-1.5 md:gap-2">
+                        <Button onClick={() => setIsActionModalOpen(true)} size={isMobile ? 'icon' : 'default'} className="bg-indigo-600 hover:bg-indigo-700 text-white h-9 w-9 md:w-auto md:px-3">
+                            <Plus className="w-4 h-4" />
+                            <span className="hidden md:inline ml-1">Agregar Acción</span>
                         </Button>
-                    )}
-                    {isOwner && (
-                        <Button variant="destructive" size="sm" onClick={() => setIsDeleteOpen(true)} className="gap-2">
-                            <Trash2 className="w-4 h-4" /> Eliminar
+                        <Button onClick={() => setIsEditOpen(true)} variant="outline" size={isMobile ? 'icon' : 'default'} className="h-9 w-9 md:w-auto md:px-3">
+                            <Edit className="w-4 h-4" />
+                            <span className="hidden md:inline ml-1">Editar</span>
                         </Button>
-                    )}
-                    {isOwner && (
-                        <Button onClick={() => setIsEditOpen(true)} className="gap-2">
-                            <Edit className="w-4 h-4" /> Editar Contacto
+                        <Button variant="destructive" size="icon" onClick={() => setIsDeleteOpen(true)} className="h-9 w-9">
+                            <Trash2 className="w-4 h-4" />
                         </Button>
-                    )}
-                </div>
+                    </div>
+                )}
             </div>
 
-            {/* Main Info Card */}
-            <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 p-6">
-                <div className="flex flex-col md:flex-row gap-6 justify-between items-start">
-                    <div>
-                        <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+            {/* Main Info Card — Mobile Profile Style */}
+            <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 p-4 md:p-6">
+                <div className="flex items-start gap-4">
+                    {/* Avatar */}
+                    <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xl md:text-2xl font-bold flex-none">
+                        {contact.first_name?.[0]}{contact.last_name?.[0]}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <h1 className="text-xl md:text-3xl font-bold text-gray-900 dark:text-white truncate">
                             {contact.first_name} {contact.last_name}
                         </h1>
-                        <div className="flex flex-wrap gap-2 mb-4">
-                            <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium dark:bg-blue-900 dark:text-blue-300">
+                        <div className="flex flex-wrap gap-1.5 mt-1.5">
+                            <span className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full text-[11px] md:text-sm font-medium dark:bg-blue-900 dark:text-blue-300">
                                 {contact.status}
                             </span>
-                            {contact.rating && <span className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm font-medium dark:bg-yellow-900 dark:text-yellow-300">
+                            {contact.rating && <span className="px-2 py-0.5 bg-yellow-100 text-yellow-800 rounded-full text-[11px] md:text-sm font-medium dark:bg-yellow-900 dark:text-yellow-300">
                                 {contact.rating}
                             </span>}
-                            <span className="px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-sm font-medium dark:bg-gray-800 dark:text-gray-300">
+                            <span className="px-2 py-0.5 bg-gray-100 text-gray-800 rounded-full text-[11px] md:text-sm font-medium dark:bg-gray-800 dark:text-gray-300">
                                 {contact.need}
                             </span>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 text-sm text-gray-500 dark:text-gray-400">
-                            <p><span className="font-medium text-gray-900 dark:text-gray-200">Email:</span> {contact.email || '-'}</p>
-                            <p><span className="font-medium text-gray-900 dark:text-gray-200">Teléfono:</span> {contact.phone || '-'}</p>
-                            <p><span className="font-medium text-gray-900 dark:text-gray-200">Profesión:</span> {contact.profession || '-'}</p>
-                            <p><span className="font-medium text-gray-900 dark:text-gray-200">Fuente:</span> {contact.source || '-'}</p>
-                            <p><span className="font-medium text-gray-900 dark:text-gray-200">RUT:</span> {contact.rut || '-'}</p>
-                        </div>
                     </div>
+                </div>
+
+                {/* Quick Action Buttons (Mobile) */}
+                {isMobile && (
+                    <div className="flex items-center justify-center gap-3 mt-4 pt-4 border-t border-gray-100 dark:border-gray-800">
+                        {contact.phone && (
+                            <a href={`tel:${contact.phone}`} className="flex flex-col items-center gap-1">
+                                <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center text-green-600">
+                                    <Phone className="w-4 h-4" />
+                                </div>
+                                <span className="text-[10px] text-gray-500">Llamar</span>
+                            </a>
+                        )}
+                        {contact.phone && (
+                            <a href={`https://wa.me/${contact.phone.replace(/[^0-9]/g, '')}`} target="_blank" rel="noopener noreferrer" className="flex flex-col items-center gap-1">
+                                <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-600">
+                                    <MessageCircle className="w-4 h-4" />
+                                </div>
+                                <span className="text-[10px] text-gray-500">WhatsApp</span>
+                            </a>
+                        )}
+                        {contact.email && (
+                            <a href={`mailto:${contact.email}`} className="flex flex-col items-center gap-1">
+                                <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600">
+                                    <Mail className="w-4 h-4" />
+                                </div>
+                                <span className="text-[10px] text-gray-500">Email</span>
+                            </a>
+                        )}
+                    </div>
+                )}
+
+                {/* Contact Details */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 text-sm text-gray-500 dark:text-gray-400 mt-4">
+                    <p><span className="font-medium text-gray-900 dark:text-gray-200">Email:</span> {contact.email || '-'}</p>
+                    <p><span className="font-medium text-gray-900 dark:text-gray-200">Teléfono:</span> {contact.phone || '-'}</p>
+                    <p><span className="font-medium text-gray-900 dark:text-gray-200">Profesión:</span> {contact.profession || '-'}</p>
+                    <p><span className="font-medium text-gray-900 dark:text-gray-200">Fuente:</span> {contact.source || '-'}</p>
+                    <p><span className="font-medium text-gray-900 dark:text-gray-200">RUT:</span> {contact.rut || '-'}</p>
                 </div>
             </div>
 
             {/* Main Layout: 2-col left + 1-col right sidebar */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
 
                 {/* Left Column: Tabs */}
                 <div className="lg:col-span-2">
                     <Tabs defaultValue="storyline" className="w-full">
-                        <TabsList className="grid w-full max-w-[700px] grid-cols-4">
-                            <TabsTrigger value="storyline">Storyline</TabsTrigger>
-                            <TabsTrigger value="pipeline">Pipeline</TabsTrigger>
-                            <TabsTrigger value="tasks">Tareas ({tasks.length})</TabsTrigger>
-                            <TabsTrigger value="details">Detalles Completos</TabsTrigger>
+                        <TabsList className="w-full max-w-full overflow-x-auto scrollbar-hide flex md:grid md:grid-cols-4 md:max-w-[700px] gap-0">
+                            <TabsTrigger value="storyline" className="flex-none text-xs md:text-sm px-3 md:px-4">Storyline</TabsTrigger>
+                            <TabsTrigger value="pipeline" className="flex-none text-xs md:text-sm px-3 md:px-4">Pipeline</TabsTrigger>
+                            <TabsTrigger value="tasks" className="flex-none text-xs md:text-sm px-3 md:px-4">Tareas ({tasks.length})</TabsTrigger>
+                            <TabsTrigger value="details" className="flex-none text-xs md:text-sm px-3 md:px-4 whitespace-nowrap">Detalles</TabsTrigger>
                         </TabsList>
 
                         <TabsContent value="storyline" className="mt-6">
