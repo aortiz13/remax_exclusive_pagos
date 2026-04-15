@@ -509,23 +509,30 @@ export default function BusinessPlan({ agentId: externalAgentId, readOnly = fals
                     <h4 className="text-[0.65rem] font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
                         <Activity className="w-3.5 h-3.5" /> Objetivos de Actividad
                     </h4>
-                    <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                         {[
-                            { label: 'Conversaciones/día', target: plan.daily_conversations, icon: Users, color: 'blue', tip: 'N° de contactos diarios que el agente debe generar según su plan.' },
-                            { label: 'Reuniones vend./sem', target: plan.weekly_seller_meetings, icon: Briefcase, color: 'emerald', tip: 'Reuniones semanales con vendedores para captar propiedades.' },
-                            { label: 'Reuniones comp./sem', target: plan.weekly_buyer_meetings, icon: Users, color: 'purple', tip: 'Reuniones semanales con compradores interesados.' },
-                            { label: 'Captaciones/mes', target: plan.monthly_captures, icon: Target, color: 'amber', tip: 'Propiedades nuevas que el agente debe captar al mes.' },
-                            { label: 'Negocios proc./mes', target: plan.monthly_deals_in_process, icon: Activity, color: 'red', tip: 'Negocios activos en proceso de cierre al mes.' },
-                        ].map((o, i) => (
-                            <div key={i} className={`p-3 rounded-xl border border-${o.color}-100 bg-${o.color}-50/20`}>
-                                <div className="flex items-center gap-1.5 mb-2">
-                                    <o.icon className={`w-3 h-3 text-${o.color}-500`} />
-                                    <label className="text-[0.5rem] font-bold text-gray-500 uppercase leading-tight">{o.label}</label>
+                            { label: 'Conversaciones/día', target: plan.daily_conversations, icon: Users, iconBg: 'bg-blue-50', iconColor: 'text-blue-500', tip: 'N° de contactos diarios que el agente debe generar según su plan.' },
+                            { label: 'Reuniones vend./sem', target: plan.weekly_seller_meetings, icon: Briefcase, iconBg: 'bg-emerald-50', iconColor: 'text-emerald-500', tip: 'Reuniones semanales con vendedores para captar propiedades.' },
+                            { label: 'Reuniones comp./sem', target: plan.weekly_buyer_meetings, icon: Users, iconBg: 'bg-purple-50', iconColor: 'text-purple-500', tip: 'Reuniones semanales con compradores interesados.' },
+                            { label: 'Captaciones/mes', target: plan.monthly_captures, icon: Target, iconBg: 'bg-amber-50', iconColor: 'text-amber-500', tip: 'Propiedades nuevas que el agente debe captar al mes.' },
+                            { label: 'Negocios proc./mes', target: plan.monthly_deals_in_process, icon: Activity, iconBg: 'bg-red-50', iconColor: 'text-red-500', tip: 'Negocios activos en proceso de cierre al mes.' },
+                        ].map((o, i) => {
+                            const Icon = o.icon
+                            return (
+                                <div key={i} className="bg-white rounded-2xl p-5 shadow-[0_2px_12px_rgba(0,0,0,0.04)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.08)] border border-slate-100/80 transition-all duration-300">
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <div className={`w-7 h-7 rounded-lg ${o.iconBg} flex items-center justify-center`}>
+                                            <Icon className={`w-3.5 h-3.5 ${o.iconColor}`} strokeWidth={1.8} />
+                                        </div>
+                                        <label className="text-[0.55rem] font-bold text-slate-500 uppercase leading-tight tracking-wide">{o.label}</label>
+                                    </div>
+                                    <Tip text={o.tip}>
+                                        <p className="text-2xl font-bold text-slate-900 tracking-tight">{o.target}</p>
+                                    </Tip>
+                                    <p className="text-[0.55rem] text-slate-400 mt-1">Meta establecida</p>
                                 </div>
-                                <Tip text={o.tip}><p className={`text-xl font-bold text-${o.color}-700 font-mono`}>{o.target}</p></Tip>
-                                <p className="text-[0.5rem] text-gray-400 mt-0.5">Meta establecida</p>
-                            </div>
-                        ))}
+                            )
+                        })}
                     </div>
                 </div>
 

@@ -152,7 +152,7 @@ const MenuBar = ({ editor }) => {
     );
 };
 
-const EmailComposer = ({ onClose, onSuccess, replyTo = null, userProfile, initialDraft = null, draftId = null }) => {
+const EmailComposer = ({ onClose, onSuccess, replyTo = null, userProfile, initialDraft = null, draftId = null, isMobile = false }) => {
     const fileInputRef = useRef(null);
 
     // Get the latest message to reply to if available
@@ -325,7 +325,10 @@ const EmailComposer = ({ onClose, onSuccess, replyTo = null, userProfile, initia
 
     return (
         <>
-            <div className="fixed bottom-0 right-24 w-[600px] h-auto max-h-[600px] min-h-[500px] bg-white rounded-t-xl shadow-2xl border border-gray-200 flex flex-col z-50 overflow-hidden">
+            <div className={isMobile
+                ? "fixed inset-0 bg-white flex flex-col z-50 overflow-hidden"
+                : "fixed bottom-0 right-24 w-[600px] h-auto max-h-[600px] min-h-[500px] bg-white rounded-t-xl shadow-2xl border border-gray-200 flex flex-col z-50 overflow-hidden"
+            }>
                 {/* Header */}
                 <div className="bg-gray-800 text-white px-4 py-3 flex justify-between items-center rounded-t-xl">
                     <span className="font-medium text-sm">{replyTo ? 'Responder' : initialDraft ? 'Borrador' : 'Nuevo Mensaje'}</span>
