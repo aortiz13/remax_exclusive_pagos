@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../services/supabase'
-import { getStagesForPipeline, PIPELINE_TYPES } from '../../services/dealsPipelineService'
-import { CheckCircle2, Clock, Circle, GitBranch, ArrowRight, Trophy, XCircle, Link2 } from 'lucide-react'
+import { getStagesForPipeline, PIPELINE_TYPES, fetchDealHistory } from '../../services/dealsPipelineService'
+import { CheckCircle2, Clock, Circle, GitBranch, ArrowRight, Trophy, XCircle, Link2, CalendarDays } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
 const PropertyPipelineTracker = ({ propertyId, contactId }) => {
@@ -128,6 +128,48 @@ const DealPipelineCard = ({ deal, parentLabel, childDeals, isHistorical }) => {
     const stages = getStagesForPipeline(deal.pipeline_type)
     const currentStageIndex = stages.findIndex(s => s.id === deal.current_stage)
     const pipelineMeta = PIPELINE_TYPES.find(p => p.id === deal.pipeline_type)
+    const [stageTimeline, setStageTimeline] = useState({})
+
+    useEffect(() => {
+        fetchDealHistory(deal.id).then(history => {
+            // history is sorted desc by created_at
+            const sorted = [...history].sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+            const timeline = {}
+
+            sorted.forEach((entry, idx) => {
+                const stage = entry.to_stage
+                if (!stage) return
+                const enteredAt = new Date(entry.created_at)
+                // Duration = time from this entry to the next entry (or now)
+                const nextEntry = sorted[idx + 1]
+                const exitAt = nextEntry ? new Date(nextEntry.created_at) : (deal.current_stage === stage ? new Date() : null)
+                const durationMs = exitAt ? exitAt - enteredAt : null
+                timeline[stage] = { enteredAt, durationMs }
+            })
+
+            // If no history for the first stage, use deal.created_at
+            if (stages.length > 0 && !timeline[stages[0].id]) {
+                timeline[stages[0].id] = { enteredAt: new Date(deal.created_at), durationMs: null }
+            }
+
+            setStageTimeline(timeline)
+        }).catch(() => {})
+    }, [deal.id])
+
+    const formatDuration = (ms) => {
+        if (!ms || ms < 0) return null
+        const minutes = Math.floor(ms / 60000)
+        const hours = Math.floor(minutes / 60)
+        const days = Math.floor(hours / 24)
+        if (days > 0) return `${days}d`
+        if (hours > 0) return `${hours}h`
+        return `${minutes}m`
+    }
+
+    const formatDate = (date) => {
+        if (!date) return null
+        return date.toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' })
+    }
 
     const getStageStatus = (stageIndex) => {
         if (deal.current_stage === 'won') return 'completed'
@@ -283,8 +325,22 @@ const DealPipelineCard = ({ deal, parentLabel, childDeals, isHistorical }) => {
                                         }`}>
                                             {stage.description}
                                         </p>
+                                        {/* Date & Duration */}
+                                        {stageTimeline[stage.id] && (status === 'completed' || status === 'current') && (
+                                            <div className="flex items-center gap-3 mt-1.5 text-[10px] text-slate-400 dark:text-slate-500">
+                                                <span className="inline-flex items-center gap-1">
+                                                    <CalendarDays className="w-3 h-3" />
+                                                    {formatDate(stageTimeline[stage.id].enteredAt)}
+                                                </span>
+                                                {stageTimeline[stage.id].durationMs != null && (
+                                                    <span className="inline-flex items-center gap-1">
+                                                        <Clock className="w-3 h-3" />
+                                                        {formatDuration(stageTimeline[stage.id].durationMs)}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
-                                </div>
                             </div>
                         )
                     })}
