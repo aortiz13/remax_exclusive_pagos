@@ -1503,6 +1503,17 @@ export default function InspectionFormPage() {
                                             )}
                                         </div>
                                     ))}
+                                    {/* Mobile: button to add more photos (since header buttons are hidden) */}
+                                    {!isReadOnly && (
+                                        <button
+                                            data-hide-pdf
+                                            onClick={() => photoInputRef.current?.click()}
+                                            className="w-full py-3 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 text-sm font-semibold hover:border-[#003DA5]/40 hover:text-[#003DA5] hover:bg-blue-50/30 transition-colors flex items-center justify-center gap-2"
+                                        >
+                                            <Camera className="w-4 h-4" />
+                                            Tomar fotografía o seleccionar de la galería
+                                        </button>
+                                    )}
                                 </div>
                             )}
                         </section>
@@ -1523,30 +1534,32 @@ export default function InspectionFormPage() {
                     {isReadOnly ? (
                         <button
                             onClick={handleDownloadPdf}
-                            className="px-8 py-3 bg-[#003DA5] text-white rounded-xl font-bold hover:bg-[#002d7a] transition-colors shadow-lg flex items-center gap-2"
+                            className="w-full sm:w-auto px-8 py-3 bg-[#003DA5] text-white rounded-xl font-bold hover:bg-[#002d7a] transition-colors shadow-lg flex items-center justify-center gap-2"
                         >
                             <Download className="w-5 h-5" /> Descargar Informe PDF
                         </button>
                     ) : (
                         <>
+                            {/* PDF download - always visible */}
                             <button
                                 onClick={handleDownloadPdf}
-                                className="px-6 py-3 bg-white border-2 border-[#003DA5] text-[#003DA5] rounded-xl font-bold hover:bg-blue-50 transition-colors shadow-sm flex items-center gap-2"
+                                className="flex-1 sm:flex-none px-6 py-3 bg-white border-2 border-[#003DA5] text-[#003DA5] rounded-xl font-bold hover:bg-blue-50 transition-colors shadow-sm flex items-center justify-center gap-2"
                                 title="Descargar copia del borrador actual"
                             >
-                                <Download className="w-4 h-4" /> PDF
+                                <Download className="w-4 h-4" /> <span className="sm:hidden">Descargar PDF</span><span className="hidden sm:inline">PDF</span>
                             </button>
+                            {/* Guardar + Enviar: only on desktop (already in sticky header on mobile) */}
                             <button
                                 onClick={handleManualSave}
                                 disabled={saving}
-                                className="px-8 py-3 bg-white border-2 border-gray-300 text-gray-700 rounded-xl font-bold hover:bg-gray-50 transition-colors disabled:opacity-50 shadow-sm flex items-center gap-2"
+                                className="hidden sm:flex px-8 py-3 bg-white border-2 border-gray-300 text-gray-700 rounded-xl font-bold hover:bg-gray-50 transition-colors disabled:opacity-50 shadow-sm items-center gap-2"
                             >
                                 {saving ? <><Loader2 className="w-4 h-4 animate-spin" /> Guardando...</> : <><Save className="w-4 h-4" /> Guardar Borrador</>}
                             </button>
                             <button
                                 onClick={openSendPreview}
                                 disabled={submitting}
-                                className="px-8 py-3 bg-[#003DA5] text-white rounded-xl font-bold hover:bg-[#002d7a] transition-colors disabled:opacity-50 shadow-lg flex items-center gap-2"
+                                className="hidden sm:flex px-8 py-3 bg-[#003DA5] text-white rounded-xl font-bold hover:bg-[#002d7a] transition-colors disabled:opacity-50 shadow-lg items-center gap-2"
                             >
                                 <Send className="w-4 h-4" /> Enviar Informe
                             </button>
