@@ -105,7 +105,7 @@ export async function syncPropertyStatus(propertyId, toStage, pipelineType) {
   if (!propertyId) return
 
   const STAGE_TO_STATUS = {
-    firma_captacion:    'Captada',
+    firma_captacion:    'Captada (no publicada aún)',
     negociacion:        'En Negociación',
   }
 
@@ -126,7 +126,7 @@ export async function syncPropertyStatus(propertyId, toStage, pipelineType) {
     if (currentStatuses.includes(newStatus)) return // already has it
 
     // Remove conflicting statuses and add new one
-    const COMMERCIAL_STATUSES = ['Por Captar', 'Captada', 'Publicada', 'En Negociación', 'En Venta', 'En Arriendo']
+    const COMMERCIAL_STATUSES = ['Por Captar', 'Captada', 'Captada (no publicada aún)', 'Publicada', 'En Negociación', 'En Venta', 'En Arriendo']
     const cleaned = currentStatuses.filter(s => !COMMERCIAL_STATUSES.includes(s))
     cleaned.push(newStatus)
 
@@ -162,7 +162,7 @@ export async function syncPropertyWonStatus(propertyId, pipelineType) {
 
     if (!prop) return
 
-    const COMMERCIAL_STATUSES = ['Por Captar', 'Captada', 'Publicada', 'En Negociación', 'En Venta', 'En Arriendo']
+    const COMMERCIAL_STATUSES = ['Por Captar', 'Captada', 'Captada (no publicada aún)', 'Publicada', 'En Negociación', 'En Venta', 'En Arriendo']
     const cleaned = (prop.status || []).filter(s => !COMMERCIAL_STATUSES.includes(s))
     if (!cleaned.includes(winStatus)) cleaned.push(winStatus)
 
@@ -418,7 +418,7 @@ export async function spawnDeal({ sourceDeal, targetPipeline, startStage, agentI
         .single()
 
       if (prop) {
-        const COMMERCIAL_STATUSES = ['Por Captar', 'Captada', 'Publicada', 'En Negociación', 'En Venta', 'En Arriendo', 'Arrendada']
+        const COMMERCIAL_STATUSES = ['Por Captar', 'Captada', 'Captada (no publicada aún)', 'Publicada', 'En Negociación', 'En Venta', 'En Arriendo', 'Arrendada']
         const cleaned = (prop.status || []).filter(s => !COMMERCIAL_STATUSES.includes(s))
         if (!cleaned.includes('Administrada')) cleaned.push('Administrada')
 

@@ -23,7 +23,7 @@ export const CONTACT_FILTER_CONFIG = [
 
 export const PROPERTY_FILTER_CONFIG = [
   { key: 'property_type', label: 'Tipo', type: 'select', options: ['Departamento', 'Casa', 'Oficina', 'Terreno', 'Bodega', 'Estacionamiento', 'Comercial', 'Parcela', 'Otro'] },
-  { key: 'status', label: 'Estado', type: 'multiselect', options: ['Publicada', 'En Venta', 'En Arriendo', 'Arrendada', 'Vendida', 'Pausada', 'Retirada', 'Por Captar', 'Captada', 'En Negociación', 'Administrada', 'Pendiente', 'Visitas'] },
+  { key: 'status', label: 'Estado', type: 'multiselect', options: ['Publicada', 'En Venta', 'En Arriendo', 'Arrendada', 'Vendida', 'Pausada', 'Retirada', 'Por Captar', 'Captada', 'Captada (no publicada aún)', 'En Negociación', 'Administrada', 'Pendiente', 'Visitas'] },
   { key: 'operation_type', label: 'Operación', type: 'select', options: ['venta', 'arriendo', 'Venta', 'Arriendo'] },
   { key: 'commune', label: 'Comuna', type: 'text' },
   { key: 'address', label: 'Dirección', type: 'text' },

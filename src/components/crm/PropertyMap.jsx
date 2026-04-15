@@ -25,6 +25,7 @@ const STATUS_PIN_COLORS = {
     'Retirada':     '#6b7280', // Gray
     'Por Captar':   '#14b8a6', // Teal
     'Captada':      '#8b5cf6', // Violet
+    'Captada (no publicada aún)': '#a78bfa', // Violet lighter
     'Visitas':      '#ec4899', // Pink
 }
 
