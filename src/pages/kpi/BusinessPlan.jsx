@@ -273,175 +273,145 @@ export default function BusinessPlan({ agentId: externalAgentId, readOnly = fals
             <div className="p-4 md:p-5 space-y-5 overflow-y-auto h-full">
 
                 {/* ═══════════════════════════════════════════════════════════════
-                    HERO — Facturación Real vs Meta
+                    3 CARDS — Facturación · Ventas · Arriendos
                    ═══════════════════════════════════════════════════════════════ */}
-                <div className="bg-white rounded-3xl border border-slate-200/60 shadow-sm p-5 md:p-6">
-                    {/* Header */}
-                    <div className="flex items-center justify-between mb-5">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2.5 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/25">
-                                <DollarSign className="w-5 h-5 text-white" />
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+                    {/* ── FACTURACIÓN ── */}
+                    <div className="bg-white rounded-2xl border border-slate-200/60 shadow-sm p-4 flex flex-col justify-between hover:shadow-md transition-shadow">
+                        <div className="flex items-center gap-2 mb-3">
+                            <div className="p-1.5 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 shadow-sm">
+                                <DollarSign className="w-3.5 h-3.5 text-white" />
                             </div>
-                            <div>
-                                <h3 className="text-lg font-bold text-slate-900 tracking-tight">Facturación {year}</h3>
-                                <p className="text-xs text-slate-400 font-medium">Acumulado real vs proyección anual</p>
+                            <h5 className="text-xs font-bold text-slate-900 uppercase tracking-wide">Facturación {year}</h5>
+                        </div>
+
+                        {/* Ring + Numbers */}
+                        <div className="flex items-center gap-3 mb-3">
+                            <div className="relative shrink-0">
+                                <ProgressRing pct={billingProg} size={56} stroke={5} color={billingProg >= 80 ? '#10b981' : billingProg >= 40 ? '#f59e0b' : '#ef4444'} />
+                                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                    <span className="text-xs font-extrabold text-slate-900">{fmtPct(billingProg)}%</span>
+                                </div>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <p className="text-[0.55rem] font-bold text-emerald-600 uppercase tracking-wider mb-0.5 flex items-center gap-1">
+                                    <span className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" /> Real
+                                </p>
+                                <p className="text-lg font-extrabold text-slate-900 font-mono leading-none truncate">{fmtCLP(kpiData.billing)}</p>
+                                <p className="text-[0.5rem] text-slate-400 mt-1">Meta: {fmtCLP(minBilling)}</p>
                             </div>
                         </div>
-                        <div className={`px-3 py-1.5 rounded-full text-xs font-bold ${billingProg >= 80 ? 'bg-emerald-100 text-emerald-700' : billingProg >= 40 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>
-                            {fmtPct(billingProg)}% completado
+
+                        {/* Difference */}
+                        {(() => {
+                            const diff = kpiData.billing - minBilling
+                            const isPositive = diff >= 0
+                            return (
+                                <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[0.6rem] font-bold ${isPositive ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+                                    <TrendingUp className={`w-3 h-3 shrink-0 ${isPositive ? '' : 'rotate-180'}`} />
+                                    <span className="truncate">{isPositive ? '+' : ''}{fmtCLP(diff)}</span>
+                                </div>
+                            )
+                        })()}
+
+                        {/* Progress bar */}
+                        <div className="mt-3">
+                            <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                                <div className={`h-full rounded-full transition-all duration-1000 ${billingProg >= 80 ? 'bg-emerald-500' : billingProg >= 40 ? 'bg-amber-500' : 'bg-red-500'}`}
+                                    style={{ width: `${Math.min(billingProg, 100)}%` }} />
+                            </div>
                         </div>
                     </div>
 
-                    {/* Main row: Ring + Numbers */}
-                    <div className="flex flex-col md:flex-row items-start md:items-center gap-6 mb-5">
-                        <div className="relative shrink-0">
-                            <ProgressRing pct={billingProg} size={100} stroke={8} color={billingProg >= 80 ? '#10b981' : billingProg >= 40 ? '#f59e0b' : '#ef4444'} />
-                            <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                <span className="text-xl font-extrabold text-slate-900">{fmtPct(billingProg)}%</span>
-                                <span className="text-[0.5rem] text-slate-400 font-semibold uppercase tracking-widest">Avance</span>
-                            </div>
-                        </div>
-
-                        <div className="flex-1 space-y-3">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-50 to-white border border-emerald-100">
-                                    <p className="text-[0.6rem] font-bold text-emerald-600 uppercase tracking-wider mb-1 flex items-center gap-1.5">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Facturación Real
-                                    </p>
-                                    <p className="text-2xl md:text-3xl font-extrabold text-slate-900 font-mono leading-none tracking-tight">{fmtCLP(kpiData.billing)}</p>
+                    {/* ── VENTAS ── */}
+                    <div className="bg-white rounded-2xl border border-slate-200/60 shadow-sm p-4 flex flex-col justify-between hover:shadow-md transition-shadow">
+                        <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-2">
+                                <div className="p-1.5 rounded-lg bg-emerald-100">
+                                    <TrendingUp className="w-3.5 h-3.5 text-emerald-600" />
                                 </div>
-                                <div className="p-4 rounded-2xl bg-gradient-to-br from-blue-50 to-white border border-blue-100">
-                                    <p className="text-[0.6rem] font-bold text-blue-600 uppercase tracking-wider mb-1">Facturación Proyectada</p>
-                                    <p className="text-2xl md:text-3xl font-extrabold text-slate-400 font-mono leading-none tracking-tight">{fmtCLP(minBilling)}</p>
-                                </div>
+                                <h5 className="text-xs font-bold text-slate-900 uppercase tracking-wide">Ventas</h5>
                             </div>
-                            {/* Difference callout */}
-                            {(() => {
-                                const diff = kpiData.billing - minBilling
-                                const isPositive = diff >= 0
-                                return (
-                                    <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl ${isPositive ? 'bg-emerald-50 border border-emerald-200' : 'bg-red-50 border border-red-200'}`}>
-                                        <TrendingUp className={`w-3.5 h-3.5 ${isPositive ? 'text-emerald-500' : 'text-red-500 rotate-180'}`} />
-                                        <span className={`text-xs font-bold ${isPositive ? 'text-emerald-700' : 'text-red-700'}`}>
-                                            {isPositive ? '+' : ''}{fmtCLP(diff)}
-                                        </span>
-                                        <span className="text-[0.6rem] text-slate-400">
-                                            {isPositive ? 'por encima de la meta' : 'faltan para la meta'}
-                                        </span>
-                                    </div>
-                                )
-                            })()}
-                        </div>
-                    </div>
-
-                    {/* Progress bar */}
-                    <div className="bg-slate-50 rounded-xl p-3">
-                        <div className="w-full bg-slate-200/60 h-2.5 rounded-full overflow-hidden">
-                            <div className={`h-full rounded-full transition-all duration-1000 ${billingProg >= 80 ? 'bg-gradient-to-r from-emerald-500 to-emerald-400' : billingProg >= 40 ? 'bg-gradient-to-r from-amber-500 to-amber-400' : 'bg-gradient-to-r from-red-500 to-red-400'}`}
-                                style={{ width: `${Math.min(billingProg, 100)}%` }} />
-                        </div>
-                        <div className="flex justify-between mt-1.5">
-                            <span className="text-[0.55rem] text-slate-400 font-medium">0%</span>
-                            <span className="text-[0.55rem] text-slate-500 font-semibold">{fmtCLP(kpiData.billing)} / {fmtCLP(minBilling)}</span>
-                            <span className="text-[0.55rem] text-slate-400 font-medium">100%</span>
-                        </div>
-                    </div>
-                </div>
-
-                {/* ═══════════════════════════════════════════════════════════════
-                    DETALLE POR TRANSACCIÓN — Ventas vs Arriendos
-                   ═══════════════════════════════════════════════════════════════ */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* VENTAS Card */}
-                    <div className="bg-white rounded-3xl border border-slate-200/60 shadow-sm p-5 space-y-4 hover:shadow-md transition-shadow">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2.5">
-                                <div className="p-2 rounded-xl bg-emerald-100">
-                                    <TrendingUp className="w-4 h-4 text-emerald-600" />
-                                </div>
-                                <h5 className="text-sm font-bold text-slate-900 uppercase tracking-wide">Ventas</h5>
-                            </div>
-                            <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700">
-                                {ticketData.saleCount}/{minTransSale} trans.
+                            <span className="text-[0.6rem] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
+                                {ticketData.saleCount}/{minTransSale}
                             </span>
                         </div>
 
-                        {/* Billing block */}
-                        <div className="flex items-center gap-4">
+                        {/* Ring + Billing */}
+                        <div className="flex items-center gap-3 mb-3">
                             <div className="relative shrink-0">
                                 <ProgressRing pct={minTransSale > 0 ? (ticketData.saleCount / minTransSale) * 100 : 0} size={56} stroke={5} color="#10b981" />
                                 <div className="absolute inset-0 flex flex-col items-center justify-center">
                                     <span className="text-sm font-bold text-emerald-700">{ticketData.saleCount}</span>
-                                    <span className="text-[0.4rem] text-slate-400 font-bold">/{minTransSale}</span>
                                 </div>
                             </div>
-                            <div className="flex-1">
-                                <p className="text-[0.55rem] font-bold text-slate-400 uppercase tracking-wider mb-1">Facturación por Ventas</p>
-                                <p className="text-xl font-extrabold text-slate-900 font-mono">{fmtCLP(realSaleBilling)}</p>
-                                <p className="text-[0.55rem] text-slate-400 mt-0.5">de {fmtCLP(billingVend)} requerido</p>
+                            <div className="flex-1 min-w-0">
+                                <p className="text-[0.55rem] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Facturación</p>
+                                <p className="text-lg font-extrabold text-slate-900 font-mono leading-none truncate">{fmtCLP(realSaleBilling)}</p>
+                                <p className="text-[0.5rem] text-slate-400 mt-1">de {fmtCLP(billingVend)}</p>
                             </div>
                         </div>
 
-                        {/* Ticket comparison */}
-                        <div className="grid grid-cols-2 gap-2">
-                            <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
-                                <label className="text-[0.5rem] font-bold text-slate-400 uppercase block mb-1">Ticket Proyectado</label>
-                                <p className="text-sm font-bold text-slate-800 font-mono">{fmtCLP(projected.sale)}</p>
+                        {/* Tickets */}
+                        <div className="grid grid-cols-2 gap-1.5">
+                            <div className="p-2 rounded-lg bg-slate-50 border border-slate-100">
+                                <label className="text-[0.45rem] font-bold text-slate-400 uppercase block mb-0.5">Proyectado</label>
+                                <p className="text-xs font-bold text-slate-800 font-mono">{fmtCLP(projected.sale)}</p>
                             </div>
-                            <div className={`p-3 rounded-xl border ${real.sale > 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-100'}`}>
-                                <label className="text-[0.5rem] font-bold text-slate-400 uppercase block mb-1">Ticket Real</label>
-                                <p className={`text-sm font-bold font-mono ${real.sale > 0 ? 'text-emerald-700' : 'text-slate-400'}`}>
-                                    {real.sale > 0 ? fmtCLP(real.sale) : 'Sin datos'}
+                            <div className={`p-2 rounded-lg border ${real.sale > 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-100'}`}>
+                                <label className="text-[0.45rem] font-bold text-slate-400 uppercase block mb-0.5">Real</label>
+                                <p className={`text-xs font-bold font-mono ${real.sale > 0 ? 'text-emerald-700' : 'text-slate-400'}`}>
+                                    {real.sale > 0 ? fmtCLP(real.sale) : '—'}
                                 </p>
                             </div>
                         </div>
-                        <p className="text-[0.55rem] text-slate-400 font-medium">Comisión: {plan.sale_commission}%</p>
+                        <p className="text-[0.5rem] text-slate-400 mt-2">Comisión: {plan.sale_commission}%</p>
                     </div>
 
-                    {/* ARRIENDOS Card */}
-                    <div className="bg-white rounded-3xl border border-slate-200/60 shadow-sm p-5 space-y-4 hover:shadow-md transition-shadow">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2.5">
-                                <div className="p-2 rounded-xl bg-amber-100">
-                                    <Building2 className="w-4 h-4 text-amber-600" />
+                    {/* ── ARRIENDOS ── */}
+                    <div className="bg-white rounded-2xl border border-slate-200/60 shadow-sm p-4 flex flex-col justify-between hover:shadow-md transition-shadow">
+                        <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-2">
+                                <div className="p-1.5 rounded-lg bg-amber-100">
+                                    <Building2 className="w-3.5 h-3.5 text-amber-600" />
                                 </div>
-                                <h5 className="text-sm font-bold text-slate-900 uppercase tracking-wide">Arriendos</h5>
+                                <h5 className="text-xs font-bold text-slate-900 uppercase tracking-wide">Arriendos</h5>
                             </div>
-                            <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-amber-100 text-amber-700">
-                                {ticketData.rentalCount}/{minTransRental} trans.
+                            <span className="text-[0.6rem] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
+                                {ticketData.rentalCount}/{minTransRental}
                             </span>
                         </div>
 
-                        {/* Billing block */}
-                        <div className="flex items-center gap-4">
+                        {/* Ring + Billing */}
+                        <div className="flex items-center gap-3 mb-3">
                             <div className="relative shrink-0">
                                 <ProgressRing pct={minTransRental > 0 ? (ticketData.rentalCount / minTransRental) * 100 : 0} size={56} stroke={5} color="#f59e0b" />
                                 <div className="absolute inset-0 flex flex-col items-center justify-center">
                                     <span className="text-sm font-bold text-amber-700">{ticketData.rentalCount}</span>
-                                    <span className="text-[0.4rem] text-slate-400 font-bold">/{minTransRental}</span>
                                 </div>
                             </div>
-                            <div className="flex-1">
-                                <p className="text-[0.55rem] font-bold text-slate-400 uppercase tracking-wider mb-1">Facturación por Arriendos</p>
-                                <p className="text-xl font-extrabold text-slate-900 font-mono">{fmtCLP(realRentalBilling)}</p>
-                                <p className="text-[0.55rem] text-slate-400 mt-0.5">de {fmtCLP(billingArr)} requerido</p>
+                            <div className="flex-1 min-w-0">
+                                <p className="text-[0.55rem] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Facturación</p>
+                                <p className="text-lg font-extrabold text-slate-900 font-mono leading-none truncate">{fmtCLP(realRentalBilling)}</p>
+                                <p className="text-[0.5rem] text-slate-400 mt-1">de {fmtCLP(billingArr)}</p>
                             </div>
                         </div>
 
-                        {/* Ticket comparison */}
-                        <div className="grid grid-cols-2 gap-2">
-                            <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
-                                <label className="text-[0.5rem] font-bold text-slate-400 uppercase block mb-1">Ticket Proyectado</label>
-                                <p className="text-sm font-bold text-slate-800 font-mono">{fmtCLP(projected.rental)}</p>
+                        {/* Tickets */}
+                        <div className="grid grid-cols-2 gap-1.5">
+                            <div className="p-2 rounded-lg bg-slate-50 border border-slate-100">
+                                <label className="text-[0.45rem] font-bold text-slate-400 uppercase block mb-0.5">Proyectado</label>
+                                <p className="text-xs font-bold text-slate-800 font-mono">{fmtCLP(projected.rental)}</p>
                             </div>
-                            <div className={`p-3 rounded-xl border ${real.rental > 0 ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 border-slate-100'}`}>
-                                <label className="text-[0.5rem] font-bold text-slate-400 uppercase block mb-1">Ticket Real</label>
-                                <p className={`text-sm font-bold font-mono ${real.rental > 0 ? 'text-amber-700' : 'text-slate-400'}`}>
-                                    {real.rental > 0 ? fmtCLP(real.rental) : 'Sin datos'}
+                            <div className={`p-2 rounded-lg border ${real.rental > 0 ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 border-slate-100'}`}>
+                                <label className="text-[0.45rem] font-bold text-slate-400 uppercase block mb-0.5">Real</label>
+                                <p className={`text-xs font-bold font-mono ${real.rental > 0 ? 'text-amber-700' : 'text-slate-400'}`}>
+                                    {real.rental > 0 ? fmtCLP(real.rental) : '—'}
                                 </p>
                             </div>
                         </div>
-                        <p className="text-[0.55rem] text-slate-400 font-medium">Comisión: {plan.rental_commission}%</p>
+                        <p className="text-[0.5rem] text-slate-400 mt-2">Comisión: {plan.rental_commission}%</p>
                     </div>
                 </div>
 
