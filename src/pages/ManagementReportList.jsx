@@ -42,14 +42,6 @@ export default function ManagementReportList() {
         fetchReports()
     }, [user])
 
-    const fetchAgents = async () => {
-        const { data } = await supabase
-            .from('profiles')
-            .select('id, first_name, last_name')
-            .eq('role', 'agent')
-            .order('first_name', { ascending: true })
-        setAgents(data || [])
-    }
 
     const fetchReports = async () => {
         if (!user) return
@@ -59,7 +51,7 @@ export default function ManagementReportList() {
                 .from('management_reports')
                 .select(`
                     *,
-                    properties:property_id(address, commune, status),
+                    properties:property_id(address, commune, status, property_type),
                     owner:owner_contact_id(first_name, last_name, email)
                 `)
                 .order('due_date', { ascending: true })
@@ -69,10 +61,6 @@ export default function ManagementReportList() {
                 query = query.eq('agent_id', user.id)
             }
 
-            // Agent filter for admins
-            if (isAdmin && selectedAgentId !== 'all') {
-                query = query.eq('agent_id', selectedAgentId)
-            }
 
             // No status filter — always fetch all statuses for accurate counts
 
@@ -494,8 +482,8 @@ export default function ManagementReportList() {
                     </p>
                     <p className="text-sm">
                         {isAdmin
-                            ? selectedAgentId !== 'all'
-                                ? 'Prueba cambiando el filtro de agente o estado'
+                            ? hasActiveFilters
+                                ? 'Prueba cambiando los filtros avanzados o el estado'
                                 : 'Los informes aparecerán aquí cuando los agentes los gestionen'
                             : 'Los informes se crean automáticamente al registrar un mandato'
                         }
@@ -648,7 +636,7 @@ export default function ManagementReportList() {
                     {/* Row count footer */}
                     <div className="px-4 py-2 bg-slate-50 dark:bg-slate-800/50 border-t text-xs text-slate-400 text-right">
                         {reports.length} informe{reports.length !== 1 ? 's' : ''}
-                        {selectedAgentId !== 'all' && ` · ${agents.find(a => a.id === selectedAgentId)?.first_name || 'Agente'}`}
+                        {hasActiveFilters && ` · filtrado`}
                     </div>
                 </div>
             ) : (
