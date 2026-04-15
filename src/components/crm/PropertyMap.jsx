@@ -24,6 +24,7 @@ const STATUS_PIN_COLORS = {
     'Pausada':      '#f59e0b', // Amber
     'Retirada':     '#6b7280', // Gray
     'Por Captar':   '#14b8a6', // Teal
+    'Captada':      '#8b5cf6', // Violet
     'Visitas':      '#ec4899', // Pink
 }
 

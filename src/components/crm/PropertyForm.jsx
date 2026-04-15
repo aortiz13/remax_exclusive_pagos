@@ -67,7 +67,7 @@ const PropertyForm = ({ property, isOpen, onClose, isSimplified = false }) => {
     })
 
     const PROPERTY_TYPES = ['Departamento', 'Casa', 'Oficina', 'Terreno', 'Bodega', 'Estacionamiento', 'Comercial', 'Otro']
-    const STATUS_OPTIONS = ['Administrada', 'Vendida', 'Arrendada', 'En Negociación', 'Visitas', 'Publicada', 'Por Captar', 'En Venta', 'En Arriendo']
+    const STATUS_OPTIONS = ['Administrada', 'Vendida', 'Arrendada', 'En Negociación', 'Visitas', 'Publicada', 'Por Captar', 'Captada', 'En Venta', 'En Arriendo']
 
     useEffect(() => {
         if (isOpen) {
@@ -226,7 +226,7 @@ const PropertyForm = ({ property, isOpen, onClose, isSimplified = false }) => {
             const isNewCompletion = newStatuses.some(s => COMPLETION_STATUSES.includes(s)) && !oldStatuses.some(s => COMPLETION_STATUSES.includes(s))
 
             // Auto-increment active_portfolio KPI when a NEW property is saved with an active status
-            const INACTIVE_STATUSES = ['Vendida', 'Arrendada', 'Por Captar']
+            const INACTIVE_STATUSES = ['Vendida', 'Arrendada', 'Por Captar', 'Captada']
             const isNewProperty = !property?.id
             const hasActiveStatus = (savedProperty?.status || []).some(s => !INACTIVE_STATUSES.includes(s))
 
