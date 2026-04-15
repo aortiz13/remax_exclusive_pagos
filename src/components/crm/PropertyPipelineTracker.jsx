@@ -39,7 +39,7 @@ const PropertyPipelineTracker = ({ propertyId }) => {
     if (loading) {
         return (
             <div className="flex items-center justify-center py-16">
-                <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" />
+                <div className="animate-spin rounded-full h-8 w-8 border-2 border-slate-300 border-t-transparent" />
             </div>
         )
     }
@@ -47,16 +47,16 @@ const PropertyPipelineTracker = ({ propertyId }) => {
     if (deals.length === 0) {
         return (
             <div className="text-center py-16 space-y-3">
-                <div className="w-16 h-16 mx-auto rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
-                    <GitBranch className="w-7 h-7 text-gray-400" />
+                <div className="w-16 h-16 mx-auto rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                    <GitBranch className="w-7 h-7 text-slate-400" />
                 </div>
-                <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">Sin pipeline activo</h3>
-                <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                <h3 className="text-sm font-medium text-slate-500 dark:text-slate-400">Sin pipeline activo</h3>
+                <p className="text-xs text-slate-400 dark:text-slate-500 max-w-sm mx-auto">
                     Esta propiedad aún no tiene un negocio asociado en el Pipeline. Crea uno desde la sección "Pipeline Negocios".
                 </p>
                 <button
                     onClick={() => navigate('/pipeline-sales')}
-                    className="inline-flex items-center gap-1.5 text-xs font-medium text-[#003DA5] hover:underline mt-2"
+                    className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-600 dark:text-slate-300 hover:text-slate-800 hover:underline mt-2"
                 >
                     Ir a Pipeline Negocios <ArrowRight className="w-3 h-3" />
                 </button>
@@ -64,7 +64,7 @@ const PropertyPipelineTracker = ({ propertyId }) => {
         )
     }
 
-    // Build genealogy map: parentId -> childDeals
+    // Build genealogy map
     const genealogyMap = {}
     deals.forEach(d => {
         if (d.spawned_from_deal_id) {
@@ -73,7 +73,6 @@ const PropertyPipelineTracker = ({ propertyId }) => {
         }
     })
 
-    // Find parent deal name
     const getParentLabel = (deal) => {
         if (!deal.spawned_from_deal_id) return null
         const parent = deals.find(d => d.id === deal.spawned_from_deal_id)
@@ -82,13 +81,11 @@ const PropertyPipelineTracker = ({ propertyId }) => {
         return `${parentPipeline?.label || parent.pipeline_type}`
     }
 
-    // Separate active vs closed
     const activeDeals = deals.filter(d => d.status === 'active')
     const closedDeals = deals.filter(d => d.status === 'won' || d.status === 'lost')
 
     return (
-        <div className="space-y-6">
-            {/* Active deals first */}
+        <div className="space-y-5">
             {activeDeals.map(deal => (
                 <DealPipelineCard
                     key={deal.id}
@@ -98,14 +95,13 @@ const PropertyPipelineTracker = ({ propertyId }) => {
                 />
             ))}
 
-            {/* Closed deals */}
             {closedDeals.length > 0 && (
                 <>
                     {activeDeals.length > 0 && (
-                        <div className="flex items-center gap-3 pt-2">
-                            <div className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
-                            <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">Historial</span>
-                            <div className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
+                        <div className="flex items-center gap-3 pt-1">
+                            <div className="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
+                            <span className="text-[10px] font-medium text-slate-400 uppercase tracking-widest">Historial</span>
+                            <div className="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
                         </div>
                     )}
                     {closedDeals.map(deal => (
@@ -140,67 +136,61 @@ const DealPipelineCard = ({ deal, parentLabel, childDeals, isHistorical }) => {
     const isLost = deal.current_stage === 'lost'
 
     return (
-        <div className={`bg-white dark:bg-gray-900 rounded-xl border overflow-hidden ${
-            isHistorical ? 'border-gray-200 dark:border-gray-800 opacity-75' : 'border-gray-200 dark:border-gray-800'
+        <div className={`rounded-xl border overflow-hidden transition-opacity ${
+            isHistorical
+                ? 'border-slate-200 dark:border-slate-800 opacity-60 hover:opacity-80'
+                : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950'
         }`}>
             {/* Genealogy badge */}
             {parentLabel && (
-                <div className="px-5 py-2 bg-indigo-50 dark:bg-indigo-950/20 border-b border-indigo-100 dark:border-indigo-900/30 flex items-center gap-2">
-                    <Link2 className="w-3.5 h-3.5 text-indigo-500" />
-                    <span className="text-xs text-indigo-600 dark:text-indigo-400">
-                        Generado desde pipeline <span className="font-semibold">{parentLabel}</span>
+                <div className="px-5 py-2 bg-slate-50 dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 flex items-center gap-2">
+                    <Link2 className="w-3.5 h-3.5 text-slate-400" />
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                        Generado desde <span className="font-semibold text-slate-600 dark:text-slate-300">{parentLabel}</span>
                     </span>
                 </div>
             )}
 
-            {/* Deal header */}
-            <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-800 bg-gradient-to-r from-gray-50 to-white dark:from-gray-900 dark:to-gray-900">
+            {/* Header */}
+            <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
-                            deal.pipeline_type === 'propietarios' ? 'bg-blue-100 dark:bg-blue-900/30' :
-                            deal.pipeline_type === 'compradores' ? 'bg-emerald-100 dark:bg-emerald-900/30' :
-                            'bg-amber-100 dark:bg-amber-900/30'
-                        }`}>
-                            <GitBranch className={`w-4.5 h-4.5 ${
-                                deal.pipeline_type === 'propietarios' ? 'text-blue-600 dark:text-blue-400' :
-                                deal.pipeline_type === 'compradores' ? 'text-emerald-600 dark:text-emerald-400' :
-                                'text-amber-600 dark:text-amber-400'
-                            }`} />
+                        <div className="w-9 h-9 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                            <GitBranch className="w-4 h-4 text-slate-500 dark:text-slate-400" />
                         </div>
                         <div>
-                            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                            <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">
                                 {pipelineMeta?.label || deal.pipeline_type}
                             </h3>
-                            <p className="text-xs text-muted-foreground">
+                            <p className="text-xs text-slate-400 dark:text-slate-500">
                                 {deal.title || (deal.contact?.first_name ? `${deal.contact?.first_name || ''} ${deal.contact?.last_name || ''}`.trim() : 'Sin título')}
                             </p>
                         </div>
                     </div>
-                    <div className="text-right">
+                    <div>
                         {allCompleted ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
-                                <Trophy className="w-3.5 h-3.5" /> Ganado
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded-full bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                                <Trophy className="w-3 h-3" /> Ganado
                             </span>
                         ) : isLost ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
-                                <XCircle className="w-3.5 h-3.5" /> Perdido
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded-full bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+                                <XCircle className="w-3 h-3" /> Perdido
                             </span>
                         ) : (
-                            <span className="text-xs text-muted-foreground">
-                                Etapa {currentStageIndex + 1} de {stages.length}
+                            <span className="text-xs text-slate-400">
+                                {currentStageIndex + 1} / {stages.length}
                             </span>
                         )}
                     </div>
                 </div>
 
                 {/* Progress bar */}
-                <div className="mt-3 h-1.5 w-full bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                <div className="mt-3 h-1 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                     <div
                         className={`h-full rounded-full transition-all duration-700 ease-out ${
-                            allCompleted ? 'bg-emerald-500' :
-                            isLost ? 'bg-red-400' :
-                            'bg-[#003DA5]'
+                            allCompleted ? 'bg-slate-500 dark:bg-slate-400' :
+                            isLost ? 'bg-slate-400 dark:bg-slate-500' :
+                            'bg-slate-700 dark:bg-slate-300'
                         }`}
                         style={{
                             width: allCompleted ? '100%' :
@@ -210,7 +200,7 @@ const DealPipelineCard = ({ deal, parentLabel, childDeals, isHistorical }) => {
                 </div>
             </div>
 
-            {/* Stages list */}
+            {/* Stages */}
             <div className="px-5 py-4">
                 <div className="relative">
                     {stages.map((stage, idx) => {
@@ -218,71 +208,71 @@ const DealPipelineCard = ({ deal, parentLabel, childDeals, isHistorical }) => {
                         const isLastStage = idx === stages.length - 1
 
                         return (
-                            <div key={stage.id} className="relative flex gap-4">
-                                {/* Vertical connector line */}
+                            <div key={stage.id} className="relative flex gap-3.5">
+                                {/* Vertical line */}
                                 {!isLastStage && (
                                     <div
-                                        className="absolute left-[15px] top-[32px] w-0.5 bottom-0"
+                                        className="absolute left-[13px] top-[30px] w-px bottom-0"
                                         style={{
                                             background: status === 'completed' || (status === 'current' && idx < stages.length - 1)
-                                                ? '#10b981'
-                                                : '#e5e7eb'
+                                                ? '#94a3b8'  // slate-400
+                                                : '#e2e8f0'  // slate-200
                                         }}
                                     />
                                 )}
 
                                 {/* Icon */}
-                                <div className="relative z-10 flex-shrink-0 mt-1">
+                                <div className="relative z-10 flex-shrink-0 mt-0.5">
                                     {status === 'completed' ? (
-                                        <div className="w-[30px] h-[30px] rounded-full bg-emerald-500 flex items-center justify-center shadow-sm shadow-emerald-200 dark:shadow-emerald-900/50">
-                                            <CheckCircle2 className="w-5 h-5 text-white" strokeWidth={2.5} />
+                                        <div className="w-[26px] h-[26px] rounded-full bg-slate-700 dark:bg-slate-300 flex items-center justify-center">
+                                            <CheckCircle2 className="w-4 h-4 text-white dark:text-slate-900" strokeWidth={2.5} />
                                         </div>
                                     ) : status === 'current' ? (
-                                        <div className="w-[30px] h-[30px] rounded-full bg-[#003DA5] flex items-center justify-center shadow-sm shadow-blue-200 dark:shadow-blue-900/50 ring-4 ring-blue-100 dark:ring-blue-900/30">
-                                            <Clock className="w-4 h-4 text-white animate-pulse" />
+                                        <div className="w-[26px] h-[26px] rounded-full bg-slate-800 dark:bg-white flex items-center justify-center ring-[3px] ring-slate-200 dark:ring-slate-700">
+                                            <Clock className="w-3.5 h-3.5 text-white dark:text-slate-900" />
                                         </div>
                                     ) : (
-                                        <div className="w-[30px] h-[30px] rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
-                                            <Circle className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+                                        <div className="w-[26px] h-[26px] rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center">
+                                            <Circle className="w-3 h-3 text-slate-300 dark:text-slate-600" />
                                         </div>
                                     )}
                                 </div>
 
                                 {/* Content */}
-                                <div className={`flex-1 pb-6 ${isLastStage ? 'pb-0' : ''}`}>
-                                    <div className={`rounded-lg px-4 py-3 transition-colors ${
+                                <div className={`flex-1 ${isLastStage ? 'pb-0' : 'pb-5'}`}>
+                                    <div className={`rounded-lg px-3.5 py-2.5 border transition-colors ${
                                         status === 'completed'
-                                            ? 'bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/30'
+                                            ? 'bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800'
                                             : status === 'current'
-                                            ? 'bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/30'
-                                            : 'bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-800'
+                                            ? 'bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-600 shadow-sm'
+                                            : 'bg-slate-50/50 dark:bg-slate-900/30 border-slate-100 dark:border-slate-800/60'
                                     }`}>
                                         <div className="flex items-center justify-between">
-                                            <h4 className={`text-sm font-semibold ${
+                                            <h4 className={`text-[13px] font-medium ${
                                                 status === 'completed'
-                                                    ? 'text-emerald-800 dark:text-emerald-300'
+                                                    ? 'text-slate-600 dark:text-slate-300'
                                                     : status === 'current'
-                                                    ? 'text-[#003DA5] dark:text-blue-300'
-                                                    : 'text-gray-500 dark:text-gray-400'
+                                                    ? 'text-slate-900 dark:text-white font-semibold'
+                                                    : 'text-slate-400 dark:text-slate-500'
                                             }`}>
                                                 {stage.label}
                                             </h4>
                                             <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
                                                 status === 'completed'
-                                                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
+                                                    ? 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300'
                                                     : status === 'current'
-                                                    ? 'bg-blue-100 text-[#003DA5] dark:bg-blue-900/40 dark:text-blue-300'
-                                                    : 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400'
+                                                    ? 'bg-slate-800 text-white dark:bg-white dark:text-slate-900'
+                                                    : 'bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500'
                                             }`}>
                                                 {status === 'completed' ? 'Completada' : status === 'current' ? 'En curso' : 'Pendiente'}
                                             </span>
                                         </div>
-                                        <p className={`text-xs mt-1 ${
+                                        <p className={`text-[11px] mt-0.5 ${
                                             status === 'completed'
-                                                ? 'text-emerald-600 dark:text-emerald-400'
+                                                ? 'text-slate-400 dark:text-slate-500'
                                                 : status === 'current'
-                                                ? 'text-blue-600 dark:text-blue-400'
-                                                : 'text-gray-400 dark:text-gray-500'
+                                                ? 'text-slate-500 dark:text-slate-400'
+                                                : 'text-slate-300 dark:text-slate-600'
                                         }`}>
                                             {stage.description}
                                         </p>
@@ -294,27 +284,27 @@ const DealPipelineCard = ({ deal, parentLabel, childDeals, isHistorical }) => {
                 </div>
             </div>
 
-            {/* Child deals (spawned transitions) */}
+            {/* Child deals */}
             {childDeals && childDeals.length > 0 && (
                 <div className="px-5 pb-4">
                     <div className="flex items-center gap-2 mb-2">
-                        <ArrowRight className="w-3.5 h-3.5 text-indigo-500" />
-                        <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">
-                            Transiciones generadas
+                        <ArrowRight className="w-3 h-3 text-slate-400" />
+                        <span className="text-[10px] font-medium text-slate-400 uppercase tracking-widest">
+                            Transiciones
                         </span>
                     </div>
                     {childDeals.map(child => {
                         const childPipeline = PIPELINE_TYPES.find(p => p.id === child.pipeline_type)
                         return (
-                            <div key={child.id} className="flex items-center gap-3 p-2.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/30 mb-1.5">
-                                <div className="w-7 h-7 rounded-md bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center">
-                                    <GitBranch className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                            <div key={child.id} className="flex items-center gap-3 p-2.5 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-150 dark:border-slate-800 mb-1.5">
+                                <div className="w-6 h-6 rounded bg-slate-200 dark:bg-slate-700 flex items-center justify-center">
+                                    <GitBranch className="w-3 h-3 text-slate-500 dark:text-slate-400" />
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                    <p className="text-xs font-medium text-indigo-700 dark:text-indigo-300 truncate">
+                                    <p className="text-[11px] font-medium text-slate-600 dark:text-slate-300 truncate">
                                         {childPipeline?.label || child.pipeline_type}
                                     </p>
-                                    <p className="text-[10px] text-indigo-500 dark:text-indigo-400">
+                                    <p className="text-[10px] text-slate-400">
                                         {child.status === 'active' ? 'En curso' : child.status === 'won' ? 'Ganado' : 'Perdido'}
                                     </p>
                                 </div>
