@@ -280,8 +280,11 @@
     border-radius: 0 !important;
   }
 
-  .rbc-time-header {
-    display: none !important; /* Hide the day header row in day view */
+  /* Day view: hide header since toolbar shows date */
+  .rbc-time-view .rbc-time-header-content .rbc-header {
+    font-size: 10px !important;
+    padding: 4px 2px !important;
+    text-transform: uppercase;
   }
 
   .rbc-time-content {
@@ -315,6 +318,37 @@
 
   .rbc-current-time-indicator::before {
     background-color: #4285f4 !important;
+  }
+
+  /* Week view mobile: compact headers */
+  .rbc-time-header .rbc-header {
+    font-size: 9px !important;
+    padding: 6px 1px !important;
+  }
+
+  /* Month view mobile: compact cells */
+  .rbc-month-view .rbc-header {
+    font-size: 10px !important;
+    padding: 6px 2px !important;
+    text-transform: uppercase;
+  }
+
+  .rbc-month-view .rbc-date-cell {
+    font-size: 11px !important;
+    padding: 2px 4px !important;
+  }
+
+  .rbc-month-view .rbc-row-segment {
+    padding: 0 2px !important;
+  }
+
+  .rbc-month-view .rbc-event {
+    font-size: 9px !important;
+    padding: 1px 3px !important;
+  }
+
+  .rbc-month-row {
+    min-height: 60px;
   }
 
   /* Agenda view mobile */

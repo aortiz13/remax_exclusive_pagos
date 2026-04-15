@@ -219,12 +219,12 @@ export default function CalendarPage() {
     // Mobile-specific state
     const [showMiniCal, setShowMiniCal] = useState(false)
 
-    // Force day/agenda view on mobile
+    // Default to day view on mobile (only on initial detection)
     useEffect(() => {
-        if (isMobile && (view === Views.WEEK || view === Views.MONTH)) {
+        if (isMobile && view === Views.WEEK) {
             setView(Views.DAY)
         }
-    }, [isMobile])
+    }, [])
 
     useEffect(() => {
         if (user) {
@@ -941,13 +941,13 @@ export default function CalendarPage() {
 
                 {/* Row 2: View toggle */}
                 <div className="flex bg-gray-100 rounded-lg p-0.5">
-                    {['day', 'agenda'].map(v => (
+                    {['day', 'week', 'month', 'agenda'].map(v => (
                         <button
                             key={v}
                             onClick={() => toolbar.onView(v)}
                             className={`flex-1 text-xs font-medium py-1.5 rounded-md transition-all ${toolbar.view === v ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}
                         >
-                            {v === 'day' ? 'Día' : 'Agenda'}
+                            {v === 'day' ? 'Día' : v === 'week' ? 'Sem' : v === 'month' ? 'Mes' : 'Agenda'}
                         </button>
                     ))}
                 </div>
@@ -1035,7 +1035,7 @@ export default function CalendarPage() {
 
                 {/* Modals (same as desktop) */}
                 <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-                    <DialogContent className="sm:max-w-[640px] p-0 overflow-hidden border-none shadow-2xl flex flex-col max-h-[92vh]">
+                    <DialogContent className="sm:max-w-[640px] p-0 overflow-hidden border-none shadow-2xl flex flex-col max-h-[85dvh] mx-4 rounded-2xl">
                         {!isEditing && selectedEvent ? (
                         <div className="flex flex-col overflow-hidden">
                             <div className="flex-1 overflow-y-auto">
