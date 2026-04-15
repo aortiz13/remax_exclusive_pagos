@@ -10,6 +10,7 @@ import TaskModal from './TaskModal'
 import AddParticipantModal, { ROLE_COLORS } from './AddParticipantModal'
 import { toast } from 'sonner'
 import UnifiedTimeline from './UnifiedTimeline'
+import PropertyPipelineTracker from './PropertyPipelineTracker'
 import { logActivity } from '../../services/activityService'
 import ActionModal from './ActionModal'
 import { completeTaskWithAction } from '../../services/completeTaskAction'
@@ -310,8 +311,9 @@ const ContactDetail = () => {
                 {/* Left Column: Tabs */}
                 <div className="lg:col-span-2">
                     <Tabs defaultValue="storyline" className="w-full">
-                        <TabsList className="grid w-full max-w-[600px] grid-cols-3">
+                        <TabsList className="grid w-full max-w-[700px] grid-cols-4">
                             <TabsTrigger value="storyline">Storyline</TabsTrigger>
+                            <TabsTrigger value="pipeline">Pipeline</TabsTrigger>
                             <TabsTrigger value="tasks">Tareas ({tasks.length})</TabsTrigger>
                             <TabsTrigger value="details">Detalles Completos</TabsTrigger>
                         </TabsList>
@@ -336,6 +338,13 @@ const ContactDetail = () => {
                                 </div>
 
                                 <UnifiedTimeline contactId={id} />
+                            </div>
+                        </TabsContent>
+
+                        <TabsContent value="pipeline" className="mt-6">
+                            <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 p-6">
+                                <h2 className="text-lg font-semibold mb-4">Pipeline de Negocios</h2>
+                                <PropertyPipelineTracker contactId={id} />
                             </div>
                         </TabsContent>
 

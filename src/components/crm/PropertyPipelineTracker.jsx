@@ -4,16 +4,19 @@ import { getStagesForPipeline, PIPELINE_TYPES } from '../../services/dealsPipeli
 import { CheckCircle2, Clock, Circle, GitBranch, ArrowRight, Trophy, XCircle, Link2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
-const PropertyPipelineTracker = ({ propertyId }) => {
+const PropertyPipelineTracker = ({ propertyId, contactId }) => {
     const [deals, setDeals] = useState([])
     const [loading, setLoading] = useState(true)
     const navigate = useNavigate()
 
     useEffect(() => {
-        fetchPropertyDeals()
-    }, [propertyId])
+        fetchDeals()
+    }, [propertyId, contactId])
 
-    const fetchPropertyDeals = async () => {
+    const fetchDeals = async () => {
+        const filterCol = propertyId ? 'property_id' : 'contact_id'
+        const filterVal = propertyId || contactId
+        if (!filterVal) return
         try {
             setLoading(true)
             const { data, error } = await supabase
@@ -23,7 +26,7 @@ const PropertyPipelineTracker = ({ propertyId }) => {
                     contact:contact_id(id, first_name, last_name),
                     agent:agent_id(id, first_name, last_name)
                 `)
-                .eq('property_id', propertyId)
+                .eq(filterCol, filterVal)
                 .in('status', ['active', 'won', 'lost'])
                 .order('created_at', { ascending: true })
 
@@ -52,7 +55,9 @@ const PropertyPipelineTracker = ({ propertyId }) => {
                 </div>
                 <h3 className="text-sm font-medium text-slate-500 dark:text-slate-400">Sin pipeline activo</h3>
                 <p className="text-xs text-slate-400 dark:text-slate-500 max-w-sm mx-auto">
-                    Esta propiedad aún no tiene un negocio asociado en el Pipeline. Crea uno desde la sección "Pipeline Negocios".
+                    {propertyId
+                        ? 'Esta propiedad aún no tiene un negocio asociado en el Pipeline. Crea uno desde la sección "Pipeline Negocios".'
+                        : 'Este contacto aún no tiene un negocio asociado en el Pipeline. Crea uno desde la sección "Pipeline Negocios".'}
                 </p>
                 <button
                     onClick={() => navigate('/pipeline-sales')}
