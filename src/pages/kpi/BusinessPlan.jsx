@@ -276,117 +276,92 @@ export default function BusinessPlan({ agentId: externalAgentId, readOnly = fals
                     3 CARDS — Facturación · Ventas · Arriendos
                    ═══════════════════════════════════════════════════════════════ */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-
-                    {/* ── FACTURACIÓN ── */}
-                    <div className="bg-white rounded-2xl border border-slate-200/60 shadow-sm p-4 flex flex-col justify-between hover:shadow-md transition-shadow">
-                        <div className="flex items-center gap-2 mb-3">
-                            <div className="p-1.5 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 shadow-sm">
-                                <DollarSign className="w-3.5 h-3.5 text-white" />
-                            </div>
-                            <h5 className="text-xs font-bold text-slate-900 uppercase tracking-wide">Facturación {year}</h5>
-                        </div>
-
-                        {/* Ring + Numbers */}
-                        <div className="flex items-center gap-3 mb-3">
-                            <div className="relative shrink-0">
-                                <ProgressRing pct={billingProg} size={56} stroke={5} color={billingProg >= 80 ? '#10b981' : billingProg >= 40 ? '#f59e0b' : '#ef4444'} />
-                                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                    <span className="text-xs font-extrabold text-slate-900">{fmtPct(billingProg)}%</span>
+                    {[
+                        {
+                            title: `Facturación ${year}`,
+                            icon: <DollarSign className="w-3.5 h-3.5 text-white" />,
+                            iconBg: 'bg-gradient-to-br from-blue-500 to-indigo-600',
+                            accent: 'blue',
+                            real: kpiData.billing,
+                            goal: minBilling,
+                            pct: billingProg,
+                            badgeLabel: `${fmtPct(billingProg)}%`,
+                            ringColor: billingProg >= 80 ? '#10b981' : billingProg >= 40 ? '#f59e0b' : '#ef4444',
+                        },
+                        {
+                            title: 'Ventas',
+                            icon: <TrendingUp className="w-3.5 h-3.5 text-emerald-600" />,
+                            iconBg: 'bg-emerald-100',
+                            accent: 'emerald',
+                            real: realSaleBilling,
+                            goal: billingVend,
+                            pct: billingVend > 0 ? Math.min((realSaleBilling / billingVend) * 100, 100) : 0,
+                            badgeLabel: `${ticketData.saleCount}/${minTransSale} trans.`,
+                            ringColor: '#10b981',
+                        },
+                        {
+                            title: 'Arriendos',
+                            icon: <Building2 className="w-3.5 h-3.5 text-amber-600" />,
+                            iconBg: 'bg-amber-100',
+                            accent: 'amber',
+                            real: realRentalBilling,
+                            goal: billingArr,
+                            pct: billingArr > 0 ? Math.min((realRentalBilling / billingArr) * 100, 100) : 0,
+                            badgeLabel: `${ticketData.rentalCount}/${minTransRental} trans.`,
+                            ringColor: '#f59e0b',
+                        },
+                    ].map((card, i) => {
+                        const diff = card.real - card.goal
+                        const isPositive = diff >= 0
+                        const barColor = card.pct >= 80 ? 'bg-emerald-500' : card.pct >= 40 ? 'bg-amber-500' : 'bg-red-500'
+                        return (
+                            <div key={i} className="bg-white rounded-2xl border border-slate-200/60 shadow-sm p-4 flex flex-col hover:shadow-md transition-shadow">
+                                {/* Header */}
+                                <div className="flex items-center justify-between mb-3">
+                                    <div className="flex items-center gap-2">
+                                        <div className={`p-1.5 rounded-lg ${card.iconBg} shadow-sm`}>
+                                            {card.icon}
+                                        </div>
+                                        <h5 className="text-xs font-bold text-slate-900 uppercase tracking-wide">{card.title}</h5>
+                                    </div>
+                                    <span className={`text-[0.6rem] font-bold px-2 py-0.5 rounded-full ${card.pct >= 80 ? 'bg-emerald-100 text-emerald-700' : card.pct >= 40 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>
+                                        {card.badgeLabel}
+                                    </span>
                                 </div>
-                            </div>
-                            <div className="flex-1 min-w-0">
-                                <p className="text-[0.55rem] font-bold text-emerald-600 uppercase tracking-wider mb-0.5 flex items-center gap-1">
-                                    <span className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" /> Real
-                                </p>
-                                <p className="text-lg font-extrabold text-slate-900 font-mono leading-none truncate">{fmtCLP(kpiData.billing)}</p>
-                                <p className="text-[0.5rem] text-slate-400 mt-1">Meta: {fmtCLP(minBilling)}</p>
-                            </div>
-                        </div>
 
-                        {/* Difference */}
-                        {(() => {
-                            const diff = kpiData.billing - minBilling
-                            const isPositive = diff >= 0
-                            return (
+                                {/* Ring + Values */}
+                                <div className="flex items-center gap-3 mb-3 flex-1">
+                                    <div className="relative shrink-0">
+                                        <ProgressRing pct={card.pct} size={56} stroke={5} color={card.ringColor} />
+                                        <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                            <span className="text-xs font-extrabold text-slate-900">{fmtPct(card.pct)}%</span>
+                                        </div>
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-[0.55rem] font-bold text-emerald-600 uppercase tracking-wider mb-0.5 flex items-center gap-1">
+                                            <span className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" /> Real
+                                        </p>
+                                        <p className="text-lg font-extrabold text-slate-900 font-mono leading-none truncate">{fmtCLP(card.real)}</p>
+                                        <p className="text-[0.5rem] text-slate-400 mt-1">Meta: {fmtCLP(card.goal)}</p>
+                                    </div>
+                                </div>
+
+                                {/* Difference */}
                                 <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[0.6rem] font-bold ${isPositive ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
                                     <TrendingUp className={`w-3 h-3 shrink-0 ${isPositive ? '' : 'rotate-180'}`} />
                                     <span className="truncate">{isPositive ? '+' : ''}{fmtCLP(diff)}</span>
                                 </div>
-                            )
-                        })()}
 
-                        {/* Progress bar */}
-                        <div className="mt-3">
-                            <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
-                                <div className={`h-full rounded-full transition-all duration-1000 ${billingProg >= 80 ? 'bg-emerald-500' : billingProg >= 40 ? 'bg-amber-500' : 'bg-red-500'}`}
-                                    style={{ width: `${Math.min(billingProg, 100)}%` }} />
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* ── VENTAS ── */}
-                    <div className="bg-white rounded-2xl border border-slate-200/60 shadow-sm p-4 flex flex-col justify-between hover:shadow-md transition-shadow">
-                        <div className="flex items-center justify-between mb-3">
-                            <div className="flex items-center gap-2">
-                                <div className="p-1.5 rounded-lg bg-emerald-100">
-                                    <TrendingUp className="w-3.5 h-3.5 text-emerald-600" />
-                                </div>
-                                <h5 className="text-xs font-bold text-slate-900 uppercase tracking-wide">Ventas</h5>
-                            </div>
-                            <span className="text-[0.6rem] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
-                                {ticketData.saleCount}/{minTransSale}
-                            </span>
-                        </div>
-
-                        {/* Ring + Billing */}
-                        <div className="flex items-center gap-3 mb-3">
-                            <div className="relative shrink-0">
-                                <ProgressRing pct={minTransSale > 0 ? (ticketData.saleCount / minTransSale) * 100 : 0} size={56} stroke={5} color="#10b981" />
-                                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                    <span className="text-sm font-bold text-emerald-700">{ticketData.saleCount}</span>
+                                {/* Progress bar */}
+                                <div className="mt-3">
+                                    <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                                        <div className={`h-full rounded-full transition-all duration-1000 ${barColor}`}
+                                            style={{ width: `${Math.min(card.pct, 100)}%` }} />
+                                    </div>
                                 </div>
                             </div>
-                            <div className="flex-1 min-w-0">
-                                <p className="text-[0.55rem] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Facturación</p>
-                                <p className="text-lg font-extrabold text-slate-900 font-mono leading-none truncate">{fmtCLP(realSaleBilling)}</p>
-                                <p className="text-[0.5rem] text-slate-400 mt-1">de {fmtCLP(billingVend)}</p>
-                            </div>
-                        </div>
-
-
-                    </div>
-
-                    {/* ── ARRIENDOS ── */}
-                    <div className="bg-white rounded-2xl border border-slate-200/60 shadow-sm p-4 flex flex-col justify-between hover:shadow-md transition-shadow">
-                        <div className="flex items-center justify-between mb-3">
-                            <div className="flex items-center gap-2">
-                                <div className="p-1.5 rounded-lg bg-amber-100">
-                                    <Building2 className="w-3.5 h-3.5 text-amber-600" />
-                                </div>
-                                <h5 className="text-xs font-bold text-slate-900 uppercase tracking-wide">Arriendos</h5>
-                            </div>
-                            <span className="text-[0.6rem] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
-                                {ticketData.rentalCount}/{minTransRental}
-                            </span>
-                        </div>
-
-                        {/* Ring + Billing */}
-                        <div className="flex items-center gap-3 mb-3">
-                            <div className="relative shrink-0">
-                                <ProgressRing pct={minTransRental > 0 ? (ticketData.rentalCount / minTransRental) * 100 : 0} size={56} stroke={5} color="#f59e0b" />
-                                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                    <span className="text-sm font-bold text-amber-700">{ticketData.rentalCount}</span>
-                                </div>
-                            </div>
-                            <div className="flex-1 min-w-0">
-                                <p className="text-[0.55rem] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Facturación</p>
-                                <p className="text-lg font-extrabold text-slate-900 font-mono leading-none truncate">{fmtCLP(realRentalBilling)}</p>
-                                <p className="text-[0.5rem] text-slate-400 mt-1">de {fmtCLP(billingArr)}</p>
-                            </div>
-                        </div>
-
-
-                    </div>
+                        )
+                    })}
                 </div>
 
                 {/* SECTION 3: Ticket Promedio — Proyectado vs Real */}
