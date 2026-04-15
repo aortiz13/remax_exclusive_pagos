@@ -267,37 +267,53 @@ export default function BusinessPlan({ agentId: externalAgentId, readOnly = fals
             <div className="p-4 md:p-5 space-y-5 overflow-y-auto h-full">
 
                 {/* ═══════════════════════════════════════════════════════════════
-                    SECTION 1: HERO — Facturación Real vs Meta (Big & Prominent)
+                    UNIFIED SCOREBOARD — Facturación + Detalle Transacciones
                    ═══════════════════════════════════════════════════════════════ */}
-                <div className="rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6 text-white shadow-xl shadow-slate-900/20">
-                    {/* Main comparison: Real vs Meta */}
-                    <div className="flex items-center gap-2 mb-4">
-                        <div className="p-2 rounded-xl bg-blue-500/20">
-                            <DollarSign className="w-5 h-5 text-blue-300" />
+                <div className="rounded-2xl bg-gradient-to-br from-slate-900 via-[#1a2332] to-slate-900 p-6 text-white shadow-2xl shadow-slate-900/30 overflow-hidden relative">
+                    {/* Subtle background glow */}
+                    <div className="absolute -top-20 -right-20 w-64 h-64 bg-blue-500/5 rounded-full blur-3xl pointer-events-none" />
+                    <div className="absolute -bottom-16 -left-16 w-48 h-48 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
+
+                    {/* Header */}
+                    <div className="flex items-center justify-between mb-5 relative">
+                        <div className="flex items-center gap-2.5">
+                            <div className="p-2 rounded-xl bg-gradient-to-br from-blue-500/30 to-indigo-500/20 backdrop-blur-sm border border-white/10">
+                                <DollarSign className="w-5 h-5 text-blue-300" />
+                            </div>
+                            <div>
+                                <h3 className="text-sm font-bold text-white uppercase tracking-wider">Facturación {year}</h3>
+                                <p className="text-[0.55rem] text-slate-500 font-medium">Acumulado real vs proyección</p>
+                            </div>
                         </div>
-                        <h3 className="text-sm font-bold text-white uppercase tracking-wider">Facturación {year}</h3>
+                        {/* Compact badge */}
+                        <div className={`px-3 py-1.5 rounded-full text-xs font-bold ${billingProg >= 80 ? 'bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/30' : billingProg >= 40 ? 'bg-amber-500/20 text-amber-300 ring-1 ring-amber-500/30' : 'bg-red-500/20 text-red-300 ring-1 ring-red-500/30'}`}>
+                            {billingProg.toFixed(0)}% completado
+                        </div>
                     </div>
 
-                    <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
+                    {/* ── Main Numbers Row ── */}
+                    <div className="flex flex-col md:flex-row items-start md:items-center gap-6 mb-5 relative">
                         {/* Progress Ring */}
                         <div className="relative shrink-0">
-                            <ProgressRing pct={billingProg} size={120} stroke={9} color={billingProg >= 80 ? '#10b981' : billingProg >= 40 ? '#f59e0b' : '#ef4444'} />
+                            <ProgressRing pct={billingProg} size={110} stroke={8} color={billingProg >= 80 ? '#10b981' : billingProg >= 40 ? '#f59e0b' : '#ef4444'} />
                             <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                <span className="text-2xl font-bold">{billingProg.toFixed(0)}%</span>
-                                <span className="text-[0.6rem] text-slate-400 font-semibold uppercase tracking-wider">Avance</span>
+                                <span className="text-2xl font-extrabold">{billingProg.toFixed(0)}%</span>
+                                <span className="text-[0.5rem] text-slate-500 font-semibold uppercase tracking-widest">Avance</span>
                             </div>
                         </div>
 
-                        {/* Big numbers side by side */}
-                        <div className="flex-1 space-y-4">
-                            <div className="grid grid-cols-2 gap-4">
+                        {/* Big numbers */}
+                        <div className="flex-1 space-y-3">
+                            <div className="grid grid-cols-2 gap-6">
                                 <div>
-                                    <p className="text-[0.65rem] font-bold text-emerald-300 uppercase tracking-wider mb-1">Facturación Real (Acumulado)</p>
+                                    <p className="text-[0.6rem] font-bold text-emerald-400/80 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Facturación Real
+                                    </p>
                                     <p className="text-3xl md:text-4xl font-extrabold font-mono leading-none tracking-tight">{fmtCLP(kpiData.billing)}</p>
                                 </div>
                                 <div>
-                                    <p className="text-[0.65rem] font-bold text-blue-300 uppercase tracking-wider mb-1">Facturación Bruta Proyectada</p>
-                                    <p className="text-3xl md:text-4xl font-extrabold font-mono leading-none tracking-tight text-white/60">{fmtCLP(minBilling)}</p>
+                                    <p className="text-[0.6rem] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Facturación Proyectada</p>
+                                    <p className="text-3xl md:text-4xl font-extrabold font-mono leading-none tracking-tight text-white/40">{fmtCLP(minBilling)}</p>
                                 </div>
                             </div>
                             {/* Difference callout */}
@@ -305,12 +321,12 @@ export default function BusinessPlan({ agentId: externalAgentId, readOnly = fals
                                 const diff = kpiData.billing - minBilling
                                 const isPositive = diff >= 0
                                 return (
-                                    <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg ${isPositive ? 'bg-emerald-500/20' : 'bg-red-500/20'}`}>
-                                        <TrendingUp className={`w-4 h-4 ${isPositive ? 'text-emerald-400' : 'text-red-400 rotate-180'}`} />
-                                        <span className={`text-sm font-bold ${isPositive ? 'text-emerald-300' : 'text-red-300'}`}>
+                                    <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg backdrop-blur-sm ${isPositive ? 'bg-emerald-500/15 ring-1 ring-emerald-500/20' : 'bg-red-500/15 ring-1 ring-red-500/20'}`}>
+                                        <TrendingUp className={`w-3.5 h-3.5 ${isPositive ? 'text-emerald-400' : 'text-red-400 rotate-180'}`} />
+                                        <span className={`text-xs font-bold ${isPositive ? 'text-emerald-300' : 'text-red-300'}`}>
                                             {isPositive ? '+' : ''}{fmtCLP(diff)}
                                         </span>
-                                        <span className="text-[0.6rem] text-slate-400">
+                                        <span className="text-[0.55rem] text-slate-500">
                                             {isPositive ? 'por encima de la meta' : 'faltan para la meta'}
                                         </span>
                                     </div>
@@ -319,112 +335,112 @@ export default function BusinessPlan({ agentId: externalAgentId, readOnly = fals
                         </div>
                     </div>
 
-                    {/* Full-width progress bar */}
-                    <div className="mt-5 pt-3 border-t border-white/10">
-                        <div className="w-full bg-white/10 h-3 rounded-full overflow-hidden">
-                            <div className={`h-full rounded-full transition-all duration-1000 ${billingProg >= 80 ? 'bg-emerald-400' : billingProg >= 40 ? 'bg-amber-400' : 'bg-red-400'}`}
+                    {/* Progress bar */}
+                    <div className="mb-6 relative">
+                        <div className="w-full bg-white/[0.07] h-2.5 rounded-full overflow-hidden">
+                            <div className={`h-full rounded-full transition-all duration-1000 ${billingProg >= 80 ? 'bg-gradient-to-r from-emerald-500 to-emerald-400' : billingProg >= 40 ? 'bg-gradient-to-r from-amber-500 to-amber-400' : 'bg-gradient-to-r from-red-500 to-red-400'}`}
                                 style={{ width: `${Math.min(billingProg, 100)}%` }} />
                         </div>
-                        <div className="flex justify-between mt-1.5">
-                            <span className="text-[0.6rem] text-slate-500">0%</span>
-                            <span className="text-[0.6rem] text-slate-400 font-semibold">{fmtCLP(kpiData.billing)} / {fmtCLP(minBilling)}</span>
-                            <span className="text-[0.6rem] text-slate-500">100%</span>
+                        <div className="flex justify-between mt-1">
+                            <span className="text-[0.55rem] text-slate-600">0%</span>
+                            <span className="text-[0.55rem] text-slate-500 font-medium">{fmtCLP(kpiData.billing)} / {fmtCLP(minBilling)}</span>
+                            <span className="text-[0.55rem] text-slate-600">100%</span>
                         </div>
                     </div>
-                </div>
 
-                {/* ═══════════════════════════════════════════════════════════════
-                    SECTION 2: Detalle de TransacCiones — Ventas vs Arriendos
-                   ═══════════════════════════════════════════════════════════════ */}
-                <div>
-                    <h4 className="text-[0.65rem] font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                        <Award className="w-3.5 h-3.5" /> Detalle por Tipo de Transacción
-                    </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {/* Ventas Card */}
-                        <div className="rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50/50 to-white p-4 space-y-3">
+                    {/* ── Divider with label ── */}
+                    <div className="flex items-center gap-3 mb-4 relative">
+                        <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+                        <span className="text-[0.6rem] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                            <Award className="w-3 h-3" /> Detalle por transacción
+                        </span>
+                        <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+                    </div>
+
+                    {/* ── Transaction Cards (glassmorphic) ── */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 relative">
+                        {/* VENTAS Card */}
+                        <div className="rounded-xl bg-white/[0.04] backdrop-blur-sm border border-white/[0.08] p-4 space-y-3 hover:bg-white/[0.06] transition-colors">
                             <div className="flex items-center justify-between">
-                                <h5 className="text-xs font-bold text-emerald-700 uppercase flex items-center gap-1.5">
-                                    <TrendingUp className="w-3.5 h-3.5" /> Ventas
+                                <h5 className="text-xs font-bold text-emerald-300 uppercase flex items-center gap-1.5">
+                                    <div className="p-1 rounded-md bg-emerald-500/20"><TrendingUp className="w-3 h-3 text-emerald-400" /></div>
+                                    Ventas
                                 </h5>
-                                <span className="text-[0.6rem] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
-                                    {ticketData.saleCount} de {minTransSale} trans.
+                                <span className="text-[0.55rem] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/20">
+                                    {ticketData.saleCount}/{minTransSale} trans.
                                 </span>
                             </div>
-                            {/* Billing from sales */}
-                            <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200">
-                                <label className="text-[0.5rem] font-bold text-emerald-500 uppercase block mb-0.5">Facturación por Ventas</label>
-                                <p className="text-xl font-bold text-emerald-800 font-mono">{fmtCLP(realSaleBilling)}</p>
-                                <p className="text-[0.5rem] text-emerald-500 mt-0.5">de {fmtCLP(billingVend)} requerido</p>
-                            </div>
-                            {/* Transaction progress */}
+                            {/* Billing */}
                             <div className="flex items-center gap-3">
                                 <div className="relative shrink-0">
-                                    <ProgressRing pct={minTransSale > 0 ? (ticketData.saleCount / minTransSale) * 100 : 0} size={56} stroke={4} color="#10b981" />
+                                    <ProgressRing pct={minTransSale > 0 ? (ticketData.saleCount / minTransSale) * 100 : 0} size={52} stroke={4} color="#10b981" />
                                     <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                        <span className="text-xs font-bold text-emerald-700">{ticketData.saleCount}</span>
-                                        <span className="text-[0.4rem] text-emerald-500">/{minTransSale}</span>
+                                        <span className="text-[0.65rem] font-bold text-emerald-300">{ticketData.saleCount}</span>
+                                        <span className="text-[0.35rem] text-emerald-500">/{minTransSale}</span>
                                     </div>
                                 </div>
-                                <div className="flex-1 space-y-1">
-                                    <div className="grid grid-cols-2 gap-1.5">
-                                        <div className="p-1.5 rounded bg-white border border-emerald-100">
-                                            <label className="text-[0.45rem] font-bold text-gray-400 uppercase block">Ticket Prom.</label>
-                                            <p className="text-[0.65rem] font-bold text-gray-800 font-mono">{fmtCLP(projected.sale)}</p>
-                                        </div>
-                                        <div className={`p-1.5 rounded border ${real.sale > 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-gray-50 border-gray-100'}`}>
-                                            <label className="text-[0.45rem] font-bold text-gray-400 uppercase block">Real</label>
-                                            <p className={`text-[0.65rem] font-bold font-mono ${real.sale > 0 ? 'text-emerald-700' : 'text-gray-400'}`}>
-                                                {real.sale > 0 ? fmtCLP(real.sale) : 'Sin datos'}
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <p className="text-[0.5rem] text-gray-400">Comisión: {plan.sale_commission}%</p>
+                                <div className="flex-1">
+                                    <p className="text-[0.5rem] font-bold text-emerald-400/70 uppercase tracking-wider mb-0.5">Facturación</p>
+                                    <p className="text-lg font-extrabold text-white font-mono">{fmtCLP(realSaleBilling)}</p>
+                                    <p className="text-[0.5rem] text-slate-500 mt-0.5">de {fmtCLP(billingVend)} requerido</p>
                                 </div>
                             </div>
+                            {/* Ticket details */}
+                            <div className="grid grid-cols-2 gap-2">
+                                <div className="p-2 rounded-lg bg-white/[0.04] border border-white/[0.06]">
+                                    <label className="text-[0.45rem] font-bold text-slate-500 uppercase block mb-0.5">Ticket Prom.</label>
+                                    <p className="text-[0.7rem] font-bold text-slate-300 font-mono">{fmtCLP(projected.sale)}</p>
+                                </div>
+                                <div className={`p-2 rounded-lg border ${real.sale > 0 ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-white/[0.03] border-white/[0.06]'}`}>
+                                    <label className="text-[0.45rem] font-bold text-slate-500 uppercase block mb-0.5">Real</label>
+                                    <p className={`text-[0.7rem] font-bold font-mono ${real.sale > 0 ? 'text-emerald-300' : 'text-slate-600'}`}>
+                                        {real.sale > 0 ? fmtCLP(real.sale) : 'Sin datos'}
+                                    </p>
+                                </div>
+                            </div>
+                            <p className="text-[0.5rem] text-slate-600">Comisión: {plan.sale_commission}%</p>
                         </div>
 
-                        {/* Arriendos Card */}
-                        <div className="rounded-xl border border-amber-200 bg-gradient-to-br from-amber-50/50 to-white p-4 space-y-3">
+                        {/* ARRIENDOS Card */}
+                        <div className="rounded-xl bg-white/[0.04] backdrop-blur-sm border border-white/[0.08] p-4 space-y-3 hover:bg-white/[0.06] transition-colors">
                             <div className="flex items-center justify-between">
-                                <h5 className="text-xs font-bold text-amber-700 uppercase flex items-center gap-1.5">
-                                    <Building2 className="w-3.5 h-3.5" /> Arriendos
+                                <h5 className="text-xs font-bold text-amber-300 uppercase flex items-center gap-1.5">
+                                    <div className="p-1 rounded-md bg-amber-500/20"><Building2 className="w-3 h-3 text-amber-400" /></div>
+                                    Arriendos
                                 </h5>
-                                <span className="text-[0.6rem] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
-                                    {ticketData.rentalCount} de {minTransRental} trans.
+                                <span className="text-[0.55rem] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 ring-1 ring-amber-500/20">
+                                    {ticketData.rentalCount}/{minTransRental} trans.
                                 </span>
                             </div>
-                            {/* Billing from rentals */}
-                            <div className="p-3 rounded-lg bg-amber-50 border border-amber-200">
-                                <label className="text-[0.5rem] font-bold text-amber-500 uppercase block mb-0.5">Facturación por Arriendos</label>
-                                <p className="text-xl font-bold text-amber-800 font-mono">{fmtCLP(realRentalBilling)}</p>
-                                <p className="text-[0.5rem] text-amber-500 mt-0.5">de {fmtCLP(billingArr)} requerido</p>
-                            </div>
-                            {/* Transaction progress */}
+                            {/* Billing */}
                             <div className="flex items-center gap-3">
                                 <div className="relative shrink-0">
-                                    <ProgressRing pct={minTransRental > 0 ? (ticketData.rentalCount / minTransRental) * 100 : 0} size={56} stroke={4} color="#f59e0b" />
+                                    <ProgressRing pct={minTransRental > 0 ? (ticketData.rentalCount / minTransRental) * 100 : 0} size={52} stroke={4} color="#f59e0b" />
                                     <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                        <span className="text-xs font-bold text-amber-700">{ticketData.rentalCount}</span>
-                                        <span className="text-[0.4rem] text-amber-500">/{minTransRental}</span>
+                                        <span className="text-[0.65rem] font-bold text-amber-300">{ticketData.rentalCount}</span>
+                                        <span className="text-[0.35rem] text-amber-500">/{minTransRental}</span>
                                     </div>
                                 </div>
-                                <div className="flex-1 space-y-1">
-                                    <div className="grid grid-cols-2 gap-1.5">
-                                        <div className="p-1.5 rounded bg-white border border-amber-100">
-                                            <label className="text-[0.45rem] font-bold text-gray-400 uppercase block">Ticket Prom.</label>
-                                            <p className="text-[0.65rem] font-bold text-gray-800 font-mono">{fmtCLP(projected.rental)}</p>
-                                        </div>
-                                        <div className={`p-1.5 rounded border ${real.rental > 0 ? 'bg-amber-50 border-amber-200' : 'bg-gray-50 border-gray-100'}`}>
-                                            <label className="text-[0.45rem] font-bold text-gray-400 uppercase block">Real</label>
-                                            <p className={`text-[0.65rem] font-bold font-mono ${real.rental > 0 ? 'text-amber-700' : 'text-gray-400'}`}>
-                                                {real.rental > 0 ? fmtCLP(real.rental) : 'Sin datos'}
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <p className="text-[0.5rem] text-gray-400">Comisión: {plan.rental_commission}%</p>
+                                <div className="flex-1">
+                                    <p className="text-[0.5rem] font-bold text-amber-400/70 uppercase tracking-wider mb-0.5">Facturación</p>
+                                    <p className="text-lg font-extrabold text-white font-mono">{fmtCLP(realRentalBilling)}</p>
+                                    <p className="text-[0.5rem] text-slate-500 mt-0.5">de {fmtCLP(billingArr)} requerido</p>
                                 </div>
                             </div>
+                            {/* Ticket details */}
+                            <div className="grid grid-cols-2 gap-2">
+                                <div className="p-2 rounded-lg bg-white/[0.04] border border-white/[0.06]">
+                                    <label className="text-[0.45rem] font-bold text-slate-500 uppercase block mb-0.5">Ticket Prom.</label>
+                                    <p className="text-[0.7rem] font-bold text-slate-300 font-mono">{fmtCLP(projected.rental)}</p>
+                                </div>
+                                <div className={`p-2 rounded-lg border ${real.rental > 0 ? 'bg-amber-500/10 border-amber-500/20' : 'bg-white/[0.03] border-white/[0.06]'}`}>
+                                    <label className="text-[0.45rem] font-bold text-slate-500 uppercase block mb-0.5">Real</label>
+                                    <p className={`text-[0.7rem] font-bold font-mono ${real.rental > 0 ? 'text-amber-300' : 'text-slate-600'}`}>
+                                        {real.rental > 0 ? fmtCLP(real.rental) : 'Sin datos'}
+                                    </p>
+                                </div>
+                            </div>
+                            <p className="text-[0.5rem] text-slate-600">Comisión: {plan.rental_commission}%</p>
                         </div>
                     </div>
                 </div>
