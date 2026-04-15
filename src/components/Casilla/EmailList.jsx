@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../services/supabase';
-import { Search, Loader2, MailOpen, ListTodo, Trash2, Archive, X, ChevronDown } from 'lucide-react';
+import { Search, Loader2, MailOpen, ListTodo, Trash2, Archive, X, ChevronDown, Star } from 'lucide-react';
 import TaskModal from '../crm/TaskModal';
 import { toast } from 'sonner';
 
@@ -201,8 +201,20 @@ const ContextMenu = ({ x, y, thread, onClose, onMarkUnread, onCreateTask, onDele
     );
 };
 
+/* ─── Avatar color generator ──────────────────────────────── */
+const AVATAR_COLORS = [
+    'bg-blue-500', 'bg-red-500', 'bg-green-500', 'bg-purple-500',
+    'bg-orange-500', 'bg-teal-500', 'bg-pink-500', 'bg-indigo-500',
+    'bg-cyan-500', 'bg-amber-500', 'bg-emerald-500', 'bg-rose-500',
+];
+const getAvatarColor = (name) => {
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+};
+
 // ─── Main Component ──────────────────────────────────────────
-const EmailList = ({ userProfile, onSelectThread, currentFolder, readThreadIds = new Set(), onUnmarkRead }) => {
+const EmailList = ({ userProfile, onSelectThread, currentFolder, readThreadIds = new Set(), onUnmarkRead, isMobile = false }) => {
     const PAGE_SIZE = 20;
     const [searchTerm, setSearchTerm] = useState('');
     const [page, setPage] = useState(0);
@@ -354,19 +366,42 @@ const EmailList = ({ userProfile, onSelectThread, currentFolder, readThreadIds =
         lastToken === '' || s.label.startsWith(lastToken.toLowerCase())
     );
 
+    /* ─── Format date like Gmail ──────────────────────────────── */
+    const formatGmailDate = (dateStr) => {
+        if (!dateStr) return '';
+        const d = new Date(dateStr);
+        const now = new Date();
+        const isToday = d.toDateString() === now.toDateString();
+        const isThisYear = d.getFullYear() === now.getFullYear();
+        if (isToday) return d.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' });
+        if (isThisYear) return d.toLocaleDateString('es-CL', { day: 'numeric', month: 'short' });
+        return d.toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: '2-digit' });
+    };
+
+    /* ─── Extract a clean sender display name ─────────────────── */
+    const extractSenderName = (rawFrom) => {
+        if (!rawFrom) return 'Desconocido';
+        const name = rawFrom.split('<')[0]?.trim().replace(/"/g, '');
+        if (name && name.length > 0 && !name.includes('@')) return name;
+        // Fallback: use part before @ in email
+        const emailMatch = rawFrom.match(/<([^>]+)>/) || [null, rawFrom];
+        const email = emailMatch[1] || rawFrom;
+        return email.split('@')[0];
+    };
+
     return (
         <>
             <div className="flex flex-col h-full bg-white">
                 {/* Search */}
-                <div className="p-4 border-b border-gray-100 shrink-0">
+                <div className={`${isMobile ? 'px-3 py-2.5' : 'p-4'} border-b border-gray-100 shrink-0`}>
                     <div ref={searchRef} className="relative">
                         {/* Input row */}
-                        <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border transition-all ${showSuggestions || searchTerm ? 'border-blue-400 bg-white ring-2 ring-blue-500/20' : 'border-gray-200 bg-gray-50'}`}>
+                        <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border transition-all ${showSuggestions || searchTerm ? 'border-blue-400 bg-white ring-2 ring-blue-500/20' : `border-gray-200 ${isMobile ? 'bg-gray-100' : 'bg-gray-50'}`}`}>
                             <Search className="w-4 h-4 text-gray-400 shrink-0" />
                             <input
                                 ref={inputRef}
                                 type="text"
-                                placeholder="Buscar en correos — de:, asunto:, es:no-leído..."
+                                placeholder={isMobile ? "Buscar en correos..." : "Buscar en correos — de:, asunto:, es:no-leído..."}
                                 value={searchTerm}
                                 onChange={(e) => { setSearchTerm(e.target.value); setShowSuggestions(true); }}
                                 onFocus={() => setShowSuggestions(true)}
@@ -378,13 +413,15 @@ const EmailList = ({ userProfile, onSelectThread, currentFolder, readThreadIds =
                                     <X className="w-4 h-4" />
                                 </button>
                             )}
-                            <button
-                                onClick={() => setShowSuggestions(v => !v)}
-                                className="text-gray-400 hover:text-gray-600 transition-colors"
-                                title="Opciones de búsqueda"
-                            >
-                                <ChevronDown className={`w-4 h-4 transition-transform ${showSuggestions ? 'rotate-180' : ''}`} />
-                            </button>
+                            {!isMobile && (
+                                <button
+                                    onClick={() => setShowSuggestions(v => !v)}
+                                    className="text-gray-400 hover:text-gray-600 transition-colors"
+                                    title="Opciones de búsqueda"
+                                >
+                                    <ChevronDown className={`w-4 h-4 transition-transform ${showSuggestions ? 'rotate-180' : ''}`} />
+                                </button>
+                            )}
                         </div>
 
                         {/* Suggestions dropdown */}
@@ -449,7 +486,71 @@ const EmailList = ({ userProfile, onSelectThread, currentFolder, readThreadIds =
                                 : 'No hay correos para mostrar.'
                             }
                         </div>
+                    ) : isMobile ? (
+                        /* ── MOBILE: Gmail-style thread rows ───────────────── */
+                        <div className="divide-y divide-gray-100/80" key={page}>
+                            {pagedThreads.map(thread => {
+                                const messages = thread.email_messages || [];
+                                const latestMsg = [...messages].sort(
+                                    (a, b) => new Date(b.received_at) - new Date(a.received_at)
+                                )[0];
+                                const isUnread = !readThreadIds.has(thread.id) && messages.some(m => !m.is_read);
+                                const senderName = extractSenderName(latestMsg?.from_address);
+                                const avatarLetter = senderName.charAt(0).toUpperCase();
+                                const avatarColor = getAvatarColor(senderName);
+                                const dateStr = formatGmailDate(latestMsg?.received_at);
+                                const isStarred = (thread.labels || []).includes('STARRED');
+                                const msgCount = messages.length;
+
+                                return (
+                                    <div
+                                        key={thread.id}
+                                        onClick={() => onSelectThread(thread)}
+                                        className={`flex items-start gap-3 px-4 py-3 active:bg-gray-50 transition-colors cursor-pointer ${isUnread ? 'bg-white' : 'bg-gray-50/40'}`}
+                                    >
+                                        {/* Avatar circle */}
+                                        <div className={`w-10 h-10 rounded-full ${avatarColor} flex items-center justify-center shrink-0 mt-0.5`}>
+                                            <span className="text-white text-sm font-semibold">{avatarLetter}</span>
+                                        </div>
+
+                                        {/* Content */}
+                                        <div className="flex-1 min-w-0">
+                                            {/* Row 1: Sender + Date */}
+                                            <div className="flex items-center justify-between gap-2 mb-0.5">
+                                                <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                                                    <span className={`text-[13px] truncate ${isUnread ? 'font-bold text-gray-900' : 'font-normal text-gray-600'}`}>
+                                                        {senderName}
+                                                    </span>
+                                                    {msgCount > 1 && (
+                                                        <span className="text-[11px] text-gray-400 shrink-0">{msgCount}</span>
+                                                    )}
+                                                </div>
+                                                <span className={`text-[11px] shrink-0 ${isUnread ? 'font-semibold text-blue-600' : 'text-gray-400'}`}>
+                                                    {dateStr}
+                                                </span>
+                                            </div>
+
+                                            {/* Row 2: Subject */}
+                                            <p className={`text-[13px] truncate leading-snug ${isUnread ? 'font-semibold text-gray-900' : 'font-normal text-gray-700'}`}>
+                                                {thread.subject || '(Sin Asunto)'}
+                                            </p>
+
+                                            {/* Row 3: Snippet */}
+                                            <p className={`text-xs truncate leading-relaxed mt-0.5 ${isUnread ? 'text-gray-600' : 'text-gray-400'}`}>
+                                                {latestMsg?.snippet || ''}
+                                            </p>
+                                        </div>
+
+                                        {/* Star indicator */}
+                                        {isStarred && (
+                                            <Star className="w-4 h-4 text-amber-400 fill-amber-400 shrink-0 mt-1" />
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
                     ) : (
+                        /* ── DESKTOP: Original thread rows ─────────────────── */
                         <div className="divide-y divide-gray-100" key={page}>
                             {pagedThreads.map(thread => {
                                 const messages = thread.email_messages || [];
@@ -500,7 +601,7 @@ const EmailList = ({ userProfile, onSelectThread, currentFolder, readThreadIds =
 
                 {/* Pagination bar */}
                 {totalPages > 1 && (
-                    <div className="shrink-0 border-t border-gray-100 px-4 py-2.5 flex items-center justify-between bg-white">
+                    <div className={`shrink-0 border-t border-gray-100 px-4 py-2.5 flex items-center justify-between bg-white ${isMobile ? 'pb-4' : ''}`}>
                         <span className="text-xs text-gray-400">
                             {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, filteredThreads.length)} de {filteredThreads.length}
                         </span>

@@ -402,84 +402,105 @@ export default function BusinessPlan({ agentId: externalAgentId, readOnly = fals
                     <h4 className="text-[0.65rem] font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
                         <BarChart3 className="w-3.5 h-3.5" /> Ticket Promedio — Proyectado vs Real
                     </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {/* Venta Card */}
-                        {(() => {
-                            const clr = getColor(salePct)
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        {[
+                            {
+                                title: 'Venta',
+                                icon: TrendingUp,
+                                iconBg: 'bg-indigo-50',
+                                iconColor: 'text-indigo-500',
+                                projected: projected.sale,
+                                realVal: real.sale,
+                                pct: salePct,
+                                count: ticketData.saleCount,
+                                delta: saleDelta,
+                                deltaPct: saleDeltaPct,
+                                barColor: 'bg-indigo-400',
+                                tipProjected: 'Ticket promedio proyectado: meta facturación ventas ÷ meta mín. transacciones de venta.',
+                                tipReal: 'Ticket promedio real de venta: facturación real de ventas ÷ propiedades vendidas.',
+                                tipDelta: 'Diferencia absoluta y porcentual entre ticket real y proyectado.',
+                                tipCount: 'N° de propiedades vendidas cerradas en el período.',
+                            },
+                            {
+                                title: 'Arriendo',
+                                icon: Building2,
+                                iconBg: 'bg-violet-50',
+                                iconColor: 'text-violet-500',
+                                projected: projected.rental,
+                                realVal: real.rental,
+                                pct: rentalPct,
+                                count: ticketData.rentalCount,
+                                delta: rentalDelta,
+                                deltaPct: rentalDeltaPct,
+                                barColor: 'bg-violet-400',
+                                tipProjected: 'Ticket promedio proyectado: meta facturación arriendos ÷ meta mín. transacciones de arriendo.',
+                                tipReal: 'Ticket promedio real de arriendo: facturación real de arriendos ÷ propiedades arrendadas.',
+                                tipDelta: 'Diferencia absoluta y porcentual entre ticket real y proyectado.',
+                                tipCount: 'N° de propiedades arrendadas cerradas en el período.',
+                            },
+                        ].map((t, i) => {
+                            const Icon = t.icon
                             return (
-                                <div className="rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50/40 to-white p-4 space-y-3">
-                                    <div className="flex items-center justify-between">
-                                        <h5 className="text-xs font-bold text-emerald-700 uppercase flex items-center gap-1.5">
-                                            <TrendingUp className="w-3.5 h-3.5" /> Venta
-                                        </h5>
-                                        {real.sale > 0 && <span className={`text-[0.6rem] font-bold px-2 py-0.5 rounded-full bg-${clr}-100 text-${clr}-700`}>{salePct.toFixed(0)}%</span>}
+                                <div key={i} className="bg-white rounded-2xl p-6 shadow-[0_2px_12px_rgba(0,0,0,0.04)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.08)] border border-slate-100/80 transition-all duration-300">
+                                    {/* ── Icon + Title + Pct badge ── */}
+                                    <div className="flex items-center justify-between mb-5">
+                                        <div className="flex items-center gap-3">
+                                            <div className={`w-10 h-10 rounded-xl ${t.iconBg} flex items-center justify-center`}>
+                                                <Icon className={`w-5 h-5 ${t.iconColor}`} strokeWidth={1.8} />
+                                            </div>
+                                            <h5 className="text-[0.85rem] font-semibold text-slate-700 tracking-tight">{t.title}</h5>
+                                        </div>
+                                        {t.realVal > 0 && (
+                                            <Tip text={t.tipDelta}>
+                                                <span className={`text-[0.65rem] font-bold px-2.5 py-1 rounded-lg border ${
+                                                    t.pct >= 80 ? 'text-emerald-600 bg-emerald-50 border-emerald-200'
+                                                    : t.pct >= 40 ? 'text-amber-600 bg-amber-50 border-amber-200'
+                                                    : 'text-red-600 bg-red-50 border-red-200'
+                                                }`}>{t.pct.toFixed(0)}%</span>
+                                            </Tip>
+                                        )}
                                     </div>
-                                    <div className="grid grid-cols-2 gap-2">
-                                        <div className="p-2.5 rounded-lg bg-white border border-emerald-100 shadow-sm">
-                                            <label className="text-[0.5rem] font-bold text-gray-400 uppercase block mb-1">Proyectado</label>
-                                            <Tip text="Ticket promedio proyectado: meta facturación ventas ÷ meta mín. transacciones de venta."><p className="text-sm font-bold text-gray-800 font-mono">{fmtCLP(projected.sale)}</p></Tip>
-                                        </div>
-                                        <div className={`p-2.5 rounded-lg border shadow-sm ${real.sale > 0 ? `bg-${clr}-50 border-${clr}-200` : 'bg-gray-50 border-gray-200'}`}>
-                                            <label className="text-[0.5rem] font-bold text-gray-400 uppercase block mb-1">Real</label>
-                                            <p className={`text-sm font-bold font-mono ${real.sale > 0 ? `text-${clr}-700` : 'text-gray-400'}`}>
-                                                <Tip text="Ticket promedio real de venta: facturación real de ventas ÷ propiedades vendidas.">{real.sale > 0 ? fmtCLP(real.sale) : 'Sin datos'}</Tip>
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
-                                            <div className={`h-full rounded-full transition-all duration-700 bg-${clr}-500`}
-                                                style={{ width: `${Math.min(salePct, 100)}%` }} />
-                                        </div>
-                                        <div className="flex justify-between mt-1">
-                                            <Tip text="N° de propiedades vendidas cerradas en el período."><span className="text-[0.55rem] text-gray-400">{ticketData.saleCount} propiedad{ticketData.saleCount !== 1 ? 'es' : ''}</span></Tip>
-                                            {real.sale > 0 && <Tip text="Diferencia absoluta y porcentual entre ticket real y proyectado."><span className={`text-[0.55rem] font-bold text-${clr}-600`}>
-                                                Δ {saleDelta >= 0 ? '+' : ''}{fmtCLP(saleDelta)} ({saleDeltaPct.toFixed(0)}%)
-                                            </span></Tip>}
-                                        </div>
-                                    </div>
-                                </div>
-                            )
-                        })()}
 
-                        {/* Arriendo Card */}
-                        {(() => {
-                            const clr = getColor(rentalPct)
-                            return (
-                                <div className="rounded-xl border border-amber-200 bg-gradient-to-br from-amber-50/40 to-white p-4 space-y-3">
+                                    {/* ── Projected + Real side by side ── */}
+                                    <div className="grid grid-cols-2 gap-4 mb-5">
+                                        <div>
+                                            <p className="text-[0.6rem] text-slate-400 uppercase font-medium tracking-wide mb-1">Proyectado</p>
+                                            <Tip text={t.tipProjected}>
+                                                <p className="text-lg font-bold text-slate-900 tracking-tight">{fmtCLP(t.projected)}</p>
+                                            </Tip>
+                                        </div>
+                                        <div>
+                                            <p className="text-[0.6rem] text-slate-400 uppercase font-medium tracking-wide mb-1">Real</p>
+                                            <Tip text={t.tipReal}>
+                                                <p className={`text-lg font-bold tracking-tight ${t.realVal > 0 ? 'text-slate-900' : 'text-slate-300'}`}>
+                                                    {t.realVal > 0 ? fmtCLP(t.realVal) : 'Sin datos'}
+                                                </p>
+                                            </Tip>
+                                        </div>
+                                    </div>
+
+                                    {/* ── Progress bar ── */}
+                                    <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden mb-3">
+                                        <div className={`h-full rounded-full transition-all duration-1000 ease-out ${t.barColor}`}
+                                            style={{ width: `${Math.min(t.pct, 100)}%` }} />
+                                    </div>
+
+                                    {/* ── Footer: count + delta ── */}
                                     <div className="flex items-center justify-between">
-                                        <h5 className="text-xs font-bold text-amber-700 uppercase flex items-center gap-1.5">
-                                            <Building2 className="w-3.5 h-3.5" /> Arriendo
-                                        </h5>
-                                        {real.rental > 0 && <span className={`text-[0.6rem] font-bold px-2 py-0.5 rounded-full bg-${clr}-100 text-${clr}-700`}>{rentalPct.toFixed(0)}%</span>}
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-2">
-                                        <div className="p-2.5 rounded-lg bg-white border border-amber-100 shadow-sm">
-                                            <label className="text-[0.5rem] font-bold text-gray-400 uppercase block mb-1">Proyectado</label>
-                                            <Tip text="Ticket promedio proyectado: meta facturación arriendos ÷ meta mín. transacciones de arriendo."><p className="text-sm font-bold text-gray-800 font-mono">{fmtCLP(projected.rental)}</p></Tip>
-                                        </div>
-                                        <div className={`p-2.5 rounded-lg border shadow-sm ${real.rental > 0 ? `bg-${clr}-50 border-${clr}-200` : 'bg-gray-50 border-gray-200'}`}>
-                                            <label className="text-[0.5rem] font-bold text-gray-400 uppercase block mb-1">Real</label>
-                                            <p className={`text-sm font-bold font-mono ${real.rental > 0 ? `text-${clr}-700` : 'text-gray-400'}`}>
-                                                <Tip text="Ticket promedio real de arriendo: facturación real de arriendos ÷ propiedades arrendadas.">{real.rental > 0 ? fmtCLP(real.rental) : 'Sin datos'}</Tip>
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
-                                            <div className={`h-full rounded-full transition-all duration-700 bg-${clr}-500`}
-                                                style={{ width: `${Math.min(rentalPct, 100)}%` }} />
-                                        </div>
-                                        <div className="flex justify-between mt-1">
-                                            <Tip text="N° de propiedades arrendadas cerradas en el período."><span className="text-[0.55rem] text-gray-400">{ticketData.rentalCount} propiedad{ticketData.rentalCount !== 1 ? 'es' : ''}</span></Tip>
-                                            {real.rental > 0 && <Tip text="Diferencia absoluta y porcentual entre ticket real y proyectado."><span className={`text-[0.55rem] font-bold text-${clr}-600`}>
-                                                Δ {rentalDelta >= 0 ? '+' : ''}{fmtCLP(rentalDelta)} ({rentalDeltaPct.toFixed(0)}%)
-                                            </span></Tip>}
-                                        </div>
+                                        <Tip text={t.tipCount}>
+                                            <span className="text-[0.6rem] text-slate-400">{t.count} propiedad{t.count !== 1 ? 'es' : ''}</span>
+                                        </Tip>
+                                        {t.realVal > 0 && (
+                                            <Tip text={t.tipDelta}>
+                                                <span className={`text-[0.6rem] font-semibold ${t.delta >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                                                    Δ {t.delta >= 0 ? '+' : ''}{fmtCLP(t.delta)} ({t.deltaPct.toFixed(0)}%)
+                                                </span>
+                                            </Tip>
+                                        )}
                                     </div>
                                 </div>
                             )
-                        })()}
+                        })}
                     </div>
                 </div>
 

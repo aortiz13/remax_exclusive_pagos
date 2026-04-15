@@ -10,7 +10,7 @@ import EmailDetail from '../components/Casilla/EmailDetail';
 import ContextSidebar from '../components/Casilla/ContextSidebar';
 import EmailComposer from '../components/Casilla/EmailComposer';
 import { Button } from '@/components/ui';
-import { RefreshCw, Inbox, FileText, Send, AlertCircle, File, Trash2 } from 'lucide-react';
+import { RefreshCw, Inbox, FileText, Send, AlertCircle, File, Trash2, PenBox, Menu } from 'lucide-react';
 import { toast } from 'sonner';
 
 const DRAFTS_KEY = 'crm_email_drafts';
@@ -46,13 +46,28 @@ const fetchGmailAccount = async (agentId) => {
   return data;
 };
 
+/* ─── Mobile detection hook ────────────────────────────────── */
+const useIsMobile = (breakpoint = 768) => {
+  const [isMobile, setIsMobile] = useState(window.innerWidth < breakpoint);
+  useEffect(() => {
+    const mq = window.matchMedia(`(max-width: ${breakpoint - 1}px)`);
+    const handler = (e) => setIsMobile(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, [breakpoint]);
+  return isMobile;
+};
+
 const Casilla = () => {
   const { profile: userProfile } = useAuth();
   const location = useLocation();
+  const isMobile = useIsMobile();
   const [selectedThread, setSelectedThread] = useState(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   // Persists which thread IDs have been opened — survives EmailList remounts
   const [readThreadIds, setReadThreadIds] = useState(() => new Set());
+  // Mobile sidebar drawer
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   const markThreadRead = useCallback((thread) => {
     setReadThreadIds(prev => new Set([...prev, thread.id]));
@@ -112,6 +127,7 @@ const Casilla = () => {
   const handleFolderChange = useCallback((folder) => {
     setCurrentFolder(folder);
     setSelectedThread(null);
+    setIsMobileSidebarOpen(false);
   }, []);
 
   const refreshDrafts = useCallback(() => setDrafts(getDrafts()), []);
@@ -250,6 +266,180 @@ const Casilla = () => {
     );
   }
 
+  /* ─── MOBILE LAYOUT ───────────────────────────────────────── */
+  if (isMobile) {
+    const folderLabels = {
+      inbox: 'Recibidos',
+      starred: 'Destacados',
+      sent: 'Enviados',
+      drafts: 'Borradores',
+      archived: 'Archivados',
+      trashed: 'Papelera',
+    };
+
+    return (
+      <div className="casilla-mobile flex flex-col h-[calc(100dvh-64px)] bg-white relative overflow-hidden">
+
+        {/* ─ Mobile Header ─ */}
+        <div className="casilla-mobile-header flex items-center gap-3 px-4 py-3 border-b border-gray-100 bg-white shrink-0 z-20">
+          <button
+            onClick={() => setIsMobileSidebarOpen(true)}
+            className="p-1.5 -ml-1.5 rounded-lg hover:bg-gray-100 text-gray-500 active:bg-gray-200 transition-colors"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+          <h1 className="text-base font-semibold text-gray-900 flex-1">
+            {folderLabels[currentFolder] || 'Correos'}
+          </h1>
+          <button
+            onClick={handleEmailSync}
+            disabled={emailSyncing}
+            className="p-2 rounded-full hover:bg-gray-100 active:bg-gray-200 text-gray-500 transition-colors disabled:opacity-50"
+          >
+            <RefreshCw className={`w-5 h-5 ${emailSyncing ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
+
+        {/* ─ Mobile Sidebar Drawer (overlay) ─ */}
+        {isMobileSidebarOpen && (
+          <>
+            <div
+              className="fixed inset-0 bg-black/40 z-40 animate-in fade-in duration-200"
+              onClick={() => setIsMobileSidebarOpen(false)}
+            />
+            <div className="fixed inset-y-0 left-0 w-72 bg-white z-50 shadow-2xl animate-in slide-in-from-left duration-200">
+              <EmailSidebar
+                currentFolder={currentFolder}
+                onFolderChange={handleFolderChange}
+                draftCount={drafts.length}
+                onCompose={() => {
+                  setActiveDraftId(null);
+                  setReplyConfig(null);
+                  setIsComposerOpen(true);
+                  setIsMobileSidebarOpen(false);
+                }}
+                onReconnect={() => { handleLoginGoogle(); setIsMobileSidebarOpen(false); }}
+                onSync={() => { handleEmailSync(); setIsMobileSidebarOpen(false); }}
+                syncing={emailSyncing}
+              />
+            </div>
+          </>
+        )}
+
+        {/* ─ Main Content: email list or detail ─ */}
+        <div className="flex-1 overflow-hidden relative">
+          {/* Email List */}
+          <div className={`h-full transition-transform duration-250 ease-out ${selectedThread ? '-translate-x-full' : 'translate-x-0'}`}>
+            {currentFolder === 'drafts' ? (
+              <div className="flex flex-col h-full overflow-y-auto">
+                {drafts.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center flex-1 text-gray-400 gap-2 px-4">
+                    <File className="w-12 h-12 opacity-20" />
+                    <p className="text-sm">No hay borradores guardados</p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-gray-50">
+                    {drafts.map(draft => (
+                      <div
+                        key={draft.id}
+                        className="flex items-center gap-3 px-4 py-3.5 active:bg-gray-100 transition-colors"
+                        onClick={() => handleOpenDraft(draft)}
+                      >
+                        <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center shrink-0">
+                          <FileText className="w-5 h-5 text-orange-500" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm text-gray-800 truncate">{draft.subject || '(Sin asunto)'}</p>
+                          <p className="text-xs text-gray-500 truncate">Para: {draft.to || '—'}</p>
+                        </div>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleDeleteDraft(draft.id); }}
+                          className="p-2 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all shrink-0"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <EmailList
+                userProfile={userProfile}
+                onSelectThread={markThreadRead}
+                currentFolder={currentFolder}
+                readThreadIds={readThreadIds}
+                isMobile={isMobile}
+                onUnmarkRead={(threadId) =>
+                  setReadThreadIds(prev => {
+                    const next = new Set(prev);
+                    next.delete(threadId);
+                    return next;
+                  })
+                }
+              />
+            )}
+          </div>
+
+          {/* Email Detail (slides in from right) */}
+          {selectedThread && (
+            <div className="absolute inset-0 bg-white z-30 animate-in slide-in-from-right duration-250">
+              <EmailDetail
+                thread={selectedThread}
+                userProfile={userProfile}
+                isMobile={isMobile}
+                onBack={() => setSelectedThread(null)}
+                onReply={(replyContext) => {
+                  setActiveDraftId(null);
+                  setReplyConfig(replyContext);
+                  setIsComposerOpen(true);
+                }}
+                onThreadDeleted={() => setSelectedThread(null)}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* ─ FAB: Compose button ─ */}
+        {!selectedThread && !isComposerOpen && (
+          <button
+            onClick={() => {
+              setActiveDraftId(null);
+              setReplyConfig(null);
+              setIsComposerOpen(true);
+            }}
+            className="fixed bottom-6 right-5 w-14 h-14 bg-blue-600 text-white rounded-2xl shadow-lg shadow-blue-500/30 flex items-center justify-center z-30 active:scale-95 transition-transform hover:bg-blue-700"
+          >
+            <PenBox className="w-6 h-6" />
+          </button>
+        )}
+
+        {/* Modals */}
+        {isComposerOpen && (
+          <EmailComposer
+            onClose={handleComposerClose}
+            onSuccess={(draftId) => {
+              toast.success('Correo enviado con éxito');
+              if (draftId || activeDraftId) {
+                deleteDraft(draftId || activeDraftId);
+                refreshDrafts();
+              }
+              setIsComposerOpen(false);
+              setReplyConfig(null);
+              setActiveDraftId(null);
+            }}
+            replyTo={replyConfig}
+            userProfile={userProfile}
+            initialDraft={activeDraftId ? drafts.find(d => d.id === activeDraftId) : null}
+            draftId={activeDraftId}
+            isMobile={isMobile}
+          />
+        )}
+      </div>
+    );
+  }
+
+  /* ─── DESKTOP LAYOUT (unchanged) ──────────────────────────── */
   return (
     <div className="h-[calc(100vh-100px)] flex bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
       <Split
