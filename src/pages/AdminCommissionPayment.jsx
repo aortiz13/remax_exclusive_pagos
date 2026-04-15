@@ -5,11 +5,12 @@ import {
     Upload, FileSpreadsheet, Check, X, AlertTriangle, CreditCard,
     ArrowRight, ArrowLeft, CheckCircle, XCircle, ChevronDown, ChevronUp,
     Send, User, Mail, DollarSign, Building, Info, Loader2, RotateCcw,
-    Link2, ExternalLink, Eye
+    Link2, ExternalLink, Eye, Settings
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import {
-    parseCommissionExcel, processCommissions, detectMonth,
+    readExcelRaw, detectMappings, applyMappings, COMMISSION_FIELDS,
+    processCommissions, detectMonth,
     getSkippedSummary, sendCommissionEmails, formatCLP,
     matchCommissionProperties, matchAgentEmails, buildCommissionEmailHTML
 } from '../services/commissionService'
@@ -26,6 +27,12 @@ export default function AdminCommissionPayment() {
     const [fileName, setFileName] = useState('')
     const [parsing, setParsing] = useState(false)
     const [month, setMonth] = useState('')
+
+    // Column mapping
+    const [excelHeaders, setExcelHeaders] = useState([])
+    const [rawData, setRawData] = useState([])
+    const [columnMappings, setColumnMappings] = useState({})
+    const [showMapping, setShowMapping] = useState(false)
 
     // Step 2
     const [agentSummaries, setAgentSummaries] = useState([])
@@ -56,10 +63,18 @@ export default function AdminCommissionPayment() {
         setParsing(true)
         setFileName(file.name)
         try {
-            const parsed = await parseCommissionExcel(file)
+            const { headers, rawRows } = await readExcelRaw(file)
+            setExcelHeaders(headers)
+            setRawData(rawRows)
+            const autoMappings = detectMappings(headers)
+            setColumnMappings(autoMappings)
+            const parsed = applyMappings(rawRows, autoMappings)
             setRows(parsed)
             const autoMonth = detectMonth(parsed)
             setMonth(autoMonth)
+            // Auto-expand mapping panel if any required field is unmapped
+            const hasUnmapped = COMMISSION_FIELDS.some(f => f.required && !autoMappings[f.key])
+            setShowMapping(hasUnmapped)
             if (parsed.length === 0) {
                 toast.error('El archivo no contiene filas válidas')
             } else {
@@ -72,6 +87,19 @@ export default function AdminCommissionPayment() {
             setParsing(false)
         }
     }
+
+    const handleMappingChange = (fieldKey, excelColumn) => {
+        const newMappings = { ...columnMappings, [fieldKey]: excelColumn }
+        setColumnMappings(newMappings)
+        // Re-apply mappings to refresh preview
+        const parsed = applyMappings(rawData, newMappings)
+        setRows(parsed)
+        const autoMonth = detectMonth(parsed)
+        setMonth(autoMonth)
+    }
+
+    const mappedCount = COMMISSION_FIELDS.filter(f => columnMappings[f.key]).length
+    const unmappedRequired = COMMISSION_FIELDS.filter(f => f.required && !columnMappings[f.key]).length
 
     const handleDrop = useCallback((e) => {
         e.preventDefault()
@@ -164,6 +192,10 @@ export default function AdminCommissionPayment() {
         setSelectedAgents(new Set())
         setExpandedAgent(null)
         setSendResults(null)
+        setExcelHeaders([])
+        setRawData([])
+        setColumnMappings({})
+        setShowMapping(false)
     }
 
     // Valid states helper (mirrors service)
@@ -262,6 +294,81 @@ export default function AdminCommissionPayment() {
                                     <span>{liquidadoCount} filas válidas de {rows.length} total</span>
                                 </div>
                             </div>
+
+                            {/* Column Mapping */}
+                            {excelHeaders.length > 0 && (
+                                <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                                    <button
+                                        onClick={() => setShowMapping(!showMapping)}
+                                        className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <Settings className="w-5 h-5 text-gray-500" />
+                                            <span className="font-medium text-gray-700">Mapeo de Columnas</span>
+                                            {unmappedRequired > 0 ? (
+                                                <span className="bg-red-100 text-red-700 text-xs px-2 py-0.5 rounded-full font-semibold">
+                                                    {unmappedRequired} campo{unmappedRequired !== 1 ? 's' : ''} requerido{unmappedRequired !== 1 ? 's' : ''} sin mapear
+                                                </span>
+                                            ) : (
+                                                <span className="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full font-semibold">
+                                                    {mappedCount} de {COMMISSION_FIELDS.length} mapeados
+                                                </span>
+                                            )}
+                                        </div>
+                                        {showMapping ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
+                                    </button>
+
+                                    {showMapping && (
+                                        <div className="border-t border-gray-100 p-4">
+                                            <p className="text-xs text-gray-500 mb-3">
+                                                Selecciona la columna del Excel que corresponde a cada campo. Los campos con <span className="text-red-400">*</span> son obligatorios.
+                                            </p>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                                {COMMISSION_FIELDS.map(field => {
+                                                    const mapped = columnMappings[field.key]
+                                                    const previewValue = mapped && rawData.length > 0 ? rawData[0][mapped] : null
+                                                    return (
+                                                        <div key={field.key} className="flex items-start gap-2">
+                                                            <div className="flex-shrink-0 mt-2">
+                                                                {mapped ? (
+                                                                    <CheckCircle className="w-4 h-4 text-green-500" />
+                                                                ) : field.required ? (
+                                                                    <AlertTriangle className="w-4 h-4 text-amber-500" />
+                                                                ) : (
+                                                                    <div className="w-4 h-4 rounded-full border-2 border-gray-300" />
+                                                                )}
+                                                            </div>
+                                                            <div className="flex-1 min-w-0">
+                                                                <div className="flex items-center gap-1 mb-1">
+                                                                    <span className="text-xs font-medium text-gray-700">{field.label}</span>
+                                                                    {field.required && <span className="text-red-400 text-xs">*</span>}
+                                                                </div>
+                                                                <select
+                                                                    value={mapped || ''}
+                                                                    onChange={(e) => handleMappingChange(field.key, e.target.value)}
+                                                                    className={`w-full text-xs border rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                                                                        !mapped && field.required ? 'border-amber-300 bg-amber-50' : 'border-gray-200'
+                                                                    }`}
+                                                                >
+                                                                    <option value="">(sin mapear)</option>
+                                                                    {excelHeaders.map(h => (
+                                                                        <option key={h} value={h}>{h}</option>
+                                                                    ))}
+                                                                </select>
+                                                                {previewValue !== null && previewValue !== '' && (
+                                                                    <div className="text-[10px] text-gray-400 mt-0.5 truncate" title={String(previewValue)}>
+                                                                        Ej: {String(previewValue)}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    )
+                                                })}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
 
                             {/* Data table */}
                             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
