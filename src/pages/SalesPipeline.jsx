@@ -26,39 +26,42 @@ import {
 const TAB_CONFIG = {
   propietarios: {
     icon: Home,
-    gradient: 'from-[#003DA5] to-[#0050D4]',
-    activeBg: 'bg-gradient-to-r from-[#003DA5] to-[#0050D4]',
-    hoverBg: 'hover:bg-blue-50 dark:hover:bg-blue-900/20',
-    text: 'text-[#003DA5] dark:text-blue-300',
-    ring: 'ring-[#003DA5]/30',
-    descBg: 'bg-blue-50/50 border-blue-100 dark:bg-blue-950/20 dark:border-blue-900/30',
-    descIconBg: 'bg-blue-100 dark:bg-blue-900/40',
-    descIconText: 'text-[#003DA5] dark:text-blue-400',
-    descTitle: 'text-[#003DA5] dark:text-blue-300',
+    gradient: 'from-slate-700 to-slate-600',
+    activeBg: 'bg-slate-800 dark:bg-slate-200',
+    activeText: 'text-white dark:text-slate-900',
+    hoverBg: 'hover:bg-slate-100 dark:hover:bg-slate-800',
+    text: 'text-slate-600 dark:text-slate-300',
+    ring: 'ring-slate-300/40',
+    descBg: 'bg-slate-50/80 border-slate-200 dark:bg-slate-900/30 dark:border-slate-700/50',
+    descIconBg: 'bg-slate-200 dark:bg-slate-700',
+    descIconText: 'text-slate-600 dark:text-slate-300',
+    descTitle: 'text-slate-700 dark:text-slate-200',
   },
   compradores: {
     icon: ShoppingCart,
-    gradient: 'from-[#002B75] to-[#003DA5]',
-    activeBg: 'bg-gradient-to-r from-[#002B75] to-[#003DA5]',
-    hoverBg: 'hover:bg-blue-50 dark:hover:bg-blue-900/20',
-    text: 'text-[#002B75] dark:text-blue-300',
-    ring: 'ring-[#002B75]/30',
-    descBg: 'bg-indigo-50/50 border-indigo-100 dark:bg-indigo-950/20 dark:border-indigo-900/30',
-    descIconBg: 'bg-indigo-100 dark:bg-indigo-900/40',
-    descIconText: 'text-[#002B75] dark:text-indigo-400',
-    descTitle: 'text-[#002B75] dark:text-indigo-300',
+    gradient: 'from-slate-700 to-slate-600',
+    activeBg: 'bg-slate-800 dark:bg-slate-200',
+    activeText: 'text-white dark:text-slate-900',
+    hoverBg: 'hover:bg-slate-100 dark:hover:bg-slate-800',
+    text: 'text-slate-600 dark:text-slate-300',
+    ring: 'ring-slate-300/40',
+    descBg: 'bg-slate-50/80 border-slate-200 dark:bg-slate-900/30 dark:border-slate-700/50',
+    descIconBg: 'bg-slate-200 dark:bg-slate-700',
+    descIconText: 'text-slate-600 dark:text-slate-300',
+    descTitle: 'text-slate-700 dark:text-slate-200',
   },
   arriendos: {
     icon: Key,
-    gradient: 'from-[#CC0000] to-[#E31837]',
-    activeBg: 'bg-gradient-to-r from-[#CC0000] to-[#E31837]',
-    hoverBg: 'hover:bg-red-50 dark:hover:bg-red-900/20',
-    text: 'text-[#CC0000] dark:text-red-300',
-    ring: 'ring-[#CC0000]/30',
-    descBg: 'bg-red-50/50 border-red-100 dark:bg-red-950/20 dark:border-red-900/30',
-    descIconBg: 'bg-red-100 dark:bg-red-900/40',
-    descIconText: 'text-[#CC0000] dark:text-red-400',
-    descTitle: 'text-[#CC0000] dark:text-red-300',
+    gradient: 'from-slate-700 to-slate-600',
+    activeBg: 'bg-slate-800 dark:bg-slate-200',
+    activeText: 'text-white dark:text-slate-900',
+    hoverBg: 'hover:bg-slate-100 dark:hover:bg-slate-800',
+    text: 'text-slate-600 dark:text-slate-300',
+    ring: 'ring-slate-300/40',
+    descBg: 'bg-slate-50/80 border-slate-200 dark:bg-slate-900/30 dark:border-slate-700/50',
+    descIconBg: 'bg-slate-200 dark:bg-slate-700',
+    descIconText: 'text-slate-600 dark:text-slate-300',
+    descTitle: 'text-slate-700 dark:text-slate-200',
   },
 }
 
@@ -300,8 +303,8 @@ export default function SalesPipeline() {
       <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white flex items-center gap-3">
-            <div className={`p-2 bg-gradient-to-br ${tabConfig.gradient} rounded-xl shadow-lg`}>
-              <TabIcon className="w-6 h-6 text-white" />
+            <div className="p-2 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl">
+              <TabIcon className="w-6 h-6 text-slate-600 dark:text-slate-300" />
             </div>
             Pipeline de Negocios
           </h1>
@@ -313,7 +316,7 @@ export default function SalesPipeline() {
         <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={() => setShowNewModal(true)}
-            className={`flex items-center gap-2 px-4 py-2.5 ${tabConfig.activeBg} text-white rounded-xl font-semibold text-sm shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all`}
+            className={`flex items-center gap-2 px-4 py-2.5 bg-slate-800 dark:bg-slate-200 text-white dark:text-slate-900 rounded-xl font-semibold text-sm shadow-sm hover:bg-slate-700 dark:hover:bg-slate-300 hover:shadow-md transition-all`}
           >
             <Plus className="w-4 h-4" />
             Nuevo Deal
@@ -340,14 +343,14 @@ export default function SalesPipeline() {
               onClick={() => toggleTab(pipe.id)}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all flex-1 justify-center
                 ${isActive
-                  ? `${conf.activeBg} text-white shadow-lg`
-                  : `text-slate-600 dark:text-slate-300 ${conf.hoverBg}`
+                  ? `${conf.activeBg} ${conf.activeText} shadow-sm`
+                  : `text-slate-500 dark:text-slate-400 ${conf.hoverBg}`
                 }`}
             >
               <Icon className="w-4 h-4" />
               <span className="hidden sm:inline">{pipe.label}</span>
               {isActive && filtered.length > 0 && (
-                <span className="bg-white/25 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                <span className="bg-white/25 dark:bg-slate-900/25 text-current text-[10px] font-bold px-1.5 py-0.5 rounded-full">
                   {filtered.filter(d => d.status === 'active').length}
                 </span>
               )}
@@ -535,14 +538,14 @@ export default function SalesPipeline() {
                 onDrop={e => handleDrop(e, col.id)}
               >
                 {/* Column Header */}
-                <div className={`${colors.headerBg || ''} rounded-t-[14px] px-4 py-3 flex items-center justify-between`}>
+                <div className={`${colors.headerBg || 'bg-slate-50'} rounded-t-[14px] px-4 py-3 flex items-center justify-between border-b border-slate-100 dark:border-slate-800`}>
                   <div className="flex items-center gap-2">
-                    <div className="p-1.5 bg-white/20 rounded-lg">
-                      <ColIcon className="w-4 h-4 text-white" strokeWidth={2.5} />
+                    <div className={`p-1.5 ${colors.iconBg || 'bg-slate-100'} rounded-lg`}>
+                      <ColIcon className={`w-4 h-4 ${colors.headerIcon || 'text-slate-500'}`} strokeWidth={2.5} />
                     </div>
-                    <span className="font-semibold text-white text-[13px]">{col.label}</span>
+                    <span className={`font-semibold ${colors.headerText || 'text-slate-700'} text-[13px]`}>{col.label}</span>
                   </div>
-                  <span className="bg-white/25 backdrop-blur-sm text-white text-xs font-bold px-2 py-0.5 rounded-full min-w-[24px] text-center">
+                  <span className={`${colors.badge || 'bg-slate-100 text-slate-600'} text-xs font-bold px-2 py-0.5 rounded-full min-w-[24px] text-center border`}>
                     {items.length}
                   </span>
                 </div>
@@ -894,18 +897,18 @@ function NewDealModal({ pipelineType, onClose, onSave }) {
         onClick={e => e.stopPropagation()}>
 
         {/* Header */}
-        <div className={`flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-700 bg-gradient-to-r ${conf.gradient}`}>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-white/20 rounded-xl">
-              <Icon className="w-5 h-5 text-white" />
+            <div className="p-2 bg-slate-200 dark:bg-slate-700 rounded-xl">
+              <Icon className="w-5 h-5 text-slate-600 dark:text-slate-300" />
             </div>
             <div>
-              <h3 className="font-bold text-white">Nuevo Deal — {pipeLabel}</h3>
-              <p className="text-xs text-white/70">Crear nuevo negocio en el pipeline</p>
+              <h3 className="font-bold text-slate-800 dark:text-slate-100">Nuevo Deal — {pipeLabel}</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Crear nuevo negocio en el pipeline</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 rounded-lg hover:bg-white/20 transition-colors">
-            <X className="w-5 h-5 text-white" />
+          <button onClick={onClose} className="p-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">
+            <X className="w-5 h-5 text-slate-500" />
           </button>
         </div>
 

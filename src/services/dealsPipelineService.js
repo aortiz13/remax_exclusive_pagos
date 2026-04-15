@@ -553,25 +553,25 @@ export async function fetchDealHistory(dealId) {
   return data || []
 }
 
-// ─── Column Visual Styles ───────────────────────────────────────────────────
+// ─── Column Visual Styles (sober / muted) ───────────────────────────────────
 
 export const STAGE_COLUMN_STYLES = {
-  blue:    { bg: 'bg-white/60', border: 'border-blue-100',    headerBg: 'bg-gradient-to-r from-blue-600 to-blue-500',       badge: 'bg-blue-50 text-blue-700 border-blue-200',       dot: 'bg-blue-500',    ring: 'ring-blue-200/60',    iconBg: 'bg-blue-500/15' },
-  indigo:  { bg: 'bg-white/60', border: 'border-indigo-100',  headerBg: 'bg-gradient-to-r from-indigo-600 to-indigo-500',   badge: 'bg-indigo-50 text-indigo-700 border-indigo-200', dot: 'bg-indigo-500',  ring: 'ring-indigo-200/60',  iconBg: 'bg-indigo-500/15' },
-  violet:  { bg: 'bg-white/60', border: 'border-violet-100',  headerBg: 'bg-gradient-to-r from-violet-600 to-violet-500',   badge: 'bg-violet-50 text-violet-700 border-violet-200', dot: 'bg-violet-500',  ring: 'ring-violet-200/60',  iconBg: 'bg-violet-500/15' },
-  purple:  { bg: 'bg-white/60', border: 'border-purple-100',  headerBg: 'bg-gradient-to-r from-purple-600 to-purple-500',   badge: 'bg-purple-50 text-purple-700 border-purple-200', dot: 'bg-purple-500',  ring: 'ring-purple-200/60',  iconBg: 'bg-purple-500/15' },
-  cyan:    { bg: 'bg-white/60', border: 'border-cyan-100',    headerBg: 'bg-gradient-to-r from-cyan-600 to-cyan-500',       badge: 'bg-cyan-50 text-cyan-700 border-cyan-200',       dot: 'bg-cyan-500',    ring: 'ring-cyan-200/60',    iconBg: 'bg-cyan-500/15' },
-  teal:    { bg: 'bg-white/60', border: 'border-teal-100',    headerBg: 'bg-gradient-to-r from-teal-600 to-teal-500',       badge: 'bg-teal-50 text-teal-700 border-teal-200',       dot: 'bg-teal-500',    ring: 'ring-teal-200/60',    iconBg: 'bg-teal-500/15' },
-  emerald: { bg: 'bg-white/60', border: 'border-emerald-100', headerBg: 'bg-gradient-to-r from-emerald-600 to-emerald-500', badge: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500', ring: 'ring-emerald-200/60', iconBg: 'bg-emerald-500/15' },
-  amber:   { bg: 'bg-white/60', border: 'border-amber-100',   headerBg: 'bg-gradient-to-r from-amber-500 to-amber-400',     badge: 'bg-amber-50 text-amber-700 border-amber-200',     dot: 'bg-amber-500',   ring: 'ring-amber-200/60',   iconBg: 'bg-amber-500/15' },
-  orange:  { bg: 'bg-white/60', border: 'border-orange-100',  headerBg: 'bg-gradient-to-r from-orange-500 to-orange-400',   badge: 'bg-orange-50 text-orange-700 border-orange-200', dot: 'bg-orange-500',  ring: 'ring-orange-200/60',  iconBg: 'bg-orange-500/15' },
-  rose:    { bg: 'bg-white/60', border: 'border-rose-100',    headerBg: 'bg-gradient-to-r from-rose-500 to-rose-400',       badge: 'bg-rose-50 text-rose-600 border-rose-200',       dot: 'bg-rose-400',    ring: 'ring-rose-200/60',    iconBg: 'bg-rose-400/15' },
-  red:     { bg: 'bg-white/60', border: 'border-red-100',     headerBg: 'bg-gradient-to-r from-red-500 to-red-400',         badge: 'bg-red-50 text-red-600 border-red-200',           dot: 'bg-red-500',     ring: 'ring-red-200/60',     iconBg: 'bg-red-500/15' },
-  slate:   { bg: 'bg-white/60', border: 'border-slate-200',   headerBg: 'bg-gradient-to-r from-slate-500 to-slate-400',     badge: 'bg-slate-50 text-slate-600 border-slate-200',     dot: 'bg-slate-400',   ring: 'ring-slate-200/60',   iconBg: 'bg-slate-400/15' },
+  blue:    { bg: 'bg-white/60', border: 'border-slate-200',   headerBg: 'bg-slate-50',  headerText: 'text-slate-700', headerIcon: 'text-slate-500', badge: 'bg-slate-100 text-slate-600 border-slate-200',   dot: 'bg-slate-400',   ring: 'ring-slate-200/60',   iconBg: 'bg-slate-100' },
+  indigo:  { bg: 'bg-white/60', border: 'border-slate-200',   headerBg: 'bg-slate-50',  headerText: 'text-slate-700', headerIcon: 'text-slate-500', badge: 'bg-slate-100 text-slate-600 border-slate-200',   dot: 'bg-slate-400',   ring: 'ring-slate-200/60',   iconBg: 'bg-slate-100' },
+  violet:  { bg: 'bg-white/60', border: 'border-slate-200',   headerBg: 'bg-slate-50',  headerText: 'text-slate-700', headerIcon: 'text-slate-500', badge: 'bg-slate-100 text-slate-600 border-slate-200',   dot: 'bg-slate-400',   ring: 'ring-slate-200/60',   iconBg: 'bg-slate-100' },
+  purple:  { bg: 'bg-white/60', border: 'border-slate-200',   headerBg: 'bg-slate-50',  headerText: 'text-slate-700', headerIcon: 'text-slate-500', badge: 'bg-slate-100 text-slate-600 border-slate-200',   dot: 'bg-slate-400',   ring: 'ring-slate-200/60',   iconBg: 'bg-slate-100' },
+  cyan:    { bg: 'bg-white/60', border: 'border-slate-200',   headerBg: 'bg-slate-50',  headerText: 'text-slate-700', headerIcon: 'text-slate-500', badge: 'bg-slate-100 text-slate-600 border-slate-200',   dot: 'bg-slate-400',   ring: 'ring-slate-200/60',   iconBg: 'bg-slate-100' },
+  teal:    { bg: 'bg-white/60', border: 'border-slate-200',   headerBg: 'bg-slate-50',  headerText: 'text-slate-700', headerIcon: 'text-slate-500', badge: 'bg-slate-100 text-slate-600 border-slate-200',   dot: 'bg-slate-400',   ring: 'ring-slate-200/60',   iconBg: 'bg-slate-100' },
+  emerald: { bg: 'bg-white/60', border: 'border-slate-200',   headerBg: 'bg-slate-50',  headerText: 'text-slate-700', headerIcon: 'text-slate-500', badge: 'bg-slate-100 text-slate-600 border-slate-200',   dot: 'bg-slate-400',   ring: 'ring-slate-200/60',   iconBg: 'bg-slate-100' },
+  amber:   { bg: 'bg-white/60', border: 'border-slate-200',   headerBg: 'bg-slate-50',  headerText: 'text-slate-700', headerIcon: 'text-slate-500', badge: 'bg-slate-100 text-slate-600 border-slate-200',   dot: 'bg-slate-400',   ring: 'ring-slate-200/60',   iconBg: 'bg-slate-100' },
+  orange:  { bg: 'bg-white/60', border: 'border-slate-200',   headerBg: 'bg-slate-50',  headerText: 'text-slate-700', headerIcon: 'text-slate-500', badge: 'bg-slate-100 text-slate-600 border-slate-200',   dot: 'bg-slate-400',   ring: 'ring-slate-200/60',   iconBg: 'bg-slate-100' },
+  rose:    { bg: 'bg-white/60', border: 'border-slate-200',   headerBg: 'bg-slate-50',  headerText: 'text-slate-700', headerIcon: 'text-slate-500', badge: 'bg-slate-100 text-slate-600 border-slate-200',   dot: 'bg-slate-400',   ring: 'ring-slate-200/60',   iconBg: 'bg-slate-100' },
+  red:     { bg: 'bg-white/60', border: 'border-slate-200',   headerBg: 'bg-slate-50',  headerText: 'text-slate-700', headerIcon: 'text-slate-500', badge: 'bg-slate-100 text-slate-600 border-slate-200',   dot: 'bg-slate-400',   ring: 'ring-slate-200/60',   iconBg: 'bg-slate-100' },
+  slate:   { bg: 'bg-white/60', border: 'border-slate-200',   headerBg: 'bg-slate-50',  headerText: 'text-slate-700', headerIcon: 'text-slate-500', badge: 'bg-slate-100 text-slate-600 border-slate-200',   dot: 'bg-slate-400',   ring: 'ring-slate-200/60',   iconBg: 'bg-slate-100' },
 }
 
 // Special terminal column styles
 export const TERMINAL_COLUMN_STYLES = {
-  won:  { bg: 'bg-white/60', border: 'border-emerald-200', headerBg: 'bg-gradient-to-r from-emerald-600 to-green-500', badge: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500', ring: 'ring-emerald-200/60', iconBg: 'bg-emerald-500/15' },
-  lost: { bg: 'bg-white/60', border: 'border-slate-200',   headerBg: 'bg-gradient-to-r from-slate-500 to-slate-400',   badge: 'bg-slate-50 text-slate-600 border-slate-200',       dot: 'bg-slate-400',   ring: 'ring-slate-200/60',   iconBg: 'bg-slate-400/15' },
+  won:  { bg: 'bg-white/60', border: 'border-slate-200', headerBg: 'bg-emerald-50',  headerText: 'text-emerald-700', headerIcon: 'text-emerald-500', badge: 'bg-emerald-50 text-emerald-600 border-emerald-200', dot: 'bg-emerald-400', ring: 'ring-emerald-200/60', iconBg: 'bg-emerald-50' },
+  lost: { bg: 'bg-white/60', border: 'border-slate-200', headerBg: 'bg-slate-50',    headerText: 'text-slate-600',   headerIcon: 'text-slate-400',   badge: 'bg-slate-100 text-slate-500 border-slate-200',      dot: 'bg-slate-400',   ring: 'ring-slate-200/60',   iconBg: 'bg-slate-100' },
 }
