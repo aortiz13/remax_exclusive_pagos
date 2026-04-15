@@ -919,9 +919,9 @@ function DealDetailDrawer({ deal, pipelineType, stages, onClose, onUpdate }) {
               <p className="text-sm text-slate-700 dark:text-slate-300">
                 Tipo: <span className="font-medium">{deal.mandate.capture_type}</span> — Estado: <span className="font-medium">{deal.mandate.status}</span>
               </p>
-              {deal.mandate.capture_date && (
+              {deal.mandate.start_date && (
                 <p className="text-xs text-slate-500 mt-1">
-                  Fecha captación: {new Date(deal.mandate.capture_date).toLocaleDateString('es-CL')}
+                  Fecha captación: {new Date(deal.mandate.start_date).toLocaleDateString('es-CL')}
                 </p>
               )}
             </div>

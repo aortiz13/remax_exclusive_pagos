@@ -84,7 +84,7 @@ export async function fetchDeals(pipelineType, { agentId, isAdmin, search, statu
       *,
       contact:contact_id(id, first_name, last_name, email, phone, need, rating),
       property:property_id(id, address, commune, property_type),
-      mandate:mandate_id(id, capture_type, status, capture_date),
+      mandate:mandate_id(id, capture_type, status, start_date),
       agent:agent_id(id, first_name, last_name)
     `)
     .eq('pipeline_type', pipelineType)
@@ -157,7 +157,7 @@ export async function createDeal({ pipelineType, contactId, propertyId, title, a
       *,
       contact:contact_id(id, first_name, last_name, email, phone, need, rating),
       property:property_id(id, address, commune, property_type),
-      mandate:mandate_id(id, capture_type, status, capture_date),
+      mandate:mandate_id(id, capture_type, status, start_date),
       agent:agent_id(id, first_name, last_name)
     `)
     .single()
