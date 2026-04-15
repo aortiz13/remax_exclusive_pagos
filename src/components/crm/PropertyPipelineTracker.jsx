@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../services/supabase'
 import { getStagesForPipeline, PIPELINE_TYPES } from '../../services/dealsPipelineService'
-import { CheckCircle2, Clock, Circle, GitBranch, ArrowRight } from 'lucide-react'
+import { CheckCircle2, Clock, Circle, GitBranch, ArrowRight, Trophy, XCircle, Link2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
 const PropertyPipelineTracker = ({ propertyId }) => {
@@ -24,8 +24,8 @@ const PropertyPipelineTracker = ({ propertyId }) => {
                     agent:agent_id(id, first_name, last_name)
                 `)
                 .eq('property_id', propertyId)
-                .eq('status', 'active')
-                .order('updated_at', { ascending: false })
+                .in('status', ['active', 'won', 'lost'])
+                .order('created_at', { ascending: true })
 
             if (error) throw error
             setDeals(data || [])
@@ -64,21 +64,70 @@ const PropertyPipelineTracker = ({ propertyId }) => {
         )
     }
 
+    // Build genealogy map: parentId -> childDeals
+    const genealogyMap = {}
+    deals.forEach(d => {
+        if (d.spawned_from_deal_id) {
+            if (!genealogyMap[d.spawned_from_deal_id]) genealogyMap[d.spawned_from_deal_id] = []
+            genealogyMap[d.spawned_from_deal_id].push(d)
+        }
+    })
+
+    // Find parent deal name
+    const getParentLabel = (deal) => {
+        if (!deal.spawned_from_deal_id) return null
+        const parent = deals.find(d => d.id === deal.spawned_from_deal_id)
+        if (!parent) return null
+        const parentPipeline = PIPELINE_TYPES.find(p => p.id === parent.pipeline_type)
+        return `${parentPipeline?.label || parent.pipeline_type}`
+    }
+
+    // Separate active vs closed
+    const activeDeals = deals.filter(d => d.status === 'active')
+    const closedDeals = deals.filter(d => d.status === 'won' || d.status === 'lost')
+
     return (
         <div className="space-y-6">
-            {deals.map(deal => (
-                <DealPipelineCard key={deal.id} deal={deal} />
+            {/* Active deals first */}
+            {activeDeals.map(deal => (
+                <DealPipelineCard
+                    key={deal.id}
+                    deal={deal}
+                    parentLabel={getParentLabel(deal)}
+                    childDeals={genealogyMap[deal.id]}
+                />
             ))}
+
+            {/* Closed deals */}
+            {closedDeals.length > 0 && (
+                <>
+                    {activeDeals.length > 0 && (
+                        <div className="flex items-center gap-3 pt-2">
+                            <div className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
+                            <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">Historial</span>
+                            <div className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
+                        </div>
+                    )}
+                    {closedDeals.map(deal => (
+                        <DealPipelineCard
+                            key={deal.id}
+                            deal={deal}
+                            parentLabel={getParentLabel(deal)}
+                            childDeals={genealogyMap[deal.id]}
+                            isHistorical
+                        />
+                    ))}
+                </>
+            )}
         </div>
     )
 }
 
-const DealPipelineCard = ({ deal }) => {
+const DealPipelineCard = ({ deal, parentLabel, childDeals, isHistorical }) => {
     const stages = getStagesForPipeline(deal.pipeline_type)
     const currentStageIndex = stages.findIndex(s => s.id === deal.current_stage)
     const pipelineMeta = PIPELINE_TYPES.find(p => p.id === deal.pipeline_type)
 
-    // Determine stage status
     const getStageStatus = (stageIndex) => {
         if (deal.current_stage === 'won') return 'completed'
         if (deal.current_stage === 'lost') return stageIndex <= currentStageIndex ? 'completed' : 'pending'
@@ -88,9 +137,22 @@ const DealPipelineCard = ({ deal }) => {
     }
 
     const allCompleted = deal.current_stage === 'won'
+    const isLost = deal.current_stage === 'lost'
 
     return (
-        <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden">
+        <div className={`bg-white dark:bg-gray-900 rounded-xl border overflow-hidden ${
+            isHistorical ? 'border-gray-200 dark:border-gray-800 opacity-75' : 'border-gray-200 dark:border-gray-800'
+        }`}>
+            {/* Genealogy badge */}
+            {parentLabel && (
+                <div className="px-5 py-2 bg-indigo-50 dark:bg-indigo-950/20 border-b border-indigo-100 dark:border-indigo-900/30 flex items-center gap-2">
+                    <Link2 className="w-3.5 h-3.5 text-indigo-500" />
+                    <span className="text-xs text-indigo-600 dark:text-indigo-400">
+                        Generado desde pipeline <span className="font-semibold">{parentLabel}</span>
+                    </span>
+                </div>
+            )}
+
             {/* Deal header */}
             <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-800 bg-gradient-to-r from-gray-50 to-white dark:from-gray-900 dark:to-gray-900">
                 <div className="flex items-center justify-between">
@@ -111,18 +173,18 @@ const DealPipelineCard = ({ deal }) => {
                                 {pipelineMeta?.label || deal.pipeline_type}
                             </h3>
                             <p className="text-xs text-muted-foreground">
-                                {deal.title || deal.contact?.first_name ? `${deal.contact?.first_name || ''} ${deal.contact?.last_name || ''}`.trim() : 'Sin título'}
+                                {deal.title || (deal.contact?.first_name ? `${deal.contact?.first_name || ''} ${deal.contact?.last_name || ''}`.trim() : 'Sin título')}
                             </p>
                         </div>
                     </div>
                     <div className="text-right">
                         {allCompleted ? (
                             <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
-                                <CheckCircle2 className="w-3.5 h-3.5" /> Completado
+                                <Trophy className="w-3.5 h-3.5" /> Ganado
                             </span>
-                        ) : deal.current_stage === 'lost' ? (
+                        ) : isLost ? (
                             <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
-                                Perdido
+                                <XCircle className="w-3.5 h-3.5" /> Perdido
                             </span>
                         ) : (
                             <span className="text-xs text-muted-foreground">
@@ -137,7 +199,7 @@ const DealPipelineCard = ({ deal }) => {
                     <div
                         className={`h-full rounded-full transition-all duration-700 ease-out ${
                             allCompleted ? 'bg-emerald-500' :
-                            deal.current_stage === 'lost' ? 'bg-red-400' :
+                            isLost ? 'bg-red-400' :
                             'bg-[#003DA5]'
                         }`}
                         style={{
@@ -153,12 +215,12 @@ const DealPipelineCard = ({ deal }) => {
                 <div className="relative">
                     {stages.map((stage, idx) => {
                         const status = getStageStatus(idx)
-                        const isLast = idx === stages.length - 1
+                        const isLastStage = idx === stages.length - 1
 
                         return (
                             <div key={stage.id} className="relative flex gap-4">
                                 {/* Vertical connector line */}
-                                {!isLast && (
+                                {!isLastStage && (
                                     <div
                                         className="absolute left-[15px] top-[32px] w-0.5 bottom-0"
                                         style={{
@@ -187,7 +249,7 @@ const DealPipelineCard = ({ deal }) => {
                                 </div>
 
                                 {/* Content */}
-                                <div className={`flex-1 pb-6 ${isLast ? 'pb-0' : ''}`}>
+                                <div className={`flex-1 pb-6 ${isLastStage ? 'pb-0' : ''}`}>
                                     <div className={`rounded-lg px-4 py-3 transition-colors ${
                                         status === 'completed'
                                             ? 'bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/30'
@@ -231,6 +293,36 @@ const DealPipelineCard = ({ deal }) => {
                     })}
                 </div>
             </div>
+
+            {/* Child deals (spawned transitions) */}
+            {childDeals && childDeals.length > 0 && (
+                <div className="px-5 pb-4">
+                    <div className="flex items-center gap-2 mb-2">
+                        <ArrowRight className="w-3.5 h-3.5 text-indigo-500" />
+                        <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">
+                            Transiciones generadas
+                        </span>
+                    </div>
+                    {childDeals.map(child => {
+                        const childPipeline = PIPELINE_TYPES.find(p => p.id === child.pipeline_type)
+                        return (
+                            <div key={child.id} className="flex items-center gap-3 p-2.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/30 mb-1.5">
+                                <div className="w-7 h-7 rounded-md bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center">
+                                    <GitBranch className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-xs font-medium text-indigo-700 dark:text-indigo-300 truncate">
+                                        {childPipeline?.label || child.pipeline_type}
+                                    </p>
+                                    <p className="text-[10px] text-indigo-500 dark:text-indigo-400">
+                                        {child.status === 'active' ? 'En curso' : child.status === 'won' ? 'Ganado' : 'Perdido'}
+                                    </p>
+                                </div>
+                            </div>
+                        )
+                    })}
+                </div>
+            )}
         </div>
     )
 }

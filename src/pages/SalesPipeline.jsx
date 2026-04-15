@@ -10,7 +10,7 @@ import {
   fetchDeals, createDeal, moveDealToStage, closeDealWon, closeDealLost,
   getStagesForPipeline, getFirstStage, PIPELINE_TYPES,
   STAGE_COLUMN_STYLES, TERMINAL_COLUMN_STYLES,
-  fetchDealHistory,
+  fetchDealHistory, spawnDeal, PIPELINE_TRANSITIONS,
 } from '../services/dealsPipelineService'
 import {
   Search, RotateCcw, Mail, Phone,
@@ -18,7 +18,7 @@ import {
   GripVertical, Columns3, Check, X, Trophy, XCircle,
   Home, ShoppingCart, Key, Users, User, Building2,
   FileSignature, DollarSign, Calendar, Clock, Zap,
-  ArrowRight, AlertTriangle, Loader2, SkipForward
+  ArrowRight, AlertTriangle, Loader2, SkipForward, Sparkles
 } from 'lucide-react'
 
 // ─── Pipeline Tab Config (professional Lucide icons, no emojis) ──────────────
@@ -115,6 +115,10 @@ export default function SalesPipeline() {
   // Modals
   const [showNewModal, setShowNewModal] = useState(false)
   const [showDealDetail, setShowDealDetail] = useState(null)
+
+  // Transition modal (post-win)
+  const [transitionModal, setTransitionModal] = useState(null) // { deal, pipelineType }
+  const [transitionLoading, setTransitionLoading] = useState(false)
 
   // When tab changes, update columns
   useEffect(() => {
@@ -224,8 +228,13 @@ export default function SalesPipeline() {
       setDeals(prev => prev.map(d => d.id === dealId ? { ...d, status: 'won', current_stage: 'won' } : d))
       setDraggedId(null)
       try {
-        await closeDealWon(dealId, user?.id)
+        const wonDeal = await closeDealWon(dealId, user?.id)
         toast.success('Deal marcado como Ganado', { icon: '🏆' })
+        // Show transition modal if transitions exist for this pipeline
+        const transition = PIPELINE_TRANSITIONS[activeTab]
+        if (transition && wonDeal?.property_id) {
+          setTransitionModal({ deal: wonDeal, pipelineType: activeTab })
+        }
       } catch {
         toast.error('Error al cerrar deal')
         setDeals(prev => prev.map(d => d.id === dealId ? { ...d, status: 'active', current_stage: fromStage } : d))
@@ -593,6 +602,112 @@ export default function SalesPipeline() {
               setShowDealDetail(null)
             }}
           />
+        )}
+      </AnimatePresence>
+
+      {/* ─── Transition Modal (post-win) ─────────────────────────── */}
+      <AnimatePresence>
+        {transitionModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4"
+            onClick={() => setTransitionModal(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+              onClick={e => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="bg-gradient-to-r from-emerald-500 to-green-500 px-6 py-5 text-white">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+                    <Trophy className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-lg">¡Deal Ganado!</h3>
+                    <p className="text-sm text-white/80 truncate">
+                      {transitionModal.deal.title || transitionModal.deal.property?.address || 'Sin título'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Body */}
+              <div className="p-6 space-y-4">
+                <div className="flex items-start gap-3 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-100 dark:border-blue-900/30">
+                  <Sparkles className="w-5 h-5 text-[#003DA5] mt-0.5 flex-shrink-0" />
+                  <p className="text-sm text-gray-700 dark:text-gray-300">
+                    {PIPELINE_TRANSITIONS[transitionModal.pipelineType]?.question}
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  {PIPELINE_TRANSITIONS[transitionModal.pipelineType]?.options.map(option => {
+                    const IconMap = { ShoppingCart, Key, Building2 }
+                    const Icon = IconMap[option.icon] || ArrowRight
+                    return (
+                      <button
+                        key={option.targetPipeline}
+                        disabled={transitionLoading}
+                        onClick={async () => {
+                          setTransitionLoading(true)
+                          try {
+                            const result = await spawnDeal({
+                              sourceDeal: transitionModal.deal,
+                              targetPipeline: option.targetPipeline,
+                              startStage: option.startStage,
+                              agentId: user?.id,
+                            })
+                            if (result?.transitioned) {
+                              toast.success('Propiedad marcada como Administrada', { icon: '🏢' })
+                            } else {
+                              const targetLabel = PIPELINE_TYPES.find(p => p.id === option.targetPipeline)?.label || option.targetPipeline
+                              toast.success(`Deal creado en pipeline ${targetLabel}`, { icon: '🚀' })
+                            }
+                            setTransitionModal(null)
+                          } catch (err) {
+                            console.error(err)
+                            toast.error('Error al crear transición')
+                          } finally {
+                            setTransitionLoading(false)
+                          }
+                        }}
+                        className="w-full flex items-center gap-3 p-4 rounded-xl border-2 border-gray-200 dark:border-gray-700 hover:border-[#003DA5] dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/20 transition-all group text-left disabled:opacity-50"
+                      >
+                        <div className="w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center group-hover:bg-[#003DA5] group-hover:text-white transition-colors">
+                          <Icon className="w-5 h-5" />
+                        </div>
+                        <div className="flex-1">
+                          <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">{option.label}</span>
+                          {option.startStage && (
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                              Inicia en: {getStagesForPipeline(option.targetPipeline).find(s => s.id === option.startStage)?.label || option.startStage}
+                            </p>
+                          )}
+                        </div>
+                        <ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-[#003DA5] transition-colors" />
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="px-6 py-4 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-100 dark:border-gray-800 flex justify-end">
+                <button
+                  onClick={() => setTransitionModal(null)}
+                  className="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 font-medium"
+                >
+                  No, solo cerrar el deal
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>

@@ -71,6 +71,110 @@ function getStageLabelMap(pipelineType) {
   return map
 }
 
+// ─── Pipeline Transitions Config ────────────────────────────────────────────
+
+export const PIPELINE_TRANSITIONS = {
+  propietarios: {
+    question: '¿Deseas iniciar un proceso de venta o arriendo para esta propiedad?',
+    options: [
+      { targetPipeline: 'compradores', label: 'Iniciar proceso de Comprador', icon: 'ShoppingCart', startStage: null },
+      { targetPipeline: 'arriendos',   label: 'Iniciar proceso de Arriendo', icon: 'Key',          startStage: null },
+    ],
+  },
+  compradores: {
+    question: '¿El comprador adquirió como inversión para arrendar?',
+    options: [
+      { targetPipeline: 'arriendos', label: 'Sí, iniciar proceso de Arriendo', icon: 'Key', startStage: 'evaluacion_comercial' },
+    ],
+  },
+  arriendos: {
+    question: '¿La oficina administrará esta propiedad?',
+    options: [
+      { targetPipeline: 'administracion', label: 'Sí, pasar a Administración', icon: 'Building2', startStage: null },
+    ],
+  },
+}
+
+// ─── Property Status Sync ───────────────────────────────────────────────────
+
+/**
+ * Sync property commercial status based on deal stage movements.
+ * Called automatically when a deal moves to a new stage.
+ */
+export async function syncPropertyStatus(propertyId, toStage, pipelineType) {
+  if (!propertyId) return
+
+  const STAGE_TO_STATUS = {
+    firma_captacion:    'Captada',
+    negociacion:        'En Negociación',
+  }
+
+  const newStatus = STAGE_TO_STATUS[toStage]
+  if (!newStatus) return
+
+  try {
+    // Get current status array
+    const { data: prop } = await supabase
+      .from('properties')
+      .select('status')
+      .eq('id', propertyId)
+      .single()
+
+    if (!prop) return
+
+    const currentStatuses = prop.status || []
+    if (currentStatuses.includes(newStatus)) return // already has it
+
+    // Remove conflicting statuses and add new one
+    const COMMERCIAL_STATUSES = ['Por Captar', 'Captada', 'Publicada', 'En Negociación', 'En Venta', 'En Arriendo']
+    const cleaned = currentStatuses.filter(s => !COMMERCIAL_STATUSES.includes(s))
+    cleaned.push(newStatus)
+
+    await supabase
+      .from('properties')
+      .update({ status: cleaned, updated_at: new Date().toISOString() })
+      .eq('id', propertyId)
+  } catch (err) {
+    console.error('Error syncing property status:', err)
+  }
+}
+
+/**
+ * Mark property as sold/rented when deal is won.
+ */
+export async function syncPropertyWonStatus(propertyId, pipelineType) {
+  if (!propertyId) return
+
+  const STATUS_MAP = {
+    compradores: 'Vendida',
+    arriendos:   'Arrendada',
+  }
+
+  const winStatus = STATUS_MAP[pipelineType]
+  if (!winStatus) return
+
+  try {
+    const { data: prop } = await supabase
+      .from('properties')
+      .select('status')
+      .eq('id', propertyId)
+      .single()
+
+    if (!prop) return
+
+    const COMMERCIAL_STATUSES = ['Por Captar', 'Captada', 'Publicada', 'En Negociación', 'En Venta', 'En Arriendo']
+    const cleaned = (prop.status || []).filter(s => !COMMERCIAL_STATUSES.includes(s))
+    if (!cleaned.includes(winStatus)) cleaned.push(winStatus)
+
+    await supabase
+      .from('properties')
+      .update({ status: cleaned, updated_at: new Date().toISOString() })
+      .eq('id', propertyId)
+  } catch (err) {
+    console.error('Error syncing won property status:', err)
+  }
+}
+
 // ─── CRUD Operations ────────────────────────────────────────────────────────
 
 /**
@@ -216,6 +320,9 @@ export async function moveDealToStage(dealId, fromStage, toStage, pipelineType, 
       contact_id: deal.contact_id,
       property_id: deal.property_id,
     })
+
+    // Auto-sync property status based on stage
+    await syncPropertyStatus(deal.property_id, toStage, deal.pipeline_type)
   }
 }
 
@@ -249,7 +356,7 @@ export async function skipStage(dealId, stageId, changedBy) {
  * Close deal as won.
  */
 export async function closeDealWon(dealId, changedBy) {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('deals')
     .update({
       status: 'won',
@@ -258,9 +365,18 @@ export async function closeDealWon(dealId, changedBy) {
       updated_at: new Date().toISOString(),
     })
     .eq('id', dealId)
+    .select('*, contact:contact_id(id, first_name, last_name), property:property_id(id, address, commune)')
+    .single()
 
   if (error) throw error
   await logStageChange(dealId, null, 'won', changedBy, 'Deal cerrado como ganado')
+
+  // Sync property status (Vendida/Arrendada)
+  if (data?.property_id) {
+    await syncPropertyWonStatus(data.property_id, data.pipeline_type)
+  }
+
+  return data
 }
 
 /**
@@ -280,6 +396,99 @@ export async function closeDealLost(dealId, reason, changedBy) {
 
   if (error) throw error
   await logStageChange(dealId, null, 'lost', changedBy, reason || 'Deal cerrado como perdido')
+}
+
+/**
+ * Spawn a new deal in a target pipeline from a won deal (pipeline transition).
+ * Inherits property, contact, agent from the source deal.
+ */
+export async function spawnDeal({ sourceDeal, targetPipeline, startStage, agentId }) {
+  const firstStage = startStage || getFirstStage(targetPipeline)
+  const sourceLabel = PIPELINE_TYPES.find(p => p.id === sourceDeal.pipeline_type)?.label || sourceDeal.pipeline_type
+  const targetLabel = PIPELINE_TYPES.find(p => p.id === targetPipeline)?.label || targetPipeline
+
+  // For arriendos transition from compradores → mark as administracion
+  if (targetPipeline === 'administracion') {
+    // Just update property status to Administrada
+    if (sourceDeal.property_id) {
+      const { data: prop } = await supabase
+        .from('properties')
+        .select('status')
+        .eq('id', sourceDeal.property_id)
+        .single()
+
+      if (prop) {
+        const COMMERCIAL_STATUSES = ['Por Captar', 'Captada', 'Publicada', 'En Negociación', 'En Venta', 'En Arriendo', 'Arrendada']
+        const cleaned = (prop.status || []).filter(s => !COMMERCIAL_STATUSES.includes(s))
+        if (!cleaned.includes('Administrada')) cleaned.push('Administrada')
+
+        await supabase
+          .from('properties')
+          .update({ status: cleaned, updated_at: new Date().toISOString() })
+          .eq('id', sourceDeal.property_id)
+      }
+    }
+
+    await logActivity({
+      action: 'Transición Pipeline',
+      entity_type: 'Deal',
+      entity_id: sourceDeal.id,
+      description: `Propiedad pasó a Administración desde pipeline ${sourceLabel}`,
+      contact_id: sourceDeal.contact_id,
+      property_id: sourceDeal.property_id,
+    })
+
+    return { transitioned: true, type: 'administracion' }
+  }
+
+  // Auto-find mandate
+  let mandateId = null
+  if (sourceDeal.property_id) {
+    const { data: mandates } = await supabase
+      .from('mandates')
+      .select('id')
+      .eq('property_id', sourceDeal.property_id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+    if (mandates?.length > 0) mandateId = mandates[0].id
+  }
+
+  const title = `${targetLabel} — ${sourceDeal.property?.address || sourceDeal.title || 'Sin título'}`
+
+  const { data, error } = await supabase
+    .from('deals')
+    .insert([{
+      pipeline_type: targetPipeline,
+      current_stage: firstStage,
+      contact_id: sourceDeal.contact_id || null,
+      property_id: sourceDeal.property_id || null,
+      mandate_id: mandateId,
+      agent_id: agentId,
+      title,
+      amount: sourceDeal.amount || null,
+      status: 'active',
+      spawned_from_deal_id: sourceDeal.id,
+    }])
+    .select('*, contact:contact_id(id, first_name, last_name), property:property_id(id, address, commune)')
+    .single()
+
+  if (error) throw error
+
+  // Log initial stage
+  await logStageChange(data.id, null, firstStage, agentId, `Generado desde deal ${sourceLabel}`)
+
+  // Log to timeline
+  const labels = getStageLabelMap(targetPipeline)
+  await logActivity({
+    action: 'Transición Pipeline',
+    entity_type: 'Deal',
+    entity_id: data.id,
+    description: `Nuevo deal "${title}" generado en ${targetLabel} desde ${sourceLabel} — etapa: ${labels[firstStage]}`,
+    contact_id: data.contact_id,
+    property_id: data.property_id,
+  })
+
+  return data
 }
 
 /**
