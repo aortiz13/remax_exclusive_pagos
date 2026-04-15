@@ -19,6 +19,16 @@ import {
 import { fetchUFValue } from '../../services/ufService'
 
 const COLORS = ['#f59e0b', '#3b82f6', '#8b5cf6', '#10b981']
+
+/* ── Tooltip helper: shows explanation after 1s hover ── */
+const Tip = ({ children, text, className = '' }) => (
+    <span className={`relative group/tip inline-flex items-baseline cursor-help ${className}`}>
+        {children}
+        <span className="pointer-events-none opacity-0 group-hover/tip:opacity-100 group-hover/tip:delay-1000 transition-opacity duration-200 absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 rounded-lg bg-slate-900 text-white text-[0.6rem] leading-relaxed font-normal normal-case tracking-normal whitespace-normal max-w-[220px] w-max shadow-xl before:content-[''] before:absolute before:top-full before:left-1/2 before:-translate-x-1/2 before:border-4 before:border-transparent before:border-t-slate-900">
+            {text}
+        </span>
+    </span>
+)
 const CHANNEL_ICONS = { Prospección: Search, Marketing: Megaphone, Seguimiento: Eye, Fidelización: Heart }
 const CONFIG_TABS = [
     { key: 'investment', label: 'Inversión', icon: DollarSign },
@@ -287,6 +297,10 @@ export default function BusinessPlan({ agentId: externalAgentId, readOnly = fals
                             pct: billingProg,
                             badgeLabel: `${fmtPct(billingProg)}%`,
                             ringColor: billingProg >= 80 ? '#10b981' : billingProg >= 40 ? '#f59e0b' : '#ef4444',
+                            tipReal: 'Facturación acumulada real del año, calculada desde propiedades cerradas del agente.',
+                            tipGoal: 'Meta de facturación bruta anual: (meta mensual × 12 + inversiones) ÷ (% plan × (1 − % RE/MAX)).',
+                            tipDiff: 'Diferencia entre facturación real y meta proyectada.',
+                            tipPct: 'Porcentaje de avance: facturación real ÷ meta proyectada × 100.',
                         },
                         {
                             title: 'Ventas',
@@ -298,6 +312,10 @@ export default function BusinessPlan({ agentId: externalAgentId, readOnly = fals
                             pct: billingVend > 0 ? Math.min((realSaleBilling / billingVend) * 100, 100) : 0,
                             badgeLabel: `${ticketData.saleCount}/${minTransSale} trans.`,
                             ringColor: '#10b981',
+                            tipReal: 'Comisión generada por ventas: transacciones cerradas × ticket promedio real × % comisión venta.',
+                            tipGoal: 'Facturación requerida por ventas: meta total × porcentaje asignado a vendedores.',
+                            tipDiff: 'Diferencia entre comisión generada por ventas y meta requerida.',
+                            tipPct: 'Avance de ventas: comisión real ÷ meta de ventas × 100.',
                         },
                         {
                             title: 'Arriendos',
@@ -309,6 +327,10 @@ export default function BusinessPlan({ agentId: externalAgentId, readOnly = fals
                             pct: billingArr > 0 ? Math.min((realRentalBilling / billingArr) * 100, 100) : 0,
                             badgeLabel: `${ticketData.rentalCount}/${minTransRental} trans.`,
                             ringColor: '#f59e0b',
+                            tipReal: 'Comisión generada por arriendos: transacciones cerradas × ticket promedio real × % comisión arriendo.',
+                            tipGoal: 'Facturación requerida por arriendos: meta total × porcentaje asignado a arrendadores.',
+                            tipDiff: 'Diferencia entre comisión generada por arriendos y meta requerida.',
+                            tipPct: 'Avance de arriendos: comisión real ÷ meta de arriendos × 100.',
                         },
                     ].map((card, i) => {
                         const diff = card.real - card.goal
@@ -334,23 +356,25 @@ export default function BusinessPlan({ agentId: externalAgentId, readOnly = fals
                                     <div className="relative shrink-0">
                                         <ProgressRing pct={card.pct} size={56} stroke={5} color={card.ringColor} />
                                         <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                            <span className="text-xs font-extrabold text-slate-900">{fmtPct(card.pct)}%</span>
+                                            <Tip text={card.tipPct}><span className="text-xs font-extrabold text-slate-900">{fmtPct(card.pct)}%</span></Tip>
                                         </div>
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <p className="text-[0.55rem] font-bold text-emerald-600 uppercase tracking-wider mb-0.5 flex items-center gap-1">
                                             <span className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" /> Real
                                         </p>
-                                        <p className="text-lg font-extrabold text-slate-900 font-mono leading-none truncate">{fmtCLP(card.real)}</p>
-                                        <p className="text-[0.5rem] text-slate-400 mt-1">Meta: {fmtCLP(card.goal)}</p>
+                                        <Tip text={card.tipReal}><p className="text-lg font-extrabold text-slate-900 font-mono leading-none truncate">{fmtCLP(card.real)}</p></Tip>
+                                        <Tip text={card.tipGoal}><p className="text-[0.5rem] text-slate-400 mt-1">Meta: {fmtCLP(card.goal)}</p></Tip>
                                     </div>
                                 </div>
 
                                 {/* Difference */}
-                                <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[0.6rem] font-bold ${isPositive ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
-                                    <TrendingUp className={`w-3 h-3 shrink-0 ${isPositive ? '' : 'rotate-180'}`} />
-                                    <span className="truncate">{isPositive ? '+' : ''}{fmtCLP(diff)}</span>
-                                </div>
+                                <Tip text={card.tipDiff} className="w-full">
+                                    <div className={`w-full flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[0.6rem] font-bold ${isPositive ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+                                        <TrendingUp className={`w-3 h-3 shrink-0 ${isPositive ? '' : 'rotate-180'}`} />
+                                        <span className="truncate">{isPositive ? '+' : ''}{fmtCLP(diff)}</span>
+                                    </div>
+                                </Tip>
 
                                 {/* Progress bar */}
                                 <div className="mt-3">
@@ -384,12 +408,12 @@ export default function BusinessPlan({ agentId: externalAgentId, readOnly = fals
                                     <div className="grid grid-cols-2 gap-2">
                                         <div className="p-2.5 rounded-lg bg-white border border-emerald-100 shadow-sm">
                                             <label className="text-[0.5rem] font-bold text-gray-400 uppercase block mb-1">Proyectado</label>
-                                            <p className="text-sm font-bold text-gray-800 font-mono">{fmtCLP(projected.sale)}</p>
+                                            <Tip text="Ticket promedio proyectado: meta facturación ventas ÷ meta mín. transacciones de venta."><p className="text-sm font-bold text-gray-800 font-mono">{fmtCLP(projected.sale)}</p></Tip>
                                         </div>
                                         <div className={`p-2.5 rounded-lg border shadow-sm ${real.sale > 0 ? `bg-${clr}-50 border-${clr}-200` : 'bg-gray-50 border-gray-200'}`}>
                                             <label className="text-[0.5rem] font-bold text-gray-400 uppercase block mb-1">Real</label>
                                             <p className={`text-sm font-bold font-mono ${real.sale > 0 ? `text-${clr}-700` : 'text-gray-400'}`}>
-                                                {real.sale > 0 ? fmtCLP(real.sale) : 'Sin datos'}
+                                                <Tip text="Ticket promedio real de venta: facturación real de ventas ÷ propiedades vendidas.">{real.sale > 0 ? fmtCLP(real.sale) : 'Sin datos'}</Tip>
                                             </p>
                                         </div>
                                     </div>
@@ -399,10 +423,10 @@ export default function BusinessPlan({ agentId: externalAgentId, readOnly = fals
                                                 style={{ width: `${Math.min(salePct, 100)}%` }} />
                                         </div>
                                         <div className="flex justify-between mt-1">
-                                            <span className="text-[0.55rem] text-gray-400">{ticketData.saleCount} propiedad{ticketData.saleCount !== 1 ? 'es' : ''}</span>
-                                            {real.sale > 0 && <span className={`text-[0.55rem] font-bold text-${clr}-600`}>
+                                            <Tip text="N° de propiedades vendidas cerradas en el período."><span className="text-[0.55rem] text-gray-400">{ticketData.saleCount} propiedad{ticketData.saleCount !== 1 ? 'es' : ''}</span></Tip>
+                                            {real.sale > 0 && <Tip text="Diferencia absoluta y porcentual entre ticket real y proyectado."><span className={`text-[0.55rem] font-bold text-${clr}-600`}>
                                                 Δ {saleDelta >= 0 ? '+' : ''}{fmtCLP(saleDelta)} ({saleDeltaPct.toFixed(0)}%)
-                                            </span>}
+                                            </span></Tip>}
                                         </div>
                                     </div>
                                 </div>
@@ -423,12 +447,12 @@ export default function BusinessPlan({ agentId: externalAgentId, readOnly = fals
                                     <div className="grid grid-cols-2 gap-2">
                                         <div className="p-2.5 rounded-lg bg-white border border-amber-100 shadow-sm">
                                             <label className="text-[0.5rem] font-bold text-gray-400 uppercase block mb-1">Proyectado</label>
-                                            <p className="text-sm font-bold text-gray-800 font-mono">{fmtCLP(projected.rental)}</p>
+                                            <Tip text="Ticket promedio proyectado: meta facturación arriendos ÷ meta mín. transacciones de arriendo."><p className="text-sm font-bold text-gray-800 font-mono">{fmtCLP(projected.rental)}</p></Tip>
                                         </div>
                                         <div className={`p-2.5 rounded-lg border shadow-sm ${real.rental > 0 ? `bg-${clr}-50 border-${clr}-200` : 'bg-gray-50 border-gray-200'}`}>
                                             <label className="text-[0.5rem] font-bold text-gray-400 uppercase block mb-1">Real</label>
                                             <p className={`text-sm font-bold font-mono ${real.rental > 0 ? `text-${clr}-700` : 'text-gray-400'}`}>
-                                                {real.rental > 0 ? fmtCLP(real.rental) : 'Sin datos'}
+                                                <Tip text="Ticket promedio real de arriendo: facturación real de arriendos ÷ propiedades arrendadas.">{real.rental > 0 ? fmtCLP(real.rental) : 'Sin datos'}</Tip>
                                             </p>
                                         </div>
                                     </div>
@@ -438,10 +462,10 @@ export default function BusinessPlan({ agentId: externalAgentId, readOnly = fals
                                                 style={{ width: `${Math.min(rentalPct, 100)}%` }} />
                                         </div>
                                         <div className="flex justify-between mt-1">
-                                            <span className="text-[0.55rem] text-gray-400">{ticketData.rentalCount} propiedad{ticketData.rentalCount !== 1 ? 'es' : ''}</span>
-                                            {real.rental > 0 && <span className={`text-[0.55rem] font-bold text-${clr}-600`}>
+                                            <Tip text="N° de propiedades arrendadas cerradas en el período."><span className="text-[0.55rem] text-gray-400">{ticketData.rentalCount} propiedad{ticketData.rentalCount !== 1 ? 'es' : ''}</span></Tip>
+                                            {real.rental > 0 && <Tip text="Diferencia absoluta y porcentual entre ticket real y proyectado."><span className={`text-[0.55rem] font-bold text-${clr}-600`}>
                                                 Δ {rentalDelta >= 0 ? '+' : ''}{fmtCLP(rentalDelta)} ({rentalDeltaPct.toFixed(0)}%)
-                                            </span>}
+                                            </span></Tip>}
                                         </div>
                                     </div>
                                 </div>
@@ -457,18 +481,18 @@ export default function BusinessPlan({ agentId: externalAgentId, readOnly = fals
                     </h4>
                     <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
                         {[
-                            { label: 'Conversaciones/día', target: plan.daily_conversations, icon: Users, color: 'blue' },
-                            { label: 'Reuniones vend./sem', target: plan.weekly_seller_meetings, icon: Briefcase, color: 'emerald' },
-                            { label: 'Reuniones comp./sem', target: plan.weekly_buyer_meetings, icon: Users, color: 'purple' },
-                            { label: 'Captaciones/mes', target: plan.monthly_captures, icon: Target, color: 'amber' },
-                            { label: 'Negocios proc./mes', target: plan.monthly_deals_in_process, icon: Activity, color: 'red' },
+                            { label: 'Conversaciones/día', target: plan.daily_conversations, icon: Users, color: 'blue', tip: 'N° de contactos diarios que el agente debe generar según su plan.' },
+                            { label: 'Reuniones vend./sem', target: plan.weekly_seller_meetings, icon: Briefcase, color: 'emerald', tip: 'Reuniones semanales con vendedores para captar propiedades.' },
+                            { label: 'Reuniones comp./sem', target: plan.weekly_buyer_meetings, icon: Users, color: 'purple', tip: 'Reuniones semanales con compradores interesados.' },
+                            { label: 'Captaciones/mes', target: plan.monthly_captures, icon: Target, color: 'amber', tip: 'Propiedades nuevas que el agente debe captar al mes.' },
+                            { label: 'Negocios proc./mes', target: plan.monthly_deals_in_process, icon: Activity, color: 'red', tip: 'Negocios activos en proceso de cierre al mes.' },
                         ].map((o, i) => (
                             <div key={i} className={`p-3 rounded-xl border border-${o.color}-100 bg-${o.color}-50/20`}>
                                 <div className="flex items-center gap-1.5 mb-2">
                                     <o.icon className={`w-3 h-3 text-${o.color}-500`} />
                                     <label className="text-[0.5rem] font-bold text-gray-500 uppercase leading-tight">{o.label}</label>
                                 </div>
-                                <p className={`text-xl font-bold text-${o.color}-700 font-mono`}>{o.target}</p>
+                                <Tip text={o.tip}><p className={`text-xl font-bold text-${o.color}-700 font-mono`}>{o.target}</p></Tip>
                                 <p className="text-[0.5rem] text-gray-400 mt-0.5">Meta establecida</p>
                             </div>
                         ))}
@@ -482,22 +506,22 @@ export default function BusinessPlan({ agentId: externalAgentId, readOnly = fals
                             <div className="flex items-center gap-1.5">
                                 <Clock className="w-3.5 h-3.5 text-blue-500" />
                                 <span className="text-[0.6rem] font-bold text-blue-600 uppercase">Canales</span>
-                                <span className="text-sm font-bold text-blue-700">{totalChH}h</span>
+                                <Tip text="Horas semanales dedicadas a canales: prospección, marketing, seguimiento, fidelización."><span className="text-sm font-bold text-blue-700">{totalChH}h</span></Tip>
                             </div>
                             <ArrowRight className="w-3 h-3 text-blue-300" />
                             <div>
                                 <span className="text-[0.6rem] font-bold text-indigo-600 uppercase">Otras </span>
-                                <span className="text-sm font-bold text-indigo-700">{totalActH}h</span>
+                                <Tip text="Horas semanales en actividades complementarias: formación, admin, networking, etc."><span className="text-sm font-bold text-indigo-700">{totalActH}h</span></Tip>
                             </div>
                             <ArrowRight className="w-3 h-3 text-blue-300" />
                             <div>
                                 <span className="text-[0.6rem] font-bold text-purple-600 uppercase">Total </span>
-                                <span className="text-sm font-bold text-purple-700">{totalWeekH}h/sem</span>
+                                <Tip text="Total semanal: horas canales + horas otras actividades."><span className="text-sm font-bold text-purple-700">{totalWeekH}h/sem</span></Tip>
                             </div>
                         </div>
                         <div className="bg-white px-3 py-1.5 rounded-lg shadow-sm border border-blue-100 text-center">
                             <p className="text-[0.5rem] font-bold text-gray-400 uppercase">Mín/día</p>
-                            <p className="text-lg font-bold text-gray-900">{minDailyH}<span className="text-xs text-gray-400 ml-0.5">h</span></p>
+                            <Tip text="Mínimo de horas diarias de trabajo: total semanal ÷ 5 días laborables."><p className="text-lg font-bold text-gray-900">{minDailyH}<span className="text-xs text-gray-400 ml-0.5">h</span></p></Tip>
                         </div>
                     </div>
                 </div>
@@ -524,19 +548,19 @@ export default function BusinessPlan({ agentId: externalAgentId, readOnly = fals
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                                 <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200">
                                     <label className="text-[0.5rem] font-bold text-emerald-500 uppercase block mb-1">Meta Anual Utilidades</label>
-                                    <p className="text-sm font-bold text-emerald-700 font-mono">{fmtCLP(annualGoal)}</p>
+                                    <Tip text="Ingreso neto que el agente quiere obtener al año: meta mensual × 12."><p className="text-sm font-bold text-emerald-700 font-mono">{fmtCLP(annualGoal)}</p></Tip>
                                 </div>
                                 <div className="p-3 rounded-xl bg-blue-50 border border-blue-200">
                                     <label className="text-[0.5rem] font-bold text-blue-500 uppercase block mb-1">Meta Mensual</label>
-                                    <p className="text-sm font-bold text-blue-700 font-mono">{fmtCLP(plan.monthly_goal)}</p>
+                                    <Tip text="Ingreso mensual objetivo definido por el agente en su plan de negocio."><p className="text-sm font-bold text-blue-700 font-mono">{fmtCLP(plan.monthly_goal)}</p></Tip>
                                 </div>
                                 <div className="p-3 rounded-xl bg-amber-50 border border-amber-200">
                                     <label className="text-[0.5rem] font-bold text-amber-500 uppercase block mb-1">Inversión Anual</label>
-                                    <p className="text-sm font-bold text-amber-700 font-mono">{fmtCLP(totalInvestment)}</p>
+                                    <Tip text="Suma anual de todas las inversiones (oficina, marketing, formación, transporte). Ítems mensuales × 12."><p className="text-sm font-bold text-amber-700 font-mono">{fmtCLP(totalInvestment)}</p></Tip>
                                 </div>
                                 <div className="p-3 rounded-xl bg-purple-50 border border-purple-200">
                                     <label className="text-[0.5rem] font-bold text-purple-500 uppercase block mb-1">Plan de Asociación</label>
-                                    <p className="text-sm font-bold text-purple-700">{planInfo.label} ({planInfo.pct}%)</p>
+                                    <Tip text="Plan de asociación RE/MAX: define el % de comisión que retiene el agente vs la oficina."><p className="text-sm font-bold text-purple-700">{planInfo.label} ({planInfo.pct}%)</p></Tip>
                                 </div>
                             </div>
                         </div>
