@@ -188,14 +188,6 @@ export default function ManagementReportList() {
 
     const tabs = isAdmin ? adminTabs : agentTabs
 
-    // Filter agents in dropdown
-    const filteredAgents = useMemo(() => {
-        if (!searchAgent) return agents
-        const q = searchAgent.toLowerCase()
-        return agents.filter(a =>
-            `${a.first_name} ${a.last_name}`.toLowerCase().includes(q)
-        )
-    }, [agents, searchAgent])
 
     // --- Create on-demand report ---
     const handleCreateReport = async () => {
