@@ -84,6 +84,12 @@ export default function BusinessPlan({ agentId: externalAgentId, readOnly = fals
     const totalWeekH = totalChH + totalActH
     const minDailyH = useMemo(() => Math.ceil(totalWeekH / (Number(plan.work_days_per_week) || 6)), [totalWeekH, plan.work_days_per_week])
     const billingProg = minBilling > 0 ? Math.min((kpiData.billing / minBilling) * 100, 100) : 0
+    const fmtPct = (pct) => {
+        if (pct <= 0) return '0'
+        if (pct < 1) return '< 1'
+        if (pct < 10) return pct.toFixed(1)
+        return pct.toFixed(0)
+    }
     const planInfo = ASSOCIATION_PLANS.find(p => p.key === agentPlan) || ASSOCIATION_PLANS[1]
     const chartData = INVESTMENT_CATEGORIES.map(cat => ({
         name: cat.label, value: investments.filter(i => i.category === cat.key).reduce((s, i) => {
@@ -282,7 +288,7 @@ export default function BusinessPlan({ agentId: externalAgentId, readOnly = fals
                             </div>
                         </div>
                         <div className={`px-3 py-1.5 rounded-full text-xs font-bold ${billingProg >= 80 ? 'bg-emerald-100 text-emerald-700' : billingProg >= 40 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>
-                            {billingProg.toFixed(0)}% completado
+                            {fmtPct(billingProg)}% completado
                         </div>
                     </div>
 
@@ -291,7 +297,7 @@ export default function BusinessPlan({ agentId: externalAgentId, readOnly = fals
                         <div className="relative shrink-0">
                             <ProgressRing pct={billingProg} size={100} stroke={8} color={billingProg >= 80 ? '#10b981' : billingProg >= 40 ? '#f59e0b' : '#ef4444'} />
                             <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                <span className="text-xl font-extrabold text-slate-900">{billingProg.toFixed(0)}%</span>
+                                <span className="text-xl font-extrabold text-slate-900">{fmtPct(billingProg)}%</span>
                                 <span className="text-[0.5rem] text-slate-400 font-semibold uppercase tracking-widest">Avance</span>
                             </div>
                         </div>
@@ -1176,7 +1182,7 @@ export default function BusinessPlan({ agentId: externalAgentId, readOnly = fals
                         <div className="w-64 shrink-0">
                             <div className="flex justify-between items-center mb-1.5">
                                 <span className="text-xs text-slate-300">Progreso</span>
-                                <span className="text-xs font-bold text-blue-300">{billingProg.toFixed(1)}%</span>
+                                <span className="text-xs font-bold text-blue-300">{fmtPct(billingProg)}%</span>
                             </div>
                             <div className="w-full bg-white/10 h-3 rounded-full overflow-hidden">
                                 <div className={`h-full rounded-full transition-all duration-1000 ${billingProg >= 80 ? 'bg-emerald-400' : billingProg >= 40 ? 'bg-amber-400' : 'bg-red-400'}`} style={{ width: `${billingProg}%` }} />

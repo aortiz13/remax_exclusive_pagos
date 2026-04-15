@@ -54,6 +54,17 @@ export const PROPERTY_FILTER_CONFIG = [
   { key: 'last_inspection_date', label: 'Última Inspección', type: 'date' },
 ]
 
+export const REPORT_FILTER_CONFIG = [
+  { key: 'agent_name', label: 'Agente', type: 'text' },
+  { key: 'commune', label: 'Comuna', type: 'text' },
+  { key: 'property_type', label: 'Tipo Propiedad', type: 'select', options: ['Departamento', 'Casa', 'Oficina', 'Comercial', 'Terreno', 'Bodega', 'Parcela', 'Otro'] },
+  { key: 'address', label: 'Dirección', type: 'text' },
+  { key: 'report_number', label: 'N° Informe', type: 'number' },
+  { key: 'due_date', label: 'Fecha Vencimiento', type: 'date' },
+  { key: 'sent_at', label: 'Fecha Envío', type: 'date' },
+  { key: 'owner_name', label: 'Propietario', type: 'text' },
+]
+
 export const LEAD_FILTER_CONFIG = [
   { key: 'is_guard', label: 'Tipo Lead', type: 'boolean', trueLabel: 'Guardia', falseLabel: 'Derivado' },
   { key: 'assigned_at', label: 'Fecha Asignación', type: 'date' },

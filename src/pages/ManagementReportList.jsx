@@ -8,6 +8,9 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import PropertyPickerInline from '../components/ui/PropertyPickerInline'
+import AdvancedFilterBuilder from '../components/crm/AdvancedFilterBuilder'
+import useAdvancedFilters from '../hooks/useAdvancedFilters'
+import { REPORT_FILTER_CONFIG } from '../components/crm/filterConfigs'
 
 export default function ManagementReportList() {
     const { user, profile } = useAuth()
@@ -19,10 +22,13 @@ export default function ManagementReportList() {
     // Admin default filter: all; Agent default filter: all
     const [filter, setFilter] = useState('all')
 
-    // --- Admin agent filter ---
-    const [agents, setAgents] = useState([])
-    const [selectedAgentId, setSelectedAgentId] = useState('all')
-    const [searchAgent, setSearchAgent] = useState('')
+    // --- Advanced filters (AND/OR) ---
+    const {
+        filterGroups, activeFilterCount, hasActiveFilters,
+        addFilter, removeFilter, updateFilter,
+        addGroup, removeGroup, clearAll: clearAdvancedFilters,
+        applyFilters,
+    } = useAdvancedFilters(REPORT_FILTER_CONFIG)
 
     // --- New report modal state ---
     const [showNewModal, setShowNewModal] = useState(false)
@@ -33,12 +39,8 @@ export default function ManagementReportList() {
     const [selectedReport, setSelectedReport] = useState(null)
 
     useEffect(() => {
-        if (isAdmin) fetchAgents()
-    }, [isAdmin])
-
-    useEffect(() => {
         fetchReports()
-    }, [user, selectedAgentId])
+    }, [user])
 
     const fetchAgents = async () => {
         const { data } = await supabase
@@ -120,16 +122,25 @@ export default function ManagementReportList() {
             }
 
             // Mark reports that are overdue by date (pending but past due)
+            // and add flat fields for advanced filtering
             const today = new Date()
             today.setHours(0, 0, 0, 0)
             enriched = enriched.map(r => {
-                if ((r.status === 'pending') && r.due_date) {
-                    const dueDate = new Date(r.due_date + 'T12:00:00')
+                const flat = {
+                    ...r,
+                    agent_name: r.agent ? `${r.agent.first_name || ''} ${r.agent.last_name || ''}`.trim() : '',
+                    commune: r.properties?.commune || '',
+                    property_type: r.properties?.property_type || '',
+                    address: r.properties?.address || '',
+                    owner_name: r.owner ? `${r.owner.first_name || ''} ${r.owner.last_name || ''}`.trim() : '',
+                }
+                if ((flat.status === 'pending') && flat.due_date) {
+                    const dueDate = new Date(flat.due_date + 'T12:00:00')
                     if (dueDate < today) {
-                        return { ...r, _isOverdue: true }
+                        return { ...flat, _isOverdue: true }
                     }
                 }
-                return r
+                return flat
             })
 
             setAllReports(enriched)
@@ -157,14 +168,17 @@ export default function ManagementReportList() {
 
     // --- Filtered reports for display ---
     const reports = useMemo(() => {
-        if (filter === 'all') return allReports
-        if (filter === 'pending') return allReports.filter(r => r.status === 'pending' || r.status === 'overdue' || r._isOverdue)
-        if (filter === 'overdue') return allReports.filter(r => r.status === 'overdue' || r._isOverdue)
-        if (filter === 'sent') return allReports.filter(r => r.status === 'sent')
-        if (filter === 'waiting_publication') return allReports.filter(r => r.status === 'waiting_publication')
-        if (filter === 'skipped') return allReports.filter(r => r.status === 'skipped')
-        return allReports
-    }, [allReports, filter])
+        // 1. Status tab filter
+        let result = allReports
+        if (filter === 'pending') result = result.filter(r => r.status === 'pending' || r.status === 'overdue' || r._isOverdue)
+        else if (filter === 'overdue') result = result.filter(r => r.status === 'overdue' || r._isOverdue)
+        else if (filter === 'sent') result = result.filter(r => r.status === 'sent')
+        else if (filter === 'waiting_publication') result = result.filter(r => r.status === 'waiting_publication')
+        else if (filter === 'skipped') result = result.filter(r => r.status === 'skipped')
+        // 2. Advanced AND/OR filters
+        if (hasActiveFilters) result = applyFilters(result)
+        return result
+    }, [allReports, filter, hasActiveFilters, applyFilters, filterGroups])
 
     // Admin tabs: show all statuses including overdue and skipped
     const adminTabs = [
@@ -369,39 +383,29 @@ export default function ManagementReportList() {
                 )}
             </AnimatePresence>
 
-            {/* Admin: Agent Filter */}
+            {/* Advanced Filters (AND/OR) */}
             {isAdmin && (
-                <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4">
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-                        <div className="flex items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-400 shrink-0">
-                            <Filter className="w-4 h-4" />
-                            Filtrar por agente:
-                        </div>
-                        <div className="relative flex-1 max-w-sm">
-                            <select
-                                value={selectedAgentId}
-                                onChange={(e) => setSelectedAgentId(e.target.value)}
-                                className="w-full pl-3 pr-10 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none appearance-none cursor-pointer"
-                            >
-                                <option value="all">Todos los agentes</option>
-                                {agents.map(a => (
-                                    <option key={a.id} value={a.id}>
-                                        {a.first_name} {a.last_name}
-                                    </option>
-                                ))}
-                            </select>
-                            <User className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-                        </div>
-                        {selectedAgentId !== 'all' && (
-                            <button
-                                onClick={() => setSelectedAgentId('all')}
-                                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors border border-slate-200 dark:border-slate-700"
-                            >
-                                <X className="w-3 h-3" />
-                                Limpiar filtro
-                            </button>
-                        )}
-                    </div>
+                <div className="flex items-center gap-3">
+                    <AdvancedFilterBuilder
+                        filterConfig={REPORT_FILTER_CONFIG}
+                        filterGroups={filterGroups}
+                        addFilter={addFilter}
+                        removeFilter={removeFilter}
+                        updateFilter={updateFilter}
+                        addGroup={addGroup}
+                        removeGroup={removeGroup}
+                        clearAll={clearAdvancedFilters}
+                        activeFilterCount={activeFilterCount}
+                    />
+                    {hasActiveFilters && (
+                        <button
+                            onClick={clearAdvancedFilters}
+                            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors border border-slate-200 dark:border-slate-700"
+                        >
+                            <X className="w-3 h-3" />
+                            Limpiar filtros
+                        </button>
+                    )}
                 </div>
             )}
 
