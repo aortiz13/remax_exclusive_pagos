@@ -10,7 +10,7 @@ import EmailDetail from '../components/Casilla/EmailDetail';
 import ContextSidebar from '../components/Casilla/ContextSidebar';
 import EmailComposer from '../components/Casilla/EmailComposer';
 import { Button } from '@/components/ui';
-import { RefreshCw, Inbox, FileText, Send, AlertCircle, File, Trash2, PenBox, Menu } from 'lucide-react';
+import { RefreshCw, Inbox, FileText, Send, AlertCircle, File, Trash2, PenBox } from 'lucide-react';
 import { toast } from 'sonner';
 
 const DRAFTS_KEY = 'crm_email_drafts';
@@ -66,8 +66,6 @@ const Casilla = () => {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   // Persists which thread IDs have been opened — survives EmailList remounts
   const [readThreadIds, setReadThreadIds] = useState(() => new Set());
-  // Mobile sidebar drawer
-  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   const markThreadRead = useCallback((thread) => {
     setReadThreadIds(prev => new Set([...prev, thread.id]));
@@ -267,30 +265,15 @@ const Casilla = () => {
   }
 
   /* ─── MOBILE LAYOUT ───────────────────────────────────────── */
+  // Simplified: only inbox + compose + detail. No sidebar / folders.
   if (isMobile) {
-    const folderLabels = {
-      inbox: 'Recibidos',
-      starred: 'Destacados',
-      sent: 'Enviados',
-      drafts: 'Borradores',
-      archived: 'Archivados',
-      trashed: 'Papelera',
-    };
-
     return (
       <div className="casilla-mobile flex flex-col h-[calc(100dvh-64px)] bg-white relative overflow-hidden">
 
-        {/* ─ Mobile Header ─ */}
-        <div className="casilla-mobile-header flex items-center gap-3 px-4 py-3 border-b border-gray-100 bg-white shrink-0 z-20">
-          <button
-            onClick={() => setIsMobileSidebarOpen(true)}
-            className="p-1.5 -ml-1.5 rounded-lg hover:bg-gray-100 text-gray-500 active:bg-gray-200 transition-colors"
-          >
-            <Menu className="w-5 h-5" />
-          </button>
-          <h1 className="text-base font-semibold text-gray-900 flex-1">
-            {folderLabels[currentFolder] || 'Correos'}
-          </h1>
+        {/* ─ Header: simple, no hamburger ─ */}
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 bg-white shrink-0 z-20">
+          <Inbox className="w-5 h-5 text-blue-600 shrink-0" />
+          <h1 className="text-base font-semibold text-gray-900 flex-1">Recibidos</h1>
           <button
             onClick={handleEmailSync}
             disabled={emailSyncing}
@@ -300,85 +283,24 @@ const Casilla = () => {
           </button>
         </div>
 
-        {/* ─ Mobile Sidebar Drawer (overlay) ─ */}
-        {isMobileSidebarOpen && (
-          <>
-            <div
-              className="fixed inset-0 bg-black/40 z-40 animate-in fade-in duration-200"
-              onClick={() => setIsMobileSidebarOpen(false)}
-            />
-            <div className="fixed inset-y-0 left-0 w-72 bg-white z-50 shadow-2xl animate-in slide-in-from-left duration-200">
-              <EmailSidebar
-                currentFolder={currentFolder}
-                onFolderChange={handleFolderChange}
-                draftCount={drafts.length}
-                onCompose={() => {
-                  setActiveDraftId(null);
-                  setReplyConfig(null);
-                  setIsComposerOpen(true);
-                  setIsMobileSidebarOpen(false);
-                }}
-                onReconnect={() => { handleLoginGoogle(); setIsMobileSidebarOpen(false); }}
-                onSync={() => { handleEmailSync(); setIsMobileSidebarOpen(false); }}
-                syncing={emailSyncing}
-              />
-            </div>
-          </>
-        )}
-
-        {/* ─ Main Content: email list or detail ─ */}
+        {/* ─ Content: list ↔ detail ─ */}
         <div className="flex-1 overflow-hidden relative">
-          {/* Email List */}
+          {/* Email List (always inbox) */}
           <div className={`h-full transition-transform duration-250 ease-out ${selectedThread ? '-translate-x-full' : 'translate-x-0'}`}>
-            {currentFolder === 'drafts' ? (
-              <div className="flex flex-col h-full overflow-y-auto">
-                {drafts.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center flex-1 text-gray-400 gap-2 px-4">
-                    <File className="w-12 h-12 opacity-20" />
-                    <p className="text-sm">No hay borradores guardados</p>
-                  </div>
-                ) : (
-                  <div className="divide-y divide-gray-50">
-                    {drafts.map(draft => (
-                      <div
-                        key={draft.id}
-                        className="flex items-center gap-3 px-4 py-3.5 active:bg-gray-100 transition-colors"
-                        onClick={() => handleOpenDraft(draft)}
-                      >
-                        <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center shrink-0">
-                          <FileText className="w-5 h-5 text-orange-500" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm text-gray-800 truncate">{draft.subject || '(Sin asunto)'}</p>
-                          <p className="text-xs text-gray-500 truncate">Para: {draft.to || '—'}</p>
-                        </div>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); handleDeleteDraft(draft.id); }}
-                          className="p-2 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all shrink-0"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ) : (
-              <EmailList
-                userProfile={userProfile}
-                onSelectThread={markThreadRead}
-                currentFolder={currentFolder}
-                readThreadIds={readThreadIds}
-                isMobile={isMobile}
-                onUnmarkRead={(threadId) =>
-                  setReadThreadIds(prev => {
-                    const next = new Set(prev);
-                    next.delete(threadId);
-                    return next;
-                  })
-                }
-              />
-            )}
+            <EmailList
+              userProfile={userProfile}
+              onSelectThread={markThreadRead}
+              currentFolder="inbox"
+              readThreadIds={readThreadIds}
+              isMobile={true}
+              onUnmarkRead={(threadId) =>
+                setReadThreadIds(prev => {
+                  const next = new Set(prev);
+                  next.delete(threadId);
+                  return next;
+                })
+              }
+            />
           </div>
 
           {/* Email Detail (slides in from right) */}
@@ -387,7 +309,7 @@ const Casilla = () => {
               <EmailDetail
                 thread={selectedThread}
                 userProfile={userProfile}
-                isMobile={isMobile}
+                isMobile={true}
                 onBack={() => setSelectedThread(null)}
                 onReply={(replyContext) => {
                   setActiveDraftId(null);
@@ -400,7 +322,7 @@ const Casilla = () => {
           )}
         </div>
 
-        {/* ─ FAB: Compose button ─ */}
+        {/* ─ FAB: Compose ─ */}
         {!selectedThread && !isComposerOpen && (
           <button
             onClick={() => {
@@ -414,7 +336,7 @@ const Casilla = () => {
           </button>
         )}
 
-        {/* Modals */}
+        {/* Composer */}
         {isComposerOpen && (
           <EmailComposer
             onClose={handleComposerClose}
@@ -432,7 +354,7 @@ const Casilla = () => {
             userProfile={userProfile}
             initialDraft={activeDraftId ? drafts.find(d => d.id === activeDraftId) : null}
             draftId={activeDraftId}
-            isMobile={isMobile}
+            isMobile={true}
           />
         )}
       </div>
