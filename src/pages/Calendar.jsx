@@ -13,7 +13,7 @@ import { es } from 'date-fns/locale'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
 import 'react-big-calendar/lib/addons/dragAndDrop/styles.css'
 import { Card, CardContent, Button, Checkbox, Label, Input, Textarea, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription, AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui'
-import { ChevronLeft, ChevronRight, Filter, Plus, Clock, Calendar as CalendarIcon, MapPin, User, Bell, Trash2, RefreshCw, Phone, Mail, Users, CheckCircle, Pencil, Video, Check, X, HelpCircle, ExternalLink, Activity } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Filter, Plus, Clock, Calendar as CalendarIcon, MapPin, User, Bell, Trash2, RefreshCw, Phone, Mail, Users, CheckCircle, Pencil, Video, Check, X, HelpCircle, ExternalLink, Activity, Link2, Unlink } from 'lucide-react'
 import { toast } from 'sonner'
 import { DayPicker } from 'react-day-picker'
 import 'react-day-picker/dist/style.css'
@@ -22,6 +22,26 @@ import ContactPickerInline from '../components/ui/ContactPickerInline'
 import { toISOLocal } from '../lib/utils'
 import { withRetry } from '../lib/fetchWithRetry'
 import { completeTaskWithAction, isTaskDeletionBlocked } from '../services/completeTaskAction'
+
+const ACTION_TYPES = [
+    "Café relacional",
+    "Entrevista Venta (Pre-listing)",
+    "Entrevista Compra (Pre-Buying)",
+    "Evaluación Comercial",
+    "Visita Propiedad",
+    "Visita comprador/arrendatario (Canje)",
+    "Carta Oferta",
+    "Baja de Precio",
+    "Facturación",
+    "Contrato de arriendo firmado",
+    "Promesa Firmada",
+    "Llamada en frío (I.C)",
+    "Llamada vendedor/arrendador (I.C)",
+    "Llamada comprador/arrendatario (I.C)",
+    "Llamada a base relacional (I.C)",
+    "Visita a Conserjes (IC)",
+    "Otra (I.C)"
+]
 
 // Setup date-fns localizer
 const locales = {
@@ -184,6 +204,8 @@ export default function CalendarPage() {
     const [isSyncing, setIsSyncing] = useState(false)
     const [isEditing, setIsEditing] = useState(false)
     const [guestInput, setGuestInput] = useState('')
+    const [linkedActionType, setLinkedActionType] = useState('')
+    const [hasExecutedAction, setHasExecutedAction] = useState(false)
 
     useEffect(() => {
         if (user) {
@@ -422,6 +444,8 @@ export default function CalendarPage() {
             create_meet: false,
             is_all_day: isAllDay
         })
+        setLinkedActionType('')
+        setHasExecutedAction(false)
         setIsEditing(true)
         setIsModalOpen(true)
     }
@@ -445,6 +469,14 @@ export default function CalendarPage() {
             create_meet: !!event.hangoutLink,
             is_all_day: !!event.allDay || !!event.resource?.is_all_day
         })
+        // Set linked action state
+        if (event.parentAction) {
+            setLinkedActionType(event.parentAction.action_type || '')
+            setHasExecutedAction(!event.parentAction.kpi_deferred && event.completed)
+        } else {
+            setLinkedActionType('')
+            setHasExecutedAction(false)
+        }
         setIsModalOpen(true)
     }
 
@@ -468,6 +500,48 @@ export default function CalendarPage() {
                 endDate = new Date(formData.end).toISOString();
             }
 
+            // Handle linked action creation/update
+            let actionId = selectedEvent?.actionId || null
+            const contactForAction = formData.contactId !== 'none' ? formData.contactId : null
+            const propertyForAction = formData.propertyId !== 'none' ? formData.propertyId : null
+
+            if (linkedActionType && linkedActionType !== 'none' && !selectedEvent?.actionId) {
+                // Create new deferred action
+                const { data: actionRow, error: actionError } = await supabase
+                    .from('crm_actions')
+                    .insert({
+                        agent_id: user.id,
+                        action_type: linkedActionType,
+                        action_date: executionDate,
+                        property_id: propertyForAction,
+                        note: `Acción vinculada a actividad: ${formData.title}`,
+                        is_conversation_starter: linkedActionType.includes('(I.C)'),
+                        kpi_deferred: true
+                    })
+                    .select()
+                    .single()
+
+                if (actionError) {
+                    console.error('Error creating linked action:', actionError)
+                    toast.error('Error al crear acción vinculada')
+                } else {
+                    actionId = actionRow.id
+                    // Insert contact junction if we have a contact
+                    if (contactForAction) {
+                        try {
+                            await supabase.from('crm_action_contacts').insert({
+                                action_id: actionRow.id,
+                                contact_id: contactForAction
+                            })
+                        } catch (_) { /* ignore duplicate */ }
+                    }
+                }
+            } else if ((!linkedActionType || linkedActionType === 'none') && selectedEvent?.actionId && !hasExecutedAction) {
+                // User removed the linked action (only allowed before execution)
+                await supabase.from('crm_actions').delete().eq('id', selectedEvent.actionId)
+                actionId = null
+            }
+
             const payload = {
                 agent_id: user.id,
                 action: formData.title,
@@ -475,12 +549,13 @@ export default function CalendarPage() {
                 execution_date: executionDate,
                 end_date: endDate,
                 task_type: formData.type,
-                contact_id: formData.contactId === 'none' ? null : formData.contactId,
-                property_id: formData.propertyId === 'none' ? null : formData.propertyId,
+                contact_id: contactForAction,
+                property_id: propertyForAction,
                 reminder_minutes: formData.reminder === 'none' ? null : parseInt(formData.reminder),
                 location: formData.location,
                 attendees: formData.attendees,
-                is_all_day: !!formData.is_all_day
+                is_all_day: !!formData.is_all_day,
+                action_id: actionId
             }
 
             if (selectedEvent) {
@@ -1281,6 +1356,60 @@ export default function CalendarPage() {
                                             disabled={selectedEvent?.isGoogleEvent}
                                         />
                                     </div>
+                                </div>
+
+                                {/* Linked Action Selector */}
+                                <div className="space-y-1.5">
+                                    <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                                        <Link2 className="w-3.5 h-3.5 text-indigo-500" />
+                                        Vincular Acción <span className="text-slate-400 font-normal normal-case">(opcional — alimenta indicadores)</span>
+                                    </Label>
+                                    {hasExecutedAction ? (
+                                        <div className="bg-green-50 dark:bg-green-900/10 p-3 rounded-lg border border-green-200 dark:border-green-800">
+                                            <p className="text-sm text-green-700 dark:text-green-400 font-medium flex items-center gap-2">
+                                                <Activity className="w-4 h-4" />
+                                                Acción ejecutada: {linkedActionType}
+                                            </p>
+                                            <p className="text-xs text-green-600 dark:text-green-500 mt-1">Esta acción ya fue ejecutada y no se puede modificar.</p>
+                                        </div>
+                                    ) : selectedEvent?.actionId && linkedActionType ? (
+                                        <div className="flex items-center gap-2">
+                                            <div className="flex-1 bg-indigo-50 dark:bg-indigo-900/10 p-3 rounded-lg border border-indigo-200 dark:border-indigo-800">
+                                                <p className="text-sm text-indigo-700 dark:text-indigo-400 font-medium flex items-center gap-2">
+                                                    <Activity className="w-4 h-4" />
+                                                    {linkedActionType}
+                                                    <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">⏳ Pendiente</span>
+                                                </p>
+                                            </div>
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon"
+                                                className="shrink-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                                onClick={() => setLinkedActionType('')}
+                                                title="Desvincular acción"
+                                            >
+                                                <Unlink className="w-4 h-4" />
+                                            </Button>
+                                        </div>
+                                    ) : (
+                                        <Select value={linkedActionType} onValueChange={setLinkedActionType}>
+                                            <SelectTrigger className="w-full h-9 text-sm">
+                                                <SelectValue placeholder="Sin acción vinculada" />
+                                            </SelectTrigger>
+                                            <SelectContent className="z-[300]">
+                                                <SelectItem value="none">Sin acción vinculada</SelectItem>
+                                                {ACTION_TYPES.map(type => (
+                                                    <SelectItem key={type} value={type}>{type}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    )}
+                                    {linkedActionType && linkedActionType !== 'none' && !selectedEvent?.actionId && (
+                                        <p className="text-xs text-amber-600 dark:text-amber-400">
+                                            ⏳ La acción se registrará como pendiente hasta que la tarea se marque como realizada.
+                                        </p>
+                                    )}
                                 </div>
 
                                 {formData.type !== 'task' && (
