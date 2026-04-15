@@ -264,3 +264,12 @@
   from { transform: translateX(0); }
   to { transform: translateX(-100%); }
 }
+
+/* ===== Hide Chatwoot bubble on mobile ===== */
+@media (max-width: 768px) {
+  .woot-widget-bubble,
+  .woot--bubble-holder,
+  .woot-widget-holder {
+    display: none !important;
+  }
+}
