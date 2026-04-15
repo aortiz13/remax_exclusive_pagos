@@ -80,6 +80,7 @@ export function parseCommissionExcel(file) {
                 // Log column headers for debugging
                 if (raw.length > 0) {
                     console.log('[CommissionParser] Excel columns:', Object.keys(raw[0]))
+                    console.log('[CommissionParser] First row raw values:', JSON.stringify(raw[0], null, 2))
                 }
 
                 const rows = raw.map((r, idx) => {
@@ -103,7 +104,8 @@ export function parseCommissionExcel(file) {
                         return ''
                     }
 
-                    const montoArriendoRaw = pick(['monto arriendo', 'monto de arriendo'])
+                    const montoArriendoRaw = pick(['monto arriendo', 'monto de arriendo', 'monto del arriendo', 'arriendo', 'valor arriendo', 'renta'])
+                    if (idx === 0) console.log('[CommissionParser] montoArriendoRaw sample:', montoArriendoRaw, '| parsed:', parseMoney(montoArriendoRaw))
                     const comisionAdminRaw = pick(['comision administracion', 'comisión administración', 'comision admin'])
                     const suscripcionLeasityRaw = pick(['suscripcion leasity', 'suscripción leasity'])
                     const estado = String(pick(['estado']) || '').trim().toUpperCase()
