@@ -53,6 +53,7 @@ export default function BusinessPlan({ agentId: externalAgentId, readOnly = fals
     const [kpiData, setKpiData] = useState({ billing: 0 })
     const [ticketData, setTicketData] = useState({ avgSaleReal: 0, avgRentalReal: 0, saleCount: 0, rentalCount: 0 })
     const [investExpanded, setInvestExpanded] = useState({})
+    const [showStaticGoals, setShowStaticGoals] = useState(false)
     const toggleInvest = (cat) => setInvestExpanded(p => ({ ...p, [cat]: !p[cat] }))
 
     // ===== CALCULATIONS =====
@@ -256,54 +257,179 @@ export default function BusinessPlan({ agentId: externalAgentId, readOnly = fals
         const saleDeltaPct = projected.sale > 0 ? Math.abs(saleDelta / projected.sale * 100) : 0
         const rentalDeltaPct = projected.rental > 0 ? Math.abs(rentalDelta / projected.rental * 100) : 0
         const getColor = (pct) => Math.abs(100 - pct) <= 20 ? 'emerald' : Math.abs(100 - pct) <= 40 ? 'amber' : 'red'
+        // showStaticGoals state is at component level
+
+        // Billing breakdown by type (real accumulated)
+        const realSaleBilling = ticketData.saleCount * (ticketData.avgSaleReal || 0) * ((Number(plan.sale_commission) || 2) / 100)
+        const realRentalBilling = ticketData.rentalCount * (ticketData.avgRentalReal || 0) * ((Number(plan.rental_commission) || 50) / 100)
 
         return (
             <div className="p-4 md:p-5 space-y-5 overflow-y-auto h-full">
 
-                {/* SECTION 1: Financial Overview — Dark Scoreboard */}
-                <div className="rounded-2xl bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 p-5 text-white">
-                    <div className="flex items-center gap-6">
+                {/* ═══════════════════════════════════════════════════════════════
+                    SECTION 1: HERO — Facturación Real vs Meta (Big & Prominent)
+                   ═══════════════════════════════════════════════════════════════ */}
+                <div className="rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6 text-white shadow-xl shadow-slate-900/20">
+                    {/* Main comparison: Real vs Meta */}
+                    <div className="flex items-center gap-2 mb-4">
+                        <div className="p-2 rounded-xl bg-blue-500/20">
+                            <DollarSign className="w-5 h-5 text-blue-300" />
+                        </div>
+                        <h3 className="text-sm font-bold text-white uppercase tracking-wider">Facturación {year}</h3>
+                    </div>
+
+                    <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
                         {/* Progress Ring */}
                         <div className="relative shrink-0">
-                            <ProgressRing pct={billingProg} size={90} stroke={7} color={billingProg >= 80 ? '#10b981' : billingProg >= 40 ? '#f59e0b' : '#ef4444'} />
+                            <ProgressRing pct={billingProg} size={120} stroke={9} color={billingProg >= 80 ? '#10b981' : billingProg >= 40 ? '#f59e0b' : '#ef4444'} />
                             <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                <span className="text-xl font-bold">{billingProg.toFixed(0)}%</span>
-                                <span className="text-[0.5rem] text-slate-400 font-medium">PROGRESO</span>
+                                <span className="text-2xl font-bold">{billingProg.toFixed(0)}%</span>
+                                <span className="text-[0.6rem] text-slate-400 font-semibold uppercase tracking-wider">Avance</span>
                             </div>
                         </div>
-                        {/* Metrics */}
-                        <div className="flex-1 grid grid-cols-3 gap-4">
-                            <div>
-                                <p className="text-[0.6rem] font-bold text-blue-300 uppercase tracking-wider">Fact. Bruta Mín.</p>
-                                <p className="text-lg font-bold font-mono mt-0.5">{fmtCLP(minBilling)}</p>
-                                <p className="text-[0.55rem] text-slate-400">Actual: {fmtCLP(kpiData.billing)}</p>
+
+                        {/* Big numbers side by side */}
+                        <div className="flex-1 space-y-4">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <p className="text-[0.65rem] font-bold text-emerald-300 uppercase tracking-wider mb-1">Facturación Real (Acumulado)</p>
+                                    <p className="text-3xl md:text-4xl font-extrabold font-mono leading-none tracking-tight">{fmtCLP(kpiData.billing)}</p>
+                                </div>
+                                <div>
+                                    <p className="text-[0.65rem] font-bold text-blue-300 uppercase tracking-wider mb-1">Facturación Bruta Proyectada</p>
+                                    <p className="text-3xl md:text-4xl font-extrabold font-mono leading-none tracking-tight text-white/60">{fmtCLP(minBilling)}</p>
+                                </div>
                             </div>
-                            <div>
-                                <p className="text-[0.6rem] font-bold text-emerald-300 uppercase tracking-wider">Meta Anual Utilidades</p>
-                                <p className="text-lg font-bold font-mono mt-0.5">{fmtCLP(annualGoal)}</p>
-                                <p className="text-[0.55rem] text-slate-400">Mensual: {fmtCLP(plan.monthly_goal)}</p>
-                            </div>
-                            <div>
-                                <p className="text-[0.6rem] font-bold text-amber-300 uppercase tracking-wider">Inversión Anual</p>
-                                <p className="text-lg font-bold font-mono mt-0.5">{fmtCLP(totalInvestment)}</p>
-                                <p className="text-[0.55rem] text-slate-400">{planInfo.label} ({planInfo.pct}%)</p>
-                            </div>
+                            {/* Difference callout */}
+                            {(() => {
+                                const diff = kpiData.billing - minBilling
+                                const isPositive = diff >= 0
+                                return (
+                                    <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg ${isPositive ? 'bg-emerald-500/20' : 'bg-red-500/20'}`}>
+                                        <TrendingUp className={`w-4 h-4 ${isPositive ? 'text-emerald-400' : 'text-red-400 rotate-180'}`} />
+                                        <span className={`text-sm font-bold ${isPositive ? 'text-emerald-300' : 'text-red-300'}`}>
+                                            {isPositive ? '+' : ''}{fmtCLP(diff)}
+                                        </span>
+                                        <span className="text-[0.6rem] text-slate-400">
+                                            {isPositive ? 'por encima de la meta' : 'faltan para la meta'}
+                                        </span>
+                                    </div>
+                                )
+                            })()}
                         </div>
                     </div>
+
                     {/* Full-width progress bar */}
-                    <div className="mt-4 pt-3 border-t border-white/10">
-                        <div className="w-full bg-white/10 h-2 rounded-full overflow-hidden">
+                    <div className="mt-5 pt-3 border-t border-white/10">
+                        <div className="w-full bg-white/10 h-3 rounded-full overflow-hidden">
                             <div className={`h-full rounded-full transition-all duration-1000 ${billingProg >= 80 ? 'bg-emerald-400' : billingProg >= 40 ? 'bg-amber-400' : 'bg-red-400'}`}
                                 style={{ width: `${Math.min(billingProg, 100)}%` }} />
                         </div>
-                        <div className="flex justify-between mt-1">
-                            <span className="text-[0.55rem] text-slate-500">Facturación {year}</span>
-                            <span className="text-[0.55rem] text-slate-400">{fmtCLP(kpiData.billing)} / {fmtCLP(minBilling)}</span>
+                        <div className="flex justify-between mt-1.5">
+                            <span className="text-[0.6rem] text-slate-500">0%</span>
+                            <span className="text-[0.6rem] text-slate-400 font-semibold">{fmtCLP(kpiData.billing)} / {fmtCLP(minBilling)}</span>
+                            <span className="text-[0.6rem] text-slate-500">100%</span>
                         </div>
                     </div>
                 </div>
 
-                {/* SECTION 2: Ticket Promedio */}
+                {/* ═══════════════════════════════════════════════════════════════
+                    SECTION 2: Detalle de TransacCiones — Ventas vs Arriendos
+                   ═══════════════════════════════════════════════════════════════ */}
+                <div>
+                    <h4 className="text-[0.65rem] font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                        <Award className="w-3.5 h-3.5" /> Detalle por Tipo de Transacción
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {/* Ventas Card */}
+                        <div className="rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50/50 to-white p-4 space-y-3">
+                            <div className="flex items-center justify-between">
+                                <h5 className="text-xs font-bold text-emerald-700 uppercase flex items-center gap-1.5">
+                                    <TrendingUp className="w-3.5 h-3.5" /> Ventas
+                                </h5>
+                                <span className="text-[0.6rem] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
+                                    {ticketData.saleCount} de {minTransSale} trans.
+                                </span>
+                            </div>
+                            {/* Billing from sales */}
+                            <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200">
+                                <label className="text-[0.5rem] font-bold text-emerald-500 uppercase block mb-0.5">Facturación por Ventas</label>
+                                <p className="text-xl font-bold text-emerald-800 font-mono">{fmtCLP(realSaleBilling)}</p>
+                                <p className="text-[0.5rem] text-emerald-500 mt-0.5">de {fmtCLP(billingVend)} requerido</p>
+                            </div>
+                            {/* Transaction progress */}
+                            <div className="flex items-center gap-3">
+                                <div className="relative shrink-0">
+                                    <ProgressRing pct={minTransSale > 0 ? (ticketData.saleCount / minTransSale) * 100 : 0} size={56} stroke={4} color="#10b981" />
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                        <span className="text-xs font-bold text-emerald-700">{ticketData.saleCount}</span>
+                                        <span className="text-[0.4rem] text-emerald-500">/{minTransSale}</span>
+                                    </div>
+                                </div>
+                                <div className="flex-1 space-y-1">
+                                    <div className="grid grid-cols-2 gap-1.5">
+                                        <div className="p-1.5 rounded bg-white border border-emerald-100">
+                                            <label className="text-[0.45rem] font-bold text-gray-400 uppercase block">Ticket Prom.</label>
+                                            <p className="text-[0.65rem] font-bold text-gray-800 font-mono">{fmtCLP(projected.sale)}</p>
+                                        </div>
+                                        <div className={`p-1.5 rounded border ${real.sale > 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-gray-50 border-gray-100'}`}>
+                                            <label className="text-[0.45rem] font-bold text-gray-400 uppercase block">Real</label>
+                                            <p className={`text-[0.65rem] font-bold font-mono ${real.sale > 0 ? 'text-emerald-700' : 'text-gray-400'}`}>
+                                                {real.sale > 0 ? fmtCLP(real.sale) : 'Sin datos'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <p className="text-[0.5rem] text-gray-400">Comisión: {plan.sale_commission}%</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Arriendos Card */}
+                        <div className="rounded-xl border border-amber-200 bg-gradient-to-br from-amber-50/50 to-white p-4 space-y-3">
+                            <div className="flex items-center justify-between">
+                                <h5 className="text-xs font-bold text-amber-700 uppercase flex items-center gap-1.5">
+                                    <Building2 className="w-3.5 h-3.5" /> Arriendos
+                                </h5>
+                                <span className="text-[0.6rem] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
+                                    {ticketData.rentalCount} de {minTransRental} trans.
+                                </span>
+                            </div>
+                            {/* Billing from rentals */}
+                            <div className="p-3 rounded-lg bg-amber-50 border border-amber-200">
+                                <label className="text-[0.5rem] font-bold text-amber-500 uppercase block mb-0.5">Facturación por Arriendos</label>
+                                <p className="text-xl font-bold text-amber-800 font-mono">{fmtCLP(realRentalBilling)}</p>
+                                <p className="text-[0.5rem] text-amber-500 mt-0.5">de {fmtCLP(billingArr)} requerido</p>
+                            </div>
+                            {/* Transaction progress */}
+                            <div className="flex items-center gap-3">
+                                <div className="relative shrink-0">
+                                    <ProgressRing pct={minTransRental > 0 ? (ticketData.rentalCount / minTransRental) * 100 : 0} size={56} stroke={4} color="#f59e0b" />
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                        <span className="text-xs font-bold text-amber-700">{ticketData.rentalCount}</span>
+                                        <span className="text-[0.4rem] text-amber-500">/{minTransRental}</span>
+                                    </div>
+                                </div>
+                                <div className="flex-1 space-y-1">
+                                    <div className="grid grid-cols-2 gap-1.5">
+                                        <div className="p-1.5 rounded bg-white border border-amber-100">
+                                            <label className="text-[0.45rem] font-bold text-gray-400 uppercase block">Ticket Prom.</label>
+                                            <p className="text-[0.65rem] font-bold text-gray-800 font-mono">{fmtCLP(projected.rental)}</p>
+                                        </div>
+                                        <div className={`p-1.5 rounded border ${real.rental > 0 ? 'bg-amber-50 border-amber-200' : 'bg-gray-50 border-gray-100'}`}>
+                                            <label className="text-[0.45rem] font-bold text-gray-400 uppercase block">Real</label>
+                                            <p className={`text-[0.65rem] font-bold font-mono ${real.rental > 0 ? 'text-amber-700' : 'text-gray-400'}`}>
+                                                {real.rental > 0 ? fmtCLP(real.rental) : 'Sin datos'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <p className="text-[0.5rem] text-gray-400">Comisión: {plan.rental_commission}%</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* SECTION 3: Ticket Promedio — Proyectado vs Real */}
                 <div>
                     <h4 className="text-[0.65rem] font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
                         <BarChart3 className="w-3.5 h-3.5" /> Ticket Promedio — Proyectado vs Real
@@ -389,43 +515,6 @@ export default function BusinessPlan({ agentId: externalAgentId, readOnly = fals
                     </div>
                 </div>
 
-                {/* SECTION 3: Transacciones Mínimas */}
-                <div>
-                    <h4 className="text-[0.65rem] font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                        <Award className="w-3.5 h-3.5" /> Transacciones Mínimas al Año
-                    </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div className="flex items-center gap-4 p-4 rounded-xl border border-emerald-200 bg-emerald-50/30">
-                            <div className="relative shrink-0">
-                                <ProgressRing pct={0} size={64} stroke={5} color="#10b981" />
-                                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                    <span className="text-sm font-bold text-emerald-700">0</span>
-                                    <span className="text-[0.45rem] text-emerald-500">/{minTransSale}</span>
-                                </div>
-                            </div>
-                            <div>
-                                <p className="text-xs font-bold text-emerald-700 uppercase">Venta</p>
-                                <p className="text-[0.6rem] text-gray-500 mt-0.5">{minTransSale} transacciones mínimas</p>
-                                <p className="text-[0.55rem] text-gray-400">Valor prom: {fmtCLP(projected.sale)} · Com: {plan.sale_commission}%</p>
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-4 p-4 rounded-xl border border-amber-200 bg-amber-50/30">
-                            <div className="relative shrink-0">
-                                <ProgressRing pct={0} size={64} stroke={5} color="#f59e0b" />
-                                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                    <span className="text-sm font-bold text-amber-700">0</span>
-                                    <span className="text-[0.45rem] text-amber-500">/{minTransRental}</span>
-                                </div>
-                            </div>
-                            <div>
-                                <p className="text-xs font-bold text-amber-700 uppercase">Arriendo</p>
-                                <p className="text-[0.6rem] text-gray-500 mt-0.5">{minTransRental} transacciones mínimas</p>
-                                <p className="text-[0.55rem] text-gray-400">Valor prom: {fmtCLP(projected.rental)} · Com: {plan.rental_commission}%</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
                 {/* SECTION 4: Activity Objectives */}
                 <div>
                     <h4 className="text-[0.65rem] font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
@@ -476,6 +565,47 @@ export default function BusinessPlan({ agentId: externalAgentId, readOnly = fals
                             <p className="text-lg font-bold text-gray-900">{minDailyH}<span className="text-xs text-gray-400 ml-0.5">h</span></p>
                         </div>
                     </div>
+                </div>
+
+                {/* ═══════════════════════════════════════════════════════════════
+                    SECTION 6: Metas Estáticas (Collapsed by default)
+                   ═══════════════════════════════════════════════════════════════ */}
+                <div className="border border-gray-200 rounded-xl overflow-hidden">
+                    <button
+                        onClick={() => setShowStaticGoals(prev => !prev)}
+                        className="w-full flex items-center justify-between px-4 py-3 bg-gray-50/80 hover:bg-gray-100/80 transition-colors"
+                    >
+                        <div className="flex items-center gap-2">
+                            <div className="p-1 rounded-lg bg-gray-200/60">
+                                <Briefcase className="w-3.5 h-3.5 text-gray-500" />
+                            </div>
+                            <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Configuración Base del Plan</span>
+                            <span className="text-[0.55rem] text-gray-400 font-medium">(meta anual · mensual · inversión)</span>
+                        </div>
+                        {showStaticGoals ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+                    </button>
+                    {showStaticGoals && (
+                        <div className="p-4 bg-white border-t border-gray-100">
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200">
+                                    <label className="text-[0.5rem] font-bold text-emerald-500 uppercase block mb-1">Meta Anual Utilidades</label>
+                                    <p className="text-sm font-bold text-emerald-700 font-mono">{fmtCLP(annualGoal)}</p>
+                                </div>
+                                <div className="p-3 rounded-xl bg-blue-50 border border-blue-200">
+                                    <label className="text-[0.5rem] font-bold text-blue-500 uppercase block mb-1">Meta Mensual</label>
+                                    <p className="text-sm font-bold text-blue-700 font-mono">{fmtCLP(plan.monthly_goal)}</p>
+                                </div>
+                                <div className="p-3 rounded-xl bg-amber-50 border border-amber-200">
+                                    <label className="text-[0.5rem] font-bold text-amber-500 uppercase block mb-1">Inversión Anual</label>
+                                    <p className="text-sm font-bold text-amber-700 font-mono">{fmtCLP(totalInvestment)}</p>
+                                </div>
+                                <div className="p-3 rounded-xl bg-purple-50 border border-purple-200">
+                                    <label className="text-[0.5rem] font-bold text-purple-500 uppercase block mb-1">Plan de Asociación</label>
+                                    <p className="text-sm font-bold text-purple-700">{planInfo.label} ({planInfo.pct}%)</p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
             </div>
