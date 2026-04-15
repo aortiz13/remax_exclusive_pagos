@@ -285,119 +285,78 @@ export default function BusinessPlan({ agentId: externalAgentId, readOnly = fals
                 {/* ═══════════════════════════════════════════════════════════════
                     3 CARDS — Facturación · Ventas · Arriendos
                    ═══════════════════════════════════════════════════════════════ */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                     {[
                         {
                             title: `Facturación ${year}`,
-                            subtitle: 'Acumulado anual',
                             icon: DollarSign,
+                            iconBg: 'bg-blue-50',
+                            iconColor: 'text-blue-500',
                             real: kpiData.billing,
                             goal: minBilling,
                             pct: billingProg,
-                            badge: `${fmtPct(billingProg)}%`,
-                            ringColor: billingProg >= 80 ? '#10b981' : billingProg >= 40 ? '#f59e0b' : '#ef4444',
+                            barColor: 'bg-blue-400',
+                            goalLabel: fmtCLP(minBilling),
                             tipReal: 'Facturación acumulada real del año, calculada desde propiedades cerradas del agente.',
                             tipGoal: 'Meta de facturación bruta anual: (meta mensual × 12 + inversiones) ÷ (% plan × (1 − % RE/MAX)).',
-                            tipDiff: 'Diferencia entre facturación real y meta proyectada.',
                             tipPct: 'Porcentaje de avance: facturación real ÷ meta proyectada × 100.',
                         },
                         {
                             title: 'Ventas',
-                            subtitle: `${ticketData.saleCount} de ${minTransSale} transacciones`,
                             icon: TrendingUp,
+                            iconBg: 'bg-indigo-50',
+                            iconColor: 'text-indigo-500',
                             real: realSaleBilling,
                             goal: billingVend,
                             pct: billingVend > 0 ? Math.min((realSaleBilling / billingVend) * 100, 100) : 0,
-                            badge: `${ticketData.saleCount}/${minTransSale}`,
-                            ringColor: '#3b82f6',
+                            barColor: 'bg-indigo-400',
+                            goalLabel: `${ticketData.saleCount} / ${minTransSale} transacciones`,
                             tipReal: 'Comisión generada por ventas: transacciones cerradas × ticket promedio real × % comisión venta.',
                             tipGoal: 'Facturación requerida por ventas: meta total × porcentaje asignado a vendedores.',
-                            tipDiff: 'Diferencia entre comisión generada por ventas y meta requerida.',
                             tipPct: 'Avance de ventas: comisión real ÷ meta de ventas × 100.',
                         },
                         {
                             title: 'Arriendos',
-                            subtitle: `${ticketData.rentalCount} de ${minTransRental} transacciones`,
                             icon: Building2,
+                            iconBg: 'bg-violet-50',
+                            iconColor: 'text-violet-500',
                             real: realRentalBilling,
                             goal: billingArr,
                             pct: billingArr > 0 ? Math.min((realRentalBilling / billingArr) * 100, 100) : 0,
-                            badge: `${ticketData.rentalCount}/${minTransRental}`,
-                            ringColor: '#3b82f6',
+                            barColor: 'bg-violet-400',
+                            goalLabel: `${ticketData.rentalCount} / ${minTransRental} transacciones`,
                             tipReal: 'Comisión generada por arriendos: transacciones cerradas × ticket promedio real × % comisión arriendo.',
                             tipGoal: 'Facturación requerida por arriendos: meta total × porcentaje asignado a arrendadores.',
-                            tipDiff: 'Diferencia entre comisión generada por arriendos y meta requerida.',
                             tipPct: 'Avance de arriendos: comisión real ÷ meta de arriendos × 100.',
                         },
                     ].map((card, i) => {
-                        const diff = card.real - card.goal
-                        const isPositive = diff >= 0
                         const Icon = card.icon
-                        const statusColor = card.pct >= 80 ? 'text-emerald-600 bg-emerald-50 border-emerald-200' : card.pct >= 40 ? 'text-amber-600 bg-amber-50 border-amber-200' : 'text-red-600 bg-red-50 border-red-200'
-                        const barBg = card.pct >= 80 ? 'bg-emerald-500' : card.pct >= 40 ? 'bg-amber-500' : 'bg-red-500'
                         return (
-                            <div key={i} className="bg-white/80 backdrop-blur-sm rounded-2xl border border-slate-200/60 shadow-sm hover:shadow-lg hover:border-slate-300/60 transition-all duration-300">
-                                <div className="p-5">
-                                    {/* ── Header ── */}
-                                    <div className="flex items-start justify-between mb-5">
-                                        <div className="flex items-center gap-3">
-                                            <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 shadow-sm">
-                                                <Icon className="w-4.5 h-4.5 text-slate-500" strokeWidth={1.8} />
-                                            </div>
-                                            <div>
-                                                <h5 className="text-sm font-bold text-slate-800 tracking-tight">{card.title}</h5>
-                                                <p className="text-[0.6rem] text-slate-400 mt-0.5">{card.subtitle}</p>
-                                            </div>
-                                        </div>
-                                        <Tip text={card.tipPct}>
-                                            <span className={`text-[0.65rem] font-bold px-2.5 py-1 rounded-lg border ${statusColor}`}>
-                                                {fmtPct(card.pct)}%
-                                            </span>
-                                        </Tip>
-                                    </div>
-
-                                    {/* ── Amount + Ring ── */}
-                                    <div className="flex items-center gap-4 mb-5">
-                                        <div className="flex-1 min-w-0">
-                                            <Tip text={card.tipReal}>
-                                                <p className="text-[1.6rem] font-extrabold text-slate-900 font-mono tracking-tight leading-none truncate">{fmtCLP(card.real)}</p>
-                                            </Tip>
-                                            <Tip text={card.tipGoal}>
-                                                <div className="flex items-center gap-1.5 mt-2">
-                                                    <span className="text-[0.6rem] text-slate-400">de</span>
-                                                    <span className="text-[0.7rem] font-semibold text-slate-500 font-mono">{fmtCLP(card.goal)}</span>
-                                                </div>
-                                            </Tip>
-                                        </div>
-                                        <div className="relative shrink-0">
-                                            <ProgressRing pct={card.pct} size={64} stroke={5} color={card.ringColor} />
-                                            <div className="absolute inset-0 flex items-center justify-center">
-                                                <span className="text-sm font-extrabold text-slate-700">{fmtPct(card.pct)}%</span>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* ── Progress bar ── */}
-                                    <div className="mb-4">
-                                        <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
-                                            <div className={`h-full rounded-full transition-all duration-1000 ease-out ${barBg}`}
-                                                style={{ width: `${Math.min(card.pct, 100)}%` }} />
-                                        </div>
-                                    </div>
-
-                                    {/* ── Difference ── */}
-                                    <Tip text={card.tipDiff} className="w-full">
-                                        <div className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs ${isPositive
-                                            ? 'bg-emerald-50/60 border border-emerald-100'
-                                            : 'bg-red-50/60 border border-red-100'}`}>
-                                            <span className={`font-medium ${isPositive ? 'text-emerald-600' : 'text-red-600'}`}>
-                                                {isPositive ? 'Sobre la meta' : 'Bajo la meta'}
-                                            </span>
-                                            <span className={`font-bold font-mono ${isPositive ? 'text-emerald-700' : 'text-red-700'}`}>
-                                                {isPositive ? '+' : ''}{fmtCLP(diff)}
-                                            </span>
+                            <div key={i} className="bg-white rounded-2xl p-6 shadow-[0_2px_12px_rgba(0,0,0,0.04)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.08)] border border-slate-100/80 transition-all duration-300">
+                                {/* ── Icon + Title ── */}
+                                <div className="flex items-center gap-3 mb-6">
+                                    <Tip text={card.tipPct}>
+                                        <div className={`w-10 h-10 rounded-xl ${card.iconBg} flex items-center justify-center`}>
+                                            <Icon className={`w-5 h-5 ${card.iconColor}`} strokeWidth={1.8} />
                                         </div>
                                     </Tip>
+                                    <h5 className="text-[0.85rem] font-semibold text-slate-700 tracking-tight">{card.title}</h5>
+                                </div>
+
+                                {/* ── Big number + /goal ── */}
+                                <div className="flex items-baseline gap-2 mb-5">
+                                    <Tip text={card.tipReal}>
+                                        <span className="text-[1.75rem] font-bold text-slate-900 leading-none tracking-tight">{fmtCLP(card.real)}</span>
+                                    </Tip>
+                                    <Tip text={card.tipGoal}>
+                                        <span className="text-sm text-slate-400 font-normal">/ {card.goalLabel}</span>
+                                    </Tip>
+                                </div>
+
+                                {/* ── Progress bar ── */}
+                                <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                                    <div className={`h-full rounded-full transition-all duration-1000 ease-out ${card.barColor}`}
+                                        style={{ width: `${Math.min(card.pct, 100)}%` }} />
                                 </div>
                             </div>
                         )
