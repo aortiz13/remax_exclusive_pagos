@@ -9,6 +9,7 @@ import parse from 'date-fns/parse'
 import startOfWeek from 'date-fns/startOfWeek'
 import getDay from 'date-fns/getDay'
 import isToday from 'date-fns/isToday'
+import addDays from 'date-fns/addDays'
 import { es } from 'date-fns/locale'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
 import 'react-big-calendar/lib/addons/dragAndDrop/styles.css'
@@ -903,9 +904,25 @@ export default function CalendarPage() {
         const goToNext = () => toolbar.onNavigate('NEXT')
         const goToCurrent = () => toolbar.onNavigate('TODAY')
 
-        const dateLabel = toolbar.view === 'agenda'
-            ? format(toolbar.date, "MMMM yyyy", { locale: es })
-            : format(toolbar.date, "EEE, d MMM", { locale: es })
+        const getDateLabel = () => {
+            const d = toolbar.date
+            switch (toolbar.view) {
+                case 'month':
+                case 'agenda':
+                    return format(d, "MMMM yyyy", { locale: es })
+                case 'week': {
+                    const weekStart = startOfWeek(d, { weekStartsOn: 1 })
+                    const weekEnd = addDays(weekStart, 6)
+                    const sameMonth = weekStart.getMonth() === weekEnd.getMonth()
+                    return sameMonth
+                        ? `${format(weekStart, "d", { locale: es })} - ${format(weekEnd, "d MMM", { locale: es })}`
+                        : `${format(weekStart, "d MMM", { locale: es })} - ${format(weekEnd, "d MMM", { locale: es })}`
+                }
+                default:
+                    return format(d, "EEE, d MMM", { locale: es })
+            }
+        }
+        const dateLabel = getDateLabel()
 
         const isViewingToday = isToday(toolbar.date)
 
