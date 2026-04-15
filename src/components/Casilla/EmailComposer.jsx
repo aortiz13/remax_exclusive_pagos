@@ -325,8 +325,12 @@ const EmailComposer = ({ onClose, onSuccess, replyTo = null, userProfile, initia
 
     return (
         <>
+            {/* Backdrop overlay on mobile */}
+            {isMobile && (
+                <div className="fixed inset-0 bg-black/30 z-40" onClick={handleClose} />
+            )}
             <div className={isMobile
-                ? "fixed inset-0 bg-white flex flex-col z-50 overflow-hidden"
+                ? "fixed bottom-0 left-0 right-0 bg-white flex flex-col z-50 overflow-hidden rounded-t-2xl shadow-2xl max-h-[85dvh] animate-in slide-in-from-bottom duration-200"
                 : "fixed bottom-0 right-24 w-[600px] h-auto max-h-[600px] min-h-[500px] bg-white rounded-t-xl shadow-2xl border border-gray-200 flex flex-col z-50 overflow-hidden"
             }>
                 {/* Header */}
