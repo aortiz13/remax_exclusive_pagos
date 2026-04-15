@@ -75,6 +75,9 @@ export default function ManagementReportList() {
             // Status filter
             if (filter === 'pending') {
                 query = query.in('status', ['pending', 'overdue'])
+            } else if (filter === 'overdue') {
+                // Fetch both overdue status AND pending (will filter by date client-side)
+                query = query.in('status', ['overdue', 'pending'])
             } else if (filter !== 'all') {
                 query = query.eq('status', filter)
             }
@@ -124,19 +127,22 @@ export default function ManagementReportList() {
                 }
             }
 
-            // For "pending" filter: also mark reports that are overdue by date
-            if (filter === 'all' || filter === 'pending') {
-                const today = new Date()
-                today.setHours(0, 0, 0, 0)
-                enriched = enriched.map(r => {
-                    if ((r.status === 'pending') && r.due_date) {
-                        const dueDate = new Date(r.due_date + 'T12:00:00')
-                        if (dueDate < today) {
-                            return { ...r, _isOverdue: true }
-                        }
+            // Mark reports that are overdue by date (pending but past due)
+            const today = new Date()
+            today.setHours(0, 0, 0, 0)
+            enriched = enriched.map(r => {
+                if ((r.status === 'pending') && r.due_date) {
+                    const dueDate = new Date(r.due_date + 'T12:00:00')
+                    if (dueDate < today) {
+                        return { ...r, _isOverdue: true }
                     }
-                    return r
-                })
+                }
+                return r
+            })
+
+            // If overdue filter is active, only keep truly overdue reports
+            if (filter === 'overdue') {
+                enriched = enriched.filter(r => r.status === 'overdue' || r._isOverdue)
             }
 
             setReports(enriched)
@@ -164,10 +170,11 @@ export default function ManagementReportList() {
     const sentCount = allReports.filter(r => r.status === 'sent').length
     const waitingCount = allReports.filter(r => r.status === 'waiting_publication').length
 
-    // Admin tabs: show all statuses
+    // Admin tabs: show all statuses including overdue
     const adminTabs = [
         { key: 'all', label: 'Todos', count: allReports.length },
         { key: 'pending', label: 'Por enviar', count: pendingCount },
+        { key: 'overdue', label: 'Atrasados', count: overdueCount },
         { key: 'sent', label: 'Enviados', count: sentCount },
         { key: 'waiting_publication', label: 'En pausa', count: waitingCount },
     ]
@@ -402,11 +409,12 @@ export default function ManagementReportList() {
             )}
 
             {/* Stats Cards */}
-            <div className={cn("grid gap-4", isAdmin ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3")}>
+            <div className={cn("grid gap-4", isAdmin ? "grid-cols-2 sm:grid-cols-5" : "grid-cols-3")}>
                 {(isAdmin
                     ? [
                         { label: 'Total', count: allReports.length, color: 'from-blue-500 to-blue-600', bg: 'bg-blue-50 dark:bg-blue-900/20' },
-                        { label: 'Por enviar', count: pendingCount, color: overdueCount > 0 ? 'from-red-500 to-red-600' : 'from-amber-500 to-amber-600', bg: overdueCount > 0 ? 'bg-red-50 dark:bg-red-900/20' : 'bg-amber-50 dark:bg-amber-900/20', sub: overdueCount > 0 ? `${overdueCount} atrasado${overdueCount !== 1 ? 's' : ''}` : null },
+                        { label: 'Por enviar', count: pendingCount, color: 'from-amber-500 to-amber-600', bg: 'bg-amber-50 dark:bg-amber-900/20' },
+                        { label: 'Atrasados', count: overdueCount, color: 'from-red-500 to-red-600', bg: 'bg-red-50 dark:bg-red-900/20' },
                         { label: 'Enviados', count: sentCount, color: 'from-emerald-500 to-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-900/20' },
                         { label: 'En pausa', count: waitingCount, color: 'from-slate-400 to-slate-500', bg: 'bg-slate-50 dark:bg-slate-900/20' },
                     ]
@@ -471,11 +479,13 @@ export default function ManagementReportList() {
                     <p className="font-medium">
                         {filter === 'pending'
                             ? 'No hay informes por enviar'
-                            : filter === 'sent'
-                                ? 'No hay informes enviados'
-                                : filter === 'waiting_publication'
-                                    ? 'No hay informes en pausa'
-                                    : 'No hay informes de gestión'
+                            : filter === 'overdue'
+                                ? 'No hay informes atrasados'
+                                : filter === 'sent'
+                                    ? 'No hay informes enviados'
+                                    : filter === 'waiting_publication'
+                                        ? 'No hay informes en pausa'
+                                        : 'No hay informes de gestión'
                         }
                     </p>
                     <p className="text-sm">
