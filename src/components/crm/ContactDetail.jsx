@@ -310,7 +310,7 @@ const ContactDetail = () => {
 
                 {/* Quick Action Buttons (Mobile) */}
                 {isMobile && (
-                    <div className="flex items-center justify-center gap-3 mt-4 pt-4 border-t border-gray-100 dark:border-gray-800">
+                    <div className="flex items-center justify-center gap-4 mt-4 pt-4 border-t border-gray-100 dark:border-gray-800">
                         {contact.phone && (
                             <a href={`tel:${contact.phone}`} className="flex flex-col items-center gap-1">
                                 <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center text-green-600">
@@ -334,6 +334,14 @@ const ContactDetail = () => {
                                 </div>
                                 <span className="text-[10px] text-gray-500">Email</span>
                             </a>
+                        )}
+                        {isOwner && (
+                            <button onClick={() => setIsEditOpen(true)} className="flex flex-col items-center gap-1">
+                                <div className="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600">
+                                    <Edit className="w-4 h-4" />
+                                </div>
+                                <span className="text-[10px] text-gray-500">Editar</span>
+                            </button>
                         )}
                     </div>
                 )}

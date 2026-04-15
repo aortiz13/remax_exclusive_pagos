@@ -64,77 +64,35 @@ function parseEtiquetas(etiquetas) {
     return { agentName, percentage }
 }
 
+// ─── Column Field Definitions ──────────────────────────────────
+export const COMMISSION_FIELDS = [
+    { key: 'direccion', label: 'Dirección / Propiedad', required: true, searchTerms: ['propiedad', 'direccion', 'dirección', 'direccion propiedad', 'inmueble', 'domicilio'] },
+    { key: 'monto_arriendo', label: 'Monto Arriendo', required: true, searchTerms: ['monto total', 'monto arriendo', 'monto de arriendo', 'monto del arriendo', 'arriendo', 'valor arriendo', 'renta'] },
+    { key: 'comision_admin', label: 'Comisión Administración', required: true, searchTerms: ['comision administracion', 'comisión administración', 'comision admin', 'monto administracion'] },
+    { key: 'suscripcion_leasity', label: 'Suscripción Leasity', required: false, searchTerms: ['suscripcion leasity', 'suscripción leasity', 'cargo leasity'] },
+    { key: 'estado', label: 'Estado', required: true, searchTerms: ['estado'] },
+    { key: 'etiquetas', label: 'Etiquetas (Agente + %)', required: true, searchTerms: ['etiquetas propiedad', 'etiquetas', 'etiqueta'] },
+    { key: 'correo_agente', label: 'Correo Agente', required: false, searchTerms: ['correo agente', 'correo', 'email agente', 'email'] },
+    { key: 'mes', label: 'Mes / Periodo', required: false, searchTerms: ['mes', 'periodo', 'período'] },
+    { key: 'id', label: 'ID', required: false, searchTerms: ['id'] },
+    { key: 'codigo', label: 'Código', required: false, searchTerms: ['codigo', 'código'] },
+    { key: 'id_propiedad', label: 'ID Propiedad', required: false, searchTerms: ['id propiedad'] },
+]
+
 /**
- * Parse an Excel/CSV file for commission processing
- * Expected columns: ID, Mes, Codigo, Direccion, Monto Administracion, Estado, Etiquetas, Correo Agente
+ * Read an Excel/CSV file and return raw headers + rows (no column mapping)
  */
-export function parseCommissionExcel(file) {
+export function readExcelRaw(file) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader()
         reader.onload = (e) => {
             try {
                 const wb = XLSX.read(e.target.result, { type: 'array', cellDates: true })
                 const sheet = wb.Sheets[wb.SheetNames[0]]
-                const raw = XLSX.utils.sheet_to_json(sheet, { defval: '' })
-
-                // Log column headers for debugging
-                if (raw.length > 0) {
-                    console.log('[CommissionParser] Excel columns:', Object.keys(raw[0]))
-                    console.log('[CommissionParser] First row raw values:', JSON.stringify(raw[0], null, 2))
-                }
-
-                const rows = raw.map((r, idx) => {
-                    // Flexible column matching — prefers exact match, falls back to includes
-                    const pick = (keys) => {
-                        const colKeys = Object.keys(r)
-                        // 1) exact match first
-                        for (const k of colKeys) {
-                            const kn = normalize(k)
-                            for (const target of keys) {
-                                if (kn === normalize(target)) return r[k]
-                            }
-                        }
-                        // 2) includes match
-                        for (const k of colKeys) {
-                            const kn = normalize(k)
-                            for (const target of keys) {
-                                if (kn.includes(normalize(target))) return r[k]
-                            }
-                        }
-                        return ''
-                    }
-
-                    const montoArriendoRaw = pick(['monto total', 'monto arriendo', 'monto de arriendo', 'monto del arriendo', 'arriendo', 'valor arriendo', 'renta'])
-                    if (idx === 0) console.log('[CommissionParser] montoArriendoRaw sample:', montoArriendoRaw, '| parsed:', parseMoney(montoArriendoRaw))
-                    const comisionAdminRaw = pick(['comision administracion', 'comisión administración', 'comision admin'])
-                    const suscripcionLeasityRaw = pick(['suscripcion leasity', 'suscripción leasity'])
-                    const estado = String(pick(['estado']) || '').trim().toUpperCase()
-                    const etiquetas = String(pick(['etiquetas propiedad', 'etiquetas', 'etiqueta']) || '').trim()
-                    const correoAgente = String(pick(['correo agente', 'correo', 'email agente', 'email']) || '').trim()
-                    const { agentName, percentage } = parseEtiquetas(etiquetas)
-
-                    // Address: exact "Propiedad" match first, then looser fallbacks
-                    const direccion = String(pick(['propiedad', 'direccion', 'dirección', 'direccion propiedad', 'inmueble', 'domicilio']) || '').trim()
-
-                    return {
-                        _row: idx + 2,
-                        id: String(pick(['id']) || '').trim(),
-                        mes: String(pick(['mes', 'periodo', 'período']) || '').trim(),
-                        codigo: String(pick(['codigo', 'código']) || '').trim(),
-                        id_propiedad: String(pick(['id propiedad']) || '').trim(),
-                        direccion,
-                        monto_arriendo: parseMoney(montoArriendoRaw),
-                        comision_admin: parseMoney(comisionAdminRaw),
-                        suscripcion_leasity: parseMoney(suscripcionLeasityRaw),
-                        estado,
-                        etiquetas,
-                        correo_agente: correoAgente,
-                        agent_name: agentName,
-                        percentage,
-                    }
-                }).filter(r => r.direccion || r.comision_admin > 0)
-
-                resolve(rows)
+                const rawRows = XLSX.utils.sheet_to_json(sheet, { defval: '' })
+                const headers = rawRows.length > 0 ? Object.keys(rawRows[0]) : []
+                console.log('[CommissionParser] Excel columns:', headers)
+                resolve({ headers, rawRows })
             } catch (err) {
                 reject(err)
             }
@@ -142,6 +100,95 @@ export function parseCommissionExcel(file) {
         reader.onerror = reject
         reader.readAsArrayBuffer(file)
     })
+}
+
+/**
+ * Auto-detect which Excel column maps to each commission field
+ * Returns { fieldKey: excelColumnName | '' }
+ */
+export function detectMappings(headers) {
+    const mappings = {}
+    const usedHeaders = new Set()
+
+    for (const field of COMMISSION_FIELDS) {
+        let matched = ''
+
+        // 1) Exact match (normalized)
+        for (const h of headers) {
+            if (usedHeaders.has(h)) continue
+            const hn = normalize(h)
+            for (const term of field.searchTerms) {
+                if (hn === normalize(term)) { matched = h; break }
+            }
+            if (matched) break
+        }
+
+        // 2) Includes match (Excel col contains search term, or vice versa)
+        if (!matched) {
+            for (const h of headers) {
+                if (usedHeaders.has(h)) continue
+                const hn = normalize(h)
+                for (const term of field.searchTerms) {
+                    const nt = normalize(term)
+                    if (hn.includes(nt) || nt.includes(hn)) { matched = h; break }
+                }
+                if (matched) break
+            }
+        }
+
+        mappings[field.key] = matched
+        if (matched) usedHeaders.add(matched)
+    }
+
+    console.log('[CommissionParser] Auto-detected mappings:', mappings)
+    return mappings
+}
+
+/**
+ * Apply column mappings to raw rows and return structured commission data
+ */
+export function applyMappings(rawRows, mappings) {
+    return rawRows.map((r, idx) => {
+        const get = (key) => {
+            const col = mappings[key]
+            return col ? r[col] : ''
+        }
+
+        const montoArriendoRaw = get('monto_arriendo')
+        const comisionAdminRaw = get('comision_admin')
+        const suscripcionLeasityRaw = get('suscripcion_leasity')
+        const estado = String(get('estado') || '').trim().toUpperCase()
+        const etiquetas = String(get('etiquetas') || '').trim()
+        const correoAgente = String(get('correo_agente') || '').trim()
+        const { agentName, percentage } = parseEtiquetas(etiquetas)
+        const direccion = String(get('direccion') || '').trim()
+
+        return {
+            _row: idx + 2,
+            id: String(get('id') || '').trim(),
+            mes: String(get('mes') || '').trim(),
+            codigo: String(get('codigo') || '').trim(),
+            id_propiedad: String(get('id_propiedad') || '').trim(),
+            direccion,
+            monto_arriendo: parseMoney(montoArriendoRaw),
+            comision_admin: parseMoney(comisionAdminRaw),
+            suscripcion_leasity: parseMoney(suscripcionLeasityRaw),
+            estado,
+            etiquetas,
+            correo_agente: correoAgente,
+            agent_name: agentName,
+            percentage,
+        }
+    }).filter(r => r.direccion || r.comision_admin > 0)
+}
+
+/**
+ * Convenience: parse Excel in one step (auto-detect + apply)
+ */
+export async function parseCommissionExcel(file) {
+    const { headers, rawRows } = await readExcelRaw(file)
+    const mappings = detectMappings(headers)
+    return applyMappings(rawRows, mappings)
 }
 
     const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',

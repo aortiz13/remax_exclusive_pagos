@@ -696,6 +696,17 @@ const PropertyDetail = () => {
                         </div>
                     </div>
 
+                    {/* Mobile Edit Button — prominent and accessible */}
+                    {isMobile && isOwner && (
+                        <button
+                            onClick={() => setIsEditOpen(true)}
+                            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 font-medium text-sm active:scale-[0.98] transition-all"
+                        >
+                            <FileText className="w-4 h-4" />
+                            Editar Propiedad
+                        </button>
+                    )}
+
                     {/* Tabs for Details, Docs, Notes */}
                     <Tabs defaultValue="activity" className="w-full">
                         <TabsList className="w-full overflow-x-auto scrollbar-hide flex md:justify-start border-b rounded-none h-auto p-0 bg-transparent gap-0">
