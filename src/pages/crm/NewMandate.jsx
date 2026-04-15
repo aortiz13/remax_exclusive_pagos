@@ -31,6 +31,7 @@ const NewMandate = () => {
     const [showCameraModal, setShowCameraModal] = useState(false)
     const [fetchingUF, setFetchingUF] = useState(false)
     const [ufValue, setUfValue] = useState(0)
+    const [customDuration, setCustomDuration] = useState({ value: '', unit: 'days' })
 
     // Form State
     const [files, setFiles] = useState([])
@@ -104,9 +105,20 @@ const NewMandate = () => {
         setFiles(prev => prev.filter((_, i) => i !== index))
     }
 
+    // Resolve capture_duration to days (handles custom)
+    const getCaptureDurationDays = () => {
+        if (formData.capture_duration === 'custom') {
+            const num = parseInt(customDuration.value)
+            if (!num || num <= 0) return 0
+            return customDuration.unit === 'months' ? num * 30 : num
+        }
+        return parseInt(formData.capture_duration) || 0
+    }
+
     const handleSubmit = async (e) => {
         e.preventDefault()
-        if (!formData.contact_id || !formData.property_id || !formData.address || !formData.start_date || !formData.capture_duration) {
+        const durationDays = getCaptureDurationDays()
+        if (!formData.contact_id || !formData.property_id || !formData.address || !formData.start_date || !durationDays) {
             toast.error('Por favor completa los campos obligatorios')
             return
         }
@@ -180,9 +192,9 @@ const NewMandate = () => {
                 tipo_operacion: formData.operation_type,
                 fecha_inicio: formData.start_date,
                 fecha_vencimiento: (() => {
-                    if (!formData.start_date || !formData.capture_duration) return null
+                    if (!formData.start_date || !durationDays) return null
                     const d = new Date(formData.start_date)
-                    d.setDate(d.getDate() + parseInt(formData.capture_duration))
+                    d.setDate(d.getDate() + durationDays)
                     return d.toISOString().split('T')[0]
                 })()
             };
@@ -244,9 +256,9 @@ const NewMandate = () => {
                     operation_type: formData.operation_type,
                     start_date: formData.start_date || null,
                     capture_end_date: (() => {
-                        if (!formData.start_date || !formData.capture_duration) return null
+                        if (!formData.start_date || !durationDays) return null
                         const d = new Date(formData.start_date)
-                        d.setDate(d.getDate() + parseInt(formData.capture_duration))
+                        d.setDate(d.getDate() + durationDays)
                         return d.toISOString().split('T')[0]
                     })(),
                     file_urls: uploadedUrls.map(u => u.path),
@@ -596,9 +608,16 @@ const NewMandate = () => {
 
                         <div className="space-y-2">
                             <Label>Tiempo de Captación <span className="text-red-500">*</span></Label>
-                            <Select value={formData.capture_duration} onValueChange={v => setFormData(prev => ({ ...prev, capture_duration: v }))}>
+                            <Select value={formData.capture_duration} onValueChange={v => {
+                                if (v === 'custom') {
+                                    setFormData(prev => ({ ...prev, capture_duration: 'custom' }))
+                                    setCustomDuration({ value: '', unit: 'days' })
+                                } else {
+                                    setFormData(prev => ({ ...prev, capture_duration: v }))
+                                }
+                            }}>
                                 <SelectTrigger className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                                    <SelectValue />
+                                    <SelectValue placeholder="Selecciona duración" />
                                 </SelectTrigger>
                                 <SelectContent className="z-[300]">
                                     <SelectItem value="30">30 días</SelectItem>
@@ -606,8 +625,33 @@ const NewMandate = () => {
                                     <SelectItem value="90">90 días</SelectItem>
                                     <SelectItem value="120">120 días</SelectItem>
                                     <SelectItem value="365">1 año</SelectItem>
+                                    <SelectItem value="custom">Personalizado</SelectItem>
                                 </SelectContent>
                             </Select>
+                            {formData.capture_duration === 'custom' && (
+                                <div className="flex items-center gap-2 mt-2">
+                                    <Input
+                                        type="number"
+                                        min="1"
+                                        placeholder="Ej: 45"
+                                        value={customDuration.value}
+                                        onChange={(e) => {
+                                            const val = e.target.value
+                                            setCustomDuration(prev => ({ ...prev, value: val }))
+                                        }}
+                                        className="w-24"
+                                    />
+                                    <Select value={customDuration.unit} onValueChange={v => setCustomDuration(prev => ({ ...prev, unit: v }))}>
+                                        <SelectTrigger className="w-28 h-10 rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent className="z-[300]">
+                                            <SelectItem value="days">Días</SelectItem>
+                                            <SelectItem value="months">Meses</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            )}
                         </div>
 
                         <div className="space-y-2 md:col-span-2">
