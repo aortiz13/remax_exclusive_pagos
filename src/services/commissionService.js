@@ -104,7 +104,7 @@ export function parseCommissionExcel(file) {
                         return ''
                     }
 
-                    const montoArriendoRaw = pick(['monto arriendo', 'monto de arriendo', 'monto del arriendo', 'arriendo', 'valor arriendo', 'renta'])
+                    const montoArriendoRaw = pick(['monto total', 'monto arriendo', 'monto de arriendo', 'monto del arriendo', 'arriendo', 'valor arriendo', 'renta'])
                     if (idx === 0) console.log('[CommissionParser] montoArriendoRaw sample:', montoArriendoRaw, '| parsed:', parseMoney(montoArriendoRaw))
                     const comisionAdminRaw = pick(['comision administracion', 'comisión administración', 'comision admin'])
                     const suscripcionLeasityRaw = pick(['suscripcion leasity', 'suscripción leasity'])
