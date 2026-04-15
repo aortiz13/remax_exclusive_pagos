@@ -207,6 +207,25 @@ export default function CalendarPage() {
     const [linkedActionType, setLinkedActionType] = useState('')
     const [hasExecutedAction, setHasExecutedAction] = useState(false)
 
+    // Mobile detection
+    const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
+    useEffect(() => {
+        const mq = window.matchMedia('(max-width: 767px)')
+        const handler = (e) => setIsMobile(e.matches)
+        mq.addEventListener('change', handler)
+        return () => mq.removeEventListener('change', handler)
+    }, [])
+
+    // Mobile-specific state
+    const [showMiniCal, setShowMiniCal] = useState(false)
+
+    // Force day/agenda view on mobile
+    useEffect(() => {
+        if (isMobile && (view === Views.WEEK || view === Views.MONTH)) {
+            setView(Views.DAY)
+        }
+    }, [isMobile])
+
     useEffect(() => {
         if (user) {
             fetchEvents()
@@ -878,55 +897,94 @@ export default function CalendarPage() {
         return config;
     };
 
-    return (
-        <div className="w-full h-[calc(100vh-80px)] px-6 pb-6 flex gap-6 overflow-hidden">
-            {/* Sidebar */}
-            <div className="w-80 flex-none space-y-6 h-full overflow-y-auto pr-1">
-                <div>
-                    <h1 className="text-3xl font-display font-bold tracking-tight">Calendario</h1>
-                    <p className="text-slate-500 text-sm">Gestiona tu agenda.</p>
+    /* ─── Mobile toolbar component ──────────────────────────── */
+    const MobileToolbar = (toolbar) => {
+        const goToBack = () => toolbar.onNavigate('PREV')
+        const goToNext = () => toolbar.onNavigate('NEXT')
+        const goToCurrent = () => toolbar.onNavigate('TODAY')
+
+        const dateLabel = toolbar.view === 'agenda'
+            ? format(toolbar.date, "MMMM yyyy", { locale: es })
+            : format(toolbar.date, "EEE, d MMM", { locale: es })
+
+        const isViewingToday = isToday(toolbar.date)
+
+        return (
+            <div className="space-y-2 mb-3">
+                {/* Row 1: Nav + Date + Today button */}
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1">
+                        <button onClick={goToBack} className="p-2 rounded-full hover:bg-gray-100 active:bg-gray-200 transition-colors">
+                            <ChevronLeft className="w-5 h-5 text-gray-600" />
+                        </button>
+                        <button
+                            onClick={() => setShowMiniCal(v => !v)}
+                            className="text-base font-semibold text-gray-900 capitalize px-1"
+                        >
+                            {dateLabel}
+                        </button>
+                        <button onClick={goToNext} className="p-2 rounded-full hover:bg-gray-100 active:bg-gray-200 transition-colors">
+                            <ChevronRight className="w-5 h-5 text-gray-600" />
+                        </button>
+                    </div>
+                    <div className="flex items-center gap-1">
+                        {!isViewingToday && (
+                            <button
+                                onClick={goToCurrent}
+                                className="text-xs font-medium text-blue-600 px-3 py-1.5 rounded-full border border-blue-200 hover:bg-blue-50 active:bg-blue-100 transition-colors"
+                            >
+                                Hoy
+                            </button>
+                        )}
+                    </div>
                 </div>
 
-                <Button
-                    className="w-full justify-start gap-2"
-                    size="lg"
-                    onClick={() => handleSelectSlot({ start: new Date(), end: new Date() })}
-                >
-                    <Plus className="w-5 h-5" /> Nueva Tarea
-                </Button>
+                {/* Row 2: View toggle */}
+                <div className="flex bg-gray-100 rounded-lg p-0.5">
+                    {['day', 'agenda'].map(v => (
+                        <button
+                            key={v}
+                            onClick={() => toolbar.onView(v)}
+                            className={`flex-1 text-xs font-medium py-1.5 rounded-md transition-all ${toolbar.view === v ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}
+                        >
+                            {v === 'day' ? 'Día' : 'Agenda'}
+                        </button>
+                    ))}
+                </div>
 
-                {profile?.google_refresh_token && (
-                    <Button
-                        className="w-full justify-start gap-2"
-                        variant="outline"
-                        size="lg"
-                        onClick={handleSync}
-                        disabled={isSyncing}
-                    >
-                        <RefreshCw className={`w-5 h-5 ${isSyncing ? 'animate-spin' : ''}`} />
-                        {isSyncing ? 'Sincronizando...' : 'Sincronizar con Google'}
-                    </Button>
+                {/* Collapsible mini calendar */}
+                {showMiniCal && (
+                    <div className="bg-white rounded-xl border border-gray-200 p-3 shadow-sm animate-in slide-in-from-top duration-150">
+                        <style>{dayPickerStyles}</style>
+                        <DayPicker
+                            mode="single"
+                            selected={date}
+                            onSelect={(d) => {
+                                if (d) { setDate(d); setShowMiniCal(false) }
+                            }}
+                            locale={es}
+                            className="p-0"
+                            showOutsideDays
+                            fixedWeeks
+                        />
+                    </div>
                 )}
-
-                <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4 shadow-sm flex justify-center">
-                    <style>{dayPickerStyles}</style>
-                    <DayPicker
-                        mode="single"
-                        selected={date}
-                        onSelect={(d) => d && setDate(d)}
-                        locale={es}
-                        className="p-0"
-                        showOutsideDays
-                        fixedWeeks
-                    />
-                </div>
             </div>
+        )
+    }
 
-            {/* Main Calendar */}
-            <div className="flex-1 h-full min-w-0">
-                <Card className="h-full border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col">
-                    <CardContent className="p-0 flex-1 bg-white dark:bg-slate-950 p-6 flex flex-col h-full overflow-hidden">
+    /* ─── MOBILE LAYOUT ───────────────────────────────────────── */
+    if (isMobile) {
+        return (
+            <>
+                <div className="flex flex-col h-[calc(100dvh-64px)] bg-white overflow-hidden">
+                    {/* Header area */}
+                    <div className="px-3 pt-3 shrink-0">
                         <style>{bigCalendarStyles}</style>
+                    </div>
+
+                    {/* Calendar */}
+                    <div className="flex-1 overflow-hidden px-1">
                         <DnDCalendar
                             localizer={localizer}
                             events={events}
@@ -938,7 +996,7 @@ export default function CalendarPage() {
                             date={date}
                             onNavigate={setDate}
                             components={{
-                                toolbar: CustomToolbar,
+                                toolbar: MobileToolbar,
                                 event: ({ event }) => {
                                     const Icon = event.type === 'call' ? Phone :
                                         event.type === 'email' ? Mail :
@@ -946,20 +1004,14 @@ export default function CalendarPage() {
                                     return (
                                         <div className="flex items-center gap-1 overflow-hidden w-full">
                                             <Icon className="w-3 h-3 flex-none" />
-                                            <span className="truncate flex-1">{event.title}</span>
-                                            {event.isSyncing && (
-                                                <RefreshCw className="w-2.5 h-2.5 flex-none animate-spin text-white/70" />
-                                            )}
+                                            <span className="truncate flex-1 text-[11px]">{event.title}</span>
                                         </div>
                                     )
                                 }
                             }}
-                            min={new Date(0, 0, 0, 8, 0, 0)} // 8:00 AM
-                            max={new Date(0, 0, 0, 23, 59, 59)} // 11:59 PM (Midnight)
+                            min={new Date(0, 0, 0, 7, 0, 0)}
+                            max={new Date(0, 0, 0, 23, 59, 59)}
                             eventPropGetter={eventStyleGetter}
-                            onEventDrop={onEventDrop}
-                            onEventResize={onEventResize}
-                            resizable
                             selectable
                             onSelectSlot={handleSelectSlot}
                             onSelectEvent={handleSelectEvent}
@@ -967,17 +1019,24 @@ export default function CalendarPage() {
                             messages={{
                                 next: "Sig", previous: "Ant", today: "Hoy", month: "Mes",
                                 week: "Semana", day: "Día", agenda: "Agenda", date: "Fecha",
-                                time: "Hora", event: "Evento", noEventsInRange: "Sin eventos"
+                                time: "Hora", event: "Evento", noEventsInRange: "Sin eventos en este rango"
                             }}
                         />
-                    </CardContent>
-                </Card>
-            </div>
+                    </div>
 
-            {/* Modals */}
-            <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-                <DialogContent className="sm:max-w-[640px] p-0 overflow-hidden border-none shadow-2xl flex flex-col max-h-[92vh]">
-                    {!isEditing && selectedEvent ? (
+                    {/* FAB: New Task */}
+                    <button
+                        onClick={() => handleSelectSlot({ start: new Date(), end: new Date() })}
+                        className="fixed bottom-6 right-5 w-14 h-14 bg-blue-600 text-white rounded-2xl shadow-lg shadow-blue-500/30 flex items-center justify-center z-30 active:scale-95 transition-transform"
+                    >
+                        <Plus className="w-6 h-6" />
+                    </button>
+                </div>
+
+                {/* Modals (same as desktop) */}
+                <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+                    <DialogContent className="sm:max-w-[640px] p-0 overflow-hidden border-none shadow-2xl flex flex-col max-h-[92vh]">
+                        {!isEditing && selectedEvent ? (
                         <div className="flex flex-col overflow-hidden">
                             <div className="flex-1 overflow-y-auto">
                                 {/* View Mode Header */}
@@ -1418,6 +1477,465 @@ export default function CalendarPage() {
                                         <div className="flex gap-2">
                                             <Input
                                                 className="h-8 text-sm bg-slate-50/50"
+                                                placeholder="ejemplo@correo.com"
+                                                value={guestInput}
+                                                onChange={e => setGuestInput(e.target.value)}
+                                                onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addGuest())}
+                                            />
+                                            <Button type="button" variant="outline" size="sm" onClick={addGuest} className="shrink-0 h-8 px-3 text-xs font-semibold hover:bg-slate-50">
+                                                Añadir
+                                            </Button>
+                                        </div>
+                                        {formData.attendees.length > 0 && (
+                                            <div className="flex flex-wrap gap-1 max-h-[60px] overflow-y-auto p-1.5 bg-slate-50/50 rounded-lg border border-slate-100">
+                                                {formData.attendees.map((attendee, idx) => (
+                                                    <div key={idx} className="flex items-center gap-1 bg-white border border-slate-200 px-1.5 py-0.5 rounded shadow-sm text-[10px] text-slate-600">
+                                                        <span className="truncate max-w-[120px] font-medium">{attendee.email}</span>
+                                                        <button onClick={() => removeGuest(attendee.email)} className="text-slate-400 hover:text-red-500 transition-colors p-0.5">
+                                                            <X className="w-2.5 h-2.5" />
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                        {(() => {
+                                            const contact = contacts.find(c => c.id === formData.contactId);
+                                            return contact?.email && (
+                                                <div className="flex items-center text-[10px] py-1 px-2.5 bg-blue-50/50 rounded border border-blue-100/50 gap-1.5">
+                                                    <span className="text-blue-700 font-medium truncate">{contact.email}</span>
+                                                    <span className="text-[9px] text-blue-500 bg-blue-100/50 px-1 rounded uppercase font-bold">Cliente</span>
+                                                </div>
+                                            );
+                                        })()}
+                                    </div>
+                                )}
+
+                                {/* Row 7: Descripción */}
+                                <div className="space-y-1">
+                                    <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Descripción</Label>
+                                    <Textarea
+                                        placeholder="Detalles adicionales..."
+                                        className="min-h-[56px] text-sm resize-none bg-slate-50/50 focus:bg-white transition-all"
+                                        value={formData.description}
+                                        onChange={e => setFormData({ ...formData, description: e.target.value })}
+                                        disabled={selectedEvent?.isGoogleEvent}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="p-3 border-t border-slate-100 bg-slate-50 flex justify-end gap-2 shrink-0">
+                                <Button
+                                    variant="outline"
+                                    onClick={() => {
+                                        if (selectedEvent && isEditing) setIsEditing(false)
+                                        else setIsModalOpen(false)
+                                    }}
+                                    className="h-8 px-5 text-sm font-semibold"
+                                >
+                                    Cancelar
+                                </Button>
+                                <Button
+                                    onClick={handleSave}
+                                    disabled={isSaving}
+                                    className="h-8 px-6 text-sm bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-lg shadow-blue-200 transition-all active:scale-95"
+                                >
+                                    {isSaving ? (
+                                        <span className="flex items-center gap-2">
+                                            <RefreshCw className="w-4 h-4 animate-spin" />
+                                            Guardando...
+                                        </span>
+                                    ) : 'Guardar'}
+                                </Button>
+                            </div>
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
+
+            <AlertDialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Esta acción eliminará permanentemente la tarea <strong>{selectedEvent?.title}</strong>. No se puede deshacer.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={handleDelete}
+                            disabled={isDeleting}
+                            className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                        >
+                            {isDeleting ? 'Eliminando...' : 'Eliminar'}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+            </>
+        )
+    }
+
+    /* ─── DESKTOP LAYOUT ──────────────────────────────────────── */
+    return (
+        <div className="w-full h-[calc(100vh-80px)] px-6 pb-6 flex gap-6 overflow-hidden">
+            {/* Sidebar */}
+            <div className="w-80 flex-none space-y-6 h-full overflow-y-auto pr-1">
+                <div>
+                    <h1 className="text-3xl font-display font-bold tracking-tight">Calendario</h1>
+                    <p className="text-slate-500 text-sm">Gestiona tu agenda.</p>
+                </div>
+
+                <Button
+                    className="w-full justify-start gap-2"
+                    size="lg"
+                    onClick={() => handleSelectSlot({ start: new Date(), end: new Date() })}
+                >
+                    <Plus className="w-5 h-5" /> Nueva Tarea
+                </Button>
+
+                {profile?.google_refresh_token && (
+                    <Button
+                        className="w-full justify-start gap-2"
+                        variant="outline"
+                        size="lg"
+                        onClick={handleSync}
+                        disabled={isSyncing}
+                    >
+                        <RefreshCw className={`w-5 h-5 ${isSyncing ? 'animate-spin' : ''}`} />
+                        {isSyncing ? 'Sincronizando...' : 'Sincronizar con Google'}
+                    </Button>
+                )}
+
+                <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4 shadow-sm flex justify-center">
+                    <style>{dayPickerStyles}</style>
+                    <DayPicker
+                        mode="single"
+                        selected={date}
+                        onSelect={(d) => d && setDate(d)}
+                        locale={es}
+                        className="p-0"
+                        showOutsideDays
+                        fixedWeeks
+                    />
+                </div>
+            </div>
+
+            {/* Main Calendar */}
+            <div className="flex-1 h-full min-w-0">
+                <Card className="h-full border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col">
+                    <CardContent className="p-0 flex-1 bg-white dark:bg-slate-950 p-6 flex flex-col h-full overflow-hidden">
+                        <style>{bigCalendarStyles}</style>
+                        <DnDCalendar
+                            localizer={localizer}
+                            events={events}
+                            startAccessor="start"
+                            endAccessor="end"
+                            style={{ height: '100%' }}
+                            view={view}
+                            onView={setView}
+                            date={date}
+                            onNavigate={setDate}
+                            components={{
+                                toolbar: CustomToolbar,
+                                event: ({ event }) => {
+                                    const Icon = event.type === 'call' ? Phone :
+                                        event.type === 'email' ? Mail :
+                                            event.type === 'meeting' ? Users : CheckCircle
+                                    return (
+                                        <div className="flex items-center gap-1 overflow-hidden w-full">
+                                            <Icon className="w-3 h-3 flex-none" />
+                                            <span className="truncate flex-1">{event.title}</span>
+                                            {event.isSyncing && (
+                                                <RefreshCw className="w-2.5 h-2.5 flex-none animate-spin text-white/70" />
+                                            )}
+                                        </div>
+                                    )
+                                }
+                            }}
+                            min={new Date(0, 0, 0, 8, 0, 0)}
+                            max={new Date(0, 0, 0, 23, 59, 59)}
+                            eventPropGetter={eventStyleGetter}
+                            onEventDrop={onEventDrop}
+                            onEventResize={onEventResize}
+                            resizable
+                            selectable
+                            onSelectSlot={handleSelectSlot}
+                            onSelectEvent={handleSelectEvent}
+                            culture='es'
+                            messages={{
+                                next: "Sig", previous: "Ant", today: "Hoy", month: "Mes",
+                                week: "Semana", day: "Día", agenda: "Agenda", date: "Fecha",
+                                time: "Hora", event: "Evento", noEventsInRange: "Sin eventos"
+                            }}
+                        />
+                    </CardContent>
+                </Card>
+            </div>
+
+            {/* Modals */}
+            <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+                <DialogContent className="sm:max-w-[640px] p-0 overflow-hidden border-none shadow-2xl flex flex-col max-h-[92vh]">
+                    {!isEditing && selectedEvent ? (
+                        <div className="flex flex-col overflow-hidden">
+                            <div className="flex-1 overflow-y-auto">
+                                {/* View Mode Header */}
+                                <div className="h-1.5 w-full shrink-0" style={{ backgroundColor: eventStyleGetter(selectedEvent).style.borderColor }} />
+                                <div className="p-4 space-y-4">
+                                    <div className="flex justify-between items-start gap-4">
+                                        <div className="space-y-1 flex-1 min-w-0">
+                                            <h2 className="text-xl font-semibold leading-tight text-slate-900 break-words">{selectedEvent.title}</h2>
+                                            <div className="flex items-center gap-2 text-slate-500 text-sm mt-1.5">
+                                                <Clock className="w-4 h-4 flex-none" />
+                                                <span>
+                                                    {format(selectedEvent.start, "EEEE, d 'de' MMMM", { locale: es })}
+                                                    {!selectedEvent.allDay && (
+                                                        <>
+                                                            <br />
+                                                            {format(selectedEvent.start, "p")} - {format(selectedEvent.end, "p")}
+                                                        </>
+                                                    )}
+                                                    {selectedEvent.allDay && (
+                                                        <span className="ml-1 text-[10px] bg-slate-100 px-1.5 py-0.5 rounded-full font-bold text-slate-400 uppercase tracking-tighter">Todo el día</span>
+                                                    )}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div className="flex gap-1 shrink-0">
+                                            {!selectedEvent.isGoogleEvent && (
+                                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setIsEditing(true)}><Pencil className="w-4 h-4" /></Button>
+                                            )}
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50" onClick={() => setIsDeleteConfirmOpen(true)}><Trash2 className="w-4 h-4" /></Button>
+                                        </div>
+                                    </div>
+
+                                    {selectedEvent.contactName && (
+                                        <div className="flex items-center gap-2 text-sm text-slate-600">
+                                            <User className="w-4 h-4 text-slate-400" />
+                                            <Link to={`/contacts/${selectedEvent.contactId}`} className="text-blue-600 hover:underline font-medium">{selectedEvent.contactName}</Link>
+                                        </div>
+                                    )}
+                                    {selectedEvent.propertyName && (
+                                        <div className="flex items-center gap-2 text-sm text-slate-600">
+                                            <MapPin className="w-4 h-4 text-slate-400" />
+                                            <Link to={`/properties/${selectedEvent.propertyId}`} className="text-blue-600 hover:underline font-medium">{selectedEvent.propertyName}</Link>
+                                        </div>
+                                    )}
+                                    {selectedEvent.location && (
+                                        <div className="flex items-center gap-2 text-sm text-slate-600">
+                                            <MapPin className="w-4 h-4 text-slate-400" />
+                                            <span>{selectedEvent.location}</span>
+                                        </div>
+                                    )}
+                                    {selectedEvent.hangoutLink && (
+                                        <a href={selectedEvent.hangoutLink} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-emerald-600 hover:underline font-medium">
+                                            <Video className="w-4 h-4" />
+                                            Unirse a Google Meet
+                                            <ExternalLink className="w-3 h-3" />
+                                        </a>
+                                    )}
+                                    {selectedEvent.description && (
+                                        <div className="text-sm text-slate-600 bg-slate-50 rounded-lg p-3 border border-slate-100">
+                                            {selectedEvent.descriptionHtml ? (
+                                                <div dangerouslySetInnerHTML={{ __html: selectedEvent.descriptionHtml }} className="prose prose-sm max-w-none" />
+                                            ) : (
+                                                <p className="whitespace-pre-wrap">{selectedEvent.description}</p>
+                                            )}
+                                        </div>
+                                    )}
+                                    {selectedEvent.attendees?.length > 0 && (
+                                        <div className="space-y-1">
+                                            <span className="text-xs font-semibold px-2 uppercase tracking-wider text-slate-400">Invitados</span>
+                                            <div className="flex flex-wrap gap-1 pl-2">
+                                                {selectedEvent.attendees.map((att, i) => (
+                                                    <div key={i} className="flex items-center gap-1 bg-slate-100 px-2 py-1 rounded-full text-xs text-slate-700">
+                                                        {att.responseStatus === 'accepted' ? <Check className="w-3 h-3 text-emerald-500" /> : att.responseStatus === 'declined' ? <X className="w-3 h-3 text-red-400" /> : <HelpCircle className="w-3 h-3 text-amber-400" />}
+                                                        <span className="truncate max-w-[120px]">{att.email}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                            <div className="p-3 border-t border-slate-100 bg-slate-50 flex items-center justify-between shrink-0">
+                                <Button
+                                    variant={selectedEvent.completed ? "secondary" : "default"}
+                                    size="sm"
+                                    onClick={toggleCompleted}
+                                    className={`gap-1.5 text-xs font-bold h-8 ${selectedEvent.completed ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border-emerald-200' : ''}`}
+                                >
+                                    {selectedEvent.completed ? <><CheckCircle className="w-4 h-4" /> Completada</> : <><Clock className="w-4 h-4" /> Pendiente</>}
+                                </Button>
+                                <Button variant="outline" size="sm" className="text-xs h-8 font-bold" onClick={() => setIsModalOpen(false)}>Cerrar</Button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="flex flex-col overflow-hidden">
+                            {/* Edit / Create Form Header */}
+                            <div className="h-1.5 w-full bg-gradient-to-r from-blue-500 to-indigo-500 shrink-0" />
+                            <div className="p-3 border-b border-slate-100 flex items-center justify-between bg-white shrink-0">
+                                <div className="flex items-center gap-2">
+                                    {getModalConfig().icon}
+                                    <DialogTitle className="text-base font-bold text-slate-900">{getModalConfig().title}</DialogTitle>
+                                </div>
+                                {selectedEvent?.isGoogleEvent && (
+                                    <span className="text-[10px] bg-emerald-100 text-emerald-700 font-bold px-2 py-0.5 rounded-full tracking-wider uppercase flex items-center gap-1">
+                                        <RefreshCw className="w-2.5 h-2.5" /> Google
+                                    </span>
+                                )}
+                            </div>
+                            <DialogDescription className="sr-only">Formulario para crear o editar una actividad del calendario</DialogDescription>
+
+                            {/* Form */}
+                            <div className="flex-1 overflow-y-auto p-3 space-y-3">
+                                {/* Row 1 */}
+                                <div className="space-y-1">
+                                    <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Título</Label>
+                                    <Input
+                                        placeholder="¿Qué necesitas hacer?"
+                                        className="text-sm font-semibold h-9 bg-slate-50/50 focus:bg-white transition-all"
+                                        value={formData.title}
+                                        onChange={e => setFormData({ ...formData, title: e.target.value })}
+                                        disabled={selectedEvent?.isGoogleEvent}
+                                    />
+                                </div>
+
+                                {/* Row 2: Tipo + All Day */}
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="space-y-1">
+                                        <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Tipo</Label>
+                                        <Select value={formData.type} onValueChange={v => setFormData({ ...formData, type: v })} disabled={selectedEvent?.isGoogleEvent}>
+                                            <SelectTrigger className="text-xs h-8 bg-slate-50/50"><SelectValue /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="task">✅ Tarea</SelectItem>
+                                                <SelectItem value="call">📞 Llamada</SelectItem>
+                                                <SelectItem value="email">📧 Correo</SelectItem>
+                                                <SelectItem value="meeting">👥 Reunión</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="flex items-end pb-1 gap-2">
+                                        <Checkbox
+                                            id="is_all_day"
+                                            checked={formData.is_all_day}
+                                            onCheckedChange={v => setFormData({ ...formData, is_all_day: v })}
+                                        />
+                                        <Label htmlFor="is_all_day" className="text-xs font-medium text-slate-600 cursor-pointer">Todo el día</Label>
+                                    </div>
+                                </div>
+
+                                {/* Row 3: Dates */}
+                                <div className={`grid ${formData.is_all_day ? 'grid-cols-1' : 'grid-cols-2'} gap-3`}>
+                                    <div className="space-y-1">
+                                        <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">{formData.is_all_day ? 'Fecha' : 'Inicio'}</Label>
+                                        <Input
+                                            type={formData.is_all_day ? "date" : "datetime-local"}
+                                            className="text-xs h-8 bg-slate-50/50"
+                                            value={formData.start}
+                                            onChange={e => setFormData({ ...formData, start: e.target.value })}
+                                        />
+                                    </div>
+                                    {!formData.is_all_day && (
+                                        <div className="space-y-1">
+                                            <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Fin</Label>
+                                            <Input
+                                                type="datetime-local"
+                                                className="text-xs h-8 bg-slate-50/50"
+                                                value={formData.end}
+                                                onChange={e => setFormData({ ...formData, end: e.target.value })}
+                                            />
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Row 4: Contact + Property */}
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="space-y-1">
+                                        <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Contacto</Label>
+                                        <ContactPickerInline
+                                            value={formData.contactId === 'none' ? null : formData.contactId}
+                                            onChange={v => setFormData({ ...formData, contactId: v || 'none' })}
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Propiedad</Label>
+                                        <PropertyPickerInline
+                                            value={formData.propertyId === 'none' ? null : formData.propertyId}
+                                            onChange={v => setFormData({ ...formData, propertyId: v || 'none' })}
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Row 4.5: KPI Action Link */}
+                                <div className="space-y-1">
+                                    <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1">
+                                        <Activity className="w-3 h-3" /> Acción KPI vinculada
+                                    </Label>
+                                    {hasExecutedAction ? (
+                                        <div className="flex items-center gap-2 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md px-3 py-2 font-medium">
+                                            <Link2 className="w-3.5 h-3.5" />
+                                            {selectedEvent?.parentAction?.action_type || linkedActionType}
+                                            <span className="text-[9px] bg-emerald-200 text-emerald-800 rounded px-1.5 py-0.5 uppercase font-bold">Ejecutada</span>
+                                        </div>
+                                    ) : (
+                                        <Select value={linkedActionType || 'none'} onValueChange={v => setLinkedActionType(v === 'none' ? '' : v)}>
+                                            <SelectTrigger className="text-xs h-8 bg-slate-50/50">
+                                                <SelectValue placeholder="Sin acción vinculada" />
+                                            </SelectTrigger>
+                                            <SelectContent className="max-h-[200px]">
+                                                <SelectItem value="none"><span className="flex items-center gap-1.5 text-slate-400"><Unlink className="w-3 h-3" /> Sin acción</span></SelectItem>
+                                                {ACTION_TYPES.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
+                                            </SelectContent>
+                                        </Select>
+                                    )}
+                                </div>
+
+                                {/* Row 5: Reminder + Location */}
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="space-y-1">
+                                        <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Recordatorio</Label>
+                                        <Select value={formData.reminder || 'none'} onValueChange={v => setFormData({ ...formData, reminder: v })}>
+                                            <SelectTrigger className="text-xs h-8 bg-slate-50/50"><SelectValue /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="none">Sin recordatorio</SelectItem>
+                                                <SelectItem value="5">5 minutos antes</SelectItem>
+                                                <SelectItem value="15">15 minutos antes</SelectItem>
+                                                <SelectItem value="30">30 minutos antes</SelectItem>
+                                                <SelectItem value="60">1 hora antes</SelectItem>
+                                                <SelectItem value="1440">1 día antes</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Ubicación</Label>
+                                        <Input
+                                            placeholder="Lugar (opcional)"
+                                            className="text-xs h-8 bg-slate-50/50"
+                                            value={formData.location || ''}
+                                            onChange={e => setFormData({ ...formData, location: e.target.value })}
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Row 6: Google Meet + Guests */}
+                                {profile?.google_refresh_token && (
+                                    <div className="space-y-2">
+                                        <div className="flex items-center gap-2">
+                                            <Checkbox
+                                                id="create_meet"
+                                                checked={formData.create_meet}
+                                                onCheckedChange={v => setFormData({ ...formData, create_meet: v })}
+                                                disabled={!!formData.hangoutLink}
+                                            />
+                                            <Label htmlFor="create_meet" className="text-xs font-semibold text-slate-600 flex items-center gap-1 cursor-pointer">
+                                                <Video className="w-3.5 h-3.5 text-emerald-500" /> Google Meet
+                                            </Label>
+                                        </div>
+                                        <div className="flex gap-2 items-center">
+                                            <Input
+                                                type="email"
+                                                className="text-xs h-8 flex-1 bg-slate-50/50"
                                                 placeholder="ejemplo@correo.com"
                                                 value={guestInput}
                                                 onChange={e => setGuestInput(e.target.value)}

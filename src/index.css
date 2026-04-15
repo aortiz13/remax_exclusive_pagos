@@ -272,4 +272,64 @@
   .woot-widget-holder {
     display: none !important;
   }
+
+  /* ===== Google Calendar-style mobile overrides ===== */
+  .rbc-time-view,
+  .rbc-month-view {
+    border: none !important;
+    border-radius: 0 !important;
+  }
+
+  .rbc-time-header {
+    display: none !important; /* Hide the day header row in day view */
+  }
+
+  .rbc-time-content {
+    border-top: 1px solid #e5e7eb !important;
+  }
+
+  .rbc-time-gutter .rbc-timeslot-group {
+    min-height: 48px;
+  }
+
+  .rbc-label {
+    font-size: 10px !important;
+    color: #9ca3af !important;
+    padding: 0 4px !important;
+  }
+
+  .rbc-event {
+    border-radius: 4px !important;
+    font-size: 11px !important;
+    padding: 2px 6px !important;
+  }
+
+  .rbc-time-slot {
+    min-height: 24px;
+  }
+
+  .rbc-current-time-indicator {
+    background-color: #4285f4 !important;
+    height: 2px !important;
+  }
+
+  .rbc-current-time-indicator::before {
+    background-color: #4285f4 !important;
+  }
+
+  /* Agenda view mobile */
+  .rbc-agenda-view table {
+    font-size: 13px;
+  }
+
+  .rbc-agenda-date-cell,
+  .rbc-agenda-time-cell {
+    padding: 8px 6px !important;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  .rbc-agenda-event-cell {
+    padding: 8px 6px !important;
+  }
 }
