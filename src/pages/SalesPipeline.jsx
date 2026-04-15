@@ -335,6 +335,41 @@ export default function SalesPipeline() {
         })}
       </div>
 
+      {/* ─── Pipeline Description ─────────────────────────────────── */}
+      <div className={`flex items-start gap-3 px-4 py-3 rounded-xl border transition-all ${
+        activeTab === 'propietarios' ? 'bg-blue-50/50 border-blue-100 dark:bg-blue-950/20 dark:border-blue-900/30' :
+        activeTab === 'compradores' ? 'bg-emerald-50/50 border-emerald-100 dark:bg-emerald-950/20 dark:border-emerald-900/30' :
+        'bg-amber-50/50 border-amber-100 dark:bg-amber-950/20 dark:border-amber-900/30'
+      }`}>
+        <div className={`p-1.5 rounded-lg mt-0.5 shrink-0 ${
+          activeTab === 'propietarios' ? 'bg-blue-100 dark:bg-blue-900/40' :
+          activeTab === 'compradores' ? 'bg-emerald-100 dark:bg-emerald-900/40' :
+          'bg-amber-100 dark:bg-amber-900/40'
+        }`}>
+          <TabIcon className={`w-4 h-4 ${
+            activeTab === 'propietarios' ? 'text-blue-600 dark:text-blue-400' :
+            activeTab === 'compradores' ? 'text-emerald-600 dark:text-emerald-400' :
+            'text-amber-600 dark:text-amber-400'
+          }`} />
+        </div>
+        <div>
+          <p className={`text-sm font-semibold ${
+            activeTab === 'propietarios' ? 'text-blue-800 dark:text-blue-300' :
+            activeTab === 'compradores' ? 'text-emerald-800 dark:text-emerald-300' :
+            'text-amber-800 dark:text-amber-300'
+          }`}>
+            {activeTab === 'propietarios' && 'Pipeline de Propietarios / Vendedores'}
+            {activeTab === 'compradores' && 'Pipeline de Compradores'}
+            {activeTab === 'arriendos' && 'Pipeline de Arriendos'}
+          </p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
+            {activeTab === 'propietarios' && 'Gestiona el ciclo completo desde la prospección del propietario hasta la entrega post-venta. Incluye captación, evaluación comercial, negociación, promesa, escritura y monitoreo.'}
+            {activeTab === 'compradores' && 'Acompaña al comprador desde su captación hasta el cierre. Incluye análisis de mercado, presentación de opciones, visitas, carta de intención, negociación y escrituración.'}
+            {activeTab === 'arriendos' && 'Controla el proceso de arriendo de principio a fin. Incluye prospección, evaluación, estudio de antecedentes del arrendatario, negociación, contrato y entrega de la propiedad.'}
+          </p>
+        </div>
+      </div>
+
       {/* ─── Filter Bar ──────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center justify-between gap-3 p-4 bg-slate-50/50 dark:bg-slate-900/20 rounded-xl border border-slate-100 dark:border-slate-800">
         <div className="flex flex-wrap items-center gap-2 flex-1">
