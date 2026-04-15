@@ -5,7 +5,7 @@ import { auditLog } from '../services/auditLogService'
 import { Button, Input, Label, Card, CardHeader, CardTitle, CardContent, CardFooter, CardDescription, Alert, AlertDescription, Badge, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui'
 import { useAuth } from '../context/AuthContext'
 import { Navigate } from 'react-router-dom'
-import { Trash2, Shield, User, Loader2, Upload, FileText, CheckCircle2, AlertCircle, X, Edit2, Crown, Award, CalendarCheck } from 'lucide-react'
+import { Trash2, Shield, User, Loader2, Upload, FileText, CheckCircle2, AlertCircle, X, Edit2, Crown, Award, CalendarCheck, Search, MoreVertical, ChevronDown } from 'lucide-react'
 import ExcelJS from 'exceljs'
 
 const ASSOCIATION_PLANS = [
@@ -56,6 +56,9 @@ export default function AdminInvites() {
     const [isBulkLoading, setIsBulkLoading] = useState(false)
     const [processingResults, setProcessingResults] = useState(null)
     const fileInputRef = useRef(null)
+    const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
+    const [searchUser, setSearchUser] = useState('')
+    const [expandedUserId, setExpandedUserId] = useState(null)
 
     const INVITES_ALLOWED_ROLES = ['superadministrador', 'legal', 'comercial', 'postulantes', 'tecnico']
     const canManage = ['superadministrador', 'legal', 'comercial', 'tecnico'].includes(profile?.role)
@@ -65,6 +68,13 @@ export default function AdminInvites() {
             fetchUsers()
         }
     }, [profile])
+
+    useEffect(() => {
+        const mq = window.matchMedia('(max-width: 767px)')
+        const handler = (e) => setIsMobile(e.matches)
+        mq.addEventListener('change', handler)
+        return () => mq.removeEventListener('change', handler)
+    }, [])
 
 
     const fetchUsers = async () => {
@@ -406,42 +416,56 @@ export default function AdminInvites() {
         }
     }
 
+    // Filtered users for search
+    const filteredUsers = searchUser.trim()
+        ? users.filter(u => {
+            const q = searchUser.toLowerCase()
+            return (
+                `${u.first_name || ''} ${u.last_name || ''}`.toLowerCase().includes(q) ||
+                (u.email || '').toLowerCase().includes(q) ||
+                (u.remax_agent_id || '').toLowerCase().includes(q)
+            )
+        })
+        : users
+
     return (
-        <div className="container max-w-4xl mx-auto px-4 py-8 space-y-8">
+        <div className={`container max-w-4xl mx-auto py-6 md:py-8 space-y-6 md:space-y-8 ${isMobile ? 'px-3 pb-24' : 'px-4'}`}>
             {/* Invite Section — only visible for managers */}
-            {canManage && <div className="grid md:grid-cols-2 gap-8">
+            {canManage && <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
                 {/* Invite Section */}
                 <Card>
-                    <CardHeader>
-                        <CardTitle>Invitar Agente</CardTitle>
-                        <CardDescription>
+                    <CardHeader className="p-4 md:p-6 pb-2 md:pb-4">
+                        <CardTitle className="text-lg md:text-xl">Invitar Agente</CardTitle>
+                        <CardDescription className="text-xs md:text-sm">
                             Envía una invitación por correo a un nuevo agente.
                         </CardDescription>
                     </CardHeader>
                     <form onSubmit={handleInvite}>
-                        <CardContent className="space-y-4">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                    <Label htmlFor="firstName">Nombre</Label>
+                        <CardContent className="space-y-3 md:space-y-4 p-4 md:p-6 pt-2 md:pt-0">
+                            <div className="grid grid-cols-2 gap-3 md:gap-4">
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="firstName" className="text-xs md:text-sm">Nombre</Label>
                                     <Input
                                         id="firstName"
                                         required
                                         value={firstName}
                                         onChange={(e) => setFirstName(e.target.value)}
+                                        className="h-9"
                                     />
                                 </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="lastName">Apellido</Label>
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="lastName" className="text-xs md:text-sm">Apellido</Label>
                                     <Input
                                         id="lastName"
                                         required
                                         value={lastName}
                                         onChange={(e) => setLastName(e.target.value)}
+                                        className="h-9"
                                     />
                                 </div>
                             </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="email">Correo Electrónico</Label>
+                            <div className="space-y-1.5">
+                                <Label htmlFor="email" className="text-xs md:text-sm">Correo Electrónico</Label>
                                 <Input
                                     id="email"
                                     type="email"
@@ -449,12 +473,13 @@ export default function AdminInvites() {
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
                                     placeholder="agente@remax-exclusive.cl"
+                                    className="h-9"
                                 />
                             </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="role">Rol</Label>
+                            <div className="space-y-1.5">
+                                <Label htmlFor="role" className="text-xs md:text-sm">Rol</Label>
                                 <Select value={role} onValueChange={setRole}>
-                                    <SelectTrigger>
+                                    <SelectTrigger className="h-9">
                                         <SelectValue placeholder="Selecciona un rol" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -468,8 +493,8 @@ export default function AdminInvites() {
                                 </Select>
                             </div>
                         </CardContent>
-                        <CardFooter>
-                            <Button type="submit" className="w-full" disabled={loading}>
+                        <CardFooter className="p-4 md:p-6 pt-0">
+                            <Button type="submit" className="w-full h-10" disabled={loading}>
                                 {loading ? 'Enviando...' : 'Enviar Invitación'}
                             </Button>
                         </CardFooter>
@@ -478,24 +503,24 @@ export default function AdminInvites() {
 
                 {/* Bulk Invite Section */}
                 <Card className="flex flex-col">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <Upload className="h-5 w-5" />
+                    <CardHeader className="p-4 md:p-6 pb-2 md:pb-4">
+                        <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
+                            <Upload className="h-4 w-4 md:h-5 md:w-5" />
                             Invitación Masiva
                         </CardTitle>
-                        <CardDescription>
+                        <CardDescription className="text-xs md:text-sm">
                             Carga un archivo CSV para invitar a múltiples agentes.
                         </CardDescription>
                     </CardHeader>
-                    <CardContent className="flex-1 space-y-4">
+                    <CardContent className="flex-1 space-y-3 md:space-y-4 p-4 md:p-6 pt-2 md:pt-0">
                         {!csvFile ? (
                             <div
-                                className="border-2 border-dashed rounded-xl p-8 text-center cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-900 border-slate-200 dark:border-slate-800 transition-colors"
+                                className="border-2 border-dashed rounded-xl p-6 md:p-8 text-center cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-900 border-slate-200 dark:border-slate-800 transition-colors active:scale-[0.98]"
                                 onClick={() => fileInputRef.current?.click()}
                             >
                                 <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                                    <FileText className="h-10 w-10 opacity-50" />
-                                    <p className="font-medium">Haz clic para cargar CSV</p>
+                                    <FileText className="h-8 w-8 md:h-10 md:w-10 opacity-50" />
+                                    <p className="font-medium text-sm">Haz clic para cargar CSV</p>
                                     <p className="text-xs">Debe contener Nombre, Apellido y Email</p>
                                 </div>
                                 <input
@@ -507,14 +532,14 @@ export default function AdminInvites() {
                                 />
                             </div>
                         ) : (
-                            <div className="space-y-4 animate-in fade-in duration-300">
+                            <div className="space-y-3 animate-in fade-in duration-300">
                                 <div className="flex items-center justify-between p-3 bg-primary/5 rounded-lg border border-primary/20">
-                                    <div className="flex items-center gap-2">
-                                        <FileText className="h-5 w-5 text-primary" />
-                                        <span className="text-sm font-medium truncate max-w-[150px]">{csvFile.name}</span>
-                                        <Badge variant="outline" className="text-[10px]">{csvData.length} filas</Badge>
+                                    <div className="flex items-center gap-2 min-w-0">
+                                        <FileText className="h-4 w-4 text-primary flex-none" />
+                                        <span className="text-sm font-medium truncate">{csvFile.name}</span>
+                                        <Badge variant="outline" className="text-[10px] flex-none">{csvData.length} filas</Badge>
                                     </div>
-                                    <Button variant="ghost" size="icon" onClick={() => setCsvFile(null)} className="h-8 w-8">
+                                    <Button variant="ghost" size="icon" onClick={() => setCsvFile(null)} className="h-8 w-8 flex-none">
                                         <X className="h-4 w-4" />
                                     </Button>
                                 </div>
@@ -585,9 +610,9 @@ export default function AdminInvites() {
                             </Alert>
                         )}
                     </CardContent>
-                    <CardFooter className="pt-0">
+                    <CardFooter className="p-4 md:p-6 pt-0">
                         <Button
-                            className="w-full"
+                            className="w-full h-10"
                             disabled={!csvFile || isBulkLoading}
                             onClick={handleBulkInvite}
                         >
@@ -607,166 +632,309 @@ export default function AdminInvites() {
 
             {/* Users List Section */}
             <Card>
-                <CardHeader>
-                    <CardTitle>Usuarios Registrados</CardTitle>
-                    <CardDescription>
-                        Lista de todos los agentes y administradores registrados.
-                    </CardDescription>
+                <CardHeader className="p-4 md:p-6">
+                    <div className="flex flex-col gap-3">
+                        <div>
+                            <CardTitle className="text-lg md:text-xl">Usuarios Registrados</CardTitle>
+                            <CardDescription className="text-xs md:text-sm">
+                                {filteredUsers.length} de {users.length} usuario{users.length !== 1 ? 's' : ''}
+                            </CardDescription>
+                        </div>
+                        {/* Search bar */}
+                        <div className="relative">
+                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                            <Input
+                                placeholder="Buscar por nombre o correo..."
+                                className="pl-8 h-9 text-sm"
+                                value={searchUser}
+                                onChange={(e) => setSearchUser(e.target.value)}
+                            />
+                        </div>
+                    </div>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="p-3 md:p-6 pt-0">
                     {usersLoading ? (
-                        <div className="text-center py-8 text-muted-foreground">Cargando usuarios...</div>
-                    ) : users.length === 0 ? (
-                        <div className="text-center py-8 text-muted-foreground">No hay usuarios registrados aun.</div>
+                        <div className="flex items-center justify-center py-12 gap-2 text-muted-foreground">
+                            <Loader2 className="h-5 w-5 animate-spin" />
+                            <span className="text-sm">Cargando usuarios...</span>
+                        </div>
+                    ) : filteredUsers.length === 0 ? (
+                        <div className="text-center py-12 text-muted-foreground">
+                            <User className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                            <p className="text-sm font-medium">No se encontraron usuarios</p>
+                        </div>
                     ) : (
-                        <div className="space-y-4">
-                            {users.map((u) => (
-                                <div key={u.id} className="flex items-center justify-between p-4 border rounded-lg bg-card hover:bg-accent/5 transition-colors">
-                                    <div className="flex items-center gap-4">
-                                        <div className="h-10 w-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center overflow-hidden">
-                                            {u.avatar_url ? (
-                                                <img src={u.avatar_url} alt={u.first_name} className="h-full w-full object-cover" />
-                                            ) : (
-                                                <span className="text-lg font-bold text-slate-500">
-                                                    {(u.first_name?.[0] || u.email?.[0] || '?').toUpperCase()}
-                                                </span>
-                                            )}
-                                        </div>
-                                        <div>
-                                            <p className="font-medium text-foreground flex items-center gap-2">
-                                                {u.first_name} {u.last_name || ''}
+                        <div className="space-y-2 md:space-y-4">
+                            {filteredUsers.map((u) => {
+                                const isExpanded = expandedUserId === u.id
+                                const rolePlan = u.role === 'agent' ? ASSOCIATION_PLANS.find(p => p.key === (u.association_plan || 'EJECUTIVO')) : null
+
+                                // Role badge
+                                const roleBadge = (() => {
+                                    if (u.role === 'superadministrador') return <Badge variant="secondary" className="h-5 px-1.5 text-[10px] flex-none">Superadmin</Badge>
+                                    if (u.role === 'legal') return <Badge className="h-5 px-1.5 text-[10px] bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/20 dark:text-purple-300 flex-none">Legal</Badge>
+                                    if (u.role === 'comercial') return <Badge className="h-5 px-1.5 text-[10px] bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 flex-none">Comercial</Badge>
+                                    if (u.role === 'administracion') return <Badge className="h-5 px-1.5 text-[10px] bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-300 flex-none">Administración</Badge>
+                                    return null
+                                })()
+
+                                if (isMobile) {
+                                    // ── Mobile Card View ───
+                                    return (
+                                        <div
+                                            key={u.id}
+                                            className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden"
+                                        >
+                                            {/* Top row: avatar + name + expand */}
+                                            <div
+                                                className="flex items-center gap-3 p-3 cursor-pointer active:bg-gray-50 dark:active:bg-gray-800/50"
+                                                onClick={() => setExpandedUserId(isExpanded ? null : u.id)}
+                                            >
+                                                <div className="h-10 w-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center overflow-hidden flex-none">
+                                                    {u.avatar_url ? (
+                                                        <img src={u.avatar_url} alt={u.first_name} className="h-full w-full object-cover" />
+                                                    ) : (
+                                                        <span className="text-base font-bold text-slate-500">
+                                                            {(u.first_name?.[0] || u.email?.[0] || '?').toUpperCase()}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center gap-1.5">
+                                                        <p className="font-semibold text-sm text-gray-900 dark:text-white truncate">
+                                                            {u.first_name} {u.last_name || ''}
+                                                        </p>
+                                                        {u.id === profile?.id && <span className="text-[10px] text-muted-foreground">(Tú)</span>}
+                                                    </div>
+                                                    <p className="text-xs text-muted-foreground truncate">{u.email}</p>
+                                                </div>
+                                                <div className="flex items-center gap-1.5 flex-none">
+                                                    {/* Invitation status dot */}
+                                                    <div className={`w-2 h-2 rounded-full ${u.invitation_accepted_at ? 'bg-green-500' : 'bg-amber-400 animate-pulse'}`} />
+                                                    <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                                                </div>
+                                            </div>
+
+                                            {/* Badges row — always visible */}
+                                            <div className="flex flex-wrap gap-1 px-3 pb-2">
+                                                {roleBadge}
                                                 {u.remax_agent_id && (
                                                     <Badge variant="outline" className="text-[10px] h-5 px-1.5 bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300 border-blue-200 dark:border-blue-800">
                                                         ID: {u.remax_agent_id}
                                                     </Badge>
                                                 )}
-                                                {u.role === 'agent' && (() => {
-                                                    const plan = ASSOCIATION_PLANS.find(p => p.key === (u.association_plan || 'EJECUTIVO'))
-                                                    return plan ? (
-                                                        <Badge
-                                                            variant="outline"
-                                                            className={`text-[10px] h-5 px-1.5 cursor-pointer hover:opacity-80 transition-opacity ${plan.color}`}
-                                                            onClick={(e) => { e.stopPropagation(); canManage && handlePlanClick(u) }}
-                                                            title={canManage ? 'Clic para cambiar plan' : `Plan: ${plan.label} (${plan.pct}%)`}
-                                                        >
-                                                            <Crown className="w-2.5 h-2.5 mr-0.5" />
-                                                            {plan.label} {plan.pct}%
-                                                        </Badge>
-                                                    ) : null
-                                                })()}
+                                                {rolePlan && (
+                                                    <Badge
+                                                        variant="outline"
+                                                        className={`text-[10px] h-5 px-1.5 ${rolePlan.color}`}
+                                                        onClick={(e) => { e.stopPropagation(); canManage && handlePlanClick(u) }}
+                                                    >
+                                                        <Crown className="w-2.5 h-2.5 mr-0.5" />
+                                                        {rolePlan.label} {rolePlan.pct}%
+                                                    </Badge>
+                                                )}
                                                 {u.role === 'agent' && (
                                                     <Badge
                                                         variant="outline"
-                                                        className={`text-[10px] h-5 px-1.5 cursor-pointer hover:opacity-80 transition-opacity ${u.shift_eligible
+                                                        className={`text-[10px] h-5 px-1.5 ${u.shift_eligible
                                                             ? 'bg-orange-100 text-orange-700 border-orange-300'
                                                             : 'bg-gray-100 text-gray-400 border-gray-200'
-                                                            }`}
+                                                        }`}
                                                         onClick={(e) => { e.stopPropagation(); canManage && toggleShiftEligible(u) }}
-                                                        title={canManage ? 'Clic para cambiar elegibilidad de turnos' : (u.shift_eligible ? 'Habilitado para guardias' : 'No habilitado para guardias')}
                                                     >
                                                         <CalendarCheck className="w-2.5 h-2.5 mr-0.5" />
                                                         {u.shift_eligible ? 'Guardia ✓' : 'Sin guardia'}
                                                     </Badge>
                                                 )}
-                                                {u.id === profile?.id && <span className="ml-2 text-xs text-muted-foreground">(Tú)</span>}
-                                            </p>
-                                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                                <span>{u.email}</span>
-                                                {u.role === 'superadministrador' && (
-                                                    <Badge variant="secondary" className="h-5 px-1.5 text-[10px]">
-                                                        Superadmin
-                                                    </Badge>
-                                                )}
-                                                {u.role === 'legal' && (
-                                                    <Badge className="h-5 px-1.5 text-[10px] bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/20 dark:text-purple-300">
-                                                        Legal
-                                                    </Badge>
-                                                )}
-                                                {u.role === 'comercial' && (
-                                                    <Badge className="h-5 px-1.5 text-[10px] bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300">
-                                                        Comercial
-                                                    </Badge>
-                                                )}
-                                                {u.role === 'administracion' && (
-                                                    <Badge className="h-5 px-1.5 text-[10px] bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-300">
-                                                        Administración
-                                                    </Badge>
-                                                )}
                                             </div>
-                                            <div className="flex flex-col gap-0.5 mt-1">
-                                                <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
-                                                    Invitado el: {new Date(u.created_at).toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' })}
-                                                </p>
-                                                <p className="text-xs font-medium">
-                                                    {u.invitation_accepted_at ? (
-                                                        <span className="text-green-600 dark:text-green-400 flex items-center gap-1">
-                                                            <CheckCircle2 className="h-3 w-3" />
-                                                            Aceptó invitación: {new Date(u.invitation_accepted_at).toLocaleString('es-CL', {
-                                                                day: 'numeric',
-                                                                month: 'long',
-                                                                year: 'numeric',
-                                                                hour: '2-digit',
-                                                                minute: '2-digit'
-                                                            })}
-                                                        </span>
-                                                    ) : (
-                                                        <span className="text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                                                            <Loader2 className="h-3 w-3 animate-pulse" />
-                                                            Pendiente de aceptar
-                                                        </span>
-                                                    )}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </div>
 
-                                    {u.id !== profile?.id && canManage && (
-                                        <div className="flex items-center gap-1">
-                                            {u.role === 'agent' && (
-                                                <>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        title="Asignar Plan de Asociación"
-                                                        onClick={() => handlePlanClick(u)}
-                                                    >
-                                                        <Crown className="h-4 w-4 text-amber-500" />
-                                                    </Button>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        title={u.shift_eligible ? 'Deshabilitar guardia' : 'Habilitar guardia'}
-                                                        onClick={() => toggleShiftEligible(u)}
-                                                    >
-                                                        <CalendarCheck className={`h-4 w-4 ${u.shift_eligible ? 'text-orange-500' : 'text-gray-300'}`} />
-                                                    </Button>
-                                                </>
+                                            {/* Expanded details */}
+                                            {isExpanded && (
+                                                <div className="px-3 pb-3 space-y-3 border-t border-gray-100 dark:border-gray-800 pt-3 animate-in slide-in-from-top-2 duration-200">
+                                                    {/* Dates */}
+                                                    <div className="space-y-1">
+                                                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
+                                                            Invitado el: {new Date(u.created_at).toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                                        </p>
+                                                        <p className="text-xs font-medium">
+                                                            {u.invitation_accepted_at ? (
+                                                                <span className="text-green-600 dark:text-green-400 flex items-center gap-1">
+                                                                    <CheckCircle2 className="h-3 w-3" />
+                                                                    Aceptó: {new Date(u.invitation_accepted_at).toLocaleString('es-CL', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                                                </span>
+                                                            ) : (
+                                                                <span className="text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                                                                    <Loader2 className="h-3 w-3 animate-pulse" />
+                                                                    Pendiente de aceptar
+                                                                </span>
+                                                            )}
+                                                        </p>
+                                                    </div>
+
+                                                    {/* Action buttons */}
+                                                    {u.id !== profile?.id && canManage && (
+                                                        <div className="flex items-center gap-1 flex-wrap">
+                                                            {u.role === 'agent' && (
+                                                                <>
+                                                                    <Button variant="outline" size="sm" className="h-8 text-xs gap-1" onClick={() => handlePlanClick(u)}>
+                                                                        <Crown className="h-3 w-3 text-amber-500" />
+                                                                        Plan
+                                                                    </Button>
+                                                                    <Button variant="outline" size="sm" className="h-8 text-xs gap-1" onClick={() => toggleShiftEligible(u)}>
+                                                                        <CalendarCheck className={`h-3 w-3 ${u.shift_eligible ? 'text-orange-500' : 'text-gray-300'}`} />
+                                                                        Guardia
+                                                                    </Button>
+                                                                </>
+                                                            )}
+                                                            <Button variant="outline" size="sm" className="h-8 text-xs gap-1" onClick={() => handleEditIdClick(u)}>
+                                                                <Edit2 className="h-3 w-3" />
+                                                                ID
+                                                            </Button>
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                className="h-8 text-xs gap-1 text-red-500 border-red-200 hover:bg-red-50 dark:border-red-800 dark:hover:bg-red-900/20 ml-auto"
+                                                                onClick={() => handleDeleteClick(u)}
+                                                                disabled={deleteLoading === u.id}
+                                                            >
+                                                                {deleteLoading === u.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+                                                                Eliminar
+                                                            </Button>
+                                                        </div>
+                                                    )}
+                                                </div>
                                             )}
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                title="Editar ID REMAX"
-                                                onClick={() => handleEditIdClick(u)}
-                                            >
-                                                <Edit2 className="h-4 w-4 text-gray-500" />
-                                            </Button>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20"
-                                                onClick={() => handleDeleteClick(u)}
-                                                disabled={deleteLoading === u.id}
-                                            >
-                                                {deleteLoading === u.id ? (
-                                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                                ) : (
-                                                    <Trash2 className="h-4 w-4" />
-                                                )}
-                                            </Button>
                                         </div>
-                                    )}
-                                </div>
-                            ))}
+                                    )
+                                }
+
+                                // ── Desktop Row View (unchanged) ───
+                                return (
+                                    <div key={u.id} className="flex items-center justify-between p-4 border rounded-lg bg-card hover:bg-accent/5 transition-colors">
+                                        <div className="flex items-center gap-4">
+                                            <div className="h-10 w-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center overflow-hidden">
+                                                {u.avatar_url ? (
+                                                    <img src={u.avatar_url} alt={u.first_name} className="h-full w-full object-cover" />
+                                                ) : (
+                                                    <span className="text-lg font-bold text-slate-500">
+                                                        {(u.first_name?.[0] || u.email?.[0] || '?').toUpperCase()}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div>
+                                                <p className="font-medium text-foreground flex items-center gap-2">
+                                                    {u.first_name} {u.last_name || ''}
+                                                    {u.remax_agent_id && (
+                                                        <Badge variant="outline" className="text-[10px] h-5 px-1.5 bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300 border-blue-200 dark:border-blue-800">
+                                                            ID: {u.remax_agent_id}
+                                                        </Badge>
+                                                    )}
+                                                    {rolePlan && (
+                                                        <Badge
+                                                            variant="outline"
+                                                            className={`text-[10px] h-5 px-1.5 cursor-pointer hover:opacity-80 transition-opacity ${rolePlan.color}`}
+                                                            onClick={(e) => { e.stopPropagation(); canManage && handlePlanClick(u) }}
+                                                            title={canManage ? 'Clic para cambiar plan' : `Plan: ${rolePlan.label} (${rolePlan.pct}%)`}
+                                                        >
+                                                            <Crown className="w-2.5 h-2.5 mr-0.5" />
+                                                            {rolePlan.label} {rolePlan.pct}%
+                                                        </Badge>
+                                                    )}
+                                                    {u.role === 'agent' && (
+                                                        <Badge
+                                                            variant="outline"
+                                                            className={`text-[10px] h-5 px-1.5 cursor-pointer hover:opacity-80 transition-opacity ${u.shift_eligible
+                                                                ? 'bg-orange-100 text-orange-700 border-orange-300'
+                                                                : 'bg-gray-100 text-gray-400 border-gray-200'
+                                                            }`}
+                                                            onClick={(e) => { e.stopPropagation(); canManage && toggleShiftEligible(u) }}
+                                                            title={canManage ? 'Clic para cambiar elegibilidad de turnos' : (u.shift_eligible ? 'Habilitado para guardias' : 'No habilitado para guardias')}
+                                                        >
+                                                            <CalendarCheck className="w-2.5 h-2.5 mr-0.5" />
+                                                            {u.shift_eligible ? 'Guardia ✓' : 'Sin guardia'}
+                                                        </Badge>
+                                                    )}
+                                                    {u.id === profile?.id && <span className="ml-2 text-xs text-muted-foreground">(Tú)</span>}
+                                                </p>
+                                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                                    <span>{u.email}</span>
+                                                    {roleBadge}
+                                                </div>
+                                                <div className="flex flex-col gap-0.5 mt-1">
+                                                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
+                                                        Invitado el: {new Date(u.created_at).toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                                    </p>
+                                                    <p className="text-xs font-medium">
+                                                        {u.invitation_accepted_at ? (
+                                                            <span className="text-green-600 dark:text-green-400 flex items-center gap-1">
+                                                                <CheckCircle2 className="h-3 w-3" />
+                                                                Aceptó invitación: {new Date(u.invitation_accepted_at).toLocaleString('es-CL', {
+                                                                    day: 'numeric',
+                                                                    month: 'long',
+                                                                    year: 'numeric',
+                                                                    hour: '2-digit',
+                                                                    minute: '2-digit'
+                                                                })}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                                                                <Loader2 className="h-3 w-3 animate-pulse" />
+                                                                Pendiente de aceptar
+                                                            </span>
+                                                        )}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {u.id !== profile?.id && canManage && (
+                                            <div className="flex items-center gap-1">
+                                                {u.role === 'agent' && (
+                                                    <>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            title="Asignar Plan de Asociación"
+                                                            onClick={() => handlePlanClick(u)}
+                                                        >
+                                                            <Crown className="h-4 w-4 text-amber-500" />
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            title={u.shift_eligible ? 'Deshabilitar guardia' : 'Habilitar guardia'}
+                                                            onClick={() => toggleShiftEligible(u)}
+                                                        >
+                                                            <CalendarCheck className={`h-4 w-4 ${u.shift_eligible ? 'text-orange-500' : 'text-gray-300'}`} />
+                                                        </Button>
+                                                    </>
+                                                )}
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    title="Editar ID REMAX"
+                                                    onClick={() => handleEditIdClick(u)}
+                                                >
+                                                    <Edit2 className="h-4 w-4 text-gray-500" />
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20"
+                                                    onClick={() => handleDeleteClick(u)}
+                                                    disabled={deleteLoading === u.id}
+                                                >
+                                                    {deleteLoading === u.id ? (
+                                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                                    ) : (
+                                                        <Trash2 className="h-4 w-4" />
+                                                    )}
+                                                </Button>
+                                            </div>
+                                        )}
+                                    </div>
+                                )
+                            })}
                         </div>
                     )}
                 </CardContent>
