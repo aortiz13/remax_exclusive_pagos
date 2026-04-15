@@ -1138,39 +1138,7 @@ export default function BusinessPlan({ agentId: externalAgentId, readOnly = fals
             </TabsContent>
 
             <TabsContent value="config" className="flex-1 flex flex-col overflow-hidden mt-0">
-                {/* PERSISTENT RESULTS STRIP */}
-                <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 rounded-xl px-6 py-5 text-white shrink-0 mb-4">
-                    <div className="flex items-center gap-6">
-                        <div className="flex items-center gap-5 flex-1">
-                            <div className="pr-5 border-r border-white/10">
-                                <p className="text-xs text-blue-300 font-bold uppercase">Fact. Bruta Mín.</p>
-                                <p className="text-xl font-bold">{fmtCLP(minBilling)}</p>
-                            </div>
-                            <div className="pr-5 border-r border-white/10">
-                                <p className="text-xs text-emerald-300 font-bold uppercase">Vendedores ({(sellerPct * 100).toFixed(0)}%)</p>
-                                <p className="text-base font-bold">{fmtCLP(billingVend)} <span className="text-xs text-slate-400">· {minTransSale} trans.</span></p>
-                            </div>
-                            <div className="pr-5 border-r border-white/10">
-                                <p className="text-xs text-amber-300 font-bold uppercase">Arrendadores ({(landlordPct * 100).toFixed(0)}%)</p>
-                                <p className="text-base font-bold">{fmtCLP(billingArr)} <span className="text-xs text-slate-400">· {minTransRental} trans.</span></p>
-                            </div>
-                            <div className="pr-5 border-r border-white/10">
-                                <p className="text-xs text-purple-300 font-bold uppercase">Horas/Día</p>
-                                <p className="text-base font-bold">{minDailyH}h <span className="text-xs text-slate-400">· {totalWeekH}h/sem</span></p>
-                            </div>
-                        </div>
-                        <div className="w-64 shrink-0">
-                            <div className="flex justify-between items-center mb-1.5">
-                                <span className="text-xs text-slate-300">Progreso</span>
-                                <span className="text-xs font-bold text-blue-300">{fmtPct(billingProg)}%</span>
-                            </div>
-                            <div className="w-full bg-white/10 h-3 rounded-full overflow-hidden">
-                                <div className={`h-full rounded-full transition-all duration-1000 ${billingProg >= 80 ? 'bg-emerald-400' : billingProg >= 40 ? 'bg-amber-400' : 'bg-red-400'}`} style={{ width: `${billingProg}%` }} />
-                            </div>
-                            <div className="flex justify-between mt-1"><span className="text-xs text-slate-500">Actual: {fmtCLP(kpiData.billing)}</span><span className="text-xs text-slate-500">Meta: {fmtCLP(minBilling)}</span></div>
-                        </div>
-                    </div>
-                </div>
+
 
                 {/* Config: Sidebar + Tabs */}
                 <div className="flex-1 grid grid-cols-1 md:grid-cols-[280px_1fr] gap-4 overflow-hidden">
