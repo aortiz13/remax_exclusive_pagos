@@ -1035,7 +1035,7 @@ export default function CalendarPage() {
 
                 {/* Modals (same as desktop) */}
                 <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-                    <DialogContent className="sm:max-w-[640px] p-0 overflow-hidden border-none shadow-2xl flex flex-col max-h-[85dvh] mx-4 rounded-2xl">
+                    <DialogContent className="w-[calc(100%-2rem)] sm:max-w-[640px] p-0 overflow-hidden border-none shadow-2xl flex flex-col max-h-[85dvh] rounded-2xl">
                         {!isEditing && selectedEvent ? (
                         <div className="flex flex-col overflow-hidden">
                             <div className="flex-1 overflow-y-auto">
