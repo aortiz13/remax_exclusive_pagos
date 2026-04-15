@@ -49,12 +49,20 @@ const DEFAULT_CARD_ORDER = [
     'sticky-notes',
 ]
 
+const DEFAULT_CARD_SPANS = {
+    'quick-actions': 2,
+    'contacts-active': 1,
+    'calendar': 1,
+    'ambassadors': 1,
+    'requests': 2,
+    'sticky-notes': 1,
+}
+
 function getStoredOrder(userId) {
     try {
         const raw = localStorage.getItem(`dashboard_card_order_${userId}`)
         if (raw) {
             const parsed = JSON.parse(raw)
-            // Ensure all default cards are present (if new ones were added)
             const merged = [...parsed]
             for (const id of DEFAULT_CARD_ORDER) {
                 if (!merged.includes(id)) merged.push(id)
@@ -68,6 +76,20 @@ function getStoredOrder(userId) {
 function saveOrder(userId, order) {
     try {
         localStorage.setItem(`dashboard_card_order_${userId}`, JSON.stringify(order))
+    } catch { }
+}
+
+function getStoredSpans(userId) {
+    try {
+        const raw = localStorage.getItem(`dashboard_card_spans_${userId}`)
+        if (raw) return { ...DEFAULT_CARD_SPANS, ...JSON.parse(raw) }
+    } catch { }
+    return { ...DEFAULT_CARD_SPANS }
+}
+
+function saveSpans(userId, spans) {
+    try {
+        localStorage.setItem(`dashboard_card_spans_${userId}`, JSON.stringify(spans))
     } catch { }
 }
 
@@ -91,13 +113,23 @@ export default function Dashboard() {
     const [inspectionAlertProps, setInspectionAlertProps] = useState([])
     const [inspectionAlertExpanded, setInspectionAlertExpanded] = useState(false)
 
-    // DnD card ordering
+    // DnD card ordering + spans
     const [cardOrder, setCardOrder] = useState(() => getStoredOrder(user?.id))
+    const [cardSpans, setCardSpans] = useState(() => getStoredSpans(user?.id))
 
     useEffect(() => {
         if (user?.id) {
             setCardOrder(getStoredOrder(user.id))
+            setCardSpans(getStoredSpans(user.id))
         }
+    }, [user?.id])
+
+    const handleSpanChange = useCallback((cardId, newSpan) => {
+        setCardSpans(prev => {
+            const next = { ...prev, [cardId]: newSpan }
+            saveSpans(user?.id, next)
+            return next
+        })
     }, [user?.id])
 
     const sensors = useSensors(
@@ -756,13 +788,13 @@ export default function Dashboard() {
                             const content = renderCardContent(cardId)
                             if (!content) return null
 
-                            // Determine spanning: requests table gets full width
-                            const spanClass = cardId === 'requests'
-                                ? 'md:col-span-2 lg:col-span-2'
-                                : ''
-
                             return (
-                                <DashboardCard key={cardId} id={cardId} className={spanClass}>
+                                <DashboardCard
+                                    key={cardId}
+                                    id={cardId}
+                                    colSpan={cardSpans[cardId] || 1}
+                                    onSpanChange={handleSpanChange}
+                                >
                                     {content}
                                 </DashboardCard>
                             )
