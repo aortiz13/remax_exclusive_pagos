@@ -342,6 +342,7 @@ const DealPipelineCard = ({ deal, parentLabel, childDeals, isHistorical }) => {
                                         )}
                                     </div>
                                 </div>
+                            </div>
                         )
                     })}
                 </div>
