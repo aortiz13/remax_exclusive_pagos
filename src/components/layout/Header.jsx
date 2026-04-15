@@ -14,7 +14,7 @@ import {
 } from '@/components/ui'
 import { 
     LogOut, User, FileText, Settings, Menu, PlusCircle, LayoutDashboard, 
-    ClipboardCheck, Zap, Users, MessageSquare, Calendar, ClipboardList
+    ClipboardCheck, Zap, Users, MessageSquare, Calendar, ClipboardList, Activity
 } from 'lucide-react'
 
 export default function Header() {
@@ -45,6 +45,7 @@ export default function Header() {
         // Agents and admins
         menuItems.push(
             { title: 'Contactos & Tareas', icon: Users, path: '/crm' },
+            { title: 'Acciones', icon: Activity, path: '/crm/actions' },
             { title: 'Calendario', icon: Calendar, path: '/calendar' },
             { title: 'Casilla', icon: MessageSquare, path: '/casilla' },
             { title: 'Informes de Gestión', icon: ClipboardCheck, path: '/informes-gestion' },
