@@ -102,6 +102,14 @@ const PropertyList = () => {
     const [isFormOpen, setIsFormOpen] = useState(false)
     const [isQuickViewOpen, setIsQuickViewOpen] = useState(false)
     const [selectedProperty, setSelectedProperty] = useState(null)
+    const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
+
+    useEffect(() => {
+        const mq = window.matchMedia('(max-width: 767px)')
+        const handler = (e) => setIsMobile(e.matches)
+        mq.addEventListener('change', handler)
+        return () => mq.removeEventListener('change', handler)
+    }, [])
 
     // Agent filter (privileged roles only)
     const [agents, setAgents] = useState([])
@@ -532,6 +540,180 @@ const PropertyList = () => {
     }
 
 
+    /* ─── MOBILE LAYOUT ──────────────────────────────────────── */
+    if (isMobile) {
+        return (
+            <div className="space-y-3">
+                {/* Compact search */}
+                <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input
+                        placeholder="Buscar propiedades..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pl-9 h-10 bg-white dark:bg-slate-950 rounded-xl border-gray-200"
+                    />
+                </div>
+
+                {/* Toolbar */}
+                <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs text-gray-500 font-medium">
+                        {filteredProperties.length} propiedad{filteredProperties.length !== 1 ? 'es' : ''}
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                        <AdvancedFilterBuilder
+                            filterConfig={PROPERTY_FILTER_CONFIG}
+                            filterGroups={filterGroups}
+                            addFilter={addFilter}
+                            removeFilter={removeFilter}
+                            updateFilter={updateFilter}
+                            addGroup={addGroup}
+                            removeGroup={removeGroup}
+                            clearAll={clearAll}
+                            activeFilterCount={activeFilterCount}
+                        />
+                        <Select value={sortOrder} onValueChange={setSortOrder}>
+                            <SelectTrigger className="w-[120px] h-8 text-xs bg-white dark:bg-slate-950 rounded-lg">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="newest">Más Nuevos</SelectItem>
+                                <SelectItem value="oldest">Más Antiguos</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </div>
+
+                {hasActiveFilters && (
+                    <ActiveFilterPills
+                        activeFilters={activeFilters}
+                        onRemove={removeFilter}
+                        onClearAll={clearAll}
+                    />
+                )}
+
+                {/* Property Cards */}
+                {loading ? (
+                    <div className="flex items-center justify-center py-16">
+                        <div className="text-center space-y-2">
+                            <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto" />
+                            <p className="text-sm text-gray-500">Cargando propiedades...</p>
+                        </div>
+                    </div>
+                ) : filteredProperties.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-16 text-center">
+                        <Home className="w-12 h-12 text-gray-300 mb-3" />
+                        <p className="text-sm text-gray-500 font-medium">No se encontraron propiedades</p>
+                    </div>
+                ) : (
+                    <div className="space-y-2">
+                        {filteredProperties.map(property => {
+                            const shortAddress = property.address
+                                ? property.address.split(',').slice(0, 2).map(s => s.trim()).join(', ')
+                                : 'Sin dirección'
+                            const ownerName = property.contacts
+                                ? `${property.contacts.first_name} ${property.contacts.last_name}`
+                                : null
+
+                            return (
+                                <div
+                                    key={property.id}
+                                    onClick={() => handleRowClick(property)}
+                                    className="bg-white dark:bg-slate-900 rounded-xl border border-gray-100 dark:border-slate-800 overflow-hidden active:scale-[0.98] transition-transform cursor-pointer shadow-sm hover:shadow-md"
+                                >
+                                    <div className="flex">
+                                        {/* Thumbnail */}
+                                        <div className="w-24 h-24 flex-none bg-gray-100 dark:bg-slate-800">
+                                            {property.image_url ? (
+                                                <img src={property.image_url} alt="" className="w-full h-full object-cover" />
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center text-gray-300">
+                                                    <Home className="w-8 h-8" />
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Content */}
+                                        <div className="flex-1 p-3 min-w-0">
+                                            <div className="flex items-start justify-between gap-1">
+                                                <div className="min-w-0">
+                                                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                                                        {shortAddress}
+                                                    </h3>
+                                                    <p className="text-[11px] text-gray-400 mt-0.5 flex items-center gap-1">
+                                                        <MapPin className="w-3 h-3 flex-none" />
+                                                        {property.commune || 'Sin comuna'}
+                                                    </p>
+                                                </div>
+                                                {property.price && (
+                                                    <span className="text-xs font-bold text-gray-900 dark:text-white whitespace-nowrap">
+                                                        {property.currency === 'CLP' ? '$' : (property.currency || '')} {new Intl.NumberFormat('es-CL').format(property.price)}
+                                                    </span>
+                                                )}
+                                            </div>
+
+                                            <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                                                {property.property_type && (
+                                                    <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-gray-400">
+                                                        {property.property_type}
+                                                    </span>
+                                                )}
+                                                {property.operation_type && (
+                                                    <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded capitalize ${property.operation_type === 'arriendo' ? 'bg-sky-100 text-sky-700' : 'bg-indigo-100 text-indigo-700'}`}>
+                                                        {property.operation_type}
+                                                    </span>
+                                                )}
+                                                {property.status?.map((s, i) => (
+                                                    <span key={i} className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                                                        {s}
+                                                    </span>
+                                                ))}
+                                            </div>
+
+                                            {ownerName && (
+                                                <p className="text-[11px] text-gray-400 mt-1 truncate">
+                                                    Dueño: {ownerName}
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            )
+                        })}
+                    </div>
+                )}
+
+                {/* FAB */}
+                <button
+                    onClick={handleCreate}
+                    className="fixed bottom-6 right-5 w-14 h-14 bg-blue-600 text-white rounded-2xl shadow-lg shadow-blue-500/30 flex items-center justify-center z-30 active:scale-95 transition-transform"
+                >
+                    <Plus className="w-6 h-6" />
+                </button>
+
+                {isFormOpen && (
+                    <PropertyForm
+                        property={selectedProperty}
+                        isOpen={isFormOpen}
+                        onClose={handleFormClose}
+                    />
+                )}
+                {isQuickViewOpen && (
+                    <PropertyQuickView
+                        property={selectedProperty}
+                        isOpen={isQuickViewOpen}
+                        onClose={handleQuickViewClose}
+                        onEdit={() => {
+                            setIsQuickViewOpen(false)
+                            setIsFormOpen(true)
+                        }}
+                    />
+                )}
+            </div>
+        )
+    }
+
+    /* ─── DESKTOP LAYOUT ──────────────────────────────────────── */
     return (
         <div className="space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-4 p-4 bg-slate-50/50 dark:bg-slate-900/20 rounded-xl border border-slate-100 dark:border-slate-800">

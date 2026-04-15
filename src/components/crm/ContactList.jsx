@@ -451,6 +451,244 @@ const ContactList = () => {
     }
 
 
+    /* ─── STATUS badge styling ─────────────────────────────── */
+    const getStatusStyle = (status) => {
+        switch (status) {
+            case 'Activo': return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+            case 'Nuevo': return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+            case 'En Seguimiento': return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+            case 'Cliente (Cerrado)': return 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
+            case 'Perdido': return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+            default: return 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400'
+        }
+    }
+
+    const getInitials = (contact) => {
+        const first = contact.first_name?.[0] || ''
+        const last = contact.last_name?.[0] || ''
+        return (first + last).toUpperCase() || '?'
+    }
+
+    const getRatingColor = (rating) => {
+        switch (rating) {
+            case 'A+': return 'bg-emerald-500 text-white'
+            case 'A': return 'bg-emerald-400 text-white'
+            case 'B': return 'bg-blue-400 text-white'
+            case 'C': return 'bg-amber-400 text-white'
+            case 'D': return 'bg-red-400 text-white'
+            default: return 'bg-gray-200 text-gray-500'
+        }
+    }
+
+    /* ─── MOBILE LAYOUT ──────────────────────────────────────── */
+    if (isMobile) {
+        return (
+            <div className="space-y-3">
+                {/* Compact search bar */}
+                <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input
+                        placeholder="Buscar contactos..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pl-9 h-10 bg-white dark:bg-slate-950 rounded-xl border-gray-200"
+                    />
+                </div>
+
+                {/* Compact toolbar: sort + filter + count */}
+                <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs text-gray-500 font-medium">
+                        {filteredContacts.length} contacto{filteredContacts.length !== 1 ? 's' : ''}
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                        <AdvancedFilterBuilder
+                            filterConfig={CONTACT_FILTER_CONFIG}
+                            filterGroups={filterGroups}
+                            addFilter={addFilter}
+                            removeFilter={removeFilter}
+                            updateFilter={updateFilter}
+                            addGroup={addGroup}
+                            removeGroup={removeGroup}
+                            clearAll={clearAll}
+                            activeFilterCount={activeFilterCount}
+                        />
+                        <Select value={sortOrder} onValueChange={setSortOrder}>
+                            <SelectTrigger className="w-[120px] h-8 text-xs bg-white dark:bg-slate-950 rounded-lg">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="newest">Más Nuevos</SelectItem>
+                                <SelectItem value="oldest">Más Antiguos</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </div>
+
+                {/* Active filter pills */}
+                {hasActiveFilters && (
+                    <ActiveFilterPills
+                        activeFilters={activeFilters}
+                        onRemove={removeFilter}
+                        onClearAll={clearAll}
+                    />
+                )}
+
+                {/* Contact Cards */}
+                {loading ? (
+                    <div className="flex items-center justify-center py-16">
+                        <div className="text-center space-y-2">
+                            <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto" />
+                            <p className="text-sm text-gray-500">Cargando contactos...</p>
+                        </div>
+                    </div>
+                ) : paginatedContacts.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-16 text-center">
+                        <Users className="w-12 h-12 text-gray-300 mb-3" />
+                        <p className="text-sm text-gray-500 font-medium">No se encontraron contactos</p>
+                        <p className="text-xs text-gray-400 mt-1">Intenta cambiar los filtros o la búsqueda</p>
+                    </div>
+                ) : (
+                    <div className="space-y-2">
+                        {paginatedContacts.map(contact => (
+                            <div
+                                key={contact.id}
+                                onClick={() => navigate(`/crm/contact/${contact.id}`)}
+                                className="bg-white dark:bg-slate-900 rounded-xl border border-gray-100 dark:border-slate-800 p-3 active:scale-[0.98] transition-transform cursor-pointer shadow-sm hover:shadow-md"
+                            >
+                                <div className="flex items-start gap-3">
+                                    {/* Avatar */}
+                                    <div className="relative flex-none">
+                                        <div className="w-11 h-11 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-sm font-bold shadow-sm">
+                                            {getInitials(contact)}
+                                        </div>
+                                        {contact.rating && (
+                                            <span className={`absolute -bottom-1 -right-1 text-[8px] font-bold px-1 py-0.5 rounded-full leading-none ${getRatingColor(contact.rating)}`}>
+                                                {contact.rating}
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    {/* Content */}
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center justify-between gap-2">
+                                            <h3 className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                                                {contact.first_name} {contact.last_name}
+                                            </h3>
+                                            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${getStatusStyle(contact.status)}`}>
+                                                {contact.status}
+                                            </span>
+                                        </div>
+
+                                        {contact.profession && (
+                                            <p className="text-[11px] text-gray-400 truncate mt-0.5">{contact.profession}</p>
+                                        )}
+
+                                        <div className="flex items-center gap-3 mt-1.5">
+                                            {contact.email && (
+                                                <span className="flex items-center gap-1 text-[11px] text-gray-500 truncate">
+                                                    <Mail className="w-3 h-3 flex-none" />
+                                                    <span className="truncate">{contact.email}</span>
+                                                </span>
+                                            )}
+                                        </div>
+                                        {contact.phone && (
+                                            <span className="flex items-center gap-1 text-[11px] text-gray-500 mt-0.5">
+                                                <Phone className="w-3 h-3 flex-none" />
+                                                {contact.phone}
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    {/* Quick actions */}
+                                    <div className="flex flex-col gap-1 flex-none" onClick={e => e.stopPropagation()}>
+                                        {contact.phone && (
+                                            <button
+                                                onClick={() => window.location.href = `tel:${contact.phone}`}
+                                                className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center text-emerald-600 active:bg-emerald-100"
+                                            >
+                                                <Phone className="w-3.5 h-3.5" />
+                                            </button>
+                                        )}
+                                        {contact.phone && (
+                                            <button
+                                                onClick={() => {
+                                                    const cleanPhone = contact.phone.replace(/[^0-9]/g, '')
+                                                    window.open(`https://wa.me/${cleanPhone}`, '_blank')
+                                                }}
+                                                className="w-8 h-8 rounded-lg bg-green-50 dark:bg-green-900/20 flex items-center justify-center text-green-600 active:bg-green-100"
+                                            >
+                                                <MessageCircle className="w-3.5 h-3.5" />
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                {/* Mobile pagination */}
+                {!loading && filteredContacts.length > PAGE_SIZE && (
+                    <div className="flex items-center justify-between py-2">
+                        <span className="text-xs text-gray-500">
+                            {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, filteredContacts.length)} de {filteredContacts.length}
+                        </span>
+                        <div className="flex items-center gap-1">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={safePage <= 1}
+                                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                className="h-8 w-8 p-0 rounded-lg"
+                            >
+                                <ChevronLeft className="h-4 w-4" />
+                            </Button>
+                            <span className="text-xs font-medium text-gray-700 px-2">
+                                {safePage} / {totalPages}
+                            </span>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={safePage >= totalPages}
+                                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                className="h-8 w-8 p-0 rounded-lg"
+                            >
+                                <ChevronRight className="h-4 w-4" />
+                            </Button>
+                        </div>
+                    </div>
+                )}
+
+                {/* FAB: New Contact */}
+                <button
+                    onClick={handleCreate}
+                    className="fixed bottom-6 right-5 w-14 h-14 bg-blue-600 text-white rounded-2xl shadow-lg shadow-blue-500/30 flex items-center justify-center z-30 active:scale-95 transition-transform"
+                >
+                    <Plus className="w-6 h-6" />
+                </button>
+
+                {/* Modals */}
+                {isFormOpen && (
+                    <ContactForm
+                        contact={selectedContact}
+                        isOpen={isFormOpen}
+                        onClose={handleFormClose}
+                    />
+                )}
+
+                <ContactImporter
+                    isOpen={isImporterOpen}
+                    onClose={() => setIsImporterOpen(false)}
+                    onSuccess={() => {
+                        setIsImporterOpen(false)
+                        fetchContacts()
+                    }}
+                />
+            </div>
+        )
+    }
+
+    /* ─── DESKTOP LAYOUT (unchanged) ─────────────────────────── */
     return (
         <div className="space-y-4">
             {/* Unified Toolbar */}
