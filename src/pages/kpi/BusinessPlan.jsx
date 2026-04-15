@@ -285,19 +285,16 @@ export default function BusinessPlan({ agentId: externalAgentId, readOnly = fals
                 {/* ═══════════════════════════════════════════════════════════════
                     3 CARDS — Facturación · Ventas · Arriendos
                    ═══════════════════════════════════════════════════════════════ */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {[
                         {
                             title: `Facturación ${year}`,
-                            icon: <DollarSign className="w-4 h-4" />,
-                            gradient: 'from-blue-600 via-indigo-600 to-violet-600',
-                            gradientLight: 'from-blue-50 to-indigo-50',
-                            accentText: 'text-blue-600',
-                            accentBg: 'bg-blue-500',
+                            subtitle: 'Acumulado anual',
+                            icon: DollarSign,
                             real: kpiData.billing,
                             goal: minBilling,
                             pct: billingProg,
-                            badgeLabel: `${fmtPct(billingProg)}%`,
+                            badge: `${fmtPct(billingProg)}%`,
                             ringColor: billingProg >= 80 ? '#10b981' : billingProg >= 40 ? '#f59e0b' : '#ef4444',
                             tipReal: 'Facturación acumulada real del año, calculada desde propiedades cerradas del agente.',
                             tipGoal: 'Meta de facturación bruta anual: (meta mensual × 12 + inversiones) ÷ (% plan × (1 − % RE/MAX)).',
@@ -306,16 +303,13 @@ export default function BusinessPlan({ agentId: externalAgentId, readOnly = fals
                         },
                         {
                             title: 'Ventas',
-                            icon: <TrendingUp className="w-4 h-4" />,
-                            gradient: 'from-emerald-500 via-teal-500 to-cyan-500',
-                            gradientLight: 'from-emerald-50 to-teal-50',
-                            accentText: 'text-emerald-600',
-                            accentBg: 'bg-emerald-500',
+                            subtitle: `${ticketData.saleCount} de ${minTransSale} transacciones`,
+                            icon: TrendingUp,
                             real: realSaleBilling,
                             goal: billingVend,
                             pct: billingVend > 0 ? Math.min((realSaleBilling / billingVend) * 100, 100) : 0,
-                            badgeLabel: `${ticketData.saleCount}/${minTransSale} trans.`,
-                            ringColor: '#10b981',
+                            badge: `${ticketData.saleCount}/${minTransSale}`,
+                            ringColor: '#3b82f6',
                             tipReal: 'Comisión generada por ventas: transacciones cerradas × ticket promedio real × % comisión venta.',
                             tipGoal: 'Facturación requerida por ventas: meta total × porcentaje asignado a vendedores.',
                             tipDiff: 'Diferencia entre comisión generada por ventas y meta requerida.',
@@ -323,16 +317,13 @@ export default function BusinessPlan({ agentId: externalAgentId, readOnly = fals
                         },
                         {
                             title: 'Arriendos',
-                            icon: <Building2 className="w-4 h-4" />,
-                            gradient: 'from-amber-500 via-orange-500 to-rose-500',
-                            gradientLight: 'from-amber-50 to-orange-50',
-                            accentText: 'text-amber-600',
-                            accentBg: 'bg-amber-500',
+                            subtitle: `${ticketData.rentalCount} de ${minTransRental} transacciones`,
+                            icon: Building2,
                             real: realRentalBilling,
                             goal: billingArr,
                             pct: billingArr > 0 ? Math.min((realRentalBilling / billingArr) * 100, 100) : 0,
-                            badgeLabel: `${ticketData.rentalCount}/${minTransRental} trans.`,
-                            ringColor: '#f59e0b',
+                            badge: `${ticketData.rentalCount}/${minTransRental}`,
+                            ringColor: '#3b82f6',
                             tipReal: 'Comisión generada por arriendos: transacciones cerradas × ticket promedio real × % comisión arriendo.',
                             tipGoal: 'Facturación requerida por arriendos: meta total × porcentaje asignado a arrendadores.',
                             tipDiff: 'Diferencia entre comisión generada por arriendos y meta requerida.',
@@ -341,78 +332,70 @@ export default function BusinessPlan({ agentId: externalAgentId, readOnly = fals
                     ].map((card, i) => {
                         const diff = card.real - card.goal
                         const isPositive = diff >= 0
+                        const Icon = card.icon
+                        const statusColor = card.pct >= 80 ? 'text-emerald-600 bg-emerald-50 border-emerald-200' : card.pct >= 40 ? 'text-amber-600 bg-amber-50 border-amber-200' : 'text-red-600 bg-red-50 border-red-200'
+                        const barBg = card.pct >= 80 ? 'bg-emerald-500' : card.pct >= 40 ? 'bg-amber-500' : 'bg-red-500'
                         return (
-                            <div key={i} className="group relative bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden border border-slate-100">
-                                {/* ── Top gradient accent bar ── */}
-                                <div className={`h-1.5 bg-gradient-to-r ${card.gradient}`} />
-
+                            <div key={i} className="bg-white/80 backdrop-blur-sm rounded-2xl border border-slate-200/60 shadow-sm hover:shadow-lg hover:border-slate-300/60 transition-all duration-300">
                                 <div className="p-5">
-                                    {/* ── Header row ── */}
-                                    <div className="flex items-center justify-between mb-4">
-                                        <div className="flex items-center gap-2.5">
-                                            <div className={`p-2 rounded-xl bg-gradient-to-br ${card.gradient} text-white shadow-lg shadow-slate-200`}>
-                                                {card.icon}
+                                    {/* ── Header ── */}
+                                    <div className="flex items-start justify-between mb-5">
+                                        <div className="flex items-center gap-3">
+                                            <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 shadow-sm">
+                                                <Icon className="w-4.5 h-4.5 text-slate-500" strokeWidth={1.8} />
                                             </div>
                                             <div>
-                                                <h5 className="text-[0.7rem] font-extrabold text-slate-800 uppercase tracking-wider">{card.title}</h5>
-                                                <p className="text-[0.55rem] text-slate-400 font-medium">{card.badgeLabel}</p>
+                                                <h5 className="text-sm font-bold text-slate-800 tracking-tight">{card.title}</h5>
+                                                <p className="text-[0.6rem] text-slate-400 mt-0.5">{card.subtitle}</p>
                                             </div>
                                         </div>
                                         <Tip text={card.tipPct}>
-                                            <div className={`px-3 py-1.5 rounded-xl bg-gradient-to-r ${card.gradientLight} border border-slate-100`}>
-                                                <span className="text-sm font-black text-slate-800">{fmtPct(card.pct)}%</span>
-                                            </div>
+                                            <span className={`text-[0.65rem] font-bold px-2.5 py-1 rounded-lg border ${statusColor}`}>
+                                                {fmtPct(card.pct)}%
+                                            </span>
                                         </Tip>
                                     </div>
 
-                                    {/* ── Center: Ring + Amount ── */}
-                                    <div className="flex items-center gap-4 mb-4">
-                                        <div className="relative shrink-0">
-                                            <ProgressRing pct={card.pct} size={72} stroke={6} color={card.ringColor} />
-                                            <div className="absolute inset-0 flex items-center justify-center">
-                                                <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${card.gradientLight} flex items-center justify-center`}>
-                                                    <span className={`text-base font-black ${card.accentText}`}>{fmtPct(card.pct)}%</span>
-                                                </div>
-                                            </div>
-                                        </div>
+                                    {/* ── Amount + Ring ── */}
+                                    <div className="flex items-center gap-4 mb-5">
                                         <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-1.5 mb-1">
-                                                <span className={`w-1.5 h-1.5 rounded-full ${card.accentBg} animate-pulse`} />
-                                                <span className="text-[0.55rem] font-bold text-slate-400 uppercase tracking-widest">Real</span>
-                                            </div>
                                             <Tip text={card.tipReal}>
-                                                <p className="text-2xl font-black text-slate-900 font-mono tracking-tight leading-none truncate">{fmtCLP(card.real)}</p>
+                                                <p className="text-[1.6rem] font-extrabold text-slate-900 font-mono tracking-tight leading-none truncate">{fmtCLP(card.real)}</p>
                                             </Tip>
                                             <Tip text={card.tipGoal}>
-                                                <p className="text-[0.6rem] text-slate-400 mt-1.5 font-medium">Meta: <span className="font-bold text-slate-500">{fmtCLP(card.goal)}</span></p>
+                                                <div className="flex items-center gap-1.5 mt-2">
+                                                    <span className="text-[0.6rem] text-slate-400">de</span>
+                                                    <span className="text-[0.7rem] font-semibold text-slate-500 font-mono">{fmtCLP(card.goal)}</span>
+                                                </div>
                                             </Tip>
                                         </div>
+                                        <div className="relative shrink-0">
+                                            <ProgressRing pct={card.pct} size={64} stroke={5} color={card.ringColor} />
+                                            <div className="absolute inset-0 flex items-center justify-center">
+                                                <span className="text-sm font-extrabold text-slate-700">{fmtPct(card.pct)}%</span>
+                                            </div>
+                                        </div>
                                     </div>
 
-                                    {/* ── Gradient progress bar ── */}
+                                    {/* ── Progress bar ── */}
                                     <div className="mb-4">
-                                        <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                                            <div className={`h-full rounded-full bg-gradient-to-r ${card.gradient} transition-all duration-1000 ease-out`}
+                                        <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                                            <div className={`h-full rounded-full transition-all duration-1000 ease-out ${barBg}`}
                                                 style={{ width: `${Math.min(card.pct, 100)}%` }} />
                                         </div>
-                                        <div className="flex justify-between mt-1.5">
-                                            <span className="text-[0.5rem] text-slate-400 font-medium">0%</span>
-                                            <span className="text-[0.5rem] text-slate-400 font-medium">100%</span>
-                                        </div>
                                     </div>
 
-                                    {/* ── Difference pill ── */}
+                                    {/* ── Difference ── */}
                                     <Tip text={card.tipDiff} className="w-full">
-                                        <div className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-[0.65rem] font-bold transition-colors ${isPositive
-                                            ? 'bg-emerald-50/80 text-emerald-700 border border-emerald-200/60'
-                                            : 'bg-red-50/80 text-red-700 border border-red-200/60'}`}>
-                                            <div className="flex items-center gap-1.5">
-                                                <div className={`p-0.5 rounded-md ${isPositive ? 'bg-emerald-100' : 'bg-red-100'}`}>
-                                                    <TrendingUp className={`w-3 h-3 ${isPositive ? '' : 'rotate-180'}`} />
-                                                </div>
-                                                <span>Diferencia</span>
-                                            </div>
-                                            <span className="font-mono font-extrabold">{isPositive ? '+' : ''}{fmtCLP(diff)}</span>
+                                        <div className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs ${isPositive
+                                            ? 'bg-emerald-50/60 border border-emerald-100'
+                                            : 'bg-red-50/60 border border-red-100'}`}>
+                                            <span className={`font-medium ${isPositive ? 'text-emerald-600' : 'text-red-600'}`}>
+                                                {isPositive ? 'Sobre la meta' : 'Bajo la meta'}
+                                            </span>
+                                            <span className={`font-bold font-mono ${isPositive ? 'text-emerald-700' : 'text-red-700'}`}>
+                                                {isPositive ? '+' : ''}{fmtCLP(diff)}
+                                            </span>
                                         </div>
                                     </Tip>
                                 </div>
