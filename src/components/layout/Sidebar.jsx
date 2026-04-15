@@ -134,7 +134,7 @@ export default function Sidebar() {
         items: [
             { title: 'Contactos & Tareas', icon: Users, path: '/crm' },
             { title: 'Acciones', icon: Activity, path: '/crm/actions' },
-            { title: 'Pipeline Ventas', icon: Kanban, path: '/crm/pipeline' },
+            { title: 'Pipeline Negocios', icon: Kanban, path: '/crm/pipeline' },
             { title: 'Informes de Gestión', icon: ClipboardCheck, path: '/informes-gestion' },
             { title: 'Inspecciones', icon: ClipboardList, path: '/inspecciones' },
             ...(!isPostulante ? [{ title: 'Mapa Propiedades', icon: MapPin, path: '/crm/map' }] : []),
