@@ -283,110 +283,107 @@ export default function BusinessPlan({ agentId: externalAgentId, readOnly = fals
             <div className="p-4 md:p-5 space-y-5 overflow-y-auto h-full">
 
                 {/* ═══════════════════════════════════════════════════════════════
-                    FACTURACIÓN — Card principal
+                    3 CARDS — Facturación · Ventas · Arriendos
                    ═══════════════════════════════════════════════════════════════ */}
-                <div className="bg-white rounded-2xl p-6 shadow-[0_2px_12px_rgba(0,0,0,0.04)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.08)] border border-slate-100/80 transition-all duration-300">
-                    <div className="flex items-center gap-3 mb-6">
-                        <Tip text="Porcentaje de avance: facturación real ÷ meta proyectada × 100.">
-                            <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
-                                <DollarSign className="w-5 h-5 text-blue-500" strokeWidth={1.8} />
-                            </div>
-                        </Tip>
-                        <h5 className="text-[0.85rem] font-semibold text-slate-700 tracking-tight">Facturación {year}</h5>
-                    </div>
-                    <div className="flex items-baseline gap-2 mb-5">
-                        <Tip text="Facturación acumulada real del año, calculada desde propiedades cerradas del agente.">
-                            <span className="text-[1.75rem] font-bold text-slate-900 leading-none tracking-tight">{fmtCLP(kpiData.billing)}</span>
-                        </Tip>
-                        <Tip text="Meta de facturación bruta anual: (meta mensual × 12 + inversiones) ÷ (% plan × (1 − % RE/MAX)).">
-                            <span className="text-sm text-slate-400 font-normal">/ {fmtCLP(minBilling)}</span>
-                        </Tip>
-                    </div>
-                    <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
-                        <div className="h-full rounded-full transition-all duration-1000 ease-out bg-blue-400"
-                            style={{ width: `${Math.min(billingProg, 100)}%` }} />
-                    </div>
-                </div>
-
-                {/* ═══════════════════════════════════════════════════════════════
-                    4 CARDS — Ventas (Honorarios + Trans) · Arriendos (Honorarios + Trans)
-                   ═══════════════════════════════════════════════════════════════ */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                     {[
                         {
+                            title: `Facturación ${year}`,
+                            icon: DollarSign,
+                            iconBg: 'bg-blue-50',
+                            iconColor: 'text-blue-500',
+                            real: kpiData.billing,
+                            goal: minBilling,
+                            pct: billingProg,
+                            barColor: 'bg-blue-400',
+                            goalLabel: fmtCLP(minBilling),
+                            tipReal: 'Facturación acumulada real del año, calculada desde propiedades cerradas del agente.',
+                            tipGoal: 'Meta de facturación bruta anual: (meta mensual × 12 + inversiones) ÷ (% plan × (1 − % RE/MAX)).',
+                            tipPct: 'Porcentaje de avance: facturación real ÷ meta proyectada × 100.',
+                        },
+                        {
                             title: 'Ventas',
-                            subtitle: 'Honorarios',
                             icon: TrendingUp,
                             iconBg: 'bg-indigo-50',
                             iconColor: 'text-indigo-500',
-                            value: fmtCLP(realSaleBilling),
-                            goalLabel: fmtCLP(billingVend),
+                            real: realSaleBilling,
+                            goal: billingVend,
                             pct: billingVend > 0 ? Math.min((realSaleBilling / billingVend) * 100, 100) : 0,
                             barColor: 'bg-indigo-400',
-                            tipValue: 'Comisión generada por ventas: transacciones cerradas × ticket promedio real × % comisión venta.',
+                            goalLabel: fmtCLP(billingVend),
+                            transCount: ticketData.saleCount,
+                            transGoal: minTransSale,
+                            ringColor: '#6366f1',
+                            tipReal: 'Comisión generada por ventas: transacciones cerradas × ticket promedio real × % comisión venta.',
                             tipGoal: 'Facturación requerida por ventas: meta total × porcentaje asignado a vendedores.',
-                        },
-                        {
-                            title: 'Ventas',
-                            subtitle: 'Transacciones',
-                            icon: TrendingUp,
-                            iconBg: 'bg-indigo-50',
-                            iconColor: 'text-indigo-500',
-                            value: ticketData.saleCount,
-                            goalLabel: `${minTransSale} transacciones`,
-                            pct: minTransSale > 0 ? Math.min((ticketData.saleCount / minTransSale) * 100, 100) : 0,
-                            barColor: 'bg-indigo-300',
-                            tipValue: 'Cantidad de transacciones de venta cerradas en el periodo actual.',
-                            tipGoal: 'Mínimo de transacciones de venta necesarias para cumplir la meta anual.',
+                            tipPct: 'Avance de ventas: comisión real ÷ meta de ventas × 100.',
+                            tipTrans: 'Transacciones de venta cerradas vs objetivo mínimo requerido.',
                         },
                         {
                             title: 'Arriendos',
-                            subtitle: 'Honorarios',
                             icon: Building2,
                             iconBg: 'bg-violet-50',
                             iconColor: 'text-violet-500',
-                            value: fmtCLP(realRentalBilling),
-                            goalLabel: fmtCLP(billingArr),
+                            real: realRentalBilling,
+                            goal: billingArr,
                             pct: billingArr > 0 ? Math.min((realRentalBilling / billingArr) * 100, 100) : 0,
                             barColor: 'bg-violet-400',
-                            tipValue: 'Comisión generada por arriendos: transacciones cerradas × ticket promedio real × % comisión arriendo.',
+                            goalLabel: fmtCLP(billingArr),
+                            transCount: ticketData.rentalCount,
+                            transGoal: minTransRental,
+                            ringColor: '#8b5cf6',
+                            tipReal: 'Comisión generada por arriendos: transacciones cerradas × ticket promedio real × % comisión arriendo.',
                             tipGoal: 'Facturación requerida por arriendos: meta total × porcentaje asignado a arrendadores.',
-                        },
-                        {
-                            title: 'Arriendos',
-                            subtitle: 'Transacciones',
-                            icon: Building2,
-                            iconBg: 'bg-violet-50',
-                            iconColor: 'text-violet-500',
-                            value: ticketData.rentalCount,
-                            goalLabel: `${minTransRental} transacciones`,
-                            pct: minTransRental > 0 ? Math.min((ticketData.rentalCount / minTransRental) * 100, 100) : 0,
-                            barColor: 'bg-violet-300',
-                            tipValue: 'Cantidad de transacciones de arriendo cerradas en el periodo actual.',
-                            tipGoal: 'Mínimo de transacciones de arriendo necesarias para cumplir la meta anual.',
+                            tipPct: 'Avance de arriendos: comisión real ÷ meta de arriendos × 100.',
+                            tipTrans: 'Transacciones de arriendo cerradas vs objetivo mínimo requerido.',
                         },
                     ].map((card, i) => {
                         const Icon = card.icon
+                        const transPct = card.transGoal > 0 ? Math.min((card.transCount / card.transGoal) * 100, 100) : 0
+                        const ringSize = 36
+                        const ringStroke = 3
+                        const ringRadius = (ringSize - ringStroke) / 2
+                        const ringCircumference = 2 * Math.PI * ringRadius
+                        const ringOffset = ringCircumference - (transPct / 100) * ringCircumference
                         return (
-                            <div key={i} className="bg-white rounded-2xl p-5 shadow-[0_2px_12px_rgba(0,0,0,0.04)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.08)] border border-slate-100/80 transition-all duration-300">
-                                {/* ── Icon + Title ── */}
-                                <div className="flex items-center gap-2.5 mb-5">
-                                    <div className={`w-9 h-9 rounded-xl ${card.iconBg} flex items-center justify-center`}>
-                                        <Icon className={`w-4 h-4 ${card.iconColor}`} strokeWidth={1.8} />
+                            <div key={i} className="bg-white rounded-2xl p-6 shadow-[0_2px_12px_rgba(0,0,0,0.04)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.08)] border border-slate-100/80 transition-all duration-300">
+                                {/* ── Header: Icon + Title + Transaction Ring ── */}
+                                <div className="flex items-center justify-between mb-6">
+                                    <div className="flex items-center gap-3">
+                                        <Tip text={card.tipPct}>
+                                            <div className={`w-10 h-10 rounded-xl ${card.iconBg} flex items-center justify-center`}>
+                                                <Icon className={`w-5 h-5 ${card.iconColor}`} strokeWidth={1.8} />
+                                            </div>
+                                        </Tip>
+                                        <h5 className="text-[0.85rem] font-semibold text-slate-700 tracking-tight">{card.title}</h5>
                                     </div>
-                                    <div>
-                                        <h5 className="text-xs font-semibold text-slate-700 tracking-tight leading-tight">{card.title}</h5>
-                                        <p className="text-[0.6rem] text-slate-400">{card.subtitle}</p>
-                                    </div>
+                                    {/* Mini transaction ring (only for Ventas & Arriendos) */}
+                                    {card.transGoal != null && (
+                                        <Tip text={card.tipTrans}>
+                                            <div className="relative flex items-center justify-center" style={{ width: ringSize, height: ringSize }}>
+                                                <svg width={ringSize} height={ringSize} className="-rotate-90">
+                                                    <circle cx={ringSize / 2} cy={ringSize / 2} r={ringRadius}
+                                                        fill="none" stroke="#e2e8f0" strokeWidth={ringStroke} />
+                                                    <circle cx={ringSize / 2} cy={ringSize / 2} r={ringRadius}
+                                                        fill="none" stroke={card.ringColor} strokeWidth={ringStroke}
+                                                        strokeLinecap="round"
+                                                        strokeDasharray={ringCircumference}
+                                                        strokeDashoffset={ringOffset}
+                                                        className="transition-all duration-1000 ease-out" />
+                                                </svg>
+                                                <span className="absolute text-[8px] font-bold text-slate-600">{card.transCount}/{card.transGoal}</span>
+                                            </div>
+                                        </Tip>
+                                    )}
                                 </div>
 
-                                {/* ── Value + /goal ── */}
-                                <div className="flex items-baseline gap-1.5 mb-4">
-                                    <Tip text={card.tipValue}>
-                                        <span className="text-xl font-bold text-slate-900 leading-none tracking-tight">{card.value}</span>
+                                {/* ── Big number + /goal ── */}
+                                <div className="flex items-baseline gap-2 mb-5">
+                                    <Tip text={card.tipReal}>
+                                        <span className="text-[1.75rem] font-bold text-slate-900 leading-none tracking-tight">{fmtCLP(card.real)}</span>
                                     </Tip>
                                     <Tip text={card.tipGoal}>
-                                        <span className="text-xs text-slate-400 font-normal">/ {card.goalLabel}</span>
+                                        <span className="text-sm text-slate-400 font-normal">/ {card.goalLabel}</span>
                                     </Tip>
                                 </div>
 
