@@ -12,7 +12,7 @@ import PropertyPickerInline from '../components/ui/PropertyPickerInline'
 export default function ManagementReportList() {
     const { user, profile } = useAuth()
     const navigate = useNavigate()
-    const [reports, setReports] = useState([])
+    const [allReports, setAllReports] = useState([])
     const [loading, setLoading] = useState(true)
 
     const isAdmin = ['superadministrador', 'comercial', 'legal', 'tecnico', 'administracion'].includes(profile?.role)
@@ -38,7 +38,7 @@ export default function ManagementReportList() {
 
     useEffect(() => {
         fetchReports()
-    }, [user, filter, selectedAgentId])
+    }, [user, selectedAgentId])
 
     const fetchAgents = async () => {
         const { data } = await supabase
@@ -72,15 +72,7 @@ export default function ManagementReportList() {
                 query = query.eq('agent_id', selectedAgentId)
             }
 
-            // Status filter
-            if (filter === 'pending') {
-                query = query.in('status', ['pending', 'overdue'])
-            } else if (filter === 'overdue') {
-                // Fetch both overdue status AND pending (will filter by date client-side)
-                query = query.in('status', ['overdue', 'pending'])
-            } else if (filter !== 'all') {
-                query = query.eq('status', filter)
-            }
+            // No status filter — always fetch all statuses for accurate counts
 
             const { data, error } = await query
             if (error) throw error
@@ -140,12 +132,7 @@ export default function ManagementReportList() {
                 return r
             })
 
-            // If overdue filter is active, only keep truly overdue reports
-            if (filter === 'overdue') {
-                enriched = enriched.filter(r => r.status === 'overdue' || r._isOverdue)
-            }
-
-            setReports(enriched)
+            setAllReports(enriched)
         } catch (err) {
             console.error('Error fetching reports:', err)
         } finally {
@@ -160,15 +147,21 @@ export default function ManagementReportList() {
         waiting_publication: { label: 'En pausa', color: 'bg-slate-100 text-slate-600 border-slate-200', icon: PauseCircle, dotColor: 'bg-slate-400' }
     }
 
-    // --- Stats ---
-    const allReports = reports
+    // --- Stats (always from ALL reports, not filtered) ---
     const pendingCount = allReports.filter(r => r.status === 'pending' || r.status === 'overdue' || r._isOverdue).length
-    const overdueCount = allReports.filter(r => {
-        if (r.status === 'overdue' || r._isOverdue) return true
-        return false
-    }).length
+    const overdueCount = allReports.filter(r => r.status === 'overdue' || r._isOverdue).length
     const sentCount = allReports.filter(r => r.status === 'sent').length
     const waitingCount = allReports.filter(r => r.status === 'waiting_publication').length
+
+    // --- Filtered reports for display ---
+    const reports = useMemo(() => {
+        if (filter === 'all') return allReports
+        if (filter === 'pending') return allReports.filter(r => r.status === 'pending' || r.status === 'overdue' || r._isOverdue)
+        if (filter === 'overdue') return allReports.filter(r => r.status === 'overdue' || r._isOverdue)
+        if (filter === 'sent') return allReports.filter(r => r.status === 'sent')
+        if (filter === 'waiting_publication') return allReports.filter(r => r.status === 'waiting_publication')
+        return allReports
+    }, [allReports, filter])
 
     // Admin tabs: show all statuses including overdue
     const adminTabs = [
