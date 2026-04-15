@@ -707,8 +707,8 @@ export default function ContractForm() {
                                     <Building2 className="h-10 w-10 text-primary" />
                                 </div>
                                 <div>
-                                    <h3 className="text-lg font-bold group-hover:text-primary transition-colors">Compraventa</h3>
-                                    <p className="text-xs text-slate-500 mt-2">Promesa y Compraventa de propiedades.</p>
+                                    <h3 className="text-lg font-bold group-hover:text-primary transition-colors">Promesa</h3>
+                                    <p className="text-xs text-slate-500 mt-2">Redacción de promesa de compraventa.</p>
                                 </div>
                             </CardContent>
                         </Card>
@@ -1115,7 +1115,7 @@ function BuySellFormLogic({ user, profile, navigate, initialData = {}, requestId
                             </>
                         ) : (
                             <div className="space-y-2">
-                                <Label>Monto Reserva / Vale Vista</Label>
+                                <Label>Monto del pie</Label>
                                 <div className="flex gap-2">
                                     <div className="flex bg-white rounded-md border p-1 h-10 items-center w-32 shrink-0">
                                         <button type="button" onClick={() => setReservationCurrency('clp')} className={`flex-1 text-xs font-medium h-full rounded transition-colors ${reservationCurrency === 'clp' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-100'}`}>CLP</button>

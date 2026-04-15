@@ -731,7 +731,9 @@ export default function InspectionFormPage() {
                     </button>
                 )}
             </div>
-            <div className="overflow-x-auto rounded-xl border border-gray-200">
+
+            {/* ── Desktop: Table layout (hidden on mobile) ── */}
+            <div className="hidden md:block overflow-x-auto rounded-xl border border-gray-200">
                 <table className="w-full">
                     <thead>
                         <tr className="bg-[#003DA5] text-white">
@@ -816,6 +818,86 @@ export default function InspectionFormPage() {
                     </tbody>
                 </table>
             </div>
+
+            {/* ── Mobile: Card layout (hidden on desktop) ── */}
+            <div className="md:hidden space-y-3">
+                {(section.items || []).map((item, idx) => (
+                    <div key={idx} className={`rounded-xl border border-gray-200 p-3.5 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}>
+                        {/* Item name row */}
+                        <div className="flex items-center gap-2 mb-2.5">
+                            {item.isCustom || item._editing ? (
+                                <input
+                                    type="text"
+                                    value={item.label}
+                                    onChange={e => updateItemLabel(sectionIdx, idx, e.target.value)}
+                                    disabled={isReadOnly}
+                                    placeholder="Nombre del ítem..."
+                                    className="flex-1 px-2 py-1 border border-gray-200 rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none disabled:bg-gray-50"
+                                />
+                            ) : (
+                                <span className="flex-1 text-sm font-semibold text-gray-800">{item.label}</span>
+                            )}
+                            {!isReadOnly && !item.isCustom && !item._editing && (
+                                <button
+                                    data-hide-pdf
+                                    type="button"
+                                    onClick={() => {
+                                        setFormData(prev => {
+                                            const updated = { ...prev }
+                                            const sections = [...(updated.sections || [])]
+                                            const sec = { ...sections[sectionIdx] }
+                                            const items = [...sec.items]
+                                            items[idx] = { ...items[idx], _editing: true }
+                                            sec.items = items
+                                            sections[sectionIdx] = sec
+                                            updated.sections = sections
+                                            return updated
+                                        })
+                                    }}
+                                    className="text-gray-400 hover:text-blue-600 flex-shrink-0"
+                                    title="Editar nombre"
+                                >
+                                    <Pencil className="w-3.5 h-3.5" />
+                                </button>
+                            )}
+                            {!isReadOnly && (
+                                <button
+                                    data-hide-pdf
+                                    type="button"
+                                    onClick={() => removeItem(sectionIdx, idx)}
+                                    className="text-red-400 hover:text-red-600 flex-shrink-0"
+                                    title="Eliminar ítem"
+                                >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                            )}
+                        </div>
+                        {/* Estado */}
+                        <div className="mb-2">
+                            <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">Estado</label>
+                            {renderEstadoSelect(item.estado, val => updateSectionItem(sectionIdx, idx, 'estado', val), isReadOnly)}
+                        </div>
+                        {/* Observación */}
+                        <div>
+                            <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">Observación</label>
+                            <textarea
+                                rows={1}
+                                value={item.observacion || ''}
+                                onChange={e => {
+                                    updateSectionItem(sectionIdx, idx, 'observacion', e.target.value)
+                                    e.target.style.height = 'auto'
+                                    e.target.style.height = e.target.scrollHeight + 'px'
+                                }}
+                                onFocus={e => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px' }}
+                                disabled={isReadOnly}
+                                placeholder="Observaciones..."
+                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none disabled:bg-gray-50 disabled:text-gray-500 resize-none overflow-hidden"
+                            />
+                        </div>
+                    </div>
+                ))}
+            </div>
+
             {!isReadOnly && (
                 <button
                     data-hide-pdf
@@ -864,29 +946,74 @@ export default function InspectionFormPage() {
 
             {/* Top bar */}
             <div className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
-                <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        <button
-                            onClick={() => navigate('/inspecciones')}
-                            className="text-gray-500 hover:text-gray-700 transition-colors flex items-center gap-1.5"
-                            data-hide-pdf
-                        >
-                            <ArrowLeft className="w-4 h-4" /> Volver
-                        </button>
-                        <div>
-                            <h1 className="text-lg font-bold text-slate-900">Formulario de Inspección</h1>
-                            <p className="text-xs text-gray-500">{formData.direccion || 'Sin dirección'}</p>
+                <div className="max-w-4xl mx-auto px-4 py-3">
+                    {/* Row 1: Back + Title + Desktop buttons */}
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                            <button
+                                onClick={() => navigate('/inspecciones')}
+                                className="text-gray-500 hover:text-gray-700 transition-colors flex items-center gap-1 sm:gap-1.5 flex-shrink-0"
+                                data-hide-pdf
+                            >
+                                <ArrowLeft className="w-4 h-4" /> <span className="hidden sm:inline">Volver</span>
+                            </button>
+                            <div className="min-w-0">
+                                <h1 className="text-sm sm:text-lg font-bold text-slate-900 truncate">Formulario de Inspección</h1>
+                                <p className="text-xs text-gray-500 truncate">{formData.direccion || 'Sin dirección'}</p>
+                            </div>
+                        </div>
+                        {/* Desktop-only buttons */}
+                        <div className="hidden sm:flex items-center gap-2" data-hide-pdf>
+                            {isSent && (
+                                <div className="flex items-center gap-2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg px-3 py-1.5 text-sm font-medium">
+                                    <CheckCircle2 className="w-4 h-4" /> Enviado {inspection.sent_at ? `el ${new Date(inspection.sent_at).toLocaleDateString('es-CL')}` : ''}
+                                </div>
+                            )}
+                            {isCompleted && !isSent && (
+                                <div className="flex items-center gap-2 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg px-3 py-1.5 text-sm font-medium">
+                                    <Eye className="w-4 h-4" /> En Revisión
+                                </div>
+                            )}
+                            {!isReadOnly && (
+                                <>
+                                    <button
+                                        onClick={handleManualSave}
+                                        disabled={saving}
+                                        className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-50 transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                                    >
+                                        {saving ? <><Loader2 className="w-4 h-4 animate-spin" /> Guardando...</> : <><Save className="w-4 h-4" /> Guardar</>}
+                                    </button>
+                                    {isAdmin ? (
+                                        <button
+                                            onClick={openSendPreview}
+                                            disabled={submitting}
+                                            className="px-6 py-2 bg-[#003DA5] text-white rounded-lg text-sm font-semibold hover:bg-[#002d7a] transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                                        >
+                                            <Send className="w-4 h-4" /> Enviar al Propietario
+                                        </button>
+                                    ) : (
+                                        <button
+                                            onClick={handleSendForReview}
+                                            disabled={submitting}
+                                            className="px-6 py-2 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                                        >
+                                            <Send className="w-4 h-4" /> Enviar a Revisión
+                                        </button>
+                                    )}
+                                </>
+                            )}
                         </div>
                     </div>
-                    <div className="flex items-center gap-2" data-hide-pdf>
+                    {/* Row 2: Mobile-only action buttons */}
+                    <div className="flex sm:hidden items-center gap-2 mt-2" data-hide-pdf>
                         {isSent && (
-                            <div className="flex items-center gap-2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg px-3 py-1.5 text-sm font-medium">
-                                <CheckCircle2 className="w-4 h-4" /> Enviado {inspection.sent_at ? `el ${new Date(inspection.sent_at).toLocaleDateString('es-CL')}` : ''}
+                            <div className="flex items-center gap-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg px-2.5 py-1.5 text-xs font-medium">
+                                <CheckCircle2 className="w-3.5 h-3.5" /> Enviado
                             </div>
                         )}
                         {isCompleted && !isSent && (
-                            <div className="flex items-center gap-2 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg px-3 py-1.5 text-sm font-medium">
-                                <Eye className="w-4 h-4" /> En Revisión
+                            <div className="flex items-center gap-1.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg px-2.5 py-1.5 text-xs font-medium">
+                                <Eye className="w-3.5 h-3.5" /> En Revisión
                             </div>
                         )}
                         {!isReadOnly && (
@@ -894,25 +1021,25 @@ export default function InspectionFormPage() {
                                 <button
                                     onClick={handleManualSave}
                                     disabled={saving}
-                                    className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-50 transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                                    className="flex-1 px-3 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-xs font-semibold hover:bg-gray-50 transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
                                 >
-                                    {saving ? <><Loader2 className="w-4 h-4 animate-spin" /> Guardando...</> : <><Save className="w-4 h-4" /> Guardar</>}
+                                    {saving ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Guardando...</> : <><Save className="w-3.5 h-3.5" /> Guardar</>}
                                 </button>
                                 {isAdmin ? (
                                     <button
                                         onClick={openSendPreview}
                                         disabled={submitting}
-                                        className="px-6 py-2 bg-[#003DA5] text-white rounded-lg text-sm font-semibold hover:bg-[#002d7a] transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                                        className="flex-1 px-3 py-2 bg-[#003DA5] text-white rounded-lg text-xs font-semibold hover:bg-[#002d7a] transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
                                     >
-                                        <Send className="w-4 h-4" /> Enviar al Propietario
+                                        <Send className="w-3.5 h-3.5" /> Enviar
                                     </button>
                                 ) : (
                                     <button
                                         onClick={handleSendForReview}
                                         disabled={submitting}
-                                        className="px-6 py-2 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                                        className="flex-1 px-3 py-2 bg-indigo-600 text-white rounded-lg text-xs font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
                                     >
-                                        <Send className="w-4 h-4" /> Enviar a Revisión
+                                        <Send className="w-3.5 h-3.5" /> Enviar a Revisión
                                     </button>
                                 )}
                             </>
@@ -1296,7 +1423,7 @@ export default function InspectionFormPage() {
                             <div className="flex items-center justify-between mb-6">
                                 <h3 className="text-xl font-bold text-[#003DA5] uppercase tracking-wider">Registro Fotográfico</h3>
                                 {!isReadOnly && (
-                                    <div className="flex items-center gap-2" data-hide-pdf>
+                                    <div className="hidden md:flex items-center gap-2" data-hide-pdf>
                                         <button
                                             onClick={() => cameraInputRef.current?.click()}
                                             className="px-4 py-2 bg-emerald-600 text-white text-sm font-semibold rounded-lg hover:bg-emerald-700 transition-colors flex items-center gap-1.5"
@@ -1332,15 +1459,20 @@ export default function InspectionFormPage() {
                             />
                             {photos.length === 0 ? (
                                 <div
-                                    className={`border-2 border-dashed rounded-xl p-12 text-center ${isReadOnly ? 'border-gray-200' : 'border-gray-300 cursor-pointer hover:border-[#003DA5]/40 hover:bg-blue-50/30 transition-colors'}`}
+                                    className={`border-2 border-dashed rounded-xl p-8 md:p-12 text-center ${isReadOnly ? 'border-gray-200' : 'border-gray-300 cursor-pointer hover:border-[#003DA5]/40 hover:bg-blue-50/30 transition-colors'}`}
                                     onClick={() => !isReadOnly && photoInputRef.current?.click()}
                                 >
                                     <Camera className="w-10 h-10 text-gray-300 mx-auto mb-2" />
                                     <p className="text-gray-400 text-sm">
-                                        {isReadOnly ? 'Sin registro fotográfico' : 'Toque aquí o use los botones de arriba para agregar fotos'}
+                                        {isReadOnly ? 'Sin registro fotográfico' : (
+                                            <>
+                                                <span className="hidden md:inline">Toque aquí o use los botones de arriba para agregar fotos</span>
+                                                <span className="md:hidden">Tomar fotografía o seleccionar de la galería</span>
+                                            </>
+                                        )}
                                     </p>
                                     {!isReadOnly && (
-                                        <p className="text-gray-300 text-xs mt-1">En dispositivos móviles puede usar la cámara directamente</p>
+                                        <p className="text-gray-300 text-xs mt-1 hidden md:block">En dispositivos móviles puede usar la cámara directamente</p>
                                     )}
                                 </div>
                             ) : (

@@ -58,7 +58,7 @@ export default function PropertyPickerInline({ onSelectProperty, label = 'Pre-ll
         if (!user?.id) return
         const { data, error } = await supabase
             .from('properties')
-            .select('id, property_type, address, commune, unit_number')
+            .select('id, property_type, address, commune, unit_number, rol_number')
             .order('created_at', { ascending: false })
             .limit(500)
 

@@ -78,7 +78,7 @@ export default function StepResumen({ data, onUpdate, onBack, onComplete }) {
             telefono: data.agenteTelefono
           },
           fecha: new Date().toISOString().split('T')[0],
-          propiedad: { direccion: data.direccion, comuna: data.comuna, tipo: data.tipoPropiedad },
+          propiedad: { direccion: data.direccion, comuna: data.comuna, tipo: data.tipoPropiedad, rol: data.rolPropiedad || '' },
           arrendatario: {
             nombre: data.arrendatarioNombre,
             apellido: data.arrendatarioApellido,
@@ -183,7 +183,8 @@ export default function StepResumen({ data, onUpdate, onBack, onComplete }) {
           propiedad: {
             direccion: data.direccion,
             comuna: data.comuna,
-            tipo: data.tipoPropiedad
+            tipo: data.tipoPropiedad,
+            rol: data.rolPropiedad || ''
           },
           financiero: {
             configuracion_punta: isVentaHonorarios ? data.ventaRole : data.arriendoRole,
@@ -229,7 +230,7 @@ export default function StepResumen({ data, onUpdate, onBack, onComplete }) {
           tipo_solicitud: 'compraventa',
           agente: { nombre: data.agenteNombre, apellido: data.agenteApellido, email: data.agenteEmail },
           fecha: new Date().toISOString().split('T')[0],
-          propiedad: { direccion: data.direccion, comuna: data.comuna, tipo: data.tipoPropiedad },
+          propiedad: { direccion: data.direccion, comuna: data.comuna, tipo: data.tipoPropiedad, rol: data.rolPropiedad || '' },
           financiero: {
             monto_comision_total: data.dividirComision
               ? (Number(data.comisionVendedor || 0) + Number(data.comisionComprador || 0))
@@ -322,8 +323,15 @@ export default function StepResumen({ data, onUpdate, onBack, onComplete }) {
               <div className="space-y-1">
                 <p className="font-medium text-lg">{data.direccion}</p>
                 <p className="text-muted-foreground">{data.comuna}</p>
-                <div className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-secondary text-secondary-foreground mt-2">
-                  {data.tipoPropiedad}
+                <div className="flex items-center gap-2 mt-2 flex-wrap">
+                  <div className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-secondary text-secondary-foreground">
+                    {data.tipoPropiedad}
+                  </div>
+                  {data.rolPropiedad && (
+                    <div className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-100 dark:border-blue-800">
+                      ROL: {data.rolPropiedad}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

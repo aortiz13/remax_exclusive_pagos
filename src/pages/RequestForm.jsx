@@ -41,6 +41,7 @@ export default function RequestForm() {
         tipoPropiedad: '',
         direccion: '',
         comuna: '',
+        rolPropiedad: '',
         // Arriendo Specific
         dueñoNombre: '',
         dueñoRut: '',

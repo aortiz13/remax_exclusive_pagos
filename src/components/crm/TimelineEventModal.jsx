@@ -395,7 +395,7 @@ const TimelineEventModal = ({ event, isOpen, onClose }) => {
                             <Button
                                 size="sm"
                                 className="bg-teal-500 hover:bg-teal-600 text-white"
-                                onClick={() => handleNavigate(`/inspecciones/${meta.inspectionId}`)}
+                                onClick={() => handleNavigate(`/inspeccion/${meta.inspectionId}`)}
                             >
                                 <ClipboardCheck className="w-3.5 h-3.5 mr-1.5" />
                                 Ver Inspección
