@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Button, Badge, Separator, AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui'
-import { ArrowLeft, User, MapPin, Building, Ruler, BedDouble, Bath, Link as LinkIcon, FileText, Briefcase, Plus, Filter, Trash2, History, Star, ChevronLeft, ChevronRight, Upload, X, Camera, Image as ImageIcon, Car, Layers, Calendar, DollarSign, Video, Globe, Landmark, GripVertical, ClipboardCheck, Save } from 'lucide-react'
+import { ArrowLeft, User, MapPin, Building, Ruler, BedDouble, Bath, Link as LinkIcon, FileText, Briefcase, Plus, Filter, Trash2, History, Star, ChevronLeft, ChevronRight, Upload, X, Camera, Image as ImageIcon, Car, Layers, Calendar, DollarSign, Video, Globe, Landmark, GripVertical, ClipboardCheck, Save, GitBranch } from 'lucide-react'
 import { supabase, getCustomPublicUrl } from '../../services/supabase'
 import { useAuth } from '../../context/AuthContext'
 import PropertyForm from './PropertyForm'
@@ -13,6 +13,7 @@ import PropertyTimeline from './PropertyTimeline'
 import { logActivity } from '../../services/activityService'
 import { toast } from 'sonner'
 import ActionModal from './ActionModal'
+import PropertyPipelineTracker from './PropertyPipelineTracker'
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragOverlay } from '@dnd-kit/core'
 import { SortableContext, useSortable, rectSortingStrategy, arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -702,6 +703,9 @@ const PropertyDetail = () => {
                     <Tabs defaultValue="activity" className="w-full">
                         <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent">
                             <TabsTrigger value="activity" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2">Actividad</TabsTrigger>
+                            <TabsTrigger value="pipeline" className="rounded-none border-b-2 border-transparent data-[state=active]:border-[#003DA5] data-[state=active]:bg-transparent px-4 py-2">
+                                <GitBranch className="w-3.5 h-3.5 mr-1.5" /> Pipeline
+                            </TabsTrigger>
                             {property.source === 'remax' && (
                                 <TabsTrigger value="timeline" className="rounded-none border-b-2 border-transparent data-[state=active]:border-indigo-500 data-[state=active]:bg-transparent px-4 py-2">
                                     <History className="w-3.5 h-3.5 mr-1.5" /> RE/MAX Timeline
@@ -733,6 +737,10 @@ const PropertyDetail = () => {
                             </div>
 
                             <UnifiedTimeline propertyId={id} />
+                        </TabsContent>
+
+                        <TabsContent value="pipeline" className="py-4">
+                            <PropertyPipelineTracker propertyId={id} />
                         </TabsContent>
 
                         {property.source === 'remax' && (
