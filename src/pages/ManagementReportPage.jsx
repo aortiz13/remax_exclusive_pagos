@@ -892,7 +892,7 @@ export default function ManagementReportPage() {
 
     const isSent = report.status === 'sent'
     const isWaiting = report.status === 'waiting_publication'
-    const isAdminRole = ['superadministrador', 'comercial', 'legal', 'tecnico'].includes(profile?.role)
+    const isAdminRole = ['superadministrador', 'comercial', 'legal', 'tecnico', 'administracion'].includes(profile?.role)
     const isOwnerAgent = user?.id === report.agent_id
     const isReadOnly = isAdminRole && !isOwnerAgent
     const agentName = `${report.agent?.first_name || profile?.first_name || ''} ${report.agent?.last_name || profile?.last_name || ''}`.trim()
@@ -1633,7 +1633,7 @@ export default function ManagementReportPage() {
                     </div>
                     <div>
                         <p className="font-semibold text-sm text-slate-900">Vista de solo lectura</p>
-                        <p className="text-xs text-slate-500">Solo el agente responsable puede editar y enviar este informe.</p>
+                        <p className="text-xs text-slate-500">Agente responsable: <span className="font-medium text-slate-700">{agentName || 'No asignado'}</span> — Solo el agente puede editar y enviar este informe.</p>
                     </div>
                 </div>
             )}

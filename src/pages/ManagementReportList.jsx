@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../services/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Button, Badge } from '@/components/ui'
-import { FileText, Clock, CheckCircle, AlertTriangle, Loader2, ChevronRight, Plus, Eye, User, Home, Lock, PauseCircle, X } from 'lucide-react'
+import { FileText, Clock, CheckCircle, AlertTriangle, Loader2, ChevronRight, Plus, Eye, User, Home, Lock, PauseCircle, X, Search, Filter, Calendar, Mail, ExternalLink } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -15,18 +15,39 @@ export default function ManagementReportList() {
     const [reports, setReports] = useState([])
     const [loading, setLoading] = useState(true)
 
-    const isAdmin = ['superadministrador', 'comercial', 'legal', 'tecnico'].includes(profile?.role)
-    // Admin default filter: sent; Agent default filter: all
-    const [filter, setFilter] = useState(isAdmin ? 'sent' : 'all')
+    const isAdmin = ['superadministrador', 'comercial', 'legal', 'tecnico', 'administracion'].includes(profile?.role)
+    // Admin default filter: all; Agent default filter: all
+    const [filter, setFilter] = useState('all')
+
+    // --- Admin agent filter ---
+    const [agents, setAgents] = useState([])
+    const [selectedAgentId, setSelectedAgentId] = useState('all')
+    const [searchAgent, setSearchAgent] = useState('')
 
     // --- New report modal state ---
     const [showNewModal, setShowNewModal] = useState(false)
     const [selectedProperty, setSelectedProperty] = useState(null)
     const [creatingReport, setCreatingReport] = useState(false)
 
+    // --- Admin: detail drawer ---
+    const [selectedReport, setSelectedReport] = useState(null)
+
+    useEffect(() => {
+        if (isAdmin) fetchAgents()
+    }, [isAdmin])
+
     useEffect(() => {
         fetchReports()
-    }, [user, filter])
+    }, [user, filter, selectedAgentId])
+
+    const fetchAgents = async () => {
+        const { data } = await supabase
+            .from('profiles')
+            .select('id, first_name, last_name')
+            .eq('role', 'agent')
+            .order('first_name', { ascending: true })
+        setAgents(data || [])
+    }
 
     const fetchReports = async () => {
         if (!user) return
@@ -36,7 +57,7 @@ export default function ManagementReportList() {
                 .from('management_reports')
                 .select(`
                     *,
-                    properties:property_id(address, commune),
+                    properties:property_id(address, commune, status),
                     owner:owner_contact_id(first_name, last_name, email)
                 `)
                 .order('due_date', { ascending: true })
@@ -46,35 +67,34 @@ export default function ManagementReportList() {
                 query = query.eq('agent_id', user.id)
             }
 
-            // Admin: only fetch sent and overdue reports
-            if (isAdmin) {
-                if (filter === 'sent') {
-                    query = query.eq('status', 'sent')
-                } else if (filter === 'overdue') {
-                    query = query.eq('status', 'overdue')
-                }
-            } else {
-                if (filter === 'pending') {
-                    // "Por enviar" includes both pending and overdue statuses
-                    query = query.in('status', ['pending', 'overdue'])
-                } else if (filter !== 'all') {
-                    query = query.eq('status', filter)
-                }
+            // Agent filter for admins
+            if (isAdmin && selectedAgentId !== 'all') {
+                query = query.eq('agent_id', selectedAgentId)
+            }
+
+            // Status filter
+            if (filter === 'pending') {
+                query = query.in('status', ['pending', 'overdue'])
+            } else if (filter !== 'all') {
+                query = query.eq('status', filter)
             }
 
             const { data, error } = await query
             if (error) throw error
 
-            // For admin: enrich with agent names from profiles
             let enriched = data || []
-            if (isAdmin && enriched.length > 0) {
+
+            // Enrich with agent names
+            if (enriched.length > 0) {
                 const agentIds = [...new Set(enriched.map(r => r.agent_id).filter(Boolean))]
-                const { data: agentProfiles } = await supabase
-                    .from('profiles')
-                    .select('id, first_name, last_name')
-                    .in('id', agentIds)
-                const agentMap = Object.fromEntries((agentProfiles || []).map(a => [a.id, a]))
-                enriched = enriched.map(r => ({ ...r, agent: agentMap[r.agent_id] || null }))
+                if (agentIds.length > 0) {
+                    const { data: agentProfiles } = await supabase
+                        .from('profiles')
+                        .select('id, first_name, last_name')
+                        .in('id', agentIds)
+                    const agentMap = Object.fromEntries((agentProfiles || []).map(a => [a.id, a]))
+                    enriched = enriched.map(r => ({ ...r, agent: agentMap[r.agent_id] || null }))
+                }
             }
 
             // Dynamically resolve current owners from property_contacts
@@ -91,7 +111,6 @@ export default function ManagementReportList() {
                     enriched = enriched.map(r => {
                         const link = ownerMap[r.property_id]
                         if (link?.contacts) {
-                            // Update stale owner_contact_id in background
                             if (link.contact_id !== r.owner_contact_id) {
                                 supabase.from('management_reports')
                                     .update({ owner_contact_id: link.contact_id })
@@ -105,59 +124,19 @@ export default function ManagementReportList() {
                 }
             }
 
-            // For admin overdue filter: also include pending reports that are past due
-            if (isAdmin && filter === 'overdue') {
-                // Fetch pending reports that are overdue by date
-                const { data: pendingData } = await supabase
-                    .from('management_reports')
-                    .select(`
-                        *,
-                        properties:property_id(address, commune),
-                        owner:owner_contact_id(first_name, last_name, email)
-                    `)
-                    .eq('status', 'pending')
-                    .order('due_date', { ascending: true })
-
-                if (pendingData && pendingData.length > 0) {
-                    const today = new Date()
-                    today.setHours(0, 0, 0, 0)
-                    const overduePending = pendingData.filter(r => {
+            // For "pending" filter: also mark reports that are overdue by date
+            if (filter === 'all' || filter === 'pending') {
+                const today = new Date()
+                today.setHours(0, 0, 0, 0)
+                enriched = enriched.map(r => {
+                    if ((r.status === 'pending') && r.due_date) {
                         const dueDate = new Date(r.due_date + 'T12:00:00')
-                        return dueDate < today
-                    })
-
-                    if (overduePending.length > 0) {
-                        // Enrich with agent names
-                        const agentIds = [...new Set(overduePending.map(r => r.agent_id).filter(Boolean))]
-                        if (agentIds.length > 0) {
-                            const { data: agentProfiles } = await supabase
-                                .from('profiles')
-                                .select('id, first_name, last_name')
-                                .in('id', agentIds)
-                            const agentMap = Object.fromEntries((agentProfiles || []).map(a => [a.id, a]))
-                            overduePending.forEach(r => { r.agent = agentMap[r.agent_id] || null })
+                        if (dueDate < today) {
+                            return { ...r, _isOverdue: true }
                         }
-
-                        // Resolve owners
-                        const opPropertyIds = [...new Set(overduePending.map(r => r.property_id).filter(Boolean))]
-                        if (opPropertyIds.length > 0) {
-                            const { data: ownerLinks2 } = await supabase
-                                .from('property_contacts')
-                                .select('property_id, contact_id, contacts:contact_id(id, first_name, last_name, email)')
-                                .in('property_id', opPropertyIds)
-                                .eq('role', 'propietario')
-                            if (ownerLinks2 && ownerLinks2.length > 0) {
-                                const ownerMap2 = Object.fromEntries(ownerLinks2.map(l => [l.property_id, l]))
-                                overduePending.forEach(r => {
-                                    const link = ownerMap2[r.property_id]
-                                    if (link?.contacts) r.owner = link.contacts
-                                })
-                            }
-                        }
-
-                        enriched = [...enriched, ...overduePending]
                     }
-                }
+                    return r
+                })
             }
 
             setReports(enriched)
@@ -169,28 +148,28 @@ export default function ManagementReportList() {
     }
 
     const statusConfig = {
-        pending: { label: 'Por enviar', color: 'bg-amber-100 text-amber-800 border-amber-200', icon: Clock },
-        overdue: { label: 'Atrasado', color: 'bg-red-100 text-red-800 border-red-200', icon: AlertTriangle },
-        sent: { label: 'Enviado', color: 'bg-emerald-100 text-emerald-800 border-emerald-200', icon: CheckCircle },
-        waiting_publication: { label: 'En pausa', color: 'bg-slate-100 text-slate-600 border-slate-200', icon: PauseCircle }
+        pending: { label: 'Por enviar', color: 'bg-amber-100 text-amber-800 border-amber-200', icon: Clock, dotColor: 'bg-amber-400' },
+        overdue: { label: 'Atrasado', color: 'bg-red-100 text-red-800 border-red-200', icon: AlertTriangle, dotColor: 'bg-red-500' },
+        sent: { label: 'Enviado', color: 'bg-emerald-100 text-emerald-800 border-emerald-200', icon: CheckCircle, dotColor: 'bg-emerald-500' },
+        waiting_publication: { label: 'En pausa', color: 'bg-slate-100 text-slate-600 border-slate-200', icon: PauseCircle, dotColor: 'bg-slate-400' }
     }
 
-    const pendingReports = reports.filter(r => r.status === 'pending' || r.status === 'overdue')
-    const pendingCount = pendingReports.length
-    const overdueCount = pendingReports.filter(r => {
-        if (r.status === 'overdue') return true
-        const dueDate = new Date(r.due_date + 'T12:00:00')
-        const today = new Date()
-        today.setHours(0, 0, 0, 0)
-        return dueDate < today
+    // --- Stats ---
+    const allReports = reports
+    const pendingCount = allReports.filter(r => r.status === 'pending' || r.status === 'overdue' || r._isOverdue).length
+    const overdueCount = allReports.filter(r => {
+        if (r.status === 'overdue' || r._isOverdue) return true
+        return false
     }).length
-    const sent = reports.filter(r => r.status === 'sent').length
-    const waiting = reports.filter(r => r.status === 'waiting_publication').length
+    const sentCount = allReports.filter(r => r.status === 'sent').length
+    const waitingCount = allReports.filter(r => r.status === 'waiting_publication').length
 
-    // Admin tabs
+    // Admin tabs: show all statuses
     const adminTabs = [
-        { key: 'sent', label: 'Enviados' },
-        { key: 'overdue', label: 'Atrasados' }
+        { key: 'all', label: 'Todos', count: allReports.length },
+        { key: 'pending', label: 'Por enviar', count: pendingCount },
+        { key: 'sent', label: 'Enviados', count: sentCount },
+        { key: 'waiting_publication', label: 'En pausa', count: waitingCount },
     ]
 
     // Agent tabs
@@ -203,6 +182,15 @@ export default function ManagementReportList() {
 
     const tabs = isAdmin ? adminTabs : agentTabs
 
+    // Filter agents in dropdown
+    const filteredAgents = useMemo(() => {
+        if (!searchAgent) return agents
+        const q = searchAgent.toLowerCase()
+        return agents.filter(a =>
+            `${a.first_name} ${a.last_name}`.toLowerCase().includes(q)
+        )
+    }, [agents, searchAgent])
+
     // --- Create on-demand report ---
     const handleCreateReport = async () => {
         if (!selectedProperty) {
@@ -211,7 +199,6 @@ export default function ManagementReportList() {
         }
         setCreatingReport(true)
         try {
-            // 1. Resolve owner from property_contacts
             const { data: ownerLink } = await supabase
                 .from('property_contacts')
                 .select('contact_id')
@@ -220,7 +207,6 @@ export default function ManagementReportList() {
                 .limit(1)
                 .maybeSingle()
 
-            // 2. Count existing reports for this property to get next report_number
             const { count } = await supabase
                 .from('management_reports')
                 .select('id', { count: 'exact', head: true })
@@ -228,12 +214,9 @@ export default function ManagementReportList() {
                 .eq('agent_id', user.id)
 
             const nextNumber = (count || 0) + 1
-
-            // 3. Due date = today + 15 days
             const dueDate = new Date()
             dueDate.setDate(dueDate.getDate() + 15)
 
-            // 4. Insert
             const { data: newReport, error } = await supabase
                 .from('management_reports')
                 .insert({
@@ -261,9 +244,30 @@ export default function ManagementReportList() {
         }
     }
 
-    return (
-        <div className="max-w-5xl mx-auto space-y-6">
+    // Format date nicely
+    const formatDate = (dateStr) => {
+        if (!dateStr) return '—'
+        const d = new Date(dateStr + (dateStr.includes('T') ? '' : 'T12:00:00'))
+        return d.toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' })
+    }
 
+    // Get real display status (accounting for date-based overdue)
+    const getDisplayStatus = (report) => {
+        if (report._isOverdue || report.status === 'overdue') return 'overdue'
+        return report.status
+    }
+
+    const getDaysOverdue = (report) => {
+        if (!report.due_date) return 0
+        const dueDate = new Date(report.due_date + 'T12:00:00')
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+        if (dueDate >= today) return 0
+        return Math.floor((today - dueDate) / (1000 * 60 * 60 * 24))
+    }
+
+    return (
+        <div className="max-w-6xl mx-auto space-y-6">
 
             {/* Header */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -276,7 +280,7 @@ export default function ManagementReportList() {
                     </h1>
                     <p className="text-sm text-slate-500 mt-1">
                         {isAdmin
-                            ? 'Seguimiento de informes periódicos de gestión'
+                            ? 'Vista consolidada de todos los informes de gestión por agente'
                             : 'Informes periódicos de gestión para propietarios deben ser enviados cada 15 días.'
                         }
                     </p>
@@ -361,17 +365,55 @@ export default function ManagementReportList() {
                 )}
             </AnimatePresence>
 
+            {/* Admin: Agent Filter */}
+            {isAdmin && (
+                <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                        <div className="flex items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-400 shrink-0">
+                            <Filter className="w-4 h-4" />
+                            Filtrar por agente:
+                        </div>
+                        <div className="relative flex-1 max-w-sm">
+                            <select
+                                value={selectedAgentId}
+                                onChange={(e) => setSelectedAgentId(e.target.value)}
+                                className="w-full pl-3 pr-10 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none appearance-none cursor-pointer"
+                            >
+                                <option value="all">Todos los agentes</option>
+                                {agents.map(a => (
+                                    <option key={a.id} value={a.id}>
+                                        {a.first_name} {a.last_name}
+                                    </option>
+                                ))}
+                            </select>
+                            <User className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                        </div>
+                        {selectedAgentId !== 'all' && (
+                            <button
+                                onClick={() => setSelectedAgentId('all')}
+                                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors border border-slate-200 dark:border-slate-700"
+                            >
+                                <X className="w-3 h-3" />
+                                Limpiar filtro
+                            </button>
+                        )}
+                    </div>
+                </div>
+            )}
+
             {/* Stats Cards */}
-            <div className={cn("grid gap-4", isAdmin ? "grid-cols-2" : "grid-cols-3")}>
+            <div className={cn("grid gap-4", isAdmin ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3")}>
                 {(isAdmin
                     ? [
-                        { label: 'Atrasados', count: overdueCount, color: 'from-red-500 to-red-600', bg: 'bg-red-50' },
-                        { label: 'Enviados', count: sent, color: 'from-emerald-500 to-emerald-600', bg: 'bg-emerald-50' }
+                        { label: 'Total', count: allReports.length, color: 'from-blue-500 to-blue-600', bg: 'bg-blue-50 dark:bg-blue-900/20' },
+                        { label: 'Por enviar', count: pendingCount, color: overdueCount > 0 ? 'from-red-500 to-red-600' : 'from-amber-500 to-amber-600', bg: overdueCount > 0 ? 'bg-red-50 dark:bg-red-900/20' : 'bg-amber-50 dark:bg-amber-900/20', sub: overdueCount > 0 ? `${overdueCount} atrasado${overdueCount !== 1 ? 's' : ''}` : null },
+                        { label: 'Enviados', count: sentCount, color: 'from-emerald-500 to-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-900/20' },
+                        { label: 'En pausa', count: waitingCount, color: 'from-slate-400 to-slate-500', bg: 'bg-slate-50 dark:bg-slate-900/20' },
                     ]
                     : [
                         { label: 'Por enviar', count: pendingCount, color: overdueCount > 0 ? 'from-red-500 to-red-600' : 'from-amber-500 to-amber-600', bg: overdueCount > 0 ? 'bg-red-50' : 'bg-amber-50', sub: overdueCount > 0 ? `${overdueCount} atrasado${overdueCount !== 1 ? 's' : ''}` : null },
-                        { label: 'En pausa', count: waiting, color: 'from-slate-400 to-slate-500', bg: 'bg-slate-50' },
-                        { label: 'Enviados', count: sent, color: 'from-emerald-500 to-emerald-600', bg: 'bg-emerald-50' }
+                        { label: 'En pausa', count: waitingCount, color: 'from-slate-400 to-slate-500', bg: 'bg-slate-50' },
+                        { label: 'Enviados', count: sentCount, color: 'from-emerald-500 to-emerald-600', bg: 'bg-emerald-50' }
                     ]
                 ).map((stat, i) => (
                     <motion.div
@@ -397,13 +439,23 @@ export default function ManagementReportList() {
                         key={tab.key}
                         onClick={() => setFilter(tab.key)}
                         className={cn(
-                            "flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-all",
+                            "flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2",
                             filter === tab.key
                                 ? "bg-white dark:bg-slate-700 shadow-sm text-slate-900 dark:text-white"
                                 : "text-slate-500 hover:text-slate-700"
                         )}
                     >
                         {tab.label}
+                        {isAdmin && tab.count !== undefined && (
+                            <span className={cn(
+                                "text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center",
+                                filter === tab.key
+                                    ? "bg-blue-100 text-blue-700"
+                                    : "bg-slate-200 text-slate-500"
+                            )}>
+                                {tab.count}
+                            </span>
+                        )}
                     </button>
                 ))}
             </div>
@@ -417,78 +469,176 @@ export default function ManagementReportList() {
                 <div className="text-center py-16 text-slate-400">
                     <FileText className="w-12 h-12 mx-auto mb-3 opacity-40" />
                     <p className="font-medium">
-                        {isAdmin && filter === 'overdue'
-                            ? 'No hay informes atrasados'
-                            : isAdmin && filter === 'sent'
+                        {filter === 'pending'
+                            ? 'No hay informes por enviar'
+                            : filter === 'sent'
                                 ? 'No hay informes enviados'
-                                : filter === 'pending'
-                                    ? 'No hay informes por enviar'
-                                    : filter === 'waiting_publication'
-                                        ? 'No hay informes en pausa'
-                                : 'No hay informes de gestión'
+                                : filter === 'waiting_publication'
+                                    ? 'No hay informes en pausa'
+                                    : 'No hay informes de gestión'
                         }
                     </p>
                     <p className="text-sm">
                         {isAdmin
-                            ? 'Los informes aparecerán aquí cuando los agentes los gestionen'
+                            ? selectedAgentId !== 'all'
+                                ? 'Prueba cambiando el filtro de agente o estado'
+                                : 'Los informes aparecerán aquí cuando los agentes los gestionen'
                             : 'Los informes se crean automáticamente al registrar un mandato'
                         }
                     </p>
                 </div>
-            ) : isAdmin && filter === 'overdue' ? (
-                /* Admin: Simplified overdue table — read-only, no navigation */
+            ) : isAdmin ? (
+                /* ═══ Admin consolidated table view ═══ */
                 <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
-                    <div className="px-4 py-3 bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-800 flex items-center gap-2">
-                        <AlertTriangle className="w-4 h-4 text-red-500" />
-                        <span className="text-sm font-semibold text-red-700 dark:text-red-400">Informes Atrasados</span>
-                        <span className="text-xs text-red-500 ml-auto">{reports.length} informe{reports.length !== 1 ? 's' : ''}</span>
-                    </div>
-
                     {/* Table header */}
-                    <div className="grid grid-cols-3 gap-4 px-4 py-2.5 bg-slate-50 dark:bg-slate-800/50 border-b text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                        <div className="flex items-center gap-1.5">
+                    <div className="hidden sm:grid grid-cols-12 gap-2 px-4 py-3 bg-slate-50 dark:bg-slate-800/50 border-b text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                        <div className="col-span-1 flex items-center gap-1">
+                            Estado
+                        </div>
+                        <div className="col-span-1 flex items-center gap-1">
+                            #
+                        </div>
+                        <div className="col-span-3 flex items-center gap-1">
                             <Home className="w-3.5 h-3.5" />
                             Propiedad
                         </div>
-                        <div className="flex items-center gap-1.5">
+                        <div className="col-span-2 flex items-center gap-1">
                             <User className="w-3.5 h-3.5" />
                             Propietario
                         </div>
-                        <div className="flex items-center gap-1.5">
+                        <div className="col-span-2 flex items-center gap-1">
                             <User className="w-3.5 h-3.5" />
-                            Agente Responsable
+                            Agente
+                        </div>
+                        <div className="col-span-2 flex items-center gap-1">
+                            <Calendar className="w-3.5 h-3.5" />
+                            Fechas
+                        </div>
+                        <div className="col-span-1 text-right">
+                            Acción
                         </div>
                     </div>
 
                     {/* Table rows */}
-                    {reports.map((report, i) => (
-                        <motion.div
-                            key={report.id}
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            transition={{ delay: i * 0.03 }}
-                            className="grid grid-cols-3 gap-4 px-4 py-3 border-b border-slate-100 dark:border-slate-800 last:border-b-0 hover:bg-slate-50/50 dark:hover:bg-slate-800/30"
-                        >
-                            <div className="text-sm text-slate-700 dark:text-slate-300 truncate">
-                                {report.properties?.address || 'Sin dirección'}
-                                {report.properties?.commune && (
-                                    <span className="text-xs text-slate-400 block truncate">{report.properties.commune}</span>
-                                )}
-                            </div>
-                            <div className="text-sm text-slate-700 dark:text-slate-300 truncate">
-                                {report.owner?.first_name} {report.owner?.last_name}
-                                {report.owner?.email && (
-                                    <span className="text-xs text-slate-400 block truncate">{report.owner.email}</span>
-                                )}
-                            </div>
-                            <div className="text-sm text-slate-700 dark:text-slate-300 truncate">
-                                {report.agent?.first_name} {report.agent?.last_name}
-                            </div>
-                        </motion.div>
-                    ))}
+                    {reports.map((report, i) => {
+                        const displayStatus = getDisplayStatus(report)
+                        const cfg = statusConfig[displayStatus] || statusConfig.pending
+                        const daysOverdue = getDaysOverdue(report)
+
+                        return (
+                            <motion.div
+                                key={report.id}
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                transition={{ delay: i * 0.02 }}
+                                className="group"
+                            >
+                                {/* Desktop row */}
+                                <div
+                                    onClick={() => navigate(`/informes-gestion/${report.id}`)}
+                                    className="hidden sm:grid grid-cols-12 gap-2 px-4 py-3 border-b border-slate-100 dark:border-slate-800 last:border-b-0 hover:bg-blue-50/50 dark:hover:bg-slate-800/30 cursor-pointer transition-colors"
+                                >
+                                    {/* Status */}
+                                    <div className="col-span-1 flex items-center">
+                                        <span className={cn("inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-semibold border", cfg.color)}>
+                                            {daysOverdue > 0 ? `${daysOverdue}d` : cfg.label}
+                                        </span>
+                                    </div>
+                                    {/* Report number */}
+                                    <div className="col-span-1 flex items-center">
+                                        <span className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                                            #{report.report_number}
+                                        </span>
+                                    </div>
+                                    {/* Property */}
+                                    <div className="col-span-3 flex items-center min-w-0">
+                                        <div className="truncate">
+                                            <p className="text-sm text-slate-700 dark:text-slate-300 truncate">{report.properties?.address || 'Sin dirección'}</p>
+                                            {report.properties?.commune && (
+                                                <p className="text-[11px] text-slate-400 truncate">{report.properties.commune}</p>
+                                            )}
+                                        </div>
+                                    </div>
+                                    {/* Owner */}
+                                    <div className="col-span-2 flex items-center min-w-0">
+                                        <div className="truncate">
+                                            <p className="text-sm text-slate-700 dark:text-slate-300 truncate">
+                                                {report.owner?.first_name} {report.owner?.last_name}
+                                            </p>
+                                            {report.owner?.email && (
+                                                <p className="text-[11px] text-slate-400 truncate">{report.owner.email}</p>
+                                            )}
+                                        </div>
+                                    </div>
+                                    {/* Agent */}
+                                    <div className="col-span-2 flex items-center min-w-0">
+                                        <p className="text-sm text-slate-700 dark:text-slate-300 truncate">
+                                            {report.agent?.first_name} {report.agent?.last_name}
+                                        </p>
+                                    </div>
+                                    {/* Dates */}
+                                    <div className="col-span-2 flex items-center min-w-0">
+                                        <div className="text-[11px] text-slate-500 space-y-0.5">
+                                            <p className="truncate flex items-center gap-1">
+                                                <Clock className="w-3 h-3 shrink-0" />
+                                                {report.status === 'waiting_publication' ? 'En pausa' : `Enviar: ${formatDate(report.due_date)}`}
+                                            </p>
+                                            {report.sent_at && (
+                                                <p className="truncate flex items-center gap-1 text-emerald-500">
+                                                    <Mail className="w-3 h-3 shrink-0" />
+                                                    Enviado: {formatDate(report.sent_at)}
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+                                    {/* Action */}
+                                    <div className="col-span-1 flex items-center justify-end">
+                                        <div className="p-1.5 rounded-lg text-slate-300 group-hover:text-blue-500 group-hover:bg-blue-100/50 transition-all">
+                                            <Eye className="w-4 h-4" />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Mobile card */}
+                                <div
+                                    onClick={() => navigate(`/informes-gestion/${report.id}`)}
+                                    className="sm:hidden px-4 py-3 border-b border-slate-100 dark:border-slate-800 last:border-b-0 active:bg-blue-50/50 cursor-pointer"
+                                >
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border", cfg.color)}>
+                                                    {daysOverdue > 0 ? `${daysOverdue}d atraso` : cfg.label}
+                                                </span>
+                                                <span className="text-xs font-bold text-slate-500">#{report.report_number}</span>
+                                            </div>
+                                            <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">
+                                                {report.properties?.address || 'Sin dirección'}
+                                            </p>
+                                            <p className="text-xs text-slate-400 mt-0.5">
+                                                {report.agent?.first_name} {report.agent?.last_name}
+                                                {report.owner ? ` · ${report.owner.first_name} ${report.owner.last_name}` : ''}
+                                            </p>
+                                            <p className="text-[11px] text-slate-400 mt-0.5">
+                                                {report.status === 'waiting_publication' ? 'En pausa' : `Enviar: ${formatDate(report.due_date)}`}
+                                                {report.sent_at && ` · Enviado: ${formatDate(report.sent_at)}`}
+                                            </p>
+                                        </div>
+                                        <ChevronRight className="w-4 h-4 text-slate-300 mt-2 shrink-0" />
+                                    </div>
+                                </div>
+                            </motion.div>
+                        )
+                    })}
+
+                    {/* Row count footer */}
+                    <div className="px-4 py-2 bg-slate-50 dark:bg-slate-800/50 border-t text-xs text-slate-400 text-right">
+                        {reports.length} informe{reports.length !== 1 ? 's' : ''}
+                        {selectedAgentId !== 'all' && ` · ${agents.find(a => a.id === selectedAgentId)?.first_name || 'Agente'}`}
+                    </div>
                 </div>
             ) : (
-                /* Normal report list (agent: all views; admin: sent reports) */
+                /* Normal report list (agent: all views) */
                 <div className="space-y-3">
                     {reports.map((report, i) => {
                         const cfg = statusConfig[report.status] || statusConfig.pending
@@ -520,9 +670,6 @@ export default function ManagementReportList() {
                                         <div>
                                             <h3 className="font-semibold text-slate-900 dark:text-white text-sm">
                                                 Informe #{report.report_number}
-                                                {isAdmin && report.agent && (
-                                                    <span className="text-slate-400 font-normal"> — {report.agent.first_name} {report.agent.last_name}</span>
-                                                )}
                                             </h3>
                                             <p className="text-sm text-slate-500 flex items-center gap-1.5">
                                                 {report.properties?.address || 'Propiedad sin dirección'}
@@ -552,11 +699,7 @@ export default function ManagementReportList() {
                                                 {isWaiting ? 'Propiedad no publicada' : `Enviar: ${dueDate.toLocaleDateString('es-CL')}`}
                                             </p>
                                         </div>
-                                        {isAdmin ? (
-                                            <Eye className="w-5 h-5 text-slate-300 group-hover:text-blue-500 transition-colors" />
-                                        ) : (
-                                            <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-blue-500 transition-colors" />
-                                        )}
+                                        <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-blue-500 transition-colors" />
                                     </div>
                                 </div>
                             </motion.div>
