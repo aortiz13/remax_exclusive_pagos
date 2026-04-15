@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../services/supabase'
 import { Button, Separator, AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Card, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui'
@@ -10,6 +10,9 @@ import { motion } from 'framer-motion'
 import StickyNotesWidget from '../components/dashboard/StickyNotesWidget'
 import QuickContactWidget from '../components/dashboard/QuickContactWidget'
 import DailyCalendarWidget from '../components/dashboard/DailyCalendarWidget'
+import ActiveContactsWidget from '../components/dashboard/ActiveContactsWidget'
+import AmbassadorsWidget from '../components/dashboard/AmbassadorsWidget'
+import DashboardCard from '../components/dashboard/DashboardCard'
 import { cn } from '@/lib/utils'
 import { withRetry } from '../lib/fetchWithRetry'
 
@@ -17,6 +20,56 @@ import GlobalSearch from '../components/dashboard/GlobalSearch'
 import KpiDataEntry from '../components/kpi/KpiDataEntry'
 import { Activity, Plus } from 'lucide-react'
 import ActionModal from '../components/crm/ActionModal'
+
+// DnD
+import {
+    DndContext,
+    closestCenter,
+    PointerSensor,
+    KeyboardSensor,
+    useSensor,
+    useSensors,
+    DragOverlay,
+    rectIntersection,
+    pointerWithin,
+} from '@dnd-kit/core'
+import {
+    SortableContext,
+    sortableKeyboardCoordinates,
+    arrayMove,
+    rectSortingStrategy,
+} from '@dnd-kit/sortable'
+
+const DEFAULT_CARD_ORDER = [
+    'quick-actions',
+    'contacts-active',
+    'calendar',
+    'ambassadors',
+    'requests',
+    'sticky-notes',
+]
+
+function getStoredOrder(userId) {
+    try {
+        const raw = localStorage.getItem(`dashboard_card_order_${userId}`)
+        if (raw) {
+            const parsed = JSON.parse(raw)
+            // Ensure all default cards are present (if new ones were added)
+            const merged = [...parsed]
+            for (const id of DEFAULT_CARD_ORDER) {
+                if (!merged.includes(id)) merged.push(id)
+            }
+            return merged.filter(id => DEFAULT_CARD_ORDER.includes(id))
+        }
+    } catch { }
+    return DEFAULT_CARD_ORDER
+}
+
+function saveOrder(userId, order) {
+    try {
+        localStorage.setItem(`dashboard_card_order_${userId}`, JSON.stringify(order))
+    } catch { }
+}
 
 export default function Dashboard() {
     const { user, profile } = useAuth()
@@ -37,6 +90,38 @@ export default function Dashboard() {
     const [dueFollowups, setDueFollowups] = useState([]) // For specific overdue/due soon items
     const [inspectionAlertProps, setInspectionAlertProps] = useState([])
     const [inspectionAlertExpanded, setInspectionAlertExpanded] = useState(false)
+
+    // DnD card ordering
+    const [cardOrder, setCardOrder] = useState(() => getStoredOrder(user?.id))
+
+    useEffect(() => {
+        if (user?.id) {
+            setCardOrder(getStoredOrder(user.id))
+        }
+    }, [user?.id])
+
+    const sensors = useSensors(
+        useSensor(PointerSensor, {
+            activationConstraint: { distance: 8 },
+        }),
+        useSensor(KeyboardSensor, {
+            coordinateGetter: sortableKeyboardCoordinates,
+        })
+    )
+
+    const handleDragEnd = useCallback((event) => {
+        const { active, over } = event
+        if (!over || active.id === over.id) return
+
+        setCardOrder(prev => {
+            const oldIdx = prev.indexOf(active.id)
+            const newIdx = prev.indexOf(over.id)
+            if (oldIdx === -1 || newIdx === -1) return prev
+            const next = arrayMove(prev, oldIdx, newIdx)
+            saveOrder(user?.id, next)
+            return next
+        })
+    }, [user?.id])
 
     useEffect(() => {
         startTour()
@@ -355,6 +440,196 @@ export default function Dashboard() {
         },
     ]
 
+    // ─── Render each card section by ID ───
+    const renderCardContent = (cardId) => {
+        switch (cardId) {
+            case 'quick-actions':
+                if (isPostulante) return null
+                return (
+                    <div className="bg-white p-4 md:p-5 rounded-3xl border border-slate-200/60 shadow-sm flex flex-col gap-3 h-full" data-tour="quick-actions">
+                        <div className="font-bold text-slate-800 text-sm md:text-base px-1">Accesos Rápidos</div>
+                        <div className="flex overflow-x-auto pb-2 -mx-2 px-2 md:-mx-0 md:px-0 md:pb-0 gap-3 snap-x snap-mandatory flex-nowrap md:flex-wrap [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                            {quickActions.map((action, index) => (
+                                <Button
+                                    key={index}
+                                    className={cn(
+                                        "snap-start shrink-0 gap-2 shadow-sm hover:shadow-md transition-all rounded-xl md:rounded-lg h-12 md:h-10 text-sm",
+                                        action.color
+                                    )}
+                                    onClick={() => action.action ? action.action() : navigate(action.path)}
+                                >
+                                    <action.icon className="w-4 h-4 md:w-4 md:h-4" />
+                                    {action.label}
+                                </Button>
+                            ))}
+
+                            <div className="h-6 w-px bg-slate-200 mx-2 hidden md:block self-center" />
+
+                            <Button
+                                variant="secondary"
+                                className="snap-start shrink-0 gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl md:rounded-lg h-12 md:h-10 text-sm shadow-sm"
+                                onClick={() => setIsContactModalOpen(true)}
+                            >
+                                <UserPlus className="w-4 h-4" />
+                                Nuevo Contacto
+                            </Button>
+                        </div>
+                    </div>
+                )
+
+            case 'contacts-active':
+                if (isPostulante) return null
+                return (
+                    <div className="h-[420px]">
+                        <ActiveContactsWidget />
+                    </div>
+                )
+
+            case 'ambassadors':
+                if (isPostulante) return null
+                return (
+                    <div className="h-[420px]">
+                        <AmbassadorsWidget />
+                    </div>
+                )
+
+            case 'requests':
+                if (isPostulante) return null
+                return (
+                    <div>
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-4">
+                            <h2 className="text-xl md:text-2xl font-bold text-slate-900 tracking-tight">
+                                {['legal', 'comercial'].includes(profile?.role) ? 'Solicitudes' : 'Mis Solicitudes'}
+                            </h2>
+                            <div className="flex overflow-x-auto hide-scrollbar bg-slate-100/90 p-1.5 rounded-2xl snap-x [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden w-full sm:w-auto border border-slate-200/50">
+                                {['all', 'pending', 'finalized', 'draft'].map(status => (
+                                    <button
+                                        key={status}
+                                        onClick={() => setFilterStatus(status)}
+                                        className={cn(
+                                            "px-4 py-2 text-xs md:text-sm font-bold rounded-xl transition-all shrink-0 snap-start flex-1 sm:flex-none text-center",
+                                            filterStatus === status
+                                                ? "bg-white text-slate-900 shadow-sm border border-slate-200/50"
+                                                : "text-slate-500 hover:text-slate-800"
+                                        )}
+                                    >
+                                        {status === 'all' && 'Todas'}
+                                        {status === 'pending' && 'Pendientes'}
+                                        {status === 'finalized' && 'Finalizadas'}
+                                        {status === 'draft' && 'Borrador'}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="bg-white rounded-3xl border border-slate-200/60 shadow-sm overflow-hidden">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow className="bg-slate-50 hover:bg-slate-50">
+                                        <TableHead className="w-[50px]"></TableHead>
+                                        <TableHead>Descripción / Cliente</TableHead>
+                                        <TableHead>Estado</TableHead>
+                                        <TableHead className="hidden md:table-cell">Fecha</TableHead>
+                                        <TableHead className="text-right">Acciones</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {filteredRequests.length === 0 ? (
+                                        <TableRow>
+                                            <TableCell colSpan={5} className="h-24 text-center text-slate-500">
+                                                No se encontraron solicitudes
+                                            </TableCell>
+                                        </TableRow>
+                                    ) : (
+                                        filteredRequests.map((req) => {
+                                            const info = getRequestInfo(req)
+                                            const address = getRequestAddress(req)
+
+                                            return (
+                                                <TableRow
+                                                    key={req.id}
+                                                    className={cn(
+                                                        "group",
+                                                        req.user_id === user.id
+                                                            ? "hover:bg-slate-50/50 cursor-pointer"
+                                                            : "cursor-default opacity-80"
+                                                    )}
+                                                    onClick={() => resumeRequest(req)}
+                                                >
+                                                    <TableCell>
+                                                        <div className={cn("w-8 h-8 rounded-md flex items-center justify-center", info.color)}>
+                                                            {info.icon}
+                                                        </div>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <div className="flex flex-col">
+                                                            <span className="font-medium text-slate-900">
+                                                                Solicitud: {info.label} {req.comuna && `en ${req.comuna}`}
+                                                            </span>
+                                                            <div className="flex items-center gap-1 text-xs text-slate-500 mt-0.5">
+                                                                <MapPin className="w-3 h-3" />
+                                                                <span className="truncate max-w-[250px]">{address}</span>
+                                                            </div>
+                                                        </div>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <span className={cn("px-2.5 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wide", getStatusColor(req.status))}>
+                                                            {getStatusLabel(req.status)}
+                                                        </span>
+                                                    </TableCell>
+                                                    <TableCell className="hidden md:table-cell text-xs text-slate-500">
+                                                        {new Date(req.created_at).toLocaleDateString()}
+                                                    </TableCell>
+                                                    <TableCell className="text-right">
+                                                        {req.user_id === user.id && (
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="text-slate-400 hover:text-red-600 hover:bg-red-50"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation()
+                                                                    setRequestToDelete(req.id)
+                                                                }}
+                                                            >
+                                                                <Trash2 className="w-4 h-4" />
+                                                            </Button>
+                                                        )}
+                                                    </TableCell>
+                                                </TableRow>
+                                            )
+                                        })
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    </div>
+                )
+
+            case 'calendar':
+                return (
+                    <div className="h-[420px]">
+                        <DailyCalendarWidget />
+                    </div>
+                )
+
+            case 'sticky-notes':
+                return (
+                    <div className="h-[400px]">
+                        <StickyNotesWidget />
+                    </div>
+                )
+
+            default:
+                return null
+        }
+    }
+
+    // Filter out null cards (postulante hides some)
+    const visibleCards = cardOrder.filter(id => {
+        if (isPostulante && ['quick-actions', 'contacts-active', 'ambassadors', 'requests'].includes(id)) return false
+        return true
+    })
+
     return (
         <div className="p-4 pt-6 md:p-8 max-w-[1600px] mx-auto space-y-6 md:space-y-8 bg-slate-50/50 min-h-screen">
 
@@ -469,167 +744,32 @@ export default function Dashboard() {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+            {/* ═══ Drag-and-Drop Grid ═══ */}
+            <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+            >
+                <SortableContext items={visibleCards} strategy={rectSortingStrategy}>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
+                        {visibleCards.map(cardId => {
+                            const content = renderCardContent(cardId)
+                            if (!content) return null
 
-                {/* Left Column: Quick Actions & Requests Table */}
-                <div className="space-y-6 lg:col-span-2" data-tour="requests-list">
+                            // Determine spanning: requests table gets full width
+                            const spanClass = cardId === 'requests'
+                                ? 'md:col-span-2 lg:col-span-2'
+                                : ''
 
-                    {/* Quick Actions — hidden for postulantes */}
-                    {!isPostulante && <div className="bg-white p-4 md:p-5 rounded-3xl border border-slate-200/60 shadow-sm flex flex-col gap-3" data-tour="quick-actions">
-                        <div className="font-bold text-slate-800 text-sm md:text-base px-1">Accesos Rápidos</div>
-                        <div className="flex overflow-x-auto pb-2 -mx-2 px-2 md:-mx-0 md:px-0 md:pb-0 gap-3 snap-x snap-mandatory flex-nowrap md:flex-wrap [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-                            {quickActions.map((action, index) => (
-                                <Button
-                                    key={index}
-                                    className={cn(
-                                        "snap-start shrink-0 gap-2 shadow-sm hover:shadow-md transition-all rounded-xl md:rounded-lg h-12 md:h-10 text-sm",
-                                        action.color
-                                    )}
-                                    onClick={() => action.action ? action.action() : navigate(action.path)}
-                                >
-                                    <action.icon className="w-4 h-4 md:w-4 md:h-4" />
-                                    {action.label}
-                                </Button>
-                            ))}
-
-                            <div className="h-6 w-px bg-slate-200 mx-2 hidden md:block self-center" />
-
-                            <Button
-                                variant="secondary"
-                                className="snap-start shrink-0 gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl md:rounded-lg h-12 md:h-10 text-sm shadow-sm"
-                                onClick={() => setIsContactModalOpen(true)}
-                            >
-                                <UserPlus className="w-4 h-4" />
-                                Nuevo Contacto
-                            </Button>
-                        </div>
-                    </div>}
-
-                    {/* Solicitudes table — hidden for postulantes */}
-                    {!isPostulante && <div>
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between mt-8 mb-4 gap-4">
-                            <h2 className="text-xl md:text-2xl font-bold text-slate-900 tracking-tight">
-                                {['legal', 'comercial'].includes(profile?.role) ? 'Solicitudes' : 'Mis Solicitudes'}
-                            </h2>
-                            <div className="flex overflow-x-auto hide-scrollbar bg-slate-100/90 p-1.5 rounded-2xl snap-x [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden w-full sm:w-auto border border-slate-200/50">
-                                {['all', 'pending', 'finalized', 'draft'].map(status => (
-                                    <button
-                                        key={status}
-                                        onClick={() => setFilterStatus(status)}
-                                        className={cn(
-                                            "px-4 py-2 text-xs md:text-sm font-bold rounded-xl transition-all shrink-0 snap-start flex-1 sm:flex-none text-center",
-                                            filterStatus === status
-                                                ? "bg-white text-slate-900 shadow-sm border border-slate-200/50"
-                                                : "text-slate-500 hover:text-slate-800"
-                                        )}
-                                    >
-                                        {status === 'all' && 'Todas'}
-                                        {status === 'pending' && 'Pendientes'}
-                                        {status === 'finalized' && 'Finalizadas'}
-                                        {status === 'draft' && 'Borrador'}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        <div className="bg-white rounded-3xl border border-slate-200/60 shadow-sm overflow-hidden">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow className="bg-slate-50 hover:bg-slate-50">
-                                        <TableHead className="w-[50px]"></TableHead>
-                                        <TableHead>Descripción / Cliente</TableHead>
-                                        <TableHead>Estado</TableHead>
-                                        <TableHead className="hidden md:table-cell">Fecha</TableHead>
-                                        <TableHead className="text-right">Acciones</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {filteredRequests.length === 0 ? (
-                                        <TableRow>
-                                            <TableCell colSpan={5} className="h-24 text-center text-slate-500">
-                                                No se encontraron solicitudes
-                                            </TableCell>
-                                        </TableRow>
-                                    ) : (
-                                        filteredRequests.map((req) => {
-                                            const info = getRequestInfo(req)
-                                            const address = getRequestAddress(req)
-
-                                            return (
-                                                <TableRow
-                                                    key={req.id}
-                                                    className={cn(
-                                                        "group",
-                                                        req.user_id === user.id
-                                                            ? "hover:bg-slate-50/50 cursor-pointer"
-                                                            : "cursor-default opacity-80"
-                                                    )}
-                                                    onClick={() => resumeRequest(req)}
-                                                >
-                                                    <TableCell>
-                                                        <div className={cn("w-8 h-8 rounded-md flex items-center justify-center", info.color)}>
-                                                            {info.icon}
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <div className="flex flex-col">
-                                                            <span className="font-medium text-slate-900">
-                                                                Solicitud: {info.label} {req.comuna && `en ${req.comuna}`}
-                                                            </span>
-                                                            <div className="flex items-center gap-1 text-xs text-slate-500 mt-0.5">
-                                                                <MapPin className="w-3 h-3" />
-                                                                <span className="truncate max-w-[250px]">{address}</span>
-                                                            </div>
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <span className={cn("px-2.5 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wide", getStatusColor(req.status))}>
-                                                            {getStatusLabel(req.status)}
-                                                        </span>
-                                                    </TableCell>
-                                                    <TableCell className="hidden md:table-cell text-xs text-slate-500">
-                                                        {new Date(req.created_at).toLocaleDateString()}
-                                                    </TableCell>
-                                                    <TableCell className="text-right">
-                                                        {req.user_id === user.id && (
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className="text-slate-400 hover:text-red-600 hover:bg-red-50"
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation()
-                                                                    setRequestToDelete(req.id)
-                                                                }}
-                                                            >
-                                                                <Trash2 className="w-4 h-4" />
-                                                            </Button>
-                                                        )}
-                                                    </TableCell>
-                                                </TableRow>
-                                            )
-                                        })
-                                    )}
-                                </TableBody>
-                            </Table>
-                        </div>
-                    </div>}
-                </div>
-
-                {/* Right Column: Widgets (Half Width) */}
-                <div className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6" data-tour="widgets">
-                        {/* Calendar Widget */}
-                        <div className="md:col-span-2">
-                            <DailyCalendarWidget />
-                        </div>
-
-                        {/* Sticky Notes Widget - Now Full Width in Column */}
-                        <div className="md:col-span-2 h-[400px]">
-                            <StickyNotesWidget />
-                        </div>
+                            return (
+                                <DashboardCard key={cardId} id={cardId} className={spanClass}>
+                                    {content}
+                                </DashboardCard>
+                            )
+                        })}
                     </div>
-                </div>
-            </div>
+                </SortableContext>
+            </DndContext>
 
             {/* Modals & Alerts */}
             <AlertDialog open={!!requestToDelete} onOpenChange={() => setRequestToDelete(null)}>

@@ -221,3 +221,46 @@
     break-inside: avoid;
   }
 }
+
+/* ===== Casilla Mobile Gmail-style Overrides ===== */
+@media (max-width: 767px) {
+  /* Full-height container uses dynamic viewport height */
+  .casilla-mobile {
+    height: calc(100dvh - 64px);
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Smooth slide transitions for email list ↔ detail */
+  .casilla-mobile .slide-enter {
+    animation: slideInRight 250ms ease-out forwards;
+  }
+
+  .casilla-mobile .slide-exit {
+    animation: slideOutLeft 250ms ease-out forwards;
+  }
+
+  /* Gmail-style thread row: remove outer border-left indicator */
+  .casilla-mobile .divide-y > div {
+    border-left: none !important;
+  }
+
+  /* Prevent body scroll when sidebar drawer is open */
+  body:has(.casilla-mobile-sidebar-open) {
+    overflow: hidden;
+  }
+
+  /* Composer full-screen adjustments */
+  .casilla-mobile .tiptap-editor {
+    font-size: 14px;
+  }
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes slideOutLeft {
+  from { transform: translateX(0); }
+  to { transform: translateX(-100%); }
+}
