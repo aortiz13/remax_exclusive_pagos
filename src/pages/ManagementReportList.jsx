@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../services/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Button, Badge } from '@/components/ui'
-import { FileText, Clock, CheckCircle, AlertTriangle, Loader2, ChevronRight, Plus, Eye, User, Home, Lock, PauseCircle, X, Search, Filter, Calendar, Mail, ExternalLink } from 'lucide-react'
+import { FileText, Clock, CheckCircle, AlertTriangle, Loader2, ChevronRight, Plus, Eye, User, Home, Lock, PauseCircle, X, Search, Filter, Calendar, Mail, ExternalLink, SkipForward } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -144,7 +144,8 @@ export default function ManagementReportList() {
         pending: { label: 'Por enviar', color: 'bg-amber-100 text-amber-800 border-amber-200', icon: Clock, dotColor: 'bg-amber-400' },
         overdue: { label: 'Atrasado', color: 'bg-red-100 text-red-800 border-red-200', icon: AlertTriangle, dotColor: 'bg-red-500' },
         sent: { label: 'Enviado', color: 'bg-emerald-100 text-emerald-800 border-emerald-200', icon: CheckCircle, dotColor: 'bg-emerald-500' },
-        waiting_publication: { label: 'En pausa', color: 'bg-slate-100 text-slate-600 border-slate-200', icon: PauseCircle, dotColor: 'bg-slate-400' }
+        waiting_publication: { label: 'En pausa', color: 'bg-slate-100 text-slate-600 border-slate-200', icon: PauseCircle, dotColor: 'bg-slate-400' },
+        skipped: { label: 'No realizado', color: 'bg-orange-100 text-orange-700 border-orange-200', icon: SkipForward, dotColor: 'bg-orange-400' }
     }
 
     // --- Stats (always from ALL reports, not filtered) ---
@@ -152,6 +153,7 @@ export default function ManagementReportList() {
     const overdueCount = allReports.filter(r => r.status === 'overdue' || r._isOverdue).length
     const sentCount = allReports.filter(r => r.status === 'sent').length
     const waitingCount = allReports.filter(r => r.status === 'waiting_publication').length
+    const skippedCount = allReports.filter(r => r.status === 'skipped').length
 
     // --- Filtered reports for display ---
     const reports = useMemo(() => {
@@ -160,15 +162,17 @@ export default function ManagementReportList() {
         if (filter === 'overdue') return allReports.filter(r => r.status === 'overdue' || r._isOverdue)
         if (filter === 'sent') return allReports.filter(r => r.status === 'sent')
         if (filter === 'waiting_publication') return allReports.filter(r => r.status === 'waiting_publication')
+        if (filter === 'skipped') return allReports.filter(r => r.status === 'skipped')
         return allReports
     }, [allReports, filter])
 
-    // Admin tabs: show all statuses including overdue
+    // Admin tabs: show all statuses including overdue and skipped
     const adminTabs = [
         { key: 'all', label: 'Todos', count: allReports.length },
         { key: 'pending', label: 'Por enviar', count: pendingCount },
         { key: 'overdue', label: 'Atrasados', count: overdueCount },
         { key: 'sent', label: 'Enviados', count: sentCount },
+        { key: 'skipped', label: 'No realizado', count: skippedCount },
         { key: 'waiting_publication', label: 'En pausa', count: waitingCount },
     ]
 
@@ -402,13 +406,14 @@ export default function ManagementReportList() {
             )}
 
             {/* Stats Cards */}
-            <div className={cn("grid gap-4", isAdmin ? "grid-cols-2 sm:grid-cols-5" : "grid-cols-3")}>
+            <div className={cn("grid gap-4", isAdmin ? "grid-cols-2 sm:grid-cols-6" : "grid-cols-3")}>
                 {(isAdmin
                     ? [
                         { label: 'Total', count: allReports.length, color: 'from-blue-500 to-blue-600', bg: 'bg-blue-50 dark:bg-blue-900/20' },
                         { label: 'Por enviar', count: pendingCount, color: 'from-amber-500 to-amber-600', bg: 'bg-amber-50 dark:bg-amber-900/20' },
                         { label: 'Atrasados', count: overdueCount, color: 'from-red-500 to-red-600', bg: 'bg-red-50 dark:bg-red-900/20' },
                         { label: 'Enviados', count: sentCount, color: 'from-emerald-500 to-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-900/20' },
+                        { label: 'No realizado', count: skippedCount, color: 'from-orange-400 to-orange-500', bg: 'bg-orange-50 dark:bg-orange-900/20' },
                         { label: 'En pausa', count: waitingCount, color: 'from-slate-400 to-slate-500', bg: 'bg-slate-50 dark:bg-slate-900/20' },
                     ]
                     : [
@@ -476,9 +481,11 @@ export default function ManagementReportList() {
                                 ? 'No hay informes atrasados'
                                 : filter === 'sent'
                                     ? 'No hay informes enviados'
-                                    : filter === 'waiting_publication'
-                                        ? 'No hay informes en pausa'
-                                        : 'No hay informes de gestión'
+                                    : filter === 'skipped'
+                                        ? 'No hay informes no realizados'
+                                        : filter === 'waiting_publication'
+                                            ? 'No hay informes en pausa'
+                                            : 'No hay informes de gestión'
                         }
                     </p>
                     <p className="text-sm">

@@ -528,6 +528,17 @@ export default function ManagementReportPage() {
                     .from('management_reports')
                     .update({ report_data: fullData, status: 'sent', sent_at: new Date().toISOString(), updated_at: new Date().toISOString() })
                     .eq('id', reportId)
+
+                // Auto-mark older pending/overdue reports for the same property as 'skipped' (No realizado)
+                if (report.property_id && report.report_number) {
+                    await supabase
+                        .from('management_reports')
+                        .update({ status: 'skipped', updated_at: new Date().toISOString() })
+                        .eq('property_id', report.property_id)
+                        .eq('agent_id', user.id)
+                        .in('status', ['pending', 'overdue'])
+                        .lt('report_number', report.report_number)
+                }
             }
 
             const agentName = `${report.agent?.first_name || profile?.first_name || ''} ${report.agent?.last_name || profile?.last_name || ''}`.trim()
@@ -892,9 +903,10 @@ export default function ManagementReportPage() {
 
     const isSent = report.status === 'sent'
     const isWaiting = report.status === 'waiting_publication'
+    const isSkipped = report.status === 'skipped'
     const isAdminRole = ['superadministrador', 'comercial', 'legal', 'tecnico', 'administracion'].includes(profile?.role)
     const isOwnerAgent = user?.id === report.agent_id
-    const isReadOnly = isAdminRole && !isOwnerAgent
+    const isReadOnly = (isAdminRole && !isOwnerAgent) || isSkipped
     const agentName = `${report.agent?.first_name || profile?.first_name || ''} ${report.agent?.last_name || profile?.last_name || ''}`.trim()
     const ownerFirstName = report.owner?.first_name || ''
     const propertyAddress = report.properties?.address || 'Dirección de la propiedad'
@@ -902,7 +914,7 @@ export default function ManagementReportPage() {
 
     // -- PDF-style Report Component --
     const ReportContent = ({ isPreview = false }) => {
-        const isSentOrPreview = isSent || isPreview || isReadOnly
+        const isSentOrPreview = isSent || isPreview || isReadOnly || isSkipped
         return (
             <div className={cn("bg-white text-black", isPreview ? "w-[210mm] pdf-print-area" : "max-w-4xl mx-auto")} style={{ fontFamily: "'Public Sans', 'Inter', sans-serif" }}>
 
@@ -1625,8 +1637,21 @@ export default function ManagementReportPage() {
 
     return (
         <div className="space-y-6">
-            {/* Read-only banner for admin roles */}
-            {isReadOnly && (
+            {/* Skipped (No realizado) banner */}
+            {isSkipped && (
+                <div className="max-w-4xl mx-auto rounded-xl p-4 flex items-center gap-3 bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 shadow-sm">
+                    <div className="p-2 bg-orange-100 rounded-lg">
+                        <AlertTriangle className="w-5 h-5 text-orange-600" />
+                    </div>
+                    <div>
+                        <p className="font-semibold text-sm text-slate-900">⏭️ No realizado</p>
+                        <p className="text-xs text-slate-500">Este informe fue salteado por el agente <span className="font-medium text-slate-700">{agentName || 'No asignado'}</span> al enviar un informe posterior. No es editable.</p>
+                    </div>
+                </div>
+            )}
+
+            {/* Read-only banner for admin roles (not shown for skipped, has its own banner) */}
+            {isReadOnly && !isSkipped && (
                 <div className="max-w-4xl mx-auto rounded-xl p-4 flex items-center gap-3 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 shadow-sm">
                     <div className="p-2 bg-blue-100 rounded-lg">
                         <Eye className="w-5 h-5 text-blue-600" />
