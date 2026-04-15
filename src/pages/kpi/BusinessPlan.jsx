@@ -353,20 +353,7 @@ export default function BusinessPlan({ agentId: externalAgentId, readOnly = fals
                             </div>
                         </div>
 
-                        {/* Tickets */}
-                        <div className="grid grid-cols-2 gap-1.5">
-                            <div className="p-2 rounded-lg bg-slate-50 border border-slate-100">
-                                <label className="text-[0.45rem] font-bold text-slate-400 uppercase block mb-0.5">Proyectado</label>
-                                <p className="text-xs font-bold text-slate-800 font-mono">{fmtCLP(projected.sale)}</p>
-                            </div>
-                            <div className={`p-2 rounded-lg border ${real.sale > 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-100'}`}>
-                                <label className="text-[0.45rem] font-bold text-slate-400 uppercase block mb-0.5">Real</label>
-                                <p className={`text-xs font-bold font-mono ${real.sale > 0 ? 'text-emerald-700' : 'text-slate-400'}`}>
-                                    {real.sale > 0 ? fmtCLP(real.sale) : '—'}
-                                </p>
-                            </div>
-                        </div>
-                        <p className="text-[0.5rem] text-slate-400 mt-2">Comisión: {plan.sale_commission}%</p>
+
                     </div>
 
                     {/* ── ARRIENDOS ── */}
@@ -398,20 +385,7 @@ export default function BusinessPlan({ agentId: externalAgentId, readOnly = fals
                             </div>
                         </div>
 
-                        {/* Tickets */}
-                        <div className="grid grid-cols-2 gap-1.5">
-                            <div className="p-2 rounded-lg bg-slate-50 border border-slate-100">
-                                <label className="text-[0.45rem] font-bold text-slate-400 uppercase block mb-0.5">Proyectado</label>
-                                <p className="text-xs font-bold text-slate-800 font-mono">{fmtCLP(projected.rental)}</p>
-                            </div>
-                            <div className={`p-2 rounded-lg border ${real.rental > 0 ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 border-slate-100'}`}>
-                                <label className="text-[0.45rem] font-bold text-slate-400 uppercase block mb-0.5">Real</label>
-                                <p className={`text-xs font-bold font-mono ${real.rental > 0 ? 'text-amber-700' : 'text-slate-400'}`}>
-                                    {real.rental > 0 ? fmtCLP(real.rental) : '—'}
-                                </p>
-                            </div>
-                        </div>
-                        <p className="text-[0.5rem] text-slate-400 mt-2">Comisión: {plan.rental_commission}%</p>
+
                     </div>
                 </div>
 
