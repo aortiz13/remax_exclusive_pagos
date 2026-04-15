@@ -26,27 +26,39 @@ import {
 const TAB_CONFIG = {
   propietarios: {
     icon: Home,
-    gradient: 'from-blue-600 to-indigo-600',
-    activeBg: 'bg-gradient-to-r from-blue-600 to-indigo-600',
+    gradient: 'from-[#003DA5] to-[#0050D4]',
+    activeBg: 'bg-gradient-to-r from-[#003DA5] to-[#0050D4]',
     hoverBg: 'hover:bg-blue-50 dark:hover:bg-blue-900/20',
-    text: 'text-blue-700 dark:text-blue-300',
-    ring: 'ring-blue-500/30',
+    text: 'text-[#003DA5] dark:text-blue-300',
+    ring: 'ring-[#003DA5]/30',
+    descBg: 'bg-blue-50/50 border-blue-100 dark:bg-blue-950/20 dark:border-blue-900/30',
+    descIconBg: 'bg-blue-100 dark:bg-blue-900/40',
+    descIconText: 'text-[#003DA5] dark:text-blue-400',
+    descTitle: 'text-[#003DA5] dark:text-blue-300',
   },
   compradores: {
     icon: ShoppingCart,
-    gradient: 'from-emerald-600 to-teal-600',
-    activeBg: 'bg-gradient-to-r from-emerald-600 to-teal-600',
-    hoverBg: 'hover:bg-emerald-50 dark:hover:bg-emerald-900/20',
-    text: 'text-emerald-700 dark:text-emerald-300',
-    ring: 'ring-emerald-500/30',
+    gradient: 'from-[#002B75] to-[#003DA5]',
+    activeBg: 'bg-gradient-to-r from-[#002B75] to-[#003DA5]',
+    hoverBg: 'hover:bg-blue-50 dark:hover:bg-blue-900/20',
+    text: 'text-[#002B75] dark:text-blue-300',
+    ring: 'ring-[#002B75]/30',
+    descBg: 'bg-indigo-50/50 border-indigo-100 dark:bg-indigo-950/20 dark:border-indigo-900/30',
+    descIconBg: 'bg-indigo-100 dark:bg-indigo-900/40',
+    descIconText: 'text-[#002B75] dark:text-indigo-400',
+    descTitle: 'text-[#002B75] dark:text-indigo-300',
   },
   arriendos: {
     icon: Key,
-    gradient: 'from-amber-500 to-orange-500',
-    activeBg: 'bg-gradient-to-r from-amber-500 to-orange-500',
-    hoverBg: 'hover:bg-amber-50 dark:hover:bg-amber-900/20',
-    text: 'text-amber-700 dark:text-amber-300',
-    ring: 'ring-amber-500/30',
+    gradient: 'from-[#CC0000] to-[#E31837]',
+    activeBg: 'bg-gradient-to-r from-[#CC0000] to-[#E31837]',
+    hoverBg: 'hover:bg-red-50 dark:hover:bg-red-900/20',
+    text: 'text-[#CC0000] dark:text-red-300',
+    ring: 'ring-[#CC0000]/30',
+    descBg: 'bg-red-50/50 border-red-100 dark:bg-red-950/20 dark:border-red-900/30',
+    descIconBg: 'bg-red-100 dark:bg-red-900/40',
+    descIconText: 'text-[#CC0000] dark:text-red-400',
+    descTitle: 'text-[#CC0000] dark:text-red-300',
   },
 }
 
@@ -336,33 +348,17 @@ export default function SalesPipeline() {
       </div>
 
       {/* ─── Pipeline Description ─────────────────────────────────── */}
-      <div className={`flex items-start gap-3 px-4 py-3 rounded-xl border transition-all ${
-        activeTab === 'propietarios' ? 'bg-blue-50/50 border-blue-100 dark:bg-blue-950/20 dark:border-blue-900/30' :
-        activeTab === 'compradores' ? 'bg-emerald-50/50 border-emerald-100 dark:bg-emerald-950/20 dark:border-emerald-900/30' :
-        'bg-amber-50/50 border-amber-100 dark:bg-amber-950/20 dark:border-amber-900/30'
-      }`}>
-        <div className={`p-1.5 rounded-lg mt-0.5 shrink-0 ${
-          activeTab === 'propietarios' ? 'bg-blue-100 dark:bg-blue-900/40' :
-          activeTab === 'compradores' ? 'bg-emerald-100 dark:bg-emerald-900/40' :
-          'bg-amber-100 dark:bg-amber-900/40'
-        }`}>
-          <TabIcon className={`w-4 h-4 ${
-            activeTab === 'propietarios' ? 'text-blue-600 dark:text-blue-400' :
-            activeTab === 'compradores' ? 'text-emerald-600 dark:text-emerald-400' :
-            'text-amber-600 dark:text-amber-400'
-          }`} />
+      <div className={`flex items-start gap-3 px-4 py-3 rounded-xl border transition-all ${tabConfig.descBg}`}>
+        <div className={`p-1.5 rounded-lg mt-0.5 shrink-0 ${tabConfig.descIconBg}`}>
+          <TabIcon className={`w-4 h-4 ${tabConfig.descIconText}`} />
         </div>
         <div>
-          <p className={`text-sm font-semibold ${
-            activeTab === 'propietarios' ? 'text-blue-800 dark:text-blue-300' :
-            activeTab === 'compradores' ? 'text-emerald-800 dark:text-emerald-300' :
-            'text-amber-800 dark:text-amber-300'
-          }`}>
+          <p className={`text-sm font-semibold ${tabConfig.descTitle}`}>
             {activeTab === 'propietarios' && 'Pipeline de Propietarios / Vendedores'}
             {activeTab === 'compradores' && 'Pipeline de Compradores'}
             {activeTab === 'arriendos' && 'Pipeline de Arriendos'}
           </p>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
+          <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
             {activeTab === 'propietarios' && 'Gestiona el ciclo completo desde la prospección del propietario hasta la entrega post-venta. Incluye captación, evaluación comercial, negociación, promesa, escritura y monitoreo.'}
             {activeTab === 'compradores' && 'Acompaña al comprador desde su captación hasta el cierre. Incluye análisis de mercado, presentación de opciones, visitas, carta de intención, negociación y escrituración.'}
             {activeTab === 'arriendos' && 'Controla el proceso de arriendo de principio a fin. Incluye prospección, evaluación, estudio de antecedentes del arrendatario, negociación, contrato y entrega de la propiedad.'}
