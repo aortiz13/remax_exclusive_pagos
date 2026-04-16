@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 import { supabase } from '../services/supabase'
 import { getDefaultFormData, uploadInspectionPhoto } from '../services/inspectionService'
@@ -50,9 +50,60 @@ export default function PublicInspectionPage() {
     const photoInputRef = useRef(null)
     const cameraInputRef = useRef(null)
 
+    // ── Mobile session persistence (prevents iOS Safari tab-kill losing data) ──
+    const STORAGE_KEY = `public_inspection_draft_${token}`
+
+    const persistToSessionStorage = useCallback(() => {
+        if (!token) return
+        try {
+            const snapshot = {
+                formData, photos, observations, recommendations, inspectorName,
+                ts: Date.now(),
+            }
+            sessionStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot))
+        } catch { /* quota exceeded — non-critical */ }
+    }, [token, formData, photos, observations, recommendations, inspectorName])
+
+    const restoreFromSessionStorage = useCallback(() => {
+        try {
+            const raw = sessionStorage.getItem(STORAGE_KEY)
+            if (!raw) return null
+            const snapshot = JSON.parse(raw)
+            if (Date.now() - snapshot.ts > 30 * 60 * 1000) {
+                sessionStorage.removeItem(STORAGE_KEY)
+                return null
+            }
+            return snapshot
+        } catch { return null }
+    }, [STORAGE_KEY])
+
+    // Force-save to DB + sessionStorage before opening camera (mobile resilience)
+    const saveBeforeCamera = useCallback(async () => {
+        persistToSessionStorage()
+        // Proactively refresh auth session
+        try { await supabase.auth.refreshSession() } catch { /* non-critical */ }
+        // Force-save to DB
+        if (inspection && inspection.status !== 'sent') {
+            try {
+                await supabase.from('property_inspections').update({
+                    form_data: { ...formData, inspector_externo: inspectorName },
+                    photos, observations, recommendations,
+                    updated_at: new Date().toISOString(),
+                }).eq('public_token', token)
+            } catch (err) { console.warn('Pre-camera save failed:', err) }
+        }
+    }, [token, inspection, formData, photos, observations, recommendations, inspectorName, persistToSessionStorage])
+
     useEffect(() => {
         loadInspection()
     }, [token])
+
+    // Periodically persist to sessionStorage (every 10s) for mobile resilience
+    useEffect(() => {
+        if (loading || !inspection) return
+        const interval = setInterval(persistToSessionStorage, 10000)
+        return () => clearInterval(interval)
+    }, [loading, inspection, persistToSessionStorage])
 
     const loadInspection = async () => {
         try {
@@ -87,49 +138,63 @@ export default function PublicInspectionPage() {
                 propertyAddress = data.address || ''
             }
 
-            // Load form data
-            if (data.form_data && Object.keys(data.form_data).length > 0) {
-                let saved = isNewFormat(data.form_data)
-                    ? data.form_data
-                    : convertLegacyFormData(data.form_data)
-                if (!saved.direccion && propertyAddress) saved.direccion = propertyAddress
+            // ── Check sessionStorage for a more recent snapshot (mobile tab-kill recovery) ──
+            const cached = restoreFromSessionStorage()
+            const dbUpdatedAt = data.updated_at ? new Date(data.updated_at).getTime() : 0
 
-                // ── Migrate legacy propietario (string) → propietarios (array) ──
-                if (!Array.isArray(saved.propietarios)) {
-                    if (saved.propietario) {
-                        saved.propietarios = [{ nombre: saved.propietario, email: saved.owner_email || '' }]
-                    } else {
-                        saved.propietarios = []
-                    }
-                }
-                // ── Migrate legacy arrendatario (string) → arrendatarios (array) ──
-                if (!Array.isArray(saved.arrendatarios)) {
-                    if (saved.arrendatario) {
-                        saved.arrendatarios = [{ nombre: saved.arrendatario, email: '' }]
-                    } else {
-                        saved.arrendatarios = []
-                    }
-                }
-
-                // Ensure all entries have email field
-                saved.propietarios = (saved.propietarios || []).map(p => ({ ...p, email: p.email || '' }))
-                saved.arrendatarios = (saved.arrendatarios || []).map(a => ({ ...a, email: a.email || '' }))
-
-                setFormData(saved)
+            if (cached && cached.ts > dbUpdatedAt) {
+                console.info('[PublicInspection] Restoring from sessionStorage (newer than DB)')
+                setFormData(cached.formData)
+                setPhotos(cached.photos || [])
+                setObservations(cached.observations || '')
+                setRecommendations(cached.recommendations || '')
+                setInspectorName(cached.inspectorName || '')
+                sessionStorage.removeItem(STORAGE_KEY)
             } else {
-                setFormData(prev => ({
-                    ...prev,
-                    direccion: propertyAddress,
-                    fecha_inspeccion: new Date().toISOString().split('T')[0],
-                    propietarios: [],
-                    arrendatarios: [],
-                }))
-            }
+                // Load form data from DB
+                if (data.form_data && Object.keys(data.form_data).length > 0) {
+                    let saved = isNewFormat(data.form_data)
+                        ? data.form_data
+                        : convertLegacyFormData(data.form_data)
+                    if (!saved.direccion && propertyAddress) saved.direccion = propertyAddress
 
-            setPhotos(data.photos || [])
-            setObservations(data.observations || data.form_data?.observaciones_adicionales || '')
-            setRecommendations(data.recommendations || data.form_data?.recomendaciones || '')
-            setInspectorName(data.form_data?.inspector_externo || '')
+                    // ── Migrate legacy propietario (string) → propietarios (array) ──
+                    if (!Array.isArray(saved.propietarios)) {
+                        if (saved.propietario) {
+                            saved.propietarios = [{ nombre: saved.propietario, email: saved.owner_email || '' }]
+                        } else {
+                            saved.propietarios = []
+                        }
+                    }
+                    // ── Migrate legacy arrendatario (string) → arrendatarios (array) ──
+                    if (!Array.isArray(saved.arrendatarios)) {
+                        if (saved.arrendatario) {
+                            saved.arrendatarios = [{ nombre: saved.arrendatario, email: '' }]
+                        } else {
+                            saved.arrendatarios = []
+                        }
+                    }
+
+                    // Ensure all entries have email field
+                    saved.propietarios = (saved.propietarios || []).map(p => ({ ...p, email: p.email || '' }))
+                    saved.arrendatarios = (saved.arrendatarios || []).map(a => ({ ...a, email: a.email || '' }))
+
+                    setFormData(saved)
+                } else {
+                    setFormData(prev => ({
+                        ...prev,
+                        direccion: propertyAddress,
+                        fecha_inspeccion: new Date().toISOString().split('T')[0],
+                        propietarios: [],
+                        arrendatarios: [],
+                    }))
+                }
+
+                setPhotos(data.photos || [])
+                setObservations(data.observations || data.form_data?.observaciones_adicionales || '')
+                setRecommendations(data.recommendations || data.form_data?.recomendaciones || '')
+                setInspectorName(data.form_data?.inspector_externo || '')
+            }
         } catch (err) {
             console.error(err)
             setError('Error al cargar la inspección')
@@ -226,10 +291,14 @@ export default function PublicInspectionPage() {
     const [showAddAreaMenu, setShowAddAreaMenu] = useState(false)
     const addableAreas = getAddableAreas(formData.inspection_type || 'residential')
 
-    // ── Photo handlers ──
+    // ── Photo handlers — with session refresh retry for mobile ──
     const handlePhotoUpload = async (e) => {
         const files = Array.from(e.target.files || [])
         if (files.length === 0) return
+
+        // Refresh session before uploading (mobile may have been backgrounded)
+        try { await supabase.auth.refreshSession() } catch { /* non-critical */ }
+
         for (const file of files) {
             try {
                 toast.loading(`Subiendo ${file.name}...`, { id: `upload-${file.name}` })
@@ -239,7 +308,7 @@ export default function PublicInspectionPage() {
             } catch (err) {
                 console.error('Photo upload error:', err)
                 const msg = err.message?.includes('sesión') || err.message?.includes('expired') || err.message?.includes('token')
-                    ? 'Error de sesión. Recarga la página para continuar.'
+                    ? 'Error de sesión. Tus datos están guardados. Recarga la página para continuar.'
                     : `Error subiendo ${file.name}`
                 toast.error(msg, { id: `upload-${file.name}`, duration: 6000 })
             }
@@ -938,13 +1007,13 @@ export default function PublicInspectionPage() {
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <button
-                                        onClick={() => cameraInputRef.current?.click()}
+                                        onClick={async () => { await saveBeforeCamera(); cameraInputRef.current?.click() }}
                                         className="px-4 py-2 bg-emerald-600 text-white text-sm font-semibold rounded-lg hover:bg-emerald-700 transition-colors flex items-center gap-1.5"
                                     >
                                         <Camera className="w-4 h-4" /> Tomar Foto
                                     </button>
                                     <button
-                                        onClick={() => photoInputRef.current?.click()}
+                                        onClick={async () => { await saveBeforeCamera(); photoInputRef.current?.click() }}
                                         className="px-4 py-2 bg-[#003DA5] text-white text-sm font-semibold rounded-lg hover:bg-[#002d7a] transition-colors flex items-center gap-1.5"
                                     >
                                         <ImagePlus className="w-4 h-4" /> Subir desde Galería
@@ -972,7 +1041,7 @@ export default function PublicInspectionPage() {
                             {photos.length === 0 ? (
                                 <div
                                     className="border-2 border-dashed border-gray-300 rounded-xl p-12 text-center cursor-pointer hover:border-[#003DA5]/40 hover:bg-blue-50/30 transition-colors"
-                                    onClick={() => photoInputRef.current?.click()}
+                                    onClick={async () => { await saveBeforeCamera(); photoInputRef.current?.click() }}
                                 >
                                     <Camera className="w-10 h-10 text-gray-300 mx-auto mb-2" />
                                     <p className="text-gray-400 text-sm">Toque aquí o use los botones de arriba para agregar fotos</p>

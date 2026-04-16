@@ -1,0 +1,221 @@
+{
+  "name": "Notificación Inspección En Revisión",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "inspection-review-submitted",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [480, 300],
+      "id": "wh-insp-review-001",
+      "name": "Webhook",
+      "webhookId": "inspection-review-submitted-001"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [700, 300],
+      "id": "resp-insp-review-001",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.remax-exclusive.cl/chat/sendPresence/Remax%20Exclusive",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"number\": \"120363425201828395@g.us\",\n  \"presence\": \"composing\",\n  \"delay\": 2000\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [920, 200],
+      "id": "typing-grp-insp-001",
+      "name": "Typing Grupo",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.remax-exclusive.cl/message/sendText/Remax%20Exclusive",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "A47DF197AC02-4F21-BEB4-9F3485E5E4EB"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "number",
+              "value": "120363425201828395@g.us"
+            },
+            {
+              "name": "text",
+              "value": "=🔍 *INSPECCIÓN ENVIADA A REVISIÓN*\n\n👤 *Agente:* {{ $('Webhook').first().json.body.agent.name }}\n📧 {{ $('Webhook').first().json.body.agent.email }}\n\n🏠 *Propiedad:* {{ $('Webhook').first().json.body.inspection.address }}\n👨‍💼 *Propietario:* {{ $('Webhook').first().json.body.inspection.owner_name || 'No registrado' }}\n🏡 *Arrendatario:* {{ $('Webhook').first().json.body.inspection.tenant_name || 'No registrado' }}\n📅 *Fecha inspección:* {{ $('Webhook').first().json.body.inspection.inspection_date || 'No indicada' }}\n\n📌 *Estado:* En Revisión\n\n_Ingresa a la plataforma para revisar y enviar al propietario._\n{{ $('Webhook').first().json.body.inspection.url }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1140, 200],
+      "id": "wa-grp-insp-001",
+      "name": "WA Grupo Inspección",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.remax-exclusive.cl/chat/sendPresence/Remax%20Exclusive",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"number\": \"120363425201828395@g.us\",\n  \"presence\": \"paused\",\n  \"delay\": 1000\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1360, 200],
+      "id": "paused-grp-insp-001",
+      "name": "Paused Grupo",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.remax-exclusive.cl/chat/markMessageAsRead/Remax%20Exclusive",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"readMessages\": [{\n    \"remoteJid\": \"120363425201828395@g.us\",\n    \"fromMe\": true,\n    \"id\": \"{{ $('WA Grupo Inspección').item.json.key.id }}\"\n  }]\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1580, 200],
+      "id": "leido-grp-insp-001",
+      "name": "Leído Grupo",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "sendTo": "marinela.echenagucia@remax-exclusive.cl, josemiguel.raidi@remax-exclusive.cl",
+        "subject": "=🔍 Inspección En Revisión - {{ $('Webhook').first().json.body.inspection.address }} - {{ $('Webhook').first().json.body.agent.name }}",
+        "message": "=<!DOCTYPE html>\n<html lang=\"es\">\n<head>\n    <meta charset=\"UTF-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <link href=\"https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&display=swap\" rel=\"stylesheet\">\n    <style>\n        * { margin: 0; padding: 0; box-sizing: border-box; }\n        body { margin: 0; padding: 0; font-family: 'Open Sans', sans-serif; background-color: #f5f5f5; }\n        .email-wrapper { background-color: #f5f5f5; padding: 30px 20px; }\n        .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08); }\n        .header { background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); padding: 25px 30px; }\n        .header h1 { color: #ffffff; font-size: 20px; font-weight: 600; margin: 0; }\n        .header p { color: rgba(255,255,255,0.9); font-size: 14px; margin-top: 5px; }\n        .content { padding: 35px 30px; }\n        .content p { color: #333333; font-size: 15px; line-height: 1.6; margin-bottom: 25px; }\n        .data-box { background-color: #f8f9fa; border-left: 3px solid #6366f1; padding: 20px; margin: 25px 0; border-radius: 4px; }\n        .data-row { margin-bottom: 12px; }\n        .data-row:last-child { margin-bottom: 0; }\n        .data-label { color: #666666; font-size: 13px; font-weight: 600; display: block; margin-bottom: 4px; }\n        .data-value { color: #333333; font-size: 15px; }\n        .status-badge { display: inline-block; background-color: #eef2ff; color: #4338ca; padding: 6px 16px; border-radius: 20px; font-weight: 600; font-size: 14px; }\n        .cta-button { display: inline-block; background-color: #6366f1; color: #ffffff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 15px; margin-top: 20px; }\n        .footer { background-color: #fafafa; padding: 20px 30px; text-align: center; border-top: 1px solid #e8e8e8; }\n        .footer p { margin: 3px 0; font-size: 12px; color: #999999; }\n    </style>\n</head>\n<body>\n    <div class=\"email-wrapper\">\n        <div class=\"container\">\n            <div class=\"header\">\n                <h1>🔍 Inspección Enviada a Revisión</h1>\n                <p>Un agente ha completado un informe de inspección</p>\n            </div>\n            <div class=\"content\">\n                <p>Se ha recibido un informe de inspección para revisión. Por favor, revísalo y envíalo al propietario cuando esté listo.</p>\n                <div class=\"data-box\">\n                    <div class=\"data-row\"><span class=\"data-label\">Agente</span><span class=\"data-value\">{{ $('Webhook').first().json.body.agent.name }}</span></div>\n                    <div class=\"data-row\"><span class=\"data-label\">Correo del Agente</span><span class=\"data-value\">{{ $('Webhook').first().json.body.agent.email }}</span></div>\n                </div>\n                <div class=\"data-box\">\n                    <div class=\"data-row\"><span class=\"data-label\">Propiedad</span><span class=\"data-value\">{{ $('Webhook').first().json.body.inspection.address }}</span></div>\n                    <div class=\"data-row\"><span class=\"data-label\">Propietario</span><span class=\"data-value\">{{ $('Webhook').first().json.body.inspection.owner_name || 'No registrado' }}</span></div>\n                    <div class=\"data-row\"><span class=\"data-label\">Arrendatario</span><span class=\"data-value\">{{ $('Webhook').first().json.body.inspection.tenant_name || 'No registrado' }}</span></div>\n                    <div class=\"data-row\"><span class=\"data-label\">Fecha de Inspección</span><span class=\"data-value\">{{ $('Webhook').first().json.body.inspection.inspection_date || 'No indicada' }}</span></div>\n                    <div class=\"data-row\"><span class=\"data-label\">Estado</span><span class=\"status-badge\">En Revisión</span></div>\n                </div>\n                <div style=\"text-align: center;\"><a href=\"{{ $('Webhook').first().json.body.inspection.url }}\" class=\"cta-button\">Revisar Inspección →</a></div>\n            </div>\n            <div class=\"footer\"><p><strong>RE/MAX Exclusive Chile</strong></p><p>Sistema automático de notificaciones</p></div>\n        </div>\n    </div>\n</body>\n</html>",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [920, 440],
+      "id": "email-insp-review-001",
+      "name": "Email Comercial",
+      "webhookId": "email-insp-review-001"
+    },
+    {
+      "parameters": {
+        "content": "## Notificación Inspección En Revisión\n\n**Webhook:** POST /webhook/inspection-review-submitted\n\n**Flujo:**\n1. Webhook recibe evento del frontend\n2. Respond inmediato (200)\n3. WA al grupo comercial con detalles\n4. Email a marinela + josemiguel con link directo\n\n**Payload esperado:**\n```json\n{\n  \"event\": \"inspection_review_submitted\",\n  \"agent\": { \"id\", \"name\", \"email\", \"phone\" },\n  \"inspection\": { \"id\", \"property_id\", \"address\", \"inspection_date\", \"owner_name\", \"tenant_name\", \"url\" },\n  \"submitted_at\": \"ISO date\"\n}\n```",
+        "height": 380,
+        "width": 440,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [420, 520],
+      "typeVersion": 1,
+      "id": "note-insp-review-001",
+      "name": "Sticky Note"
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond to Webhook": {
+      "main": [
+        [
+          {
+            "node": "Typing Grupo",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Email Comercial",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Typing Grupo": {
+      "main": [
+        [
+          {
+            "node": "WA Grupo Inspección",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WA Grupo Inspección": {
+      "main": [
+        [
+          {
+            "node": "Paused Grupo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Paused Grupo": {
+      "main": [
+        [
+          {
+            "node": "Leído Grupo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}
