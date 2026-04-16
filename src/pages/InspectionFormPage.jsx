@@ -183,9 +183,9 @@ export default function InspectionFormPage() {
             let defaultPropietarios = []
             if (data.property?.owner) {
                 const nombre = `${data.property.owner.first_name || ''} ${data.property.owner.last_name || ''}`.trim()
-                if (nombre) defaultPropietarios.push({ nombre, email: data.property.owner.email || '' })
+                if (nombre) defaultPropietarios.push({ nombre, email: data.property.owner.email || '', contact_id: data.property.owner.id || null })
             } else if (data.owner_name) {
-                defaultPropietarios.push({ nombre: data.owner_name, email: '' })
+                defaultPropietarios.push({ nombre: data.owner_name, email: '', contact_id: null })
             }
 
             let defaultArrendatarios = []
@@ -1226,13 +1226,15 @@ export default function InspectionFormPage() {
                                                     <div className="mb-2" data-hide-pdf>
                                                         <ContactPickerInline
                                                             label={`Buscar propietario ${idx + 1} en CRM`}
+                                                            value={prop.contact_id || undefined}
                                                             onSelectContact={(contact) => {
                                                                 if (contact) {
                                                                     setFormData(p => {
                                                                         const arr = [...(p.propietarios || [])]
                                                                         arr[idx] = {
                                                                             nombre: `${contact.first_name || ''} ${contact.last_name || ''}`.trim(),
-                                                                            email: contact.email || ''
+                                                                            email: contact.email || '',
+                                                                            contact_id: contact.id || null
                                                                         }
                                                                         const updates = { ...p, propietarios: arr }
                                                                         if (idx === 0) updates.owner_email = contact.email || ''
@@ -1327,13 +1329,15 @@ export default function InspectionFormPage() {
                                                     <div className="mb-2" data-hide-pdf>
                                                         <ContactPickerInline
                                                             label={`Buscar arrendatario ${idx + 1} en CRM`}
+                                                            value={arr.contact_id || undefined}
                                                             onSelectContact={(contact) => {
                                                                 if (contact) {
                                                                     setFormData(p => {
                                                                         const a = [...(p.arrendatarios || [])]
                                                                         a[idx] = {
                                                                             nombre: `${contact.first_name || ''} ${contact.last_name || ''}`.trim(),
-                                                                            email: contact.email || ''
+                                                                            email: contact.email || '',
+                                                                            contact_id: contact.id || null
                                                                         }
                                                                         return { ...p, arrendatarios: a }
                                                                     })

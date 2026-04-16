@@ -1,11 +1,14 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '../../services/supabase'
 import { useAuth } from '../../context/AuthContext'
-import { Search, User, Plus } from 'lucide-react'
+import { Search, User, Plus, X, ChevronDown } from 'lucide-react'
 import ContactForm from '../crm/ContactForm'
 
 const CONTACT_FIELDS = 'id, first_name, last_name, rut, email, phone, address, barrio_comuna, bank_name, bank_account_type, bank_account_number'
 const RESULTS_LIMIT = 30
+
+/* ── Detect mobile viewport ── */
+const isMobileViewport = () => window.innerWidth < 768
 
 export default function ContactPickerInline({ onSelectContact, label = 'Pre-llenar desde CRM', value, disabled = false, showNoneOption = false }) {
     const { user } = useAuth()
@@ -17,7 +20,17 @@ export default function ContactPickerInline({ onSelectContact, label = 'Pre-llen
     const [selectedId, setSelectedId] = useState(value || '')
     const [selectedContact, setSelectedContactState] = useState(null)
     const [isAddingNew, setIsAddingNew] = useState(false)
+    const [isMobile, setIsMobile] = useState(false)
     const debounceRef = useRef(null)
+    const searchInputRef = useRef(null)
+
+    /* Track mobile state */
+    useEffect(() => {
+        setIsMobile(isMobileViewport())
+        const handleResize = () => setIsMobile(isMobileViewport())
+        window.addEventListener('resize', handleResize)
+        return () => window.removeEventListener('resize', handleResize)
+    }, [])
 
     useEffect(() => {
         if (value) setSelectedId(value)
@@ -118,6 +131,23 @@ export default function ContactPickerInline({ onSelectContact, label = 'Pre-llen
         }
     }, [])
 
+    // Lock body scroll on mobile when modal is open
+    useEffect(() => {
+        if (isMobile && isOpen) {
+            document.body.style.overflow = 'hidden'
+            return () => { document.body.style.overflow = '' }
+        }
+    }, [isMobile, isOpen])
+
+    // Focus search input when opening
+    useEffect(() => {
+        if (isOpen && searchInputRef.current) {
+            // Small delay so mobile keyboard doesn't fight with animation
+            const timer = setTimeout(() => searchInputRef.current?.focus(), 150)
+            return () => clearTimeout(timer)
+        }
+    }, [isOpen])
+
     const filtered = contacts
 
     const handleSelect = (contactId) => {
@@ -125,7 +155,7 @@ export default function ContactPickerInline({ onSelectContact, label = 'Pre-llen
             setSelectedId(contactId === 'none' ? 'none' : '')
             setSelectedContactState(null)
             onSelectContact(null)
-            setIsOpen(false)
+            closePanel()
             return
         }
         const contact = contacts.find(c => c.id === contactId)
@@ -133,12 +163,78 @@ export default function ContactPickerInline({ onSelectContact, label = 'Pre-llen
             setSelectedId(contactId)
             setSelectedContactState(contact)
             onSelectContact(contact)
-            setIsOpen(false)
-            setSearchTerm('')
-            // Reset to initial contacts for next open
-            fetchInitialContacts()
+            closePanel()
         }
     }
+
+    const closePanel = () => {
+        setIsOpen(false)
+        setSearchTerm('')
+        fetchInitialContacts()
+    }
+
+    /* ── Shared contact list content ── */
+    const renderContactList = () => (
+        <>
+            <button
+                type="button"
+                onClick={() => {
+                    setIsAddingNew(true)
+                    setIsOpen(false)
+                }}
+                className="w-full text-left px-3 py-2.5 text-sm text-primary font-medium hover:bg-primary/5 transition-colors flex items-center gap-2 border-b border-border/50 sticky top-0 bg-popover z-10"
+            >
+                <Plus className="w-4 h-4" />
+                Agregar nuevo contacto
+            </button>
+
+            {showNoneOption && (
+                <button
+                    type="button"
+                    onClick={() => handleSelect('none')}
+                    className="w-full text-left px-3 py-2.5 text-sm text-muted-foreground italic hover:bg-accent transition-colors border-b border-border/50"
+                >
+                    Ningún contacto
+                </button>
+            )}
+
+            <button
+                type="button"
+                onClick={() => handleSelect('')}
+                className="w-full text-left px-3 py-2 text-sm text-muted-foreground hover:bg-accent transition-colors"
+            >
+                — Ingresar manualmente —
+            </button>
+
+            {!searchTerm && (
+                <div className="px-3 py-1 text-[10px] text-muted-foreground/60 uppercase tracking-wider bg-muted/30">
+                    Contactos recientes
+                </div>
+            )}
+
+            {filtered.length === 0 ? (
+                <div className="px-3 py-4 text-sm text-muted-foreground text-center">
+                    {searching ? 'Buscando...' : 'No se encontraron contactos'}
+                </div>
+            ) : (
+                filtered.map(c => (
+                    <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => handleSelect(c.id)}
+                        className={`w-full text-left px-3 py-2.5 text-sm hover:bg-accent transition-colors flex items-center justify-between gap-2 ${selectedId === c.id ? 'bg-accent/70 font-medium' : ''}`}
+                    >
+                        <div className="min-w-0">
+                            <div className="font-medium truncate">{c.first_name} {c.last_name}</div>
+                            <div className="text-xs text-muted-foreground truncate">
+                                {[c.rut, c.email].filter(Boolean).join(' · ')}
+                            </div>
+                        </div>
+                    </button>
+                ))
+            )}
+        </>
+    )
 
     return (
         <div className="mb-4">
@@ -161,15 +257,17 @@ export default function ContactPickerInline({ onSelectContact, label = 'Pre-llen
                                     : 'Seleccionar contactos...'
                         }
                     </span>
-                    <Search className="h-4 w-4 opacity-50" />
+                    {isMobile ? <ChevronDown className="h-4 w-4 opacity-50" /> : <Search className="h-4 w-4 opacity-50" />}
                 </div>
 
-                {isOpen && (
+                {/* ── DESKTOP: Dropdown panel ── */}
+                {isOpen && !isMobile && (
                     <div className="absolute z-[300] w-full mt-1 bg-popover border border-border rounded-lg shadow-lg max-h-64 overflow-hidden animate-in fade-in-0 zoom-in-95 slide-in-from-top-2 duration-200">
                         <div className="p-2 border-b border-border flex flex-col gap-1">
                             <div className="flex items-center gap-2 px-2 bg-muted/50 rounded-md">
                                 <Search className="w-3.5 h-3.5 text-muted-foreground" />
                                 <input
+                                    ref={searchInputRef}
                                     type="text"
                                     value={searchTerm}
                                     onChange={handleSearchChange}
@@ -183,71 +281,67 @@ export default function ContactPickerInline({ onSelectContact, label = 'Pre-llen
                             </div>
                         </div>
                         <div className="max-h-48 overflow-y-auto">
+                            {renderContactList()}
+                        </div>
+                    </div>
+                )}
+
+                {/* ── MOBILE: Full-screen modal ── */}
+                {isOpen && isMobile && (
+                    <div className="fixed inset-0 z-[9999] bg-background flex flex-col" style={{ touchAction: 'manipulation' }}>
+                        {/* Modal header */}
+                        <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-background sticky top-0 z-10">
                             <button
                                 type="button"
-                                onClick={() => {
-                                    setIsAddingNew(true)
-                                    setIsOpen(false)
-                                }}
-                                className="w-full text-left px-3 py-2.5 text-sm text-primary font-medium hover:bg-primary/5 transition-colors flex items-center gap-2 border-b border-border/50 sticky top-0 bg-popover z-10"
+                                onClick={closePanel}
+                                className="p-1.5 -ml-1.5 rounded-lg hover:bg-accent transition-colors"
                             >
-                                <Plus className="w-4 h-4" />
-                                Agregar nuevo contacto
+                                <X className="w-5 h-5 text-muted-foreground" />
                             </button>
+                            <div className="flex-1 min-w-0">
+                                <h3 className="text-base font-semibold text-foreground truncate">Seleccionar Contacto</h3>
+                                <p className="text-xs text-muted-foreground">{label}</p>
+                            </div>
+                        </div>
 
-                            {showNoneOption && (
-                                <button
-                                    type="button"
-                                    onClick={() => handleSelect('none')}
-                                    className="w-full text-left px-3 py-2.5 text-sm text-muted-foreground italic hover:bg-accent transition-colors border-b border-border/50"
-                                >
-                                    Ningún contacto
-                                </button>
-                            )}
-
-                            <button
-                                type="button"
-                                onClick={() => handleSelect('')}
-                                className="w-full text-left px-3 py-2 text-sm text-muted-foreground hover:bg-accent transition-colors"
-                            >
-                                — Ingresar manualmente —
-                            </button>
-
-                            {!searchTerm && (
-                                <div className="px-3 py-1 text-[10px] text-muted-foreground/60 uppercase tracking-wider bg-muted/30">
-                                    Contactos recientes
-                                </div>
-                            )}
-
-                            {filtered.length === 0 ? (
-                                <div className="px-3 py-4 text-sm text-muted-foreground text-center">
-                                    {searching ? 'Buscando...' : 'No se encontraron contactos'}
-                                </div>
-                            ) : (
-                                filtered.map(c => (
+                        {/* Search bar */}
+                        <div className="px-4 py-3 border-b border-border bg-muted/30">
+                            <div className="flex items-center gap-2 px-3 py-2 bg-background rounded-xl border border-input">
+                                <Search className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                                <input
+                                    ref={searchInputRef}
+                                    type="text"
+                                    value={searchTerm}
+                                    onChange={handleSearchChange}
+                                    placeholder="Buscar por nombre, RUT o email..."
+                                    className="w-full text-sm bg-transparent border-0 outline-none placeholder:text-muted-foreground"
+                                />
+                                {searching && (
+                                    <div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin flex-shrink-0" />
+                                )}
+                                {searchTerm && (
                                     <button
-                                        key={c.id}
                                         type="button"
-                                        onClick={() => handleSelect(c.id)}
-                                        className={`w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors flex items-center justify-between gap-2 ${selectedId === c.id ? 'bg-accent/70 font-medium' : ''}`}
+                                        onClick={() => { setSearchTerm(''); fetchInitialContacts() }}
+                                        className="p-0.5 rounded-full hover:bg-accent"
                                     >
-                                        <div className="min-w-0">
-                                            <div className="font-medium truncate">{c.first_name} {c.last_name}</div>
-                                            <div className="text-xs text-muted-foreground truncate">
-                                                {[c.rut, c.email].filter(Boolean).join(' · ')}
-                                            </div>
-                                        </div>
+                                        <X className="w-3.5 h-3.5 text-muted-foreground" />
                                     </button>
-                                ))
-                            )}
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Scrollable contact list */}
+                        <div className="flex-1 overflow-y-auto overscroll-contain pb-safe">
+                            {renderContactList()}
                         </div>
                     </div>
                 )}
             </div>
 
-            {/* Backdrop to close */}
-            {isOpen && (
-                <div className="fixed inset-0 z-[250]" onClick={() => { setIsOpen(false); setSearchTerm(''); fetchInitialContacts() }} />
+            {/* Backdrop to close (desktop only) */}
+            {isOpen && !isMobile && (
+                <div className="fixed inset-0 z-[250]" onClick={closePanel} />
             )}
 
             {isAddingNew && (
@@ -269,4 +363,3 @@ export default function ContactPickerInline({ onSelectContact, label = 'Pre-llen
         </div>
     )
 }
-

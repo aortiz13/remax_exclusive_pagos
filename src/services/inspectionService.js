@@ -34,7 +34,7 @@ export async function createInspection({ propertyId, scheduleId, agentId }) {
         .from('properties')
         .select(`
             id, address, commune, status, property_type,
-            owner:contacts!properties_owner_id_fkey(first_name, last_name)
+            owner:contacts!properties_owner_id_fkey(id, first_name, last_name, email)
         `)
         .eq('id', propertyId)
         .single()
@@ -47,14 +47,14 @@ export async function createInspection({ propertyId, scheduleId, agentId }) {
     // Get ALL tenants from property_contacts
     const { data: tenantContacts } = await supabase
         .from('property_contacts')
-        .select('contact:contacts(first_name, last_name, email)')
+        .select('contact:contacts(id, first_name, last_name, email)')
         .eq('property_id', propertyId)
         .eq('role', 'arrendatario_residente')
 
     // Get additional propietario contacts from property_contacts
     const { data: ownerContacts } = await supabase
         .from('property_contacts')
-        .select('contact:contacts(first_name, last_name, email)')
+        .select('contact:contacts(id, first_name, last_name, email)')
         .eq('property_id', propertyId)
         .eq('role', 'propietario')
 
@@ -62,7 +62,7 @@ export async function createInspection({ propertyId, scheduleId, agentId }) {
     const propietarios = []
     if (property?.owner) {
         const nombre = `${property.owner.first_name || ''} ${property.owner.last_name || ''}`.trim()
-        if (nombre) propietarios.push({ nombre, email: property.owner.email || '' })
+        if (nombre) propietarios.push({ nombre, email: property.owner.email || '', contact_id: property.owner.id || null })
     }
     // Add extra propietarios from property_contacts (avoid duplicates by name)
     const existingNames = new Set(propietarios.map(p => p.nombre.toLowerCase()))
@@ -70,7 +70,7 @@ export async function createInspection({ propertyId, scheduleId, agentId }) {
         if (oc.contact) {
             const nombre = `${oc.contact.first_name || ''} ${oc.contact.last_name || ''}`.trim()
             if (nombre && !existingNames.has(nombre.toLowerCase())) {
-                propietarios.push({ nombre, email: oc.contact.email || '' })
+                propietarios.push({ nombre, email: oc.contact.email || '', contact_id: oc.contact.id || null })
                 existingNames.add(nombre.toLowerCase())
             }
         }
@@ -81,7 +81,7 @@ export async function createInspection({ propertyId, scheduleId, agentId }) {
     for (const tc of (tenantContacts || [])) {
         if (tc.contact) {
             const nombre = `${tc.contact.first_name || ''} ${tc.contact.last_name || ''}`.trim()
-            if (nombre) arrendatarios.push({ nombre, email: tc.contact.email || '' })
+            if (nombre) arrendatarios.push({ nombre, email: tc.contact.email || '', contact_id: tc.contact.id || null })
         }
     }
 
