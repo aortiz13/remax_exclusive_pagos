@@ -68,11 +68,75 @@ export default function InspectionFormPage() {
     const saveTimeoutRef = useRef(null)
     const formContainerRef = useRef(null)
 
+    // ── Mobile session persistence (prevents iOS Safari tab-kill losing data) ──
+    const STORAGE_KEY = `inspection_draft_${inspectionId}`
+
+    const persistToSessionStorage = useCallback(() => {
+        if (!inspectionId) return
+        try {
+            const snapshot = {
+                formData,
+                photos,
+                observations,
+                recommendations,
+                ts: Date.now(),
+            }
+            sessionStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot))
+        } catch { /* quota exceeded — non-critical */ }
+    }, [inspectionId, formData, photos, observations, recommendations])
+
+    // Restore from sessionStorage if DB load returns stale data
+    const restoreFromSessionStorage = useCallback(() => {
+        try {
+            const raw = sessionStorage.getItem(STORAGE_KEY)
+            if (!raw) return null
+            const snapshot = JSON.parse(raw)
+            // Only use if saved within the last 30 minutes
+            if (Date.now() - snapshot.ts > 30 * 60 * 1000) {
+                sessionStorage.removeItem(STORAGE_KEY)
+                return null
+            }
+            return snapshot
+        } catch { return null }
+    }, [STORAGE_KEY])
+
+    // Force-save to DB + sessionStorage before opening camera (mobile resilience)
+    const saveBeforeCamera = useCallback(async () => {
+        // Persist to sessionStorage immediately
+        persistToSessionStorage()
+
+        // Proactively refresh auth session to survive iOS tab-kill
+        try {
+            await supabase.auth.refreshSession()
+        } catch { /* non-critical */ }
+
+        // Force-save to DB (bypass debounce)
+        if (inspection && inspection.status !== 'sent') {
+            try {
+                await saveInspection(inspectionId, {
+                    form_data: formData,
+                    photos,
+                    observations,
+                    recommendations,
+                })
+            } catch (err) {
+                console.warn('Pre-camera save failed:', err)
+            }
+        }
+    }, [inspectionId, inspection, formData, photos, observations, recommendations, persistToSessionStorage])
+
     // Load inspection data
     useEffect(() => {
         if (!inspectionId || !user) return
         loadInspection()
     }, [inspectionId, user])
+
+    // Periodically persist to sessionStorage (every 10s) for mobile resilience
+    useEffect(() => {
+        if (loading || !inspection) return
+        const interval = setInterval(persistToSessionStorage, 10000)
+        return () => clearInterval(interval)
+    }, [loading, inspection, persistToSessionStorage])
 
     // Initialize signature pad
     useEffect(() => {
@@ -105,12 +169,10 @@ export default function InspectionFormPage() {
 
             let propertyAddress = ''
             if (data.property) {
-                // Raw address format: "number, street, neighborhood, commune, province, region, zip, country"
-                // Extract street + number from first 2 parts, then append commune
                 const parts = (data.property.address || '').split(',').map(s => s.trim())
-                const streetParts = parts.slice(0, 2) // e.g. ["733", "San Martín"]
+                const streetParts = parts.slice(0, 2)
                 const streetNum = streetParts.length >= 2
-                    ? `${streetParts[1]} ${streetParts[0]}` // "San Martín 733"
+                    ? `${streetParts[1]} ${streetParts[0]}`
                     : streetParts.join(' ')
                 const unit = data.property.unit_number ? ` Depto ${data.property.unit_number}` : ''
                 propertyAddress = [streetNum + unit, data.property.commune].filter(Boolean).join(', ')
@@ -118,7 +180,6 @@ export default function InspectionFormPage() {
                 propertyAddress = data.address || ''
             }
 
-            // Build propietarios array from DB relation (fallback to legacy fields)
             let defaultPropietarios = []
             if (data.property?.owner) {
                 const nombre = `${data.property.owner.first_name || ''} ${data.property.owner.last_name || ''}`.trim()
@@ -139,13 +200,25 @@ export default function InspectionFormPage() {
                 owner_email: data.property?.owner?.email || '',
             }
 
-            if (data.form_data && Object.keys(data.form_data).length > 0) {
-                // Convert legacy format if needed
+            // ── Check sessionStorage for a more recent snapshot (mobile tab-kill recovery) ──
+            const cached = restoreFromSessionStorage()
+            const dbUpdatedAt = data.updated_at ? new Date(data.updated_at).getTime() : 0
+
+            if (cached && cached.ts > dbUpdatedAt) {
+                // sessionStorage has newer data — use it (mobile came back from camera)
+                console.info('[Inspection] Restoring from sessionStorage (newer than DB)')
+                setFormData(cached.formData)
+                setPhotos(cached.photos || [])
+                setObservations(cached.observations || '')
+                setRecommendations(cached.recommendations || '')
+                setSignatureUrl(data.signature_url || null)
+                // Clear the cache now that it's restored
+                sessionStorage.removeItem(STORAGE_KEY)
+            } else if (data.form_data && Object.keys(data.form_data).length > 0) {
                 let saved = isNewFormat(data.form_data)
                     ? data.form_data
                     : convertLegacyFormData(data.form_data)
 
-                // Merge auto-fields
                 Object.entries(autoFields).forEach(([key, val]) => {
                     if (!saved[key] && val) saved[key] = val
                 })
@@ -178,7 +251,6 @@ export default function InspectionFormPage() {
                     saved.arrendatarios = defaultArrendatarios
                 }
 
-                // Keep owner_email in sync with first propietario
                 if (!saved.owner_email && saved.propietarios.length > 0 && saved.propietarios[0].email) {
                     saved.owner_email = saved.propietarios[0].email
                 }
@@ -194,10 +266,13 @@ export default function InspectionFormPage() {
                 }))
             }
 
-            setPhotos(data.photos || [])
+            // Only set photos/observations from DB if we didn't restore from cache
+            if (!cached || cached.ts <= dbUpdatedAt) {
+                setPhotos(data.photos || [])
+                setObservations(data.observations || '')
+                setRecommendations(data.recommendations || '')
+            }
             setSignatureUrl(data.signature_url || null)
-            setObservations(data.observations || '')
-            setRecommendations(data.recommendations || '')
         } catch (err) {
             console.error('Error loading inspection:', err)
             toast.error('Error cargando la inspección')
@@ -267,10 +342,15 @@ export default function InspectionFormPage() {
         })
     }
 
-    // Photo upload
+    // Photo upload — with session refresh retry for mobile
     const handlePhotoUpload = async (e) => {
         const files = Array.from(e.target.files || [])
         if (files.length === 0) return
+
+        // Refresh session before uploading (mobile may have been backgrounded)
+        try {
+            await supabase.auth.refreshSession()
+        } catch { /* non-critical */ }
 
         for (const file of files) {
             try {
@@ -281,7 +361,7 @@ export default function InspectionFormPage() {
             } catch (err) {
                 console.error('Photo upload error:', err)
                 const msg = err.message?.includes('sesión') || err.message?.includes('expired') || err.message?.includes('token')
-                    ? 'Tu sesión expiró. Recarga la página para continuar.'
+                    ? 'Tu sesión expiró. Tus datos están guardados. Recarga la página para continuar.'
                     : `Error subiendo ${file.name}`
                 toast.error(msg, { id: `upload-${file.name}`, duration: 6000 })
             }
@@ -591,14 +671,31 @@ export default function InspectionFormPage() {
             img.src = URL.createObjectURL(blob)
         })
 
-        // Pre-process photos: fetch and convert to JPEG base64
+        // Helper: convert HEIC/HEIF blobs to JPEG using heic2any
+        const convertHeicIfNeeded = async (blob, url) => {
+            const isHeic = /\.heic$/i.test(url || '') || /\.heif$/i.test(url || '') || blob.type === 'image/heic' || blob.type === 'image/heif'
+            if (isHeic) {
+                try {
+                    const heic2any = (await import('heic2any')).default
+                    const converted = await heic2any({ blob, toType: 'image/jpeg', quality: 0.85 })
+                    return Array.isArray(converted) ? converted[0] : converted
+                } catch (heicErr) {
+                    console.warn('HEIC conversion failed, trying direct canvas:', heicErr)
+                    return blob // fall through to canvas attempt
+                }
+            }
+            return blob
+        }
+
+        // Pre-process photos: fetch, convert HEIC if needed, then to JPEG base64
         const processedPhotos = []
         for (const photo of photos) {
             if (photo.url) {
                 try {
                     const resp = await fetch(photo.url)
                     if (!resp.ok) continue
-                    const blob = await resp.blob()
+                    let blob = await resp.blob()
+                    blob = await convertHeicIfNeeded(blob, photo.url)
                     const base64 = await blobToJpegBase64(blob)
                     processedPhotos.push({ ...photo, base64 })
                 } catch (e) {
@@ -1425,13 +1522,13 @@ export default function InspectionFormPage() {
                                 {!isReadOnly && (
                                     <div className="hidden md:flex items-center gap-2" data-hide-pdf>
                                         <button
-                                            onClick={() => cameraInputRef.current?.click()}
+                                            onClick={async () => { await saveBeforeCamera(); cameraInputRef.current?.click() }}
                                             className="px-4 py-2 bg-emerald-600 text-white text-sm font-semibold rounded-lg hover:bg-emerald-700 transition-colors flex items-center gap-1.5"
                                         >
                                             <Camera className="w-4 h-4" /> Tomar Foto
                                         </button>
                                         <button
-                                            onClick={() => photoInputRef.current?.click()}
+                                            onClick={async () => { await saveBeforeCamera(); photoInputRef.current?.click() }}
                                             className="px-4 py-2 bg-[#003DA5] text-white text-sm font-semibold rounded-lg hover:bg-[#002d7a] transition-colors flex items-center gap-1.5"
                                         >
                                             <ImagePlus className="w-4 h-4" /> Subir desde Galería
@@ -1460,7 +1557,7 @@ export default function InspectionFormPage() {
                             {photos.length === 0 ? (
                                 <div
                                     className={`border-2 border-dashed rounded-xl p-8 md:p-12 text-center ${isReadOnly ? 'border-gray-200' : 'border-gray-300 cursor-pointer hover:border-[#003DA5]/40 hover:bg-blue-50/30 transition-colors'}`}
-                                    onClick={() => !isReadOnly && photoInputRef.current?.click()}
+                                    onClick={async () => { if (!isReadOnly) { await saveBeforeCamera(); photoInputRef.current?.click() } }}
                                 >
                                     <Camera className="w-10 h-10 text-gray-300 mx-auto mb-2" />
                                     <p className="text-gray-400 text-sm">
@@ -1507,7 +1604,7 @@ export default function InspectionFormPage() {
                                     {!isReadOnly && (
                                         <button
                                             data-hide-pdf
-                                            onClick={() => photoInputRef.current?.click()}
+                                            onClick={async () => { await saveBeforeCamera(); photoInputRef.current?.click() }}
                                             className="w-full py-3 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 text-sm font-semibold hover:border-[#003DA5]/40 hover:text-[#003DA5] hover:bg-blue-50/30 transition-colors flex items-center justify-center gap-2"
                                         >
                                             <Camera className="w-4 h-4" />

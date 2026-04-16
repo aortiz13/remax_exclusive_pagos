@@ -357,13 +357,30 @@ export default function PublicInspectionPage() {
             img.src = URL.createObjectURL(blob)
         })
 
+        // Helper: convert HEIC/HEIF blobs to JPEG using heic2any
+        const convertHeicIfNeeded = async (blob, url) => {
+            const isHeic = /\.heic$/i.test(url || '') || /\.heif$/i.test(url || '') || blob.type === 'image/heic' || blob.type === 'image/heif'
+            if (isHeic) {
+                try {
+                    const heic2any = (await import('heic2any')).default
+                    const converted = await heic2any({ blob, toType: 'image/jpeg', quality: 0.85 })
+                    return Array.isArray(converted) ? converted[0] : converted
+                } catch (heicErr) {
+                    console.warn('HEIC conversion failed, trying direct canvas:', heicErr)
+                    return blob
+                }
+            }
+            return blob
+        }
+
         const processedPhotos = []
         for (const photo of photos) {
             if (photo.url) {
                 try {
                     const resp = await fetch(photo.url)
                     if (!resp.ok) continue
-                    const blob = await resp.blob()
+                    let blob = await resp.blob()
+                    blob = await convertHeicIfNeeded(blob, photo.url)
                     const base64 = await blobToJpegBase64(blob)
                     processedPhotos.push({ ...photo, base64 })
                 } catch (e) {
