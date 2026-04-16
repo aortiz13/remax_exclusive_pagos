@@ -401,38 +401,45 @@ export default function PublicInspectionPage() {
 
     // ─── PDF Builder (React-PDF) ───
     const buildInspectionPdf = async () => {
-        // Polyfill Buffer
+        const t0 = performance.now()
+        const toastId = 'pdf-build'
+        toast.loading('Preparando PDF…', { id: toastId })
+
+        // 1) Parallel dynamic imports
         if (!window.Buffer) {
             const { Buffer } = await import('buffer')
             window.Buffer = Buffer
         }
+        const [{ pdf }, { default: InspectionPdfDocument }, heic2anyMod] = await Promise.all([
+            import('@react-pdf/renderer'),
+            import('../components/InspectionPdfDocument'),
+            import('heic2any').catch(() => null),
+        ])
+        const heic2any = heic2anyMod?.default || null
 
-        const { pdf } = await import('@react-pdf/renderer')
-        const { default: InspectionPdfDocument } = await import('../components/InspectionPdfDocument')
-
+        // 2) blob → JPEG base64 via canvas
         const blobToJpegBase64 = (blob) => new Promise((resolve, reject) => {
             const img = new window.Image()
             img.onload = () => {
-                const MAX_W = 1200
+                const MAX_W = 800
                 let w = img.width, h = img.height
                 if (w > MAX_W) { h = Math.round(h * MAX_W / w); w = MAX_W }
                 const canvas = document.createElement('canvas')
                 canvas.width = w; canvas.height = h
                 canvas.getContext('2d').drawImage(img, 0, 0, w, h)
-                resolve(canvas.toDataURL('image/jpeg', 0.85))
+                resolve(canvas.toDataURL('image/jpeg', 0.7))
                 URL.revokeObjectURL(img.src)
             }
             img.onerror = reject
             img.src = URL.createObjectURL(blob)
         })
 
-        // Helper: convert HEIC/HEIF blobs to JPEG using heic2any
+        // 3) HEIC → JPEG
         const convertHeicIfNeeded = async (blob, url) => {
             const isHeic = /\.heic$/i.test(url || '') || /\.heif$/i.test(url || '') || blob.type === 'image/heic' || blob.type === 'image/heif'
-            if (isHeic) {
+            if (isHeic && heic2any) {
                 try {
-                    const heic2any = (await import('heic2any')).default
-                    const converted = await heic2any({ blob, toType: 'image/jpeg', quality: 0.85 })
+                    const converted = await heic2any({ blob, toType: 'image/jpeg', quality: 0.7 })
                     return Array.isArray(converted) ? converted[0] : converted
                 } catch (heicErr) {
                     console.warn('HEIC conversion failed, trying direct canvas:', heicErr)
@@ -442,22 +449,34 @@ export default function PublicInspectionPage() {
             return blob
         }
 
-        const processedPhotos = []
-        for (const photo of photos) {
-            if (photo.url) {
-                try {
-                    const resp = await fetch(photo.url)
-                    if (!resp.ok) continue
-                    let blob = await resp.blob()
-                    blob = await convertHeicIfNeeded(blob, photo.url)
-                    const base64 = await blobToJpegBase64(blob)
-                    processedPhotos.push({ ...photo, base64 })
-                } catch (e) {
-                    console.warn('Could not process photo for PDF:', e)
-                }
+        // 4) Single photo processor
+        const processOnePhoto = async (photo) => {
+            if (!photo.url) return null
+            try {
+                const resp = await fetch(photo.url)
+                if (!resp.ok) return null
+                let blob = await resp.blob()
+                blob = await convertHeicIfNeeded(blob, photo.url)
+                const base64 = await blobToJpegBase64(blob)
+                return { ...photo, base64 }
+            } catch (e) {
+                console.warn('Could not process photo for PDF:', e)
+                return null
             }
         }
 
+        // 5) Parallel batches of 4
+        const BATCH_SIZE = 4
+        const processedPhotos = []
+        for (let i = 0; i < photos.length; i += BATCH_SIZE) {
+            const batch = photos.slice(i, i + BATCH_SIZE)
+            toast.loading(`Procesando fotos ${i + 1}–${Math.min(i + BATCH_SIZE, photos.length)} de ${photos.length}…`, { id: toastId })
+            const results = await Promise.all(batch.map(processOnePhoto))
+            processedPhotos.push(...results.filter(Boolean))
+        }
+
+        // 6) Build document
+        toast.loading('Generando documento PDF…', { id: toastId })
         const doc = (
             <InspectionPdfDocument
                 formData={formData}
@@ -472,6 +491,9 @@ export default function PublicInspectionPage() {
         const blobUrl = URL.createObjectURL(pdfBlob)
         const filenamePre = (formData.direccion || 'Informe').replace(/[^a-zA-Z0-9]/g, '_')
         const filename = `Inspeccion_${filenamePre}.pdf`
+
+        const elapsed = ((performance.now() - t0) / 1000).toFixed(1)
+        toast.success(`PDF generado en ${elapsed}s`, { id: toastId, duration: 3000 })
 
         return { blob: pdfBlob, blobUrl, filename }
     }
