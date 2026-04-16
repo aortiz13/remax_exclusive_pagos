@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
-import { supabase, getCustomPublicUrl } from '../services/supabase'
+import { supabase, getCustomPublicUrl, getSignedUrl, downloadFile } from '../services/supabase'
 import { useAuth } from '../context/AuthContext'
 import {
     Button,
@@ -226,14 +226,29 @@ export default function DocumentRepository({ category: propCategory }) {
     }
 
     const handlePreview = async (doc) => {
-        const url = getCustomPublicUrl('documents', doc.file_path)
-        if (url) {
-            setPreviewUrl(url)
-            setPreviewTitle(doc.title)
-            setPreviewFilePath(doc.file_path)
-            setIsPreviewOpen(true)
-        } else {
-            toast.error('No se pudo obtener el enlace')
+        try {
+            // Try signed URL through API gateway (works even if MinIO direct is down)
+            const signedUrl = await getSignedUrl('documents', doc.file_path, 3600)
+            if (signedUrl) {
+                setPreviewUrl(signedUrl)
+                setPreviewTitle(doc.title)
+                setPreviewFilePath(doc.file_path)
+                setIsPreviewOpen(true)
+            } else {
+                // Fallback to direct MinIO URL
+                const url = getCustomPublicUrl('documents', doc.file_path)
+                if (url) {
+                    setPreviewUrl(url)
+                    setPreviewTitle(doc.title)
+                    setPreviewFilePath(doc.file_path)
+                    setIsPreviewOpen(true)
+                } else {
+                    toast.error('No se pudo obtener el enlace')
+                }
+            }
+        } catch (error) {
+            console.error('Preview error:', error)
+            toast.error('Error al generar previsualización')
         }
     }
 
@@ -256,7 +271,17 @@ export default function DocumentRepository({ category: propCategory }) {
             document.body.removeChild(a)
 
         } catch (error) {
-            console.error('Download error:', error)
+            console.error('Download error (trying signed URL fallback):', error)
+            // Fallback: use signed URL and open in new tab
+            try {
+                const signedUrl = await getSignedUrl('documents', filePath, 300)
+                if (signedUrl) {
+                    window.open(signedUrl, '_blank')
+                    return
+                }
+            } catch (fallbackErr) {
+                console.error('Signed URL fallback also failed:', fallbackErr)
+            }
             toast.error('Error al descargar')
         }
     }

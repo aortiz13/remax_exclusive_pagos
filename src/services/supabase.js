@@ -109,10 +109,33 @@ Object.defineProperty(supabase, 'functions', {
     configurable: true,
 })
 
-// MinIO public URL for file access
+// Storage URL: route through API gateway (MinIO direct may be down)
 const STORAGE_PUBLIC_URL = 'https://remax-crm-remax-storage.jzuuqr.easypanel.host'
 
 export const getCustomPublicUrl = (bucket, path) => {
     if (!path) return null
     return `${STORAGE_PUBLIC_URL}/${bucket}/${path}`
+}
+
+// Generate a signed URL that works even when MinIO direct is down
+export const getSignedUrl = async (bucket, path, expiresIn = 3600) => {
+    if (!path) return null
+    const { data, error } = await supabase.storage
+        .from(bucket)
+        .createSignedUrl(path, expiresIn)
+    if (error) {
+        console.error('Signed URL error:', error)
+        return null
+    }
+    return data?.signedUrl || null
+}
+
+// Download a file as blob via the Supabase storage API
+export const downloadFile = async (bucket, path) => {
+    if (!path) return null
+    const { data, error } = await supabase.storage
+        .from(bucket)
+        .download(path)
+    if (error) throw error
+    return data
 }
