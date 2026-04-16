@@ -462,6 +462,42 @@ export default function InspectionFormPage() {
             
             // submitInspection marks it as 'completed', which shows as 'En Revisión' in Dashboard
             await submitInspection(inspectionId)
+
+            // Notify commercial team via n8n webhook (email + WhatsApp) — fire and forget
+            try {
+                const agentName = formData.agente_nombre
+                    || `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim()
+                const propertyAddr = formData.direccion
+                    || inspection?.address || 'Sin dirección'
+                const inspectionUrl = `${window.location.origin}/inspeccion/${inspectionId}`
+
+                await fetch('https://workflow.remax-exclusive.cl/webhook/inspection-review-submitted', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        event: 'inspection_review_submitted',
+                        agent: {
+                            id: user?.id,
+                            name: agentName,
+                            email: profile?.email || '',
+                            phone: profile?.phone || '',
+                        },
+                        inspection: {
+                            id: inspectionId,
+                            property_id: inspection?.property_id || null,
+                            address: propertyAddr,
+                            inspection_date: formData.fecha_inspeccion || null,
+                            owner_name: formData.propietarios?.[0]?.nombre || inspection?.owner_name || '',
+                            tenant_name: formData.arrendatarios?.[0]?.nombre || inspection?.tenant_name || '',
+                            url: inspectionUrl,
+                        },
+                        submitted_at: new Date().toISOString(),
+                    })
+                })
+            } catch (notifyErr) {
+                console.warn('Review notification webhook failed (non-blocking):', notifyErr)
+            }
+
             toast.success('Inspección enviada a revisión')
             navigate('/inspecciones')
         } catch (err) {
