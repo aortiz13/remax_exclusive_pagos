@@ -785,7 +785,13 @@ export default function InspectionFormPage() {
     }
 
     // ─── Render helpers ────────────────────────────────────
-    const isAdmin = ['superadministrador', 'tecnico', 'legal', 'comercial', 'administracion'].includes(profile?.role)
+    // ONE-TIME OVERRIDE: allow agent info@remax-exclusive.cl to send inspection 74b8c7dc directly
+    // TODO: Remove this override after it's been used
+    const ONE_TIME_SEND_OVERRIDE = (
+        user?.id === 'b894534e-4b58-4b44-92c8-a4e42aae43bd' &&
+        inspectionId === '74b8c7dc-7c0d-4364-b3c7-62edf066b2fd'
+    )
+    const isAdmin = ONE_TIME_SEND_OVERRIDE || ['superadministrador', 'tecnico', 'legal', 'comercial', 'administracion'].includes(profile?.role)
     const isSent = inspection?.status === 'sent'
     const isCompleted = inspection?.status === 'completed'
     const isReadOnly = isAdmin ? false : (isSent || isCompleted)
