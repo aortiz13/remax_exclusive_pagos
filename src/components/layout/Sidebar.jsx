@@ -191,6 +191,12 @@ export default function Sidebar() {
                     ]
                 },
                 {
+                    label: 'Comunicaciones',
+                    items: [
+                        { title: 'Agente de Voz', icon: Mic, path: '/voice-agent' },
+                    ]
+                },
+                {
                     label: 'Operaciones',
                     items: [
                         { title: 'Leads Asignados', icon: FileText, path: '/guard-leads' },
@@ -225,6 +231,12 @@ export default function Sidebar() {
                     items: [
                         { title: 'Agenda Cámara 360°', icon: Camera, path: '/admin/camera-schedule' },
                         { title: 'Agenda Turnos', icon: Shield, path: '/admin/shift-schedule' },
+                    ]
+                },
+                {
+                    label: 'Comunicaciones',
+                    items: [
+                        { title: 'Agente de Voz', icon: Mic, path: '/voice-agent' },
                     ]
                 },
                 {
@@ -269,6 +281,12 @@ export default function Sidebar() {
                     ]
                 },
                 {
+                    label: 'Comunicaciones',
+                    items: [
+                        { title: 'Agente de Voz', icon: Mic, path: '/voice-agent' },
+                    ]
+                },
+                {
                     label: 'Operaciones',
                     items: [
                         { title: 'Leads Asignados', icon: FileText, path: '/guard-leads' },
@@ -278,27 +296,69 @@ export default function Sidebar() {
         },
         comercial: {
             title: 'ADMIN',
-            items: [
-                { title: 'Administración', icon: Users, path: '/admin/invites' },
-                { title: 'Solicitudes', icon: FileText, path: '/admin/requests' },
-                { title: 'Captaciones', icon: ClipboardList, path: '/admin/captaciones' },
-                { title: 'Importar Administradas', icon: FileSpreadsheet, path: '/admin/import-administradas' },
-                { title: 'Liquidación Comisiones', icon: CreditCard, path: '/admin/comisiones' },
-                { title: 'Cobranza Cuotas', icon: Receipt, path: '/admin/cuotas-pendientes' },
-                { title: 'Agenda Cámara 360°', icon: Camera, path: '/admin/camera-schedule' },
-                { title: 'Agenda Turnos', icon: Shield, path: '/admin/shift-schedule' },
-                { title: 'Leads Asignados', icon: FileText, path: '/guard-leads' },
+            subgroups: [
+                {
+                    label: 'Gestión',
+                    items: [
+                        { title: 'Administración', icon: Users, path: '/admin/invites' },
+                        { title: 'Solicitudes', icon: FileText, path: '/admin/requests' },
+                        { title: 'Captaciones', icon: ClipboardList, path: '/admin/captaciones' },
+                        { title: 'Importar Administradas', icon: FileSpreadsheet, path: '/admin/import-administradas' },
+                        { title: 'Liquidación Comisiones', icon: CreditCard, path: '/admin/comisiones' },
+                        { title: 'Cobranza Cuotas', icon: Receipt, path: '/admin/cuotas-pendientes' },
+                    ]
+                },
+                {
+                    label: 'Agendas',
+                    items: [
+                        { title: 'Agenda Cámara 360°', icon: Camera, path: '/admin/camera-schedule' },
+                        { title: 'Agenda Turnos', icon: Shield, path: '/admin/shift-schedule' },
+                    ]
+                },
+                {
+                    label: 'Comunicaciones',
+                    items: [
+                        { title: 'Agente de Voz', icon: Mic, path: '/voice-agent' },
+                    ]
+                },
+                {
+                    label: 'Operaciones',
+                    items: [
+                        { title: 'Leads Asignados', icon: FileText, path: '/guard-leads' },
+                    ]
+                }
             ]
         },
         administracion: {
             title: 'ADMIN',
-            items: [
-                { title: 'Solicitudes', icon: FileText, path: '/admin/requests' },
-                { title: 'Importar Administradas', icon: FileSpreadsheet, path: '/admin/import-administradas' },
-                { title: 'Liquidación Comisiones', icon: CreditCard, path: '/admin/comisiones' },
-                { title: 'Cobranza Cuotas', icon: Receipt, path: '/admin/cuotas-pendientes' },
-                { title: 'Agenda Turnos', icon: Shield, path: '/admin/shift-schedule' },
-                { title: 'Leads Asignados', icon: FileText, path: '/guard-leads' },
+            subgroups: [
+                {
+                    label: 'Gestión',
+                    items: [
+                        { title: 'Solicitudes', icon: FileText, path: '/admin/requests' },
+                        { title: 'Importar Administradas', icon: FileSpreadsheet, path: '/admin/import-administradas' },
+                        { title: 'Liquidación Comisiones', icon: CreditCard, path: '/admin/comisiones' },
+                        { title: 'Cobranza Cuotas', icon: Receipt, path: '/admin/cuotas-pendientes' },
+                    ]
+                },
+                {
+                    label: 'Agendas',
+                    items: [
+                        { title: 'Agenda Turnos', icon: Shield, path: '/admin/shift-schedule' },
+                    ]
+                },
+                {
+                    label: 'Comunicaciones',
+                    items: [
+                        { title: 'Agente de Voz', icon: Mic, path: '/voice-agent' },
+                    ]
+                },
+                {
+                    label: 'Operaciones',
+                    items: [
+                        { title: 'Leads Asignados', icon: FileText, path: '/guard-leads' },
+                    ]
+                }
             ]
         },
         postulantes: {

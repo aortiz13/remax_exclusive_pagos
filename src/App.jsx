@@ -69,6 +69,10 @@ import OnboardingForm from './pages/public/OnboardingForm'
 import RecruitmentCalendar from './pages/recruitment/RecruitmentCalendar'
 import RecruitmentWorkflow from './pages/recruitment/RecruitmentWorkflow'
 import RecruitmentRecorder from './pages/recruitment/RecruitmentRecorder'
+import VoiceAgentDashboard from './pages/voice-agent/VoiceAgentDashboard'
+import CallHistory from './pages/voice-agent/CallHistory'
+import CallDetail from './pages/voice-agent/CallDetail'
+import OutboundCampaigns from './pages/voice-agent/OutboundCampaigns'
 import { Toaster } from 'sonner'
 import { initGlobalErrorCapture, auditLog } from './services/auditLogService'
 
@@ -500,6 +504,27 @@ function App() {
                   <Route path="/recruitment/recorder" element={
                     <ProtectedRoute>
                       <RecruitmentRecorder />
+                    </ProtectedRoute>
+                  } />
+
+                  <Route path="/voice-agent" element={
+                    <ProtectedRoute>
+                      <VoiceAgentDashboard />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/voice-agent/calls" element={
+                    <ProtectedRoute>
+                      <CallHistory />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/voice-agent/calls/:id" element={
+                    <ProtectedRoute>
+                      <CallDetail />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/voice-agent/campaigns" element={
+                    <ProtectedRoute>
+                      <OutboundCampaigns />
                     </ProtectedRoute>
                   } />
 

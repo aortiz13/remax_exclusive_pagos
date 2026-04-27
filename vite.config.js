@@ -15,6 +15,7 @@ export default defineConfig({
     },
   },
   server: {
+    host: true,
     proxy: {
       '/api/gotenberg': {
         target: 'https://remax-exclusive-gotenberg.jzuuqr.easypanel.host',
